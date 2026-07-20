@@ -125,7 +125,7 @@ def build_camera(image: Path, args: argparse.Namespace) -> dict[str, Any]:
     camera: dict[str, Any] = {
         "version": "1.0",
         "sourceImage": str(image),
-        "solver": "solve_reference_camera.py",
+        "solver": "stage1_intake/solve_camera_pose.py",
         "method": (
             "heuristic default-guess camera, not solved from image content; image dimensions give an "
             "exact aspect ratio, everything else is a starting point for agent refinement"

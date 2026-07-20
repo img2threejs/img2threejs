@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from sculpt_pass_orchestrator import pass_specific_gaps
+from orchestrate_passes import pass_specific_gaps
 
 
 VALID_PRIMITIVES = {
@@ -112,7 +112,7 @@ def assert_pass_unlocked(spec: dict[str, Any], requested_pass: str) -> None:
     previous = ids[previous_index] if previous_index >= 0 else ""
     raise ValueError(
         f"build pass {requested_pass!r} is locked; complete {previous!r} first with "
-        "append_sculpt_review.py action=continue and browser screenshot evidence"
+        "stage4_review/append_review.py action=continue and browser screenshot evidence"
     )
 
 

@@ -6,7 +6,7 @@ Use this reference when a model construction pass has just finished.
 
 1. Capture or collect a rendered screenshot for the current browser view.
 2. Select at most five critical semantic systems for the current pass and only the suspicious important systems.
-3. Create one full reference/render comparison sheet with `make_visual_comparison_sheet.py`.
+3. Create one full reference/render comparison sheet with `stage4_review/make_comparison_sheet.py`.
 4. Inspect the sheet once with your agent's vision and score the global image, relevant visual layers, and each selected semantic feature visible in that pair.
 5. Compare the rendered result to current `ObjectSculptSpec`.
 6. Decide whether the mismatch is caused by the spec, the implementation, lighting/camera, missing evidence, or performance tradeoff.

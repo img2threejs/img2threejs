@@ -1,6 +1,6 @@
 # Likeness Maximization (Projection-First Pipeline)
 
-Use this reference when the goal is maximum resemblance to a specific person or character in a single reference image, not a generic stylized character. This is the default high-likeness path for the `character` domain; `character-reconstruction.md` covers the fallback stylized/freehand path when the input is weak or the user accepts approximation.
+Use this reference when the goal is maximum resemblance to a specific person or character in a single reference image, not a generic stylized character. This is the default high-likeness path for the `character` domain; `character/reconstruction.md` covers the fallback stylized/freehand path when the input is weak or the user accepts approximation.
 
 Read section 5.8-5.10 of `docs/UPGRADE_PLAN.md` for the full spec this reference implements.
 
@@ -14,11 +14,11 @@ Hand-authored primitives (capsules, spheres, blend shapes tuned by eye) can appr
 
 Ship a lightweight, code-generated parametric humanoid/face template — a head-unit-parameterized body plus a morphable face, conceptually mirroring SMPL-X (body + hands + face, jaw/eye joints, linear blend skinning with corrective blendshapes) and FLAME (face-from-scans). This stays procedural: the template is code-generated and parameter-driven, never a downloaded art asset.
 
-Fit template parameters (shape, pose, expression) by minimizing reprojection error between template landmarks and the observed 2D landmarks from `extract_reference_landmarks.py` — the SMPLify-X idea. Do not hand-place vertices; solve for parameters that make the template's projected landmarks match the image landmarks.
+Fit template parameters (shape, pose, expression) by minimizing reprojection error between template landmarks and the observed 2D landmarks from `stage1_intake/extract_landmarks.py` — the SMPLify-X idea. Do not hand-place vertices; solve for parameters that make the template's projected landmarks match the image landmarks.
 
 ### (b) Camera match
 
-Estimate and store focal length, FOV, and orientation for the reference photo (`scripts/solve_reference_camera.py`, emits a `referenceCamera` spec block). The render camera must match this so:
+Estimate and store focal length, FOV, and orientation for the reference photo (`forge/stage1_intake/solve_camera_pose.py`, emits a `referenceCamera` spec block). The render camera must match this so:
 
 - the review screenshot can be pixel-overlaid against the source photo
 - the texture projection in step (d) lands correctly
@@ -27,11 +27,11 @@ Without a matched camera, projected texture will misalign the moment the model i
 
 ### (c) De-light before treating the photo as albedo
 
-A raw photo bakes in shadows, highlights, and ambient occlusion from whatever light was present when it was taken. Using it directly as albedo means the projected texture fights the new scene's lights. Run a de-lighting pass (`scripts/delight_reference.py`) — high-pass/overlay neutralization at minimum, an AI delighter equivalent if available — to recover a neutral base color, then derive roughness/normal/AO independently. Treat "album must be free of baked lighting" as a hard requirement, not a nice-to-have.
+A raw photo bakes in shadows, highlights, and ambient occlusion from whatever light was present when it was taken. Using it directly as albedo means the projected texture fights the new scene's lights. Run a de-lighting pass (`forge/stage1_intake/delight_albedo.py`) — high-pass/overlay neutralization at minimum, an AI delighter equivalent if available — to recover a neutral base color, then derive roughness/normal/AO independently. Treat "album must be free of baked lighting" as a hard requirement, not a nice-to-have.
 
 ### (d) Project and bake
 
-Solve projective/camera-projection texturing from the matched camera (Three.js `ShaderMaterial`, or the `three-projected-material` approach) to map the de-lit reference onto the fitted mesh, then bake the result into the mesh's UVs (`scripts/bake_projected_texture.py`, stdlib PNG) for the visible (front) side.
+Solve projective/camera-projection texturing from the matched camera (Three.js `ShaderMaterial`, or the `three-projected-material` approach) to map the de-lit reference onto the fitted mesh, then bake the result into the mesh's UVs (`forge/stage3_build/bake_projected_texture.py`, stdlib PNG) for the visible (front) side.
 
 ### (e) Infer unseen regions, flag confidence
 
@@ -49,7 +49,7 @@ Emit a `SkinnedMesh` with a joint skeleton for the body plus morph targets/blend
 
 ## Part-Specific Notes (stylized-to-realistic dial)
 
-Same recipes as `character-reconstruction.md`, dialed toward realism: skin keeps the warm-base/soft-roughness/rim-light approximation (true SSS is out of scope); hair still prefers stylized clumps over strand geometry — a single image cannot supply real hair microstructure, so do not oversell hair likeness; eyes get the glossy-sphere-plus-iris-decal treatment with a correct catchlight, which reads as more "alive" than raw geometric accuracy.
+Same recipes as `character/reconstruction.md`, dialed toward realism: skin keeps the warm-base/soft-roughness/rim-light approximation (true SSS is out of scope); hair still prefers stylized clumps over strand geometry — a single image cannot supply real hair microstructure, so do not oversell hair likeness; eyes get the glossy-sphere-plus-iris-decal treatment with a correct catchlight, which reads as more "alive" than raw geometric accuracy.
 
 ## Honesty Note
 

@@ -3,7 +3,7 @@
 
 Draws head-unit ticks, a rule-of-thirds grid, a center symmetry axis, default face-line
 guides (hairline/eye/nose/mouth), and default shoulder/hip lines onto a copy of the
-reference (see docs/UPGRADE_PLAN.md 5.3-5.4 and references/character-reconstruction.md),
+reference (see docs/UPGRADE_PLAN.md 5.3-5.4 and grimoire/character/reconstruction.md),
 then emits an anatomy skeleton JSON for the agent to fill from what the overlay reveals.
 The drawn lines are generic starting positions, not measurements - the agent's vision
 supplies the actual proportions, pose, and landmark coordinates.

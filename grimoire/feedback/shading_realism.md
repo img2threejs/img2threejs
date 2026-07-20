@@ -25,7 +25,7 @@ Before implementing or accepting `material-pass`, the spec must contain:
 - locality: `localOverrides`, dirt, wear, scratches, chips, stains, moss, patina, wetness, soot, or cavity masks tied to `viewEvidence`.
 - material-specific behavior: alpha/transmission/translucency for thin or transparent parts, metalness/clearcoat for reflective parts, cloth/fiber grain for fabric-like parts.
 - independent PBR channels: albedo, roughness, height/normal, and AO must be generated or authored separately; never reuse albedo as a roughness, height, normal, or AO map.
-- reference-derived PBR extraction: when a source image is available and fidelity matters, run `../../scripts/extract_reference_pbr.py` for each important material or crop before accepting material-pass. The default target threshold is `0.7`; below that, stop or request better references unless the user explicitly accepts a lower-fidelity approximation.
+- reference-derived PBR extraction: when a source image is available and fidelity matters, run `../../forge/stage1_intake/extract_pbr_evidence.py` for each important material or crop before accepting material-pass. The default target threshold is `0.7`; below that, stop or request better references unless the user explicitly accepts a lower-fidelity approximation.
 - scale hierarchy: close-up materials must describe macro, meso, and micro surface-frequency bands with object-relative frequency and amplitude.
 - projection/UV intent: state UV, triplanar, cylindrical, planar, or another projection strategy, plus repeat/texel-density intent so detail does not stretch across scaled components.
 - quality-first resolution: use at least 1024px procedural maps for important close-up materials and prefer 2048px when reference fidelity is the priority.

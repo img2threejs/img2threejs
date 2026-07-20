@@ -10,15 +10,15 @@ v1.2.0 implementation notes:
 
 Shipped in 1.1.0:
 - Schema: preSpecAssessment.detailInventory (+ targetMinDetails by complexity), objectClass.primaryDomain, preSpecAssessment.anatomy, top-level referenceCamera.
-- Gates: validate_sculpt_spec.py detail-inventory gate (count + component/material linkage + gloss/fastener checks) and character track gate (anatomy + character feature targets); both backward compatible.
-- References: detail-inventory.md, character-reconstruction.md, likeness-maximization.md; procedural-patterns.md detail + character recipes; validation-rubric.md character suitability branch.
-- Scripts: build_detail_inventory.py, extract_reference_landmarks.py, solve_reference_camera.py, delight_reference.py, bake_projected_texture.py.
+- Gates: stage2_spec/validate_sculpt_spec.py detail-inventory gate (count + component/material linkage + gloss/fastener checks) and character track gate (anatomy + character feature targets); both backward compatible.
+- References: intake/detail_inventory.md, character/reconstruction.md, character/likeness_maximization.md; build/geometry_patterns.md detail + character recipes; intake/validation_rubric.md character suitability branch.
+- Scripts: stage1_intake/build_detail_inventory.py, stage1_intake/extract_landmarks.py, stage1_intake/solve_camera_pose.py, stage1_intake/delight_albedo.py, stage3_build/bake_projected_texture.py.
 - Tests: 16 pass (8 new covering the schema, gates, backward compat, and new scripts). SKILL.md + README updated; version bumped to 1.1.0.
 
 Not yet implemented (follow-up, do not assume present):
-- generate_threejs_factory.py humanoid rig + face-landmark placement + detail-emission hooks.
-- new_sculpt_spec.py character componentTree template.
-- sculpt_pass_orchestrator.py proportion-lock / feature-placement passes.
+- stage3_build/generate_threejs_factory.py humanoid rig + face-landmark placement + detail-emission hooks.
+- stage2_spec/new_sculpt_spec.py character componentTree template.
+- stage3_build/orchestrate_passes.py proportion-lock / feature-placement passes.
 - delight/camera/projection scripts are documented approximations/descriptors, not GPU-accurate implementations.
 Scope decisions locked with maintainer:
 - Primary goal for human/character subjects: maximize likeness to the reference image, aiming as close to 100 percent as the input allows.
@@ -38,11 +38,11 @@ Two weaknesses in the current 1.0 pipeline:
 
 | Symptom | Root cause | Location |
 | --- | --- | --- |
-| Humans look nothing like the image | No anatomy/landmark/pose model; object-only geometry recipes | `references/procedural-patterns.md`, `scripts/new_pre_spec_assessment.py`, `scripts/new_sculpt_spec.py` |
-| Humans get rejected early | Rubric rejects hair/cloth-fold-dominant subjects | `references/validation-rubric.md` |
-| Whole-image score hides face/proportion errors | Feature gate has no anatomy features | `scripts/visual_feature_gate.py`, spec `featureReviewTargets` |
-| Small details missed | Detail density is one score; no inventory artifact or gate | `references/pre-spec-assessment.md`, `scripts/new_pre_spec_assessment.py`, `scripts/validate_sculpt_spec.py` |
-| No help inspecting detail zones | Probe returns metadata only | `scripts/probe_reference_image.py` |
+| Humans look nothing like the image | No anatomy/landmark/pose model; object-only geometry recipes | `grimoire/build/geometry_patterns.md`, `forge/stage2_spec/new_pre_spec_assessment.py`, `forge/stage2_spec/new_sculpt_spec.py` |
+| Humans get rejected early | Rubric rejects hair/cloth-fold-dominant subjects | `grimoire/intake/validation_rubric.md` |
+| Whole-image score hides face/proportion errors | Feature gate has no anatomy features | `forge/_shared/feature_acceptance_policy.py`, spec `featureReviewTargets` |
+| Small details missed | Detail density is one score; no inventory artifact or gate | `grimoire/intake/quality_contract.md`, `forge/stage2_spec/new_pre_spec_assessment.py`, `forge/stage2_spec/validate_sculpt_spec.py` |
+| No help inspecting detail zones | Probe returns metadata only | `forge/stage1_intake/probe_image.py` |
 
 ## 3. Design principles (must hold across the upgrade)
 
@@ -88,7 +88,7 @@ Supported `kind` values (the detail taxonomy): `gloss`, `bevel`, `fastener` (scr
 
 Rule: every `detail` must set `affects` (geometry or material or both) and `mapsTo` a real `component.localFeatures[]` entry or `material.localOverrides[]` entry. A detail described only in prose is a gate failure.
 
-### 4.2 New reference: `references/detail-inventory.md`
+### 4.2 New reference: `grimoire/intake/detail_inventory.md`
 
 Taxonomy plus how to express each detail in 3D-graphics terms:
 - gloss / do bong -> roughness low zone, clearcoat, specular hotspot location, anisotropy if streaked.
@@ -100,23 +100,23 @@ Taxonomy plus how to express each detail in 3D-graphics terms:
 
 Each entry states: where, what changes, how strong, which evidence supports it.
 
-### 4.3 New script: `scripts/build_detail_inventory.py`
+### 4.3 New script: `forge/stage1_intake/build_detail_inventory.py`
 
 - Input: reference image (+ optional component regions).
 - Output: crops of each zone (grid or per-component) into a directory + a `detailInventory` skeleton JSON to fill.
 - Purpose: force systematic zone-by-zone inspection so the agent does not eyeball the whole image once and miss small marks.
-- Pure stdlib PNG slicing (struct/zlib), consistent with `make_visual_comparison_sheet.py`.
+- Pure stdlib PNG slicing (struct/zlib), consistent with `stage4_review/make_comparison_sheet.py`.
 
 ### 4.4 Schema and gate changes
 
-- `scripts/new_pre_spec_assessment.py`: emit `detailInventory` skeleton; set `targetMinDetails` from complexity tier (simple 3, moderate 6, complex 10, ultra 16 as starting values, tunable).
-- `scripts/new_sculpt_spec.py`: carry `detailInventory` into the spec; wire a helper so each detail links to a component/material.
-- `scripts/validate_sculpt_spec.py` (`--strict-quality`): new checks
+- `forge/stage2_spec/new_pre_spec_assessment.py`: emit `detailInventory` skeleton; set `targetMinDetails` from complexity tier (simple 3, moderate 6, complex 10, ultra 16 as starting values, tunable).
+- `forge/stage2_spec/new_sculpt_spec.py`: carry `detailInventory` into the spec; wire a helper so each detail links to a component/material.
+- `forge/stage2_spec/validate_sculpt_spec.py` (`--strict-quality`): new checks
   - detail count >= `targetMinDetails` for the tier.
   - every detail `mapsTo` an existing component localFeature or material localOverride (no orphan prose).
   - a "detailed" object must carry material roughness variation + at least one bevel/edgeTreatment when the inventory lists gloss/bevel details.
   - gloss details require a low-roughness localOverride or clearcoat; fastener details require an instanced/repetition system or explicit small-count meso parts.
-- `references/browser-screenshot-feedback.md`: add a mandatory detail close-up review - grazing-light shot that must show bevel highlights, countable fasteners, legible linework, and stains in the correct regions. Add a per-detail checklist to the review sheet.
+- `grimoire/feedback/render_capture.md`: add a mandatory detail close-up review - grazing-light shot that must show bevel highlights, countable fasteners, legible linework, and stains in the correct regions. Add a per-detail checklist to the review sheet.
 
 ### 4.5 Track A acceptance criteria
 
@@ -132,10 +132,10 @@ Goal: add a first-class character track that reconstructs a humanoid matching th
 
 ### 5.1 Domain detection
 
-- `scripts/new_pre_spec_assessment.py`: add `objectClass.primaryDomain = object | character | hybrid` inferred from the agent's classification (character-like form language + skin/cloth/hair materials + humanoid silhouette).
+- `forge/stage2_spec/new_pre_spec_assessment.py`: add `objectClass.primaryDomain = object | character | hybrid` inferred from the agent's classification (character-like form language + skin/cloth/hair materials + humanoid silhouette).
 - When `character` or `hybrid`, the assessment additionally emits an `anatomy` block and character feature targets.
 
-### 5.2 New reference: `references/character-reconstruction.md`
+### 5.2 New reference: `grimoire/character/reconstruction.md`
 
 - Proportion system in head-units, with a style axis: realistic ~7.5 heads, stylized ~5-6, figurine/chibi 2-3. Record measured ratios from the image (head : torso : legs, shoulder width, hip width).
 - Facial landmark layout: eye line near vertical mid-head, eye spacing, nose base, mouth line, hairline, ear top/bottom. Store normalized coordinates.
@@ -159,7 +159,7 @@ Goal: add a first-class character track that reconstructs a humanoid matching th
 }
 ```
 
-### 5.4 New script: `scripts/extract_reference_landmarks.py`
+### 5.4 New script: `forge/stage1_intake/extract_landmarks.py`
 
 - Overlays a labelled grid / guide on the reference so the agent's vision can fill in landmark coordinates (eyes, shoulders, hips, joints).
 - Outputs an `anatomy` skeleton with normalized coordinates + an overlay image for review.
@@ -167,16 +167,16 @@ Goal: add a first-class character track that reconstructs a humanoid matching th
 
 ### 5.5 Generator and pipeline
 
-- `scripts/new_sculpt_spec.py`: humanoid component template - `rig` root with joint pivot nodes; head, face-feature group, hair group, torso, arms, legs as capsule/tapered primitives; outfit parts as separate components with Track A detail hooks.
-- `scripts/generate_threejs_factory.py`: emit the humanoid rig (named joint pivots, action-ready sockets), capsule limbs, face-feature placement from landmarks, hair cards; expose everything via `root.userData.sculptRuntime`.
+- `forge/stage2_spec/new_sculpt_spec.py`: humanoid component template - `rig` root with joint pivot nodes; head, face-feature group, hair group, torso, arms, legs as capsule/tapered primitives; outfit parts as separate components with Track A detail hooks.
+- `forge/stage3_build/generate_threejs_factory.py`: emit the humanoid rig (named joint pivots, action-ready sockets), capsule limbs, face-feature placement from landmarks, hair cards; expose everything via `root.userData.sculptRuntime`.
 - Two new build sub-passes inserted for the character domain, before `material-pass`:
   - `proportion-lock`: block out the humanoid at the measured head-unit proportions and pose; gate on silhouette + proportion match.
   - `feature-placement`: place facial features and hair to the landmark coordinates; gate on face landmark alignment.
-- `references/validation-rubric.md`: add a character suitability branch - classify humans as `character-conditional -> stylized` rather than reject; specify when to request more views (front, side, full-body) and confirm accepted stylization level.
+- `grimoire/intake/validation_rubric.md`: add a character suitability branch - classify humans as `character-conditional -> stylized` rather than reject; specify when to request more views (front, side, full-body) and confirm accepted stylization level.
 
 ### 5.6 Character feature gates
 
-`scripts/visual_feature_gate.py` + spec `featureReviewTargets`: add critical character features with their own thresholds:
+`forge/_shared/feature_acceptance_policy.py` + spec `featureReviewTargets`: add critical character features with their own thresholds:
 - anatomy-proportion (head-unit ratios, limb lengths)
 - face-landmark-placement (eye line, feature spacing)
 - pose-silhouette (limb angles, stance)
@@ -197,7 +197,7 @@ The single largest likeness win, per section 13, is to stop hand-sculpting faces
 
 1. Parametric template fit (the industry standard for likeness):
    - Ship a lightweight, code-generated parametric humanoid template (head-unit-parameterized body plus a morphable face), conceptually mirroring SMPL-X (body + face + hands, jaw and eye joints) and FLAME (face-from-scans). This is still procedural: the template is generated by code and driven by parameters, not a downloaded art pack.
-   - Fit template parameters (shape, pose, expression) to the 2D landmarks and proportions extracted from the image, following the SMPLify-X idea: minimize the reprojection error between template landmarks and observed image landmarks. Landmarks come from `extract_reference_landmarks.py` (agent-vision assisted).
+   - Fit template parameters (shape, pose, expression) to the 2D landmarks and proportions extracted from the image, following the SMPLify-X idea: minimize the reprojection error between template landmarks and observed image landmarks. Landmarks come from `stage1_intake/extract_landmarks.py` (agent-vision assisted).
    - Rationale: proportions + landmark alignment are where "looks like the person" lives; freehand primitives cannot hit this reliably.
 
 2. Photo texture projection (biggest single-image likeness gain):
@@ -238,39 +238,39 @@ State plainly in outputs: a single image cannot yield a guaranteed 100 percent l
 
 ## 6. Cross-cutting: feedback loop upgrades
 
-- `make_visual_comparison_sheet.py`: optional overlay mode (landmark lines for characters; region boxes for detail review).
+- `stage4_review/make_comparison_sheet.py`: optional overlay mode (landmark lines for characters; region boxes for detail review).
 - Reviews record per-detail and per-landmark scores, not only the five existing layer scores.
 - Keep one packaged sheet per review to preserve token efficiency.
 
 ## 7. File-by-file change summary
 
 New files:
-- `references/detail-inventory.md`
-- `references/character-reconstruction.md`
-- `references/likeness-maximization.md` (projection-first pipeline: template fit, photo projection, de-lighting, camera match, turnaround)
-- `scripts/build_detail_inventory.py`
-- `scripts/extract_reference_landmarks.py`
-- `scripts/solve_reference_camera.py` (estimate focal/FOV/orientation; emit `referenceCamera` block)
-- `scripts/bake_projected_texture.py` (project the de-lit reference onto the fitted mesh view and bake to UV; stdlib PNG)
-- `scripts/delight_reference.py` (recover neutral albedo from the photo before projection)
+- `grimoire/intake/detail_inventory.md`
+- `grimoire/character/reconstruction.md`
+- `grimoire/character/likeness_maximization.md` (projection-first pipeline: template fit, photo projection, de-lighting, camera match, turnaround)
+- `forge/stage1_intake/build_detail_inventory.py`
+- `forge/stage1_intake/extract_landmarks.py`
+- `forge/stage1_intake/solve_camera_pose.py` (estimate focal/FOV/orientation; emit `referenceCamera` block)
+- `forge/stage3_build/bake_projected_texture.py` (project the de-lit reference onto the fitted mesh view and bake to UV; stdlib PNG)
+- `forge/stage1_intake/delight_albedo.py` (recover neutral albedo from the photo before projection)
 - a code-generated parametric humanoid/face template module (head-unit body + morphable face), inline in the generator or as `assets/humanoid_template` data
 - demo assets for one detailed object close-up and one high-likeness character (projection-based)
 
 Modified files:
-- `references/pre-spec-assessment.md` (detail inventory + domain + anatomy)
-- `references/procedural-patterns.md` (character recipes + detail recipes)
-- `references/validation-rubric.md` (character suitability branch)
-- `references/material-lighting-realism.md` (skin/hair/cloth notes)
-- `references/browser-screenshot-feedback.md` (detail close-up + landmark overlay review)
-- `references/self-correction-loop.md` (character sub-pass guidance)
-- `scripts/new_pre_spec_assessment.py`
-- `scripts/new_sculpt_spec.py`
-- `scripts/validate_sculpt_spec.py`
-- `scripts/generate_threejs_factory.py`
-- `scripts/visual_feature_gate.py`
-- `scripts/sculpt_pass_orchestrator.py` (register proportion-lock / feature-placement passes for character domain)
-- `scripts/probe_reference_image.py` (hint detail-scan when complexity high)
-- `scripts/tests/test_pipeline.py` (new coverage)
+- `grimoire/intake/quality_contract.md` (detail inventory + domain + anatomy)
+- `grimoire/build/geometry_patterns.md` (character recipes + detail recipes)
+- `grimoire/intake/validation_rubric.md` (character suitability branch)
+- `grimoire/feedback/shading_realism.md` (skin/hair/cloth notes)
+- `grimoire/feedback/render_capture.md` (detail close-up + landmark overlay review)
+- `grimoire/review/self_correction.md` (character sub-pass guidance)
+- `forge/stage2_spec/new_pre_spec_assessment.py`
+- `forge/stage2_spec/new_sculpt_spec.py`
+- `forge/stage2_spec/validate_sculpt_spec.py`
+- `forge/stage3_build/generate_threejs_factory.py`
+- `forge/_shared/feature_acceptance_policy.py`
+- `forge/stage3_build/orchestrate_passes.py` (register proportion-lock / feature-placement passes for character domain)
+- `forge/stage1_intake/probe_image.py` (hint detail-scan when complexity high)
+- `forge/tests/test_pipeline.py` (new coverage)
 - `SKILL.md`, `README.md` (document both tracks, bump version)
 
 ## 8. Phased roadmap
@@ -282,13 +282,13 @@ Modified files:
 | P3 | 1.2.0 | character reference + rubric branch + domain/anatomy in assessment | human image -> character-stylized + anatomy block |
 | P4 | 1.2.0 | character spec template + landmark script + humanoid generator | test character at correct head-units + pose + landmarks |
 | P5 | 1.2.0 | character feature gates + proportion-lock/feature-placement passes | face/proportion/pose scored; one case passes stylized bar |
-| P6 | 1.3.0 | likeness-max: `solve_reference_camera.py` + `delight_reference.py` + `bake_projected_texture.py` + parametric template fit | render camera-matches the photo; de-lit reference projected onto the fitted mesh; front-face likeness visibly higher than stylized baseline |
+| P6 | 1.3.0 | likeness-max: `stage1_intake/solve_camera_pose.py` + `stage1_intake/delight_albedo.py` + `stage3_build/bake_projected_texture.py` + parametric template fit | render camera-matches the photo; de-lit reference projected onto the fitted mesh; front-face likeness visibly higher than stylized baseline |
 | P7 | 1.3.0 | optional `generativeAssist` mode (flagged, non-default) + confidence reporting for unseen regions | import-and-refine path works end-to-end and is clearly labelled non-procedural |
 | P8 | 1.3.0 | docs + demos + version bump | SKILL.md/README updated, high-likeness character demo, no emoji |
 
 ## 9. Testing strategy
 
-- Extend `scripts/tests/test_pipeline.py`: detail-inventory validation (pass/fail cases), domain detection, anatomy validation, character feature-gate thresholds, backward-compat (a 1.0 object spec still validates).
+- Extend `forge/tests/test_pipeline.py`: detail-inventory validation (pass/fail cases), domain detection, anatomy validation, character feature-gate thresholds, backward-compat (a 1.0 object spec still validates).
 - End-to-end smoke: rebuild the loot-chest with the detail gate on; reconstruct one stylized character end-to-end.
 
 ## 10. Backward compatibility

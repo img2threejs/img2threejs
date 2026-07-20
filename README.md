@@ -51,9 +51,9 @@ It runs under Claude Code, Codex, or OpenCode. It is agent-agnostic: wherever th
 
 ### Subjects and detail accuracy
 
-- **Objects and characters.** Each subject is classified `object`, `character`, or `hybrid`. Objects follow the hard-surface pipeline; characters route through an anatomy-aware track (head-unit proportions, facial landmarks, pose) documented in `references/character-reconstruction.md`.
-- **Detail-first analysis.** Before code generation the pipeline enumerates a `detailInventory` of identity-defining small details (gloss, bevel/rounding, screws/rivets, engraved or painted linework, contours, stains and wear). Every detail must map to a real component or material entry, and a strict-quality gate blocks generation until the inventory is complete. Taxonomy: `references/detail-inventory.md`.
-- **Maximum likeness for a specific person or character.** An opt-in projection-first path fits a parametric template to image landmarks, de-lights the photo, camera-matches the render, and projects the reference onto the mesh. A single image cannot guarantee 100 percent likeness, so the pipeline reports per-region confidence and asks for more views when it matters. Details: `references/likeness-maximization.md`.
+- **Objects and characters.** Each subject is classified `object`, `character`, or `hybrid`. Objects follow the hard-surface pipeline; characters route through an anatomy-aware track (head-unit proportions, facial landmarks, pose) documented in `grimoire/character/reconstruction.md`.
+- **Detail-first analysis.** Before code generation the pipeline enumerates a `detailInventory` of identity-defining small details (gloss, bevel/rounding, screws/rivets, engraved or painted linework, contours, stains and wear). Every detail must map to a real component or material entry, and a strict-quality gate blocks generation until the inventory is complete. Taxonomy: `grimoire/intake/detail_inventory.md`.
+- **Maximum likeness for a specific person or character.** An opt-in projection-first path fits a parametric template to image landmarks, de-lights the photo, camera-matches the render, and projects the reference onto the mesh. A single image cannot guarantee 100 percent likeness, so the pipeline reports per-region confidence and asks for more views when it matters. Details: `grimoire/character/likeness_maximization.md`.
 
 ---
 
@@ -122,11 +122,11 @@ After every pass the agent chooses exactly one action: `continue`, `refine-spec`
 The scripts run from the skill root and need only Python 3.10+ — nothing to install.
 
 ```bash
-python3 scripts/probe_reference_image.py <image>
-python3 scripts/new_pre_spec_assessment.py "Name" --image <image> --out assessment.json
-python3 scripts/new_sculpt_spec.py "Name" --image <image> --assessment assessment.json --out spec.json
-python3 scripts/validate_sculpt_spec.py spec.json --strict-quality
-python3 scripts/generate_threejs_factory.py spec.json --out src/createObjectModel.ts
+python3 forge/stage1_intake/probe_image.py <image>
+python3 forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <image> --out assessment.json
+python3 forge/stage2_spec/new_sculpt_spec.py "Name" --image <image> --assessment assessment.json --out spec.json
+python3 forge/stage2_spec/validate_sculpt_spec.py spec.json --strict-quality
+python3 forge/stage3_build/generate_threejs_factory.py spec.json --out src/createObjectModel.ts
 ```
 
 ---
@@ -150,23 +150,23 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 
 | Script | Role |
 | --- | --- |
-| `probe_reference_image.py` | Image metadata and obvious technical issues (not a visual check). |
-| `new_pre_spec_assessment.py` | Classify the object, score complexity, emit a quality contract. |
-| `new_sculpt_spec.py` | Author the ObjectSculptSpec from the assessment. |
-| `validate_sculpt_spec.py` | Validate the spec; `--strict-quality` blocks shallow specs before codegen. |
-| `extract_reference_pbr.py` | Reference-derived PBR evidence per crop (inference, not inverse rendering). |
-| `sculpt_pass_orchestrator.py` | Locked pass state: status, check, sync. |
-| `generate_threejs_factory.py` | Emit the Three.js `Group` factory for the current unlocked pass. |
-| `make_visual_comparison_sheet.py` | Package one reference-vs-render sheet for review. |
-| `append_sculpt_review.py` | Record a per-pass review: scores, decision, evidence. |
-| `visual_feature_gate.py` | Internal helper enforcing per-feature score thresholds. |
-| `build_detail_inventory.py` | Slice the reference into zones and scaffold a detail inventory. |
-| `extract_reference_landmarks.py` | Overlay a landmark grid and scaffold an anatomy block for characters. |
-| `solve_reference_camera.py` | Emit a reference-camera block so the render can be camera-matched. |
-| `delight_reference.py` | Approximate a neutral albedo from the photo before texture projection. |
-| `bake_projected_texture.py` | Emit a projection/UV-bake descriptor for photo-texture projection. |
+| `stage1_intake/probe_image.py` | Image metadata and obvious technical issues (not a visual check). |
+| `stage2_spec/new_pre_spec_assessment.py` | Classify the object, score complexity, emit a quality contract. |
+| `stage2_spec/new_sculpt_spec.py` | Author the ObjectSculptSpec from the assessment. |
+| `stage2_spec/validate_sculpt_spec.py` | Validate the spec; `--strict-quality` blocks shallow specs before codegen. |
+| `stage1_intake/extract_pbr_evidence.py` | Reference-derived PBR evidence per crop (inference, not inverse rendering). |
+| `stage3_build/orchestrate_passes.py` | Locked pass state: status, check, sync. |
+| `stage3_build/generate_threejs_factory.py` | Emit the Three.js `Group` factory for the current unlocked pass. |
+| `stage4_review/make_comparison_sheet.py` | Package one reference-vs-render sheet for review. |
+| `stage4_review/append_review.py` | Record a per-pass review: scores, decision, evidence. |
+| `_shared/feature_acceptance_policy.py` | Internal helper enforcing per-feature score thresholds. |
+| `stage1_intake/build_detail_inventory.py` | Slice the reference into zones and scaffold a detail inventory. |
+| `stage1_intake/extract_landmarks.py` | Overlay a landmark grid and scaffold an anatomy block for characters. |
+| `stage1_intake/solve_camera_pose.py` | Emit a reference-camera block so the render can be camera-matched. |
+| `stage1_intake/delight_albedo.py` | Approximate a neutral albedo from the photo before texture projection. |
+| `stage3_build/bake_projected_texture.py` | Emit a projection/UV-bake descriptor for photo-texture projection. |
 
-The `references/` folder holds the detailed rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
+The `grimoire/` folder holds the detailed rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
 
 ---
 

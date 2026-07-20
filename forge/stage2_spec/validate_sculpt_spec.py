@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from visual_feature_gate import feature_gate_failures, feature_review_policy
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+from feature_acceptance_policy import feature_gate_failures, feature_review_policy
 
 
 REQUIRED_TOP_LEVEL = {
@@ -1296,7 +1297,7 @@ def validate_sculpt_pipeline(
     if isinstance(completed, list):
         expected = completed_passes_from_history(spec, pass_order_ids or build_pass_ids)
         if list(completed) != expected:
-            warnings.append("sculptPipeline.completedPasses is out of sync with reviewHistory; run sculpt_pass_orchestrator.py sync")
+            warnings.append("sculptPipeline.completedPasses is out of sync with reviewHistory; run stage3_build/orchestrate_passes.py sync")
         for pass_id in completed:
             if pass_id not in (pass_order_ids or build_pass_ids):
                 errors.append(f"sculptPipeline.completedPasses contains unknown pass {pass_id!r}")

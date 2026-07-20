@@ -9,7 +9,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from visual_feature_gate import feature_gate_failures
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+from feature_acceptance_policy import feature_gate_failures
 
 
 VALID_ACTIONS = {"continue", "refine-spec", "refine-code", "request-input", "stop"}
@@ -278,7 +279,7 @@ def main(argv: list[str]) -> int:
         if not args.comparison_image:
             raise ValueError(
                 "visual pass cannot use action=continue without --comparison-image; "
-                "create one with make_visual_comparison_sheet.py"
+                "create one with stage4_review/make_comparison_sheet.py"
             )
         if args.ai_vision_score is None:
             raise ValueError(

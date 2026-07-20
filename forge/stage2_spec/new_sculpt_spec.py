@@ -65,7 +65,7 @@ def make_pre_spec_assessment(target_name: str) -> dict:
             "note": (
                 "Enumerate every identity-defining small detail before authoring the spec. "
                 "Each detail must map to a component.localFeatures entry or material.localOverrides entry, "
-                "never prose only. Use scripts/build_detail_inventory.py to scan zones."
+                "never prose only. Use forge/stage1_intake/build_detail_inventory.py to scan zones."
             ),
             "details": [],
         },
@@ -91,8 +91,8 @@ def make_pre_spec_assessment(target_name: str) -> dict:
             "confidence": 0.0,
             "note": (
                 "Only meaningful when objectClass.primaryDomain is character or hybrid. "
-                "Set applies=true and fill from scripts/extract_reference_landmarks.py. "
-                "See references/character-reconstruction.md and references/likeness-maximization.md."
+                "Set applies=true and fill from forge/stage1_intake/extract_landmarks.py. "
+                "See grimoire/character/reconstruction.md and grimoire/character/likeness_maximization.md."
             ),
         },
     }
@@ -470,7 +470,7 @@ def make_spec(target_name: str, image: str | None, assessment_payload: dict | No
             "orientation": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0},
             "positionHint": [0.0, 0.0, 3.0],
             "note": (
-                "For likeness work, solve the reference camera (scripts/solve_reference_camera.py) so the "
+                "For likeness work, solve the reference camera (forge/stage1_intake/solve_camera_pose.py) so the "
                 "review render aligns with the photo and the reference can be projected. Confirm by overlay review."
             ),
         },
@@ -659,7 +659,7 @@ def make_spec(target_name: str, image: str | None, assessment_payload: dict | No
                     "requiredWhenSourceImagePresent": True,
                     "targetThreshold": 0.7,
                     "stopOnLowConfidence": True,
-                    "script": "scripts/extract_reference_pbr.py",
+                    "script": "forge/stage1_intake/extract_pbr_evidence.py",
                     "acceptedLimitation": "single-image extraction is reference-derived inference, not exact photogrammetry",
                 },
                 "mustAvoid": [
@@ -1092,7 +1092,7 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target_name", help="Human-readable object name")
     parser.add_argument("--image", help="Reference image path or URL")
-    parser.add_argument("--assessment", type=Path, help="Pre-spec assessment JSON from new_pre_spec_assessment.py")
+    parser.add_argument("--assessment", type=Path, help="Pre-spec assessment JSON from stage2_spec/new_pre_spec_assessment.py")
     parser.add_argument("--out", type=Path, help="Output JSON path")
     parser.add_argument("--force", action="store_true", help="Overwrite output file")
     parser.add_argument("--character", action="store_true",

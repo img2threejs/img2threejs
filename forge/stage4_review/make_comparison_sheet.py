@@ -3,7 +3,7 @@
 
 The sheet is only evidence packaging. It does not score the images. the agent or
 another AI vision reviewer should inspect the generated sheet and write the
-score back with append_sculpt_review.py.
+score back with stage4_review/append_review.py.
 """
 
 from __future__ import annotations

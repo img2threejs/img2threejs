@@ -62,7 +62,7 @@ Each feature should include placement, approximate size, orientation, material e
 ## Detail Recipes
 
 Concrete Three.js material/geometry approach per `detailInventory` kind. Cross-reference
-`references/detail-inventory.md` for the full taxonomy and the evidence/mapping rule.
+`grimoire/intake/detail_inventory.md` for the full taxonomy and the evidence/mapping rule.
 
 - gloss: `MeshPhysicalMaterial` with a low-`roughness` localOverride (0.05-0.2) sized to the
   hotspot region; use `clearcoat`/`clearcoatRoughness` for a lacquer layer over a rougher
@@ -83,7 +83,7 @@ Concrete Three.js material/geometry approach per `detailInventory` kind. Cross-r
 ## Character Geometry And Material Recipes
 
 Use these when `objectClass.primaryDomain` is `character` or `hybrid`. Pair with
-`references/character-reconstruction.md` for proportion/landmark data.
+`grimoire/character/reconstruction.md` for proportion/landmark data.
 
 - head: sphere or ellipsoid scaled to the measured head-unit, then displaced/tapered toward
   the reference face shape (jaw width, chin point, cheek fullness) rather than left spherical.

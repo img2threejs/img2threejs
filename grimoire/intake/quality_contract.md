@@ -56,7 +56,7 @@ Good feature groups are specific to the image:
 
 ## Strict Quality Gate
 
-Run `../../scripts/validate_sculpt_spec.py spec.json --strict-quality` before code generation. The script path is relative to the skill folder.
+Run `../../forge/stage2_spec/validate_sculpt_spec.py spec.json --strict-quality` before code generation. The script path is relative to the skill folder.
 
 If strict validation fails:
 

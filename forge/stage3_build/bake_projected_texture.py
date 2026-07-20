@@ -86,7 +86,7 @@ def build_descriptor(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "projectedTextureBake": {
             "version": "1.0",
-            "generator": "bake_projected_texture.py",
+            "generator": "stage3_build/bake_projected_texture.py",
             "status": "descriptor-only; no pixels are baked or rasterized by this script",
             "targetMeshId": args.mesh_id,
             "projectionMode": args.projection_mode,
@@ -123,8 +123,8 @@ def build_descriptor(args: argparse.Namespace) -> dict[str, Any]:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--reference-image", required=True, help="Path to the original reference photo")
-    parser.add_argument("--delit-image", help="Path to a de-lit albedo produced by delight_reference.py, if available")
-    parser.add_argument("--camera", help="Path to a referenceCamera JSON produced by solve_reference_camera.py")
+    parser.add_argument("--delit-image", help="Path to a de-lit albedo produced by stage1_intake/delight_albedo.py, if available")
+    parser.add_argument("--camera", help="Path to a referenceCamera JSON produced by stage1_intake/solve_camera_pose.py")
     parser.add_argument("--mesh-id", required=True, help="Identifier of the target mesh/node to project onto")
     parser.add_argument(
         "--projection-mode",

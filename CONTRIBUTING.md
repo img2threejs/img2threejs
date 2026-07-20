@@ -5,10 +5,10 @@ quality-gated Three.js model. Contributions that keep that identity sharp are ve
 
 ## Good first areas
 
-- New procedural material or geometry recipes in `references/procedural-patterns.md`.
+- New procedural material or geometry recipes in `grimoire/build/geometry_patterns.md`.
 - Object-domain templates and detail-inventory taxonomy improvements.
-- Generator primitives, bevels, instancing, and surface-band tuning in `scripts/generate_threejs_factory.py`.
-- More pipeline tests in `scripts/tests/test_pipeline.py`.
+- Generator primitives, bevels, instancing, and surface-band tuning in `forge/stage3_build/generate_threejs_factory.py`.
+- More pipeline tests in `forge/tests/test_pipeline.py`.
 - Documentation and worked examples.
 
 ## Where the project is strong vs honest limits
@@ -26,8 +26,8 @@ explicit, flagged, opt-in mode.
 ## Development
 
 - Scripts are pure Python 3.10+ standard library. No pip dependencies.
-- Run the test suite from the skill root: `python3 scripts/tests/test_pipeline.py`.
-- Validate a spec before generation: `python3 scripts/validate_sculpt_spec.py spec.json --strict-quality`.
+- Run the test suite from the skill root: `python3 forge/tests/test_pipeline.py`.
+- Validate a spec before generation: `python3 forge/stage2_spec/validate_sculpt_spec.py spec.json --strict-quality`.
 - Keep changes backward compatible: existing object specs must continue to validate.
 - No emojis in source, docs, or generated output.
 

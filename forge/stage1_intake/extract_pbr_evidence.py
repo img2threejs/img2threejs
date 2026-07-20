@@ -615,7 +615,7 @@ def material_patch(
         "referencePbr": {
             "version": "1.0",
             "sourceImage": str(image.resolve()),
-            "extractor": "extract_reference_pbr.py",
+            "extractor": "stage1_intake/extract_pbr_evidence.py",
             "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
             "usable": usable,
             "verdict": verdict,

@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from visual_feature_gate import feature_gate_failures
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+from feature_acceptance_policy import feature_gate_failures
 
 
 DEFAULT_PASS_ORDER = [

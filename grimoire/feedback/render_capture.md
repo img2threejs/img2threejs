@@ -9,7 +9,7 @@ Each visual build pass should produce at least one rendered screenshot from a na
 Create a side-by-side review image after capture:
 
 ```bash
-../../scripts/make_visual_comparison_sheet.py \
+../../forge/stage4_review/make_comparison_sheet.py \
   --reference reference.png \
   --render render.png \
   --out comparison.png \

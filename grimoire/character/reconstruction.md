@@ -31,7 +31,7 @@ Store landmarks as normalized coordinates (0-1) relative to head bounding box, n
 - `mouthLine`: ~0.75-0.85
 - `earTop` / `earBottom`: roughly bracket `eyeLine` to `noseBase`
 
-Pull these from the actual image via `scripts/extract_reference_landmarks.py` overlay, not from a generic face chart. A stylized face with huge eyes will violate realistic ratios on purpose — match what is observed.
+Pull these from the actual image via `forge/stage1_intake/extract_landmarks.py` overlay, not from a generic face chart. A stylized face with huge eyes will violate realistic ratios on purpose — match what is observed.
 
 ## Pose / Skeleton
 
@@ -51,7 +51,7 @@ If a joint is occluded, do not invent an angle — mark `confidence` low and def
 
 ## Character Materials (stylized default)
 
-Reuse Track A detail machinery (`references/detail-inventory.md`) for accessories and trims. Base recipes:
+Reuse Track A detail machinery (`grimoire/intake/detail_inventory.md`) for accessories and trims. Base recipes:
 
 - **Skin**: warm base albedo sampled from the image, low-to-mid roughness, no true subsurface scattering — approximate with a soft rim/backlight term and a slightly desaturated shadow tint. Avoid `MeshPhysicalMaterial.transmission` unless the reference clearly shows translucency (ears, fingers backlit).
 - **Hair**: the single most common failure point for single-image reconstruction. Do NOT attempt strand-level geometry from one photo. Prefer stylized clumps — hair cards or short tube-along-curve locks grouped into 5-15 major masses matching the silhouette's hair shape, layered front-to-back with alpha or hard edges. Match the read silhouette (fringe, part line, volume) over any attempt at individual strands.
