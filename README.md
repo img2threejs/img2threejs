@@ -208,6 +208,7 @@ The `grimoire/` folder holds the detailed rubrics each gate applies (validation,
 
 - An `ObjectSculptSpec` JSON: the full component tree, materials, repetition systems, sockets, and a recorded review history for every pass.
 - A TypeScript `createObjectNameModel(spec, options)` factory returning a `THREE.Group`, with `root.userData.sculptRuntime` exposing nodes, sockets, colliders, and destruction groups.
+- A one-click **GLB export** from the viewer (`export/glbExporter.js`): import the model straight into Blender, Godot, Unity, or any glTF 2.0 tool.
 - A render plus comparison sheets documenting the fidelity at each pass.
 
 ---

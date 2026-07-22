@@ -320,5 +320,8 @@ material recipes + hard-won failure patterns: `grimoire/build/geometry_patterns.
 - **Analysis-only**: suitability verdict + scores, object extraction, macro→micro hierarchy,
   geometry strategy, material/lighting recipe, animation/destruction feasibility, plan + risks.
 - **Implementation**: the above briefly, then edit code; verify with typecheck/build + a screenshot.
+- **Export**: every viewer wires `attachExportButton(root, { filename })` from
+  `export/glbExporter.js` so the model exports to a Blender-ready `.glb` in one click.
+  Details: `grimoire/export/glb_export.md`.
 - **Not feasible**: name the blocker, ask for more views / cleaner image / accepted stylization /
   a narrower target. "This cannot reach the requested fidelity from this image" is a valid result.
