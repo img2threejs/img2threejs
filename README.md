@@ -14,6 +14,8 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 [![Runtime](https://img.shields.io/badge/runtime-Three.js-000000.svg)](https://threejs.org)
 [![Tooling](https://img.shields.io/badge/tooling-Python%203.10%2B%20stdlib-3776ab.svg)](scripts)
 
+<a href="https://trendshift.io/repositories/83608?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-83608" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/83608/daily?language=Python" alt="hoainho%2Fimg2threejs | Trendshift" width="250" height="55"/></a>
+
 ![img2threejs demo — a reference loot-chest image reconstructed as a procedural Three.js model](assets/demo.gif)
 
 </div>
@@ -193,6 +195,20 @@ Full detail and later milestones: [ROADMAP.md](ROADMAP.md). Technical specificat
 ## Honesty about limits
 
 A single image cannot reveal hidden sides or guarantee exact geometry. The skill states plainly when output is approximate, stylized, or low-poly, and infers unseen faces by mirroring visible ones rather than faking confidence. It is strong for hard-surface objects; characters are stylized reconstructions, not photoreal likeness. "This cannot reach the requested fidelity from this image" is a valid, expected result.
+
+---
+
+## Star history
+
+If img2threejs is useful to you, a star helps others find it.
+
+<a href="https://star-history.com/#hoainho/img2threejs&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=hoainho/img2threejs&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=hoainho/img2threejs&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=hoainho/img2threejs&type=Date" width="600" />
+  </picture>
+</a>
 
 ---
 
