@@ -5,6 +5,16 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **GLB export from the viewer.** A decoupled browser module (`export/glbExporter.js`)
+  adds a one-click "Exportar .glb" button that exports any procedural model to a
+  Blender-ready `.glb`. Exports a sanitized clone (drops circular runtime userData,
+  neutralizes the animated root transform); standard PBR materials and canvas textures
+  are preserved. Docs: `grimoire/export/glb_export.md`.
+
 ## [1.5.0] — 2026-07-28
 
 ### Added

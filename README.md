@@ -143,6 +143,8 @@ python3 forge/stage3_build/generate_threejs_factory.py spec.json --out src/creat
 
 For the script-by-script reference and the full list of output artifacts, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+One-click **GLB export** from the viewer is available via [`export/glbExporter.js`](export/glbExporter.js) (Blender / Godot / Unity / any glTF 2.0 tool). Docs: [`grimoire/export/glb_export.md`](grimoire/export/glb_export.md).
+
 ---
 
 ## Roadmap
