@@ -18,8 +18,8 @@ attachExportButton(root, { filename: 'my-model' });
 ```
 
 This adds a floating "Exportar .glb" button. `GLTFExporter` (from `three/addons`) must
-be reachable through the page importmap (`"three/addons/"`), which the standard viewer
-already provides.
+be reachable through the page importmap — confirm your viewer's importmap defines a
+`"three/addons/"` entry (the same one the `three/addons` controls/environment imports use).
 
 ## API
 
