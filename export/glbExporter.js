@@ -96,19 +96,22 @@ export function attachExportButton(object3D, options = {}) {
     if (button.disabled) return;
     button.disabled = true;
     button.textContent = 'Exportando…';
+    let exported = null;
     try {
       const ext = exportOptions.binary === false ? 'gltf' : 'glb';
       const blob = await exportModelToGLB(object3D, exportOptions);
       downloadBlob(blob, `${filename}.${ext}`);
       console.log('[glbExporter] .glb ready:', blob.size, 'bytes');
       button.textContent = '✓ Exportado';
-      if (typeof onExported === 'function') onExported(blob);
+      exported = blob;
     } catch (error) {
       console.error('[glbExporter] export failed:', error);
       button.textContent = '⚠ Error';
     } finally {
       setTimeout(() => { button.textContent = label; button.disabled = false; }, 1600);
     }
+    // Notify after the export/catch so a throwing callback can't be mislabeled as an export failure.
+    if (exported && typeof onExported === 'function') onExported(exported);
   }
 
   button.addEventListener('click', run);
