@@ -8,7 +8,7 @@
 
 Quality-gated, animation-ready, and deliberately token-efficient — reconstruction-by-code, not photogrammetry, mesh extraction, or downloaded art packs.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.2.0-green.svg)](SKILL.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Runtime](https://img.shields.io/badge/runtime-Three.js-000000.svg)](https://threejs.org)
@@ -218,4 +218,4 @@ Contributions are welcome — procedural material recipes, new gates, host cover
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).
