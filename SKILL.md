@@ -2,7 +2,7 @@
 name: img2threejs
 description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
 license: MIT
-version: 1.2.0
+version: 1.3.0
 ---
 
 # img2threejs — Image to procedural Three.js
@@ -66,9 +66,20 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    Replace generic starter `featureReviewTargets` with the object's real identity-defining
    systems (≤5 critical, ≤3 important per pass); for characters add `anatomy-proportion`,
    `face-landmark-placement`, `pose-silhouette`, `outfit-and-palette`. Use 3D-graphics terms only
-   (`grimoire/glossary/3d_vocabulary.md`), never "nice/smooth/shiny".
-4. When material fidelity matters and a source image exists, extract reference PBR evidence per crop:
-   `forge/stage1_intake/extract_pbr_evidence.py <crop> --out-dir <dir> --material-id <id> --target-threshold 0.7`.
+   (`grimoire/glossary/3d_vocabulary.md`), never "nice/smooth/shiny". Classify every component's
+   `topologyClass`/`topologyRationale` per `grimoire/intake/surface_topology.md` before picking a
+   `primitive` — this is what prevents a continuous organic form from being picked as a box.
+4. When material fidelity matters and a source image exists, analyze each material's **finish** then
+   extract reference PBR evidence, both per crop (crop the correct region — verify the crop is on the
+   part you think it is):
+   - `forge/stage1_intake/analyze_texture.py <crop> --spec spec.json --material-id <id> --in-place`
+     classifies the finish (`gem-metal | gemstone | painted-metal | worn-composite | brushed-steel |
+     plastic`), extracts the gradient palette, and writes doc-grounded MeshPhysicalMaterial scalars
+     (metalness/roughness/clearcoat/transmission/ior/anisotropy/envMapIntensity) onto the material.
+     Recipes + Three.js texture/PBR rules (colorSpace, CanvasTexture/DataTexture, height→normal) live
+     in `grimoire/build/threejs_texture_reference.md`. Rule of thumb: **solid albedo for flat paint,
+     real reference crop for patterned finishes** (doppler/quartz/hydro-dip/camo).
+   - `forge/stage1_intake/extract_pbr_evidence.py <crop> --out-dir <dir> --material-id <id> --target-threshold 0.7`.
    Confidence < 0.7 is a stop/refine-input signal, not a pass. It is inference, not inverse rendering.
 5. Validate, then strict-validate before generating code:
    `forge/stage2_spec/validate_sculpt_spec.py object-sculpt-spec.json` then `--strict-quality`.
@@ -89,7 +100,26 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
 
 ## Gates (do not skip)
 
-- **Suitability**: pass / conditional / reject before any planning. `grimoire/intake/validation_rubric.md`.
+- **Suitability + reference integrity**: pass / conditional / reject before any planning
+  (`grimoire/intake/validation_rubric.md`), AND every reference admitted via
+  `forge/stage1_intake/check_reference_admission.py` (rejects empty/fragmented/tiny/duplicate/
+  undecodable refs with a reason). Intake understanding cross-checked by
+  `forge/stage1_intake/check_intake_correctness.py` (halts on a confident class contradiction).
+- **Divine Eye (the harness heart) — deterministic-first, model-last**: the render evaluator is
+  `forge/stage4_review/divine_eye.py` — a zero-token multi-signal ensemble (IoU/scale HARD gates;
+  proportion/symmetry-parity/pHash/SSIM/edge/blowout/flat/tonal-parity soft) with self-uncertainty
+  (`probe` on signal disagreement) and deterministic routing (`continue`/`refine-spec`/`refine-code`/
+  `probe`). The VLM (`forge/stage4_review/vlm_gate.py`) is a gated, calibrated, cross-checked
+  last layer: **never consulted on a hard-gate failure**, multi-sample-voted, and can rescue a
+  soft near-threshold reject but never grant past a hard geometric failure.
+- **Multi-angle or it didn't happen**: a non-planar form must hold from ≥2 camera angles.
+  `forge/stage4_review/diagnose_render_multi_angle.py` flags `degenerate-view` when an orbited
+  silhouette collapses (a flat plane faking a volume). Orbit angles use reference-free
+  self-consistency — never scored against a reference angle the photo doesn't cover.
+- **Bounded correction loop (token-burn safety)**: `forge/stage4_review/correction_loop.py`
+  guarantees termination (success/repeated-defect/oscillation/plateau/hard-ceiling), escalating to
+  `request-input` — never a silent infinite burn.
+- **Tier 1 (legacy, still valid)**: "Tier 2 (AI-vision) never runs against a render that has not passed Tier 1." Run `forge/stage4_review/diagnose_render.py` (silhouette IoU/proportion/symmetry/per-part color) and record it (`--spec ... --in-place`) before requesting a comparison sheet; `orchestrate_passes.py check` refuses otherwise.
 - **Pre-spec / strict-quality**: blocks code gen until the spec is deep enough for its contract.
 - **Screenshot feedback**: `continue` is allowed only with a render + comparison sheet + global
   AI-vision score ≥ threshold (default 0.7) AND every critical feature ≥ its own threshold.

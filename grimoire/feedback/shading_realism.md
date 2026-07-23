@@ -78,3 +78,38 @@ For quality-first work, capture three deliberate look-dev views before choosing 
 A material that only looks convincing in the reference-matched light has not passed. Fix its PBR response first, then tune the reference lighting.
 
 If the mismatch is mostly color/texture/lighting, choose `refine-code` only when the spec already has the above details. Otherwise choose `refine-spec` first.
+
+---
+
+## Material & colour lessons — real-object reconstructions (2026-07: BMX + M9 Doppler)
+
+**Solid colour vs reference-crop albedo — pick by finish type:**
+- **Flat paint / single-colour** (bike frame): use a **solid** albedo (dominant colour) + flat normal. A raw photo crop tiles logos/gradients into stripes across long tubes. Sample the reference's *lit mid-tone* for the paint hue, then deepen/saturate (a photo mid-tone rendered under studio light reads lighter than the sample).
+- **Patterned / gemstone finish** (Doppler blade, hydro-dip, camo, quartz): use the **real reference crop** as albedo → the exact palette + smoke/pattern is literally the reference pixels ("100% same colour"). Extract the gradient **palette stops** (guard→tip) to document the look. Make it gem-glossy: high `metalness` + low `roughness` (solid-dark roughness map) + `clearcoat` + raised `envMapIntensity` → layered shine.
+
+**Sample the CORRECT region per material.** Verify the crop is actually on the part you think — a "handle" crop taken from the blade region gave a navy-blue "grey" handle. Crop, *look at the crop*, then extract.
+
+**Aged / worn / faded materials — preserve mottling, don't flatten.** A uniform dark band looks crude ("thô"). Instead: keep the crop's real luminance variation (scratches, worn patches) but remap it into a **dark aged band** (e.g. luminance→charcoal 15–45), add micro-grain, and a **roughness map that varies** (worn high-spots slightly glossier, grooves matte). Keep the cast cool-neutral for gunmetal — a warm remap drifts to tan. Darken more than you think: a mid-grey albedo reads light under a strong key light.
+
+**Render-capture must wait for textures.** `TextureLoader` is async; a screenshot fired before maps load shows `color:white` + metalness = a false "chrome" render (and a Divine-Eye false-reject). Poll `material.map.image.complete` before capturing. The render host must serve the reference PBR maps (copy to `public/`) or they 404 → white.
+
+**Soft shadows for a studio look:** `key.shadow.radius`/`blurSamples` + a tight shadow-camera frustum + a low `ShadowMaterial.opacity` (~0.16) beat a hard dark blob.
+
+## Candy/anodized colour washes to blue under a bright env — and prose can fight the reference
+- **Symptom:** a doppler/candy blade whose albedo genuinely contains violet (verified by sampling the
+  PNG: mid-body RGB ~ (150,50,170)) still renders **blue** in a white-studio scene.
+- **Cause 1 — metalness steals the hue.** At `metalness ≈ 0.7–1.0` most of the surface colour is the
+  *environment reflection* (specular F0), not the albedo diffuse; a bright/cool white env reflects
+  blue-white and the albedo hue is a minority contributor. A colored PVD/candy/anodized coat is
+  visually a **dielectric-led** surface: render it `metalness ≈ 0.35` + `clearcoat ≈ 0.6`
+  (roughness ~0.18) so the albedo colour leads and the coat supplies gloss. Also trim
+  `envMapIntensity` (~0.7) and clearcoat so the white env stops desaturating the hue.
+- **Cause 2 — a blue-leaning purple reads blue when darkened.** A violet with `B > R`
+  (e.g. 158,52,206) collapses toward blue under any tone-map/shadow darkening because B dominates.
+  For a purple that *survives* shading, make it **magenta-leaning, `R ≳ B`** (e.g. 175,48,150).
+- **Cause 3 (the real one here) — prose contradicted the reference.** A written brief said
+  "cyan guard → PURPLE middle (45%) → indigo tip"; the actual reference image was
+  **violet at the ricasso → SAPPHIRE-BLUE body (dominant) → navy-black tip**. img2threejs is
+  reconstruction-*from-the-image*: when a colour brief disagrees with the reference photo, **sample
+  the reference and match the photo**, then surface the discrepancy to the user — do not chase the
+  prose (it cost 4 wasted render iterations pushing purple into a region the photo shows as blue).

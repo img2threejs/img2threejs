@@ -66,3 +66,22 @@ Use a practical 0-1 scale:
 - `0.95`: near-reference, usually requires multiple views or manual art
 
 Do not claim `0.9+` from a single ambiguous image unless the object is simple and symmetrical.
+
+---
+
+## Divine Eye caveat — photo-vs-procedural reconstruction (must read)
+
+When the reference is a **photograph** and the render is a **procedural reconstruction**, the pixel-aligned signals (`ssim`, `edgeOverlap`) and the silhouette-IoU hard gate are dominated by **framing + background + scale + lighting** differences, NOT fidelity. Confirmed on two objects: a faithful BMX scored `reject/0.53`, a clear M9 bayonet scored `reject/IoU 0.165` (white-bg photo vs dark render). 
+
+**Do not chase the Eye's global score in this mode** — optimising toward it distorts the model trying to pixel-match a photo (impossible) and makes it worse. Instead:
+- Judge each pass against its **own goal** with agent vision (silhouette reads? part present? palette on-tone?).
+- Trust the **palette ΔE / phash / part-presence**, and IoU only **after** scale+translation alignment.
+- Treat `ssim`/`edgeOverlap` vs a photo as advisory, never a hard fail.
+
+The proper fix is a Divine-Eye **reconstruction mode** (reference==photo ⇒ drop pixel-aligned signals, align-then-IoU, palette+objectness) — this is exactly what the deferred **OSIM** objectness signal targets (feature-map similarity is invariant to lighting/background). See `docs/PLAN_1.3_FINAL.md` review log + ws-memories atom `divine-eye-photo-vs-procedural-miscalibration`.
+
+**Update (2026-07-22): the reconstruction-mode rescue now exists.** `divine_eye.py` computes a stdlib
+`objectness` signal (`objectness.py`, OSIM-lite — bg/pose/scale/brightness-invariant HOG cosine) and,
+when a photo-vs-procedural render fails *only* the IoU hard gate but objectness says "same object"
+(≥0.48), it downgrades the confident reject to `probe` and sets `reconstructionModeSuspected:true`. So the
+Eye no longer hard-rejects a faithful reconstruction on framing alone — but still never auto-passes it.

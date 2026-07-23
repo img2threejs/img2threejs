@@ -118,3 +118,21 @@ A procedural object is usually failing when:
 - lighting hides the form instead of explaining it
 - repeated details are too evenly spaced
 - close-up details add triangles but not recognizability
+
+---
+
+## Hard-won patterns — real-object reconstructions (2026-07: BMX bike + M9 bayonet)
+
+**Tube-network > single sweep for framed/tubular subjects.** A bike frame, knife-handle grip, fork, handlebar are *networks of straight members*. Model each member as a component with `attachment.localStart`/`localEnd` (+`baseRadius`) — the generator emits an oriented cylinder (quaternion Y→dir). A single closed `curve-sweep` CatmullRom-smooths into a teardrop blob. (BMX frame was a teardrop until rebuilt as a tube-network.)
+
+**Blockout must contain every silhouette-defining macro part.** A bike blockout with the frame but no wheels does not read as a bike, and coarse silhouette-IoU won't catch the omission. Put wheels/blade/major masses in at `level: macro`.
+
+**Root/container `transform.scale` MUST be `[1,1,1]`.** Children parent to the root node and inherit its transform — a `0.02` "hide" scale shrinks the whole model to a speck. Hide the container with a transparent material (`opacity:0`), never with scale.
+
+**Cloned components inherit `actionProfile.animationRole` — reset it.** Cloning a seeded root carries `animationRole:"root"`, and `root` ∈ ATTACHMENT_ROLES, so every part trips the structural attachment gate. Set a sensible per-part `animationRole` (e.g. `"static-part"`); keep roles like `handle` off non-appendage parts.
+
+**Curve the small details.** Serrations/scallops/teeth as straight boxes look wrong. Use `ellipsoid` (or slightly canted primitives, alternating ±angle) for rounded scallop teeth. Each detail with its own small cant reads as a hand-ground edge.
+
+**Grip / friction texture = geometric ridge segments.** For a knurled/wrapped/segmented grip, model raised barrel bands: a thin core cylinder + N short attachment-tube segments (radius just *proud* of the core, small groove gaps). Size them barely larger than the core — oversized tori read as a coil/spring, not a grip. Material texture alone (no geometry) reads as smooth/"thô".
+
+**`invisibleRoot`/container material is still subject to the material-pass PBR gate.** Give the container a *complete* material (roughness map, frequency bands, textureResolution) — copy a proven one — or it fails "needs usable referencePbr / roughness map" even though it never renders.

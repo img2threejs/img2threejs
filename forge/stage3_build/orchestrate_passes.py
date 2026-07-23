@@ -443,6 +443,19 @@ def sync_pipeline(spec: dict[str, Any]) -> dict[str, Any]:
     return pipeline
 
 
+def has_passing_tier1_result(spec: dict[str, Any], pass_id: str) -> bool:
+    """Plan 1.3 Workstream D: Tier 2 (AI-vision) must never run against a render
+    that has not passed Tier 1. Checked here rather than in append_review.py so
+    the refusal happens before any expensive review step is even attempted."""
+    results = spec.get("tier1Results", [])
+    if not isinstance(results, list):
+        return False
+    return any(
+        isinstance(entry, dict) and entry.get("passId") == pass_id and entry.get("passed") is True
+        for entry in results
+    )
+
+
 def check_pass(spec: dict[str, Any], requested_pass: str) -> tuple[bool, str, dict[str, Any]]:
     pipeline = sync_pipeline(spec)
     ids = list(pipeline["passOrder"])
@@ -459,6 +472,12 @@ def check_pass(spec: dict[str, Any], requested_pass: str) -> tuple[bool, str, di
         gaps = pass_specific_gaps(spec, requested_pass)
         if gaps:
             return False, f"pass {requested_pass!r} needs spec refinement: {'; '.join(gaps)}", pipeline
+        if requested_pass in VISUAL_PASS_IDS and not has_passing_tier1_result(spec, requested_pass):
+            return (
+                False,
+                f"Tier 1 diagnostics have not passed for this render — run diagnose_render.py first",
+                pipeline,
+            )
         return True, f"pass {requested_pass!r} is the current unlocked pass", pipeline
     previous_index = ids.index(requested_pass) - 1
     previous = ids[previous_index] if previous_index >= 0 else ""

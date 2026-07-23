@@ -11,3 +11,9 @@ __pycache__/
 
 # Scratch / generated review artifacts (keep committed demos in assets/)
 *.tmp
+
+# Local-only planning docs — never committed (feature work is committed, plans are not)
+docs/PLAN_*.md
+
+# OMC planning/team state — local orchestration artifacts, never part of a release
+.omc/

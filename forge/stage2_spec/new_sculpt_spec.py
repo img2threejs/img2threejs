@@ -219,11 +219,19 @@ def load_assessment(path: Path | None) -> dict | None:
 def _cnode(cid, name, primitive, parent, position, scale,
            material="skin", role="body", level="meso", rotation=(0, 0, 0),
            importance=0.7, sockets=None, local_features=None, anim_role="static",
-           pivot_mode="center", evidence=None):
+           pivot_mode="center", evidence=None, topology_class="assembled-solid",
+           topology_rationale=None):
     """Build a full schema-valid componentTree node with humanoid-friendly defaults."""
+    if topology_rationale is None:
+        topology_rationale = (
+            f"{name} is a discrete primitive body part assembled onto the humanoid rig, "
+            f"not a continuous sculpt or shell."
+        )
     return {
         "id": cid, "name": name, "level": level, "role": role,
         "importance": importance, "confidence": 0.8, "primitive": primitive,
+        "topologyClass": topology_class,
+        "topologyRationale": topology_rationale,
         "geometryDescriptor": {
             "topologyIntent": "stylized character part",
             "edgeTreatment": {"type": "none", "bevelRadius": 0.0, "segments": 1},
@@ -425,7 +433,7 @@ def make_spec(target_name: str, image: str | None, assessment_payload: dict | No
     return {
         "targetName": target_name,
         "targetId": target_id,
-        "schemaVersion": "2.0",
+        "schemaVersion": "2.1",
         "terminologyProfile": {
             "domain": "real-time procedural Three.js asset",
             "geometryTerms": [
@@ -774,6 +782,11 @@ def make_spec(target_name: str, image: str | None, assessment_payload: dict | No
                 "importance": 1.0,
                 "confidence": 0.5,
                 "primitive": "box",
+                "topologyClass": "assembled-solid",
+                "topologyRationale": (
+                    "Placeholder root blockout; reclassify per Workstream A's decision tree "
+                    "(grimoire/intake/surface_topology.md) once real geometry is authored."
+                ),
                 "geometryDescriptor": {
                     "topologyIntent": "low-poly blockout with bevel-ready edges",
                     "edgeTreatment": {
