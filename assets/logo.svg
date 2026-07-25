@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128" role="img" aria-label="img2threejs logo">
+  <defs>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cff"/>
+      <stop offset="1" stop-color="#38e8ff"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2bd4c8"/>
+      <stop offset="1" stop-color="#118a9c"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a3cf0"/>
+      <stop offset="1" stop-color="#2a1a7a"/>
+    </linearGradient>
+    <linearGradient id="pix" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd76a"/>
+      <stop offset="1" stop-color="#ff8bd0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- source pixels dissolving into the cube (image -> 3D) -->
+  <rect x="6" y="40" width="6" height="6" rx="1.4" fill="url(#pix)" opacity="0.35"/>
+  <rect x="6" y="48" width="6" height="6" rx="1.4" fill="url(#pix)" opacity="0.6"/>
+  <rect x="14" y="48" width="6" height="6" rx="1.4" fill="url(#pix)" opacity="0.85"/>
+
+  <!-- isometric cube -->
+  <polygon points="32,9 53,21 32,33 11,21" fill="url(#top)"/>
+  <polygon points="11,21 32,33 32,56 11,44" fill="url(#left)"/>
+  <polygon points="53,21 32,33 32,56 53,44" fill="url(#right)"/>
+
+  <!-- specular glint on the top face -->
+  <path d="M30 15 l1.6 3.2 3.2 1.6 -3.2 1.6 -1.6 3.2 -1.6 -3.2 -3.2 -1.6 3.2 -1.6 z" fill="#f4faff" opacity="0.92"/>
+</svg>
