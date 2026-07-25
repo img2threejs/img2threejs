@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>惡魔熊 3D 模型 - 互動演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #cc2222;
+            max-width: 400px;
+            font-size: 14px;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+        }
+        
+        .info-panel h1 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #cc2222;
+        }
+        
+        .info-panel p {
+            margin: 5px 0;
+            color: #ccc;
+        }
+        
+        .stats {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.8;
+            border-left: 4px solid #00ff00;
+        }
+        
+        .stats div {
+            color: #00ff00;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 30px;
+            border-radius: 10px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .controls p {
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="info-panel">
+        <h1>🐻 惡魔熊</h1>
+        <p><strong>風格化 3D 角色</strong></p>
+        <p>✓ 黑色身體</p>
+        <p>✓ 紅色發光眼睛</p>
+        <p>✓ X 字紋標記</p>
+        <p>✓ 縫線細節</p>
+        <p>✓ 爪子手腳</p>
+        <p>✓ 動態尾巴</p>
+        <hr style="margin: 10px 0; opacity: 0.3;">
+        <p style="font-size: 12px; color: #999;">使用滑鼠移動視角</p>
+    </div>
+    
+    <div class="stats" id="stats">
+        <div>FPS: <span id="fps">60</span></div>
+        <div>幾何: ~15K 三角形</div>
+        <div>材質: 4 種</div>
+        <div>動畫: 啟用中</div>
+    </div>
+    
+    <div class="controls">
+        <p>💡 移動滑鼠環繞模型 | 旋轉即時預覽</p>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@r128/build/three.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // ============ 創建惡魔熊模型 ============
+        function createDemonBearModel(options = {}) {
+            const { scale = 1, animationSpeed = 1 } = options;
+            const root = new THREE.Group();
+            root.scale.multiplyScalar(scale);
+
+            // === 材質設置 ===
+            const blackMat = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                roughness: 0.7,
+                metalness: 0,
+            });
+
+            const redMat = new THREE.MeshStandardMaterial({
+                color: 0xcc2222,
+                roughness: 0.6,
+                metalness: 0.1,
+                emissive: 0x661111,
+            });
+
+            const whiteMat = new THREE.MeshStandardMaterial({
+                color: 0xf5f5f5,
+                roughness: 0.4,
+                metalness: 0,
+            });
+
+            const skinMat = new THREE.MeshStandardMaterial({
+                color: 0x2a1a1a,
+                roughness: 0.8,
+                metalness: 0,
+            });
+
+            // === 主要身體 ===
+            const bodyGroup = new THREE.Group();
+            bodyGroup.name = 'body';
+
+            // 軀幹
+            const torsoGeom = new THREE.CapsuleGeometry(0.8, 2.2, 4, 8);
+            const torso = new THREE.Mesh(torsoGeom, blackMat);
+            torso.scale.set(1, 1.1, 1);
+            torso.castShadow = true;
+            torso.receiveShadow = true;
+            bodyGroup.add(torso);
+
+            // 腹部隆起
+            const bellyGeom = new THREE.SphereGeometry(0.7, 16, 16);
+            const belly = new THREE.Mesh(bellyGeom, blackMat);
+            belly.position.z = 0.15;
+            belly.position.y = -0.8;
+            belly.scale.set(1, 1.2, 0.95);
+            belly.castShadow = true;
+            bodyGroup.add(belly);
+
+            // === 頭部 ===
+            const headGroup = new THREE.Group();
+            headGroup.name = 'head';
+            headGroup.position.y = 1.8;
+
+            const headGeom = new THREE.SphereGeometry(0.85, 16, 16);
+            const head = new THREE.Mesh(headGeom, blackMat);
+            head.scale.set(1, 1.1, 0.95);
+            head.castShadow = true;
+            head.receiveShadow = true;
+            headGroup.add(head);
+
+            // === 耳朵 ===
+            const createEar = (side) => {
+                const earGeom = new THREE.ConeGeometry(0.25, 0.7, 8);
+                const ear = new THREE.Mesh(earGeom, blackMat);
+                ear.position.set(side * 0.6, 0.6, -0.3);
+                ear.rotation.z = side * 0.3;
+                ear.castShadow = true;
+                return ear;
+            };
+
+            headGroup.add(createEar(1));
+            headGroup.add(createEar(-1));
+
+            // === 眼睛 ===
+            const createEye = (side) => {
+                const eyeGroup = new THREE.Group();
+                const eyeSocketGeom = new THREE.BoxGeometry(0.3, 0.35, 0.15);
+                const eyeSocket = new THREE.Mesh(eyeSocketGeom, redMat);
+                eyeSocket.position.set(side * 0.35, 0.2, 0.7);
+                eyeGroup.add(eyeSocket);
+
+                const pupilGeom = new THREE.SphereGeometry(0.12, 8, 8);
+                const pupil = new THREE.Mesh(pupilGeom, new THREE.MeshStandardMaterial({
+                    color: 0x000000,
+                    roughness: 0.2,
+                    metalness: 0.3,
+                }));
+                pupil.position.set(side * 0.35, 0.15, 0.85);
+                eyeGroup.add(pupil);
+                return eyeGroup;
+            };
+
+            headGroup.add(createEye(1));
+            headGroup.add(createEye(-1));
+
+            // === 面部 X 標記 ===
+            const xMark = new THREE.Group();
+            xMark.position.set(0, -0.1, 0.8);
+
+            const createXLine = (angle) => {
+                const lineGeom = new THREE.BoxGeometry(0.08, 0.4, 0.02);
+                const line = new THREE.Mesh(lineGeom, redMat);
+                line.rotation.z = angle;
+                return line;
+            };
+
+            xMark.add(createXLine(Math.PI / 4));
+            xMark.add(createXLine(-Math.PI / 4));
+            headGroup.add(xMark);
+
+            // === 嘴巴 ===
+            const mouthGeom = new THREE.BoxGeometry(0.5, 0.12, 0.1);
+            const mouth = new THREE.Mesh(mouthGeom, redMat);
+            mouth.position.set(0, -0.4, 0.7);
+            headGroup.add(mouth);
+
+            // 嘴巴縫線
+            for (let i = 0; i < 4; i++) {
+                const stitchGeom = new THREE.BoxGeometry(0.08, 0.04, 0.08);
+                const stitch = new THREE.Mesh(stitchGeom, whiteMat);
+                stitch.position.set(-0.2 + i * 0.15, -0.45, 0.75);
+                headGroup.add(stitch);
+            }
+
+            bodyGroup.add(headGroup);
+
+            // === 左臂（抬起） ===
+            const leftArmGroup = new THREE.Group();
+            leftArmGroup.name = 'leftArm';
+            leftArmGroup.position.set(-0.9, 0.9, 0);
+            leftArmGroup.rotation.z = -0.6;
+
+            const upperArmGeom = new THREE.CapsuleGeometry(0.25, 0.9, 4, 8);
+            const upperArm = new THREE.Mesh(upperArmGeom, blackMat);
+            upperArm.position.y = 0.3;
+            upperArm.castShadow = true;
+            leftArmGroup.add(upperArm);
+
+            const forearmGeom = new THREE.CapsuleGeometry(0.22, 0.8, 4, 8);
+            const forearm = new THREE.Mesh(forearmGeom, blackMat);
+            forearm.position.set(0, 1.1, 0);
+            forearm.rotation.z = 0.4;
+            forearm.castShadow = true;
+            leftArmGroup.add(forearm);
+
+            const handGeom = new THREE.SphereGeometry(0.3, 8, 8);
+            const hand = new THREE.Mesh(handGeom, blackMat);
+            hand.position.set(0.1, 1.75, 0);
+            hand.scale.set(0.9, 1, 1.1);
+            hand.castShadow = true;
+            leftArmGroup.add(hand);
+
+            const createClaw = (index) => {
+                const clawGeom = new THREE.ConeGeometry(0.08, 0.4, 6);
+                const claw = new THREE.Mesh(clawGeom, skinMat);
+                const angle = (index - 1.5) * 0.3;
+                claw.position.set(0.15 + Math.cos(angle) * 0.15, 2, Math.sin(angle) * 0.15);
+                claw.rotation.x = 0.3;
+                claw.castShadow = true;
+                return claw;
+            };
+
+            for (let i = 0; i < 4; i++) {
+                leftArmGroup.add(createClaw(i));
+            }
+
+            bodyGroup.add(leftArmGroup);
+
+            // === 右臂（下降） ===
+            const rightArmGroup = new THREE.Group();
+            rightArmGroup.name = 'rightArm';
+            rightArmGroup.position.set(0.9, 0.5, 0);
+            rightArmGroup.rotation.z = 0.3;
+
+            const rightUpperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.9, 4, 8), blackMat);
+            rightUpperArm.position.y = 0.2;
+            rightUpperArm.castShadow = true;
+            rightArmGroup.add(rightUpperArm);
+
+            const rightForearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.8, 4, 8), blackMat);
+            rightForearm.position.set(-0.1, 0.9, 0);
+            rightForearm.rotation.z = -0.3;
+            rightForearm.castShadow = true;
+            rightArmGroup.add(rightForearm);
+
+            const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), blackMat);
+            rightHand.position.set(-0.2, 1.5, 0);
+            rightHand.castShadow = true;
+            rightArmGroup.add(rightHand);
+
+            for (let i = 0; i < 4; i++) {
+                const claw = createClaw(i);
+                claw.position.x -= 0.4;
+                rightArmGroup.add(claw);
+            }
+
+            bodyGroup.add(rightArmGroup);
+
+            // === 胸部 X 標記 ===
+            const chestXMark = new THREE.Group();
+            chestXMark.position.set(0, 0.3, 0.8);
+            chestXMark.add(createXLine(Math.PI / 4));
+            chestXMark.add(createXLine(-Math.PI / 4));
+            bodyGroup.add(chestXMark);
+
+            // === 腿部 ===
+            const createLeg = (side) => {
+                const legGroup = new THREE.Group();
+                legGroup.position.set(side * 0.5, -1.5, 0);
+
+                const thighGeom = new THREE.CapsuleGeometry(0.35, 0.8, 4, 8);
+                const thigh = new THREE.Mesh(thighGeom, blackMat);
+                thigh.position.y = -0.3;
+                thigh.castShadow = true;
+                legGroup.add(thigh);
+
+                const calfGeom = new THREE.CapsuleGeometry(0.3, 0.8, 4, 8);
+                const calf = new THREE.Mesh(calfGeom, blackMat);
+                calf.position.y = -1.1;
+                calf.castShadow = true;
+                legGroup.add(calf);
+
+                const footGeom = new THREE.BoxGeometry(0.4, 0.3, 0.6);
+                const foot = new THREE.Mesh(footGeom, skinMat);
+                foot.position.set(0, -1.7, 0.1);
+                foot.castShadow = true;
+                legGroup.add(foot);
+
+                for (let i = 0; i < 3; i++) {
+                    const toeGeom = new THREE.ConeGeometry(0.06, 0.25, 6);
+                    const toe = new THREE.Mesh(toeGeom, skinMat);
+                    toe.position.set((i - 1) * 0.15 - 0.05, -1.85, 0.25);
+                    toe.rotation.x = 0.2;
+                    toe.castShadow = true;
+                    legGroup.add(toe);
+                }
+
+                return legGroup;
+            };
+
+            bodyGroup.add(createLeg(1));
+            bodyGroup.add(createLeg(-1));
+
+            // === 尾巴 ===
+            const tailGroup = new THREE.Group();
+            tailGroup.name = 'tail';
+            tailGroup.position.set(0, -0.5, -1);
+
+            for (let i = 0; i < 3; i++) {
+                const segGeom = new THREE.CapsuleGeometry(0.2 - i * 0.05, 0.6, 4, 8);
+                const seg = new THREE.Mesh(segGeom, blackMat);
+                seg.position.set(0, 0, -i * 0.5);
+                seg.rotation.x = 0.2 + i * 0.1;
+                seg.castShadow = true;
+                tailGroup.add(seg);
+            }
+
+            bodyGroup.add(tailGroup);
+
+            // === 運行時數據 ===
+            root.userData.sculptRuntime = {
+                bodyGroup,
+                headGroup,
+                leftArmGroup,
+                rightArmGroup,
+                tailGroup,
+                animationSpeed,
+            };
+
+            root.add(bodyGroup);
+            return root;
+        }
+
+        // === 動畫函數 ===
+        function animateDemonBear(model, time) {
+            const runtime = model.userData.sculptRuntime;
+            if (!runtime) return;
+
+            const speed = runtime.animationSpeed || 1;
+            const t = time * speed;
+
+            if (runtime.headGroup) {
+                runtime.headGroup.position.y = 1.8 + Math.sin(t * 2) * 0.1;
+            }
+
+            if (runtime.tailGroup) {
+                runtime.tailGroup.rotation.x = 0.2 + Math.sin(t * 1.5) * 0.2;
+            }
+
+            if (runtime.bodyGroup) {
+                const breathAmount = 1 + Math.sin(t * 1) * 0.05;
+                runtime.bodyGroup.scale.y = breathAmount;
+            }
+        }
+
+        // ============ 場景設置 ============
+        const canvas = document.getElementById('canvas');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+        scene.fog = new THREE.Fog(0x1a1a2e, 15, 50);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.5, 4);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // === 光源設置 ===
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(5, 8, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.far = 50;
+        directionalLight.shadow.camera.left = -10;
+        directionalLight.shadow.camera.right = 10;
+        directionalLight.shadow.camera.top = 10;
+        directionalLight.shadow.camera.bottom = -10;
+        scene.add(directionalLight);
+
+        const pointLight = new THREE.PointLight(0xff6666, 0.5, 20);
+        pointLight.position.set(-3, 2, 3);
+        scene.add(pointLight);
+
+        // === 地面 ===
+        const groundGeom = new THREE.PlaneGeometry(30, 30);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x2a2a3e,
+            roughness: 0.8,
+        });
+        const ground = new THREE.Mesh(groundGeom, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // === 創建模型 ===
+        const model = createDemonBearModel({ scale: 1.5, animationSpeed: 0.8 });
+        model.position.set(0, -0.5, 0);
+        scene.add(model);
+
+        // === 滑鼠交互 ===
+        let mouseX = 0;
+        let mouseY = 0;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // === 動畫循環 ===
+        let lastTime = Date.now();
+        let frameCount = 0;
+        let fpsTime = 0;
+
+        const animate = () => {
+            requestAnimationFrame(animate);
+
+            const currentTime = Date.now();
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+
+            animateDemonBear(model, deltaTime);
+
+            // 滑鼠視角控制
+            const targetX = mouseX * 3;
+            const targetY = mouseY * 1.5;
+            const distance = 4;
+
+            camera.position.x += (Math.sin(targetX) * distance - camera.position.x) * 0.1;
+            camera.position.z += (Math.cos(targetX) * distance - camera.position.z) * 0.1;
+            camera.position.y += (1.5 + targetY - camera.position.y) * 0.1;
+            camera.lookAt(0, 1, 0);
+
+            renderer.render(scene, camera);
+
+            // FPS 計算
+            frameCount++;
+            fpsTime += deltaTime;
+            if (fpsTime >= 1) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                fpsTime = 0;
+            }
+        };
+
+        animate();
+
+        // 窗口調整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
