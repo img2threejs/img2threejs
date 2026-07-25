@@ -111,16 +111,10 @@
         <p>💡 移動滑鼠環繞模型 | 旋轉即時預覽</p>
     </div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@r128/build/three.module.js"
-        }
-    }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
 
-    <script type="module">
-        import * as THREE from 'three';
+    <script>
+        const THREE = window.THREE;
 
         // ============ 創建惡魔熊模型 ============
         function createDemonBearModel(options = {}) {
@@ -158,8 +152,8 @@
             const bodyGroup = new THREE.Group();
             bodyGroup.name = 'body';
 
-            // 軀幹
-            const torsoGeom = new THREE.CapsuleGeometry(0.8, 2.2, 4, 8);
+            // 軀幹 (使用 CylinderGeometry 替代 CapsuleGeometry)
+            const torsoGeom = new THREE.CylinderGeometry(0.8, 0.8, 2.2, 16, 8);
             const torso = new THREE.Mesh(torsoGeom, blackMat);
             torso.scale.set(1, 1.1, 1);
             torso.castShadow = true;
@@ -259,13 +253,13 @@
             leftArmGroup.position.set(-0.9, 0.9, 0);
             leftArmGroup.rotation.z = -0.6;
 
-            const upperArmGeom = new THREE.CapsuleGeometry(0.25, 0.9, 4, 8);
+            const upperArmGeom = new THREE.CylinderGeometry(0.25, 0.25, 0.9, 12, 8);
             const upperArm = new THREE.Mesh(upperArmGeom, blackMat);
             upperArm.position.y = 0.3;
             upperArm.castShadow = true;
             leftArmGroup.add(upperArm);
 
-            const forearmGeom = new THREE.CapsuleGeometry(0.22, 0.8, 4, 8);
+            const forearmGeom = new THREE.CylinderGeometry(0.22, 0.22, 0.8, 12, 8);
             const forearm = new THREE.Mesh(forearmGeom, blackMat);
             forearm.position.set(0, 1.1, 0);
             forearm.rotation.z = 0.4;
@@ -301,12 +295,12 @@
             rightArmGroup.position.set(0.9, 0.5, 0);
             rightArmGroup.rotation.z = 0.3;
 
-            const rightUpperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.9, 4, 8), blackMat);
+            const rightUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.9, 12, 8), blackMat);
             rightUpperArm.position.y = 0.2;
             rightUpperArm.castShadow = true;
             rightArmGroup.add(rightUpperArm);
 
-            const rightForearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.8, 4, 8), blackMat);
+            const rightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.8, 12, 8), blackMat);
             rightForearm.position.set(-0.1, 0.9, 0);
             rightForearm.rotation.z = -0.3;
             rightForearm.castShadow = true;
@@ -337,13 +331,13 @@
                 const legGroup = new THREE.Group();
                 legGroup.position.set(side * 0.5, -1.5, 0);
 
-                const thighGeom = new THREE.CapsuleGeometry(0.35, 0.8, 4, 8);
+                const thighGeom = new THREE.CylinderGeometry(0.35, 0.35, 0.8, 12, 8);
                 const thigh = new THREE.Mesh(thighGeom, blackMat);
                 thigh.position.y = -0.3;
                 thigh.castShadow = true;
                 legGroup.add(thigh);
 
-                const calfGeom = new THREE.CapsuleGeometry(0.3, 0.8, 4, 8);
+                const calfGeom = new THREE.CylinderGeometry(0.3, 0.3, 0.8, 12, 8);
                 const calf = new THREE.Mesh(calfGeom, blackMat);
                 calf.position.y = -1.1;
                 calf.castShadow = true;
@@ -376,7 +370,8 @@
             tailGroup.position.set(0, -0.5, -1);
 
             for (let i = 0; i < 3; i++) {
-                const segGeom = new THREE.CapsuleGeometry(0.2 - i * 0.05, 0.6, 4, 8);
+                const radius = 0.2 - i * 0.05;
+                const segGeom = new THREE.CylinderGeometry(radius, radius, 0.6, 12, 8);
                 const seg = new THREE.Mesh(segGeom, blackMat);
                 seg.position.set(0, 0, -i * 0.5);
                 seg.rotation.x = 0.2 + i * 0.1;
