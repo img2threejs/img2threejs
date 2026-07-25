@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "itemFamily": "knife",
-  "subtype": "karambit",
-  "route": "reference-projection",
-  "exactnessTier": "image-only",
-  "materialChannels": ["albedo", "roughness", "metalness", "normal", "ao"],
-  "environmentAvailable": true
-}

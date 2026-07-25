@@ -29,3 +29,6 @@ runtime/**/dist/
 runtime/**/.vite/
 
 .cache/spec-search/
+assets/
+openspec/
+runtime/
