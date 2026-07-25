@@ -64,3 +64,24 @@ For objects with many details, require:
 - evidence refs to image regions
 
 If these cannot be inferred from the image, mark the spec `conditional` and list missing views or close-ups.
+
+---
+
+## CS2 Item Identity and References (Critical — from Bowie Knife reconstruction)
+
+**The problem:** `--cs2` only sets the difficulty tier; it does NOT fetch metadata or official references. Assuming stock features from skin names leads to wrong geometry (e.g., assuming "no stock Bowie has sawback" when the vanilla render proves it does).
+
+**Rule:** Get the item's real market name/identity EARLY, and pull official references FIRST before authoring geometry:
+
+1. **Ask the user for the exact market name** up front (e.g., "Autotronic" not just "Bowie Knife with red/black finish")
+2. **Use `fetch_cs2_metadata.py`** to resolve paint index + official CDN render + confirm the skin exists
+3. **Fetch official + vanilla renders** before authoring geometry — these show the base model features (sawback, clip point, tang, guard style) that skin names don't reveal
+4. **Never infer stock features from skin names alone** — the vanilla render is the source of truth for base model geometry
+
+**Reference sources:** Official CS2 CDN renders, vanilla (factory new) renders, and any official artwork provided by the user. Side-view orthographic reference images are ideal for profile extraction; 3/4 angle renders help verify form and materials.
+
+**Verification:** Before writing geometry, confirm you have:
+- Exact item name (market name, not description)
+- Official vanilla render (to see base model features)
+- Official skin render (to see finish/pattern)
+- Any orthographic side views if available

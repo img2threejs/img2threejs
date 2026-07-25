@@ -1,0 +1,1529 @@
+{
+  "version": "1.0",
+  "source": "img2threejs NotebookLM research distillation",
+  "categories": {
+    "material_pbr": [
+      {
+        "name": "Metalness",
+        "name_vi": "Độ kim loại",
+        "definition": "Binary or scalar property defining whether a surface is dielectric (0.0) or conductive metal (1.0); intermediate values blend the two.",
+        "definition_vi": "Thuộc tính nhị phân hoặc vô hướng xác định bề mặt là điện môi (0.0) hay kim loại dẫn điện (1.0); giá trị trung gian là pha trộn tuyến tính.",
+        "recognition_cues": [
+          "Metallic surfaces tint their reflections with the base color at grazing angles instead of showing white specular highlights",
+          "CS2 specifically uses a strict binary model — pure metal (1.0) or pure dielectric (0.0), no soft gray transition zones"
+        ],
+        "recognition_cues_vi": [
+          "Bề mặt kim loại nhuộm màu phản xạ theo màu nền ở góc nhìn xiên thay vì hiển thị điểm sáng specular trắng",
+          "CS2 dùng mô hình nhị phân nghiêm ngặt — kim loại thuần (1.0) hoặc điện môi thuần (0.0), không có vùng chuyển xám mềm"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.metalness (scalar) + .metalnessMap (blue channel of packed ORM texture, NoColorSpace)"
+      },
+      {
+        "name": "Roughness",
+        "name_vi": "Độ nhám",
+        "definition": "Microfacet surface imperfection parameter; controls how tightly or diffusely light scatters off a surface.",
+        "definition_vi": "Tham số vi mô bề mặt mô tả ánh sáng bị tán xạ tập trung hay khuếch tán khi phản xạ.",
+        "recognition_cues": [
+          "Low roughness = sharp, mirror-like, tight specular highlight",
+          "High roughness = blurry, wide, dim highlight and matte appearance",
+          "In a photo, worn/scratched regions show broken-up, uneven highlight shapes vs. the smooth highlight of pristine areas"
+        ],
+        "recognition_cues_vi": [
+          "Độ nhám thấp = điểm sáng specular sắc nét, giống gương",
+          "Độ nhám cao = điểm sáng mờ, rộng, tối, bề mặt trông mờ đục",
+          "Trong ảnh, vùng bị mòn/trầy có hình dạng điểm sáng vỡ vụn, không đều so với vùng nguyên vẹn"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.roughness (scalar) + .roughnessMap (green channel of packed ORM texture, NoColorSpace)"
+      },
+      {
+        "name": "Normal Map",
+        "name_vi": "Bản đồ pháp tuyến",
+        "definition": "Tangent-space RGB texture that perturbs surface normals to simulate fine geometric detail (engravings, scratches, weave) without added polycount.",
+        "definition_vi": "Kết cấu RGB không gian tiếp tuyến làm lệch pháp tuyến bề mặt để mô phỏng chi tiết hình học nhỏ (khắc chữ, vết trầy, dệt vải) mà không tăng số đa giác.",
+        "recognition_cues": [
+          "Fine surface relief (engraving, stippling, fabric weave, edge chips) visible under raking light but absent from the silhouette",
+          "Typically stored as a blue/purple-tinted texture in extraction tools"
+        ],
+        "recognition_cues_vi": [
+          "Chi tiết nổi trên bề mặt (khắc chữ, chấm nhám, dệt vải, mẻ cạnh) thấy rõ dưới ánh sáng chéo nhưng không có trên đường viền hình học",
+          "Thường lưu dưới dạng kết cấu có tông màu xanh dương/tím trong công cụ trích xuất"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.normalMap (RGB, NoColorSpace); invert green (Y) channel if source is OpenGL vs DirectX convention"
+      },
+      {
+        "name": "Ambient Occlusion (AO)",
+        "name_vi": "Bóng đổ môi trường (AO)",
+        "definition": "Baked grayscale map darkening indirect light in crevices, seams, and recesses.",
+        "definition_vi": "Bản đồ grayscale được nướng sẵn làm tối ánh sáng gián tiếp tại các khe, rãnh và chỗ lõm.",
+        "recognition_cues": [
+          "Soft, contact-shadow-like darkening in grooves, screw recesses, and part seams that doesn't move with the key light",
+          "Protected/recessed regions accumulate dirt/grime under wear rather than losing paint"
+        ],
+        "recognition_cues_vi": [
+          "Vùng tối mềm giống bóng tiếp xúc tại các rãnh, ốc vít, mối nối — không di chuyển theo hướng đèn chính",
+          "Vùng lõm được bảo vệ tích tụ bụi bẩn khi mòn thay vì mất lớp sơn"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.aoMap (red channel of packed ORM texture, NoColorSpace) + aoMapIntensity"
+      },
+      {
+        "name": "Clearcoat",
+        "name_vi": "Lớp phủ bóng (Clearcoat)",
+        "definition": "Secondary reflective coating layer on top of the base material, simulating varnish, lacquer, or automotive paint.",
+        "definition_vi": "Lớp phủ phản xạ thứ cấp nằm trên vật liệu nền, mô phỏng vecni, sơn mài hoặc sơn xe hơi.",
+        "recognition_cues": [
+          "A distinct, sharp secondary highlight sitting on top of a duller or differently-colored base layer",
+          "Common on Custom Paint Job / Gunsmith style finishes with a glossy topcoat over illustrative artwork"
+        ],
+        "recognition_cues_vi": [
+          "Có một điểm sáng thứ cấp sắc nét nằm trên lớp nền mờ hơn hoặc khác màu",
+          "Thường gặp ở các finish kiểu Custom Paint Job / Gunsmith có lớp phủ bóng trên tranh vẽ minh họa"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.clearcoat (weight) + .clearcoatRoughness"
+      },
+      {
+        "name": "Subsurface Scattering (SSS)",
+        "name_vi": "Tán xạ dưới bề mặt (SSS)",
+        "definition": "Light transport property for opaque dielectrics where light penetrates and scatters internally before exiting (skin, wax, marble, some polymers).",
+        "definition_vi": "Đặc tính truyền ánh sáng của vật liệu điện môi mờ đục, ánh sáng xuyên vào và tán xạ bên trong trước khi thoát ra (da, sáp, đá cẩm thạch, một số nhựa polymer).",
+        "recognition_cues": [
+          "Edges/thin sections of the material glow softly when backlit rather than showing a hard black silhouette",
+          "Relevant mainly to glove leather/polymer trims and agent-model skin, not metal weapon parts"
+        ],
+        "recognition_cues_vi": [
+          "Các cạnh/phần mỏng của vật liệu phát sáng mềm khi có ánh sáng ngược thay vì tạo bóng đen sắc nét",
+          "Chủ yếu liên quan đến da/nhựa của găng tay và da người mẫu đặc vụ, không áp dụng cho các bộ phận kim loại của súng"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.transmission + .thickness + .attenuationColor (approximates SSS on MeshPhysicalMaterial)"
+      },
+      {
+        "name": "Anisotropy",
+        "name_vi": "Dị hướng (Anisotropy)",
+        "definition": "Directional specular stretching seen on brushed or grooved metal, where reflections elongate along the grain direction.",
+        "definition_vi": "Hiện tượng phản xạ specular kéo dài theo một hướng, thấy trên kim loại được chải xước hoặc có rãnh, phản xạ kéo dài theo hướng vân.",
+        "recognition_cues": [
+          "Elongated, streaky highlights (not round) that stay aligned with visible brush/groove marks as the view angle changes",
+          "Common on brushed steel/titanium knife finishes and gunsmith metal bases"
+        ],
+        "recognition_cues_vi": [
+          "Điểm sáng kéo dài, có vệt (không tròn) luôn thẳng hàng với các vết chải/rãnh nhìn thấy khi góc nhìn thay đổi",
+          "Thường gặp ở các finish thép/titan chải xước của dao và nền kim loại gunsmith"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.anisotropy (scalar) + .anisotropyMap (direction/strength) + tangent map for groove direction"
+      },
+      {
+        "name": "Emission",
+        "name_vi": "Phát xạ (Emission)",
+        "definition": "Self-illuminating surface layer independent of scene lighting, used for glowing indicators or self-illum masks.",
+        "definition_vi": "Lớp bề mặt tự phát sáng độc lập với ánh sáng cảnh, dùng cho đèn báo phát sáng hoặc mặt nạ self-illum.",
+        "recognition_cues": [
+          "A region stays bright/colored regardless of light direction or shadow (e.g. StatTrak orange LED counter module)",
+          "Often masked to a small, specific submesh rather than the whole surface"
+        ],
+        "recognition_cues_vi": [
+          "Một vùng luôn sáng/có màu bất kể hướng ánh sáng hay bóng đổ (vd. module đèn LED cam của StatTrak)",
+          "Thường được giới hạn (mask) vào một submesh nhỏ, cụ thể thay vì toàn bộ bề mặt"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.emissive + .emissiveMap (SRGBColorSpace) + .emissiveIntensity"
+      },
+      {
+        "name": "Opacity / Alpha",
+        "name_vi": "Độ trong suốt / Alpha",
+        "definition": "Controls material transparency and blend mode; in CS2 workflows the alpha channel of Base Color is repurposed as a non-transparency data channel.",
+        "definition_vi": "Kiểm soát độ trong suốt và chế độ blend của vật liệu; trong quy trình CS2, kênh alpha của Base Color được tái sử dụng làm kênh dữ liệu, không phải độ trong suốt.",
+        "recognition_cues": [
+          "Standard opacity: soft edge fade or full transparency in glass/plastic parts",
+          "CS2-specific: alpha channel of the base color texture instead encodes a Wearness Mask, not visual transparency"
+        ],
+        "recognition_cues_vi": [
+          "Opacity tiêu chuẩn: cạnh mờ dần hoặc trong suốt hoàn toàn ở các bộ phận kính/nhựa",
+          "Đặc thù CS2: kênh alpha của texture màu nền lại mã hóa Wearness Mask, không phải độ trong suốt thị giác"
+        ],
+        "threejs_target": "MeshPhysicalMaterial.opacity + .alphaTest / .transparent (standard); CS2 alpha channel routed to a custom wear shader input instead"
+      },
+      {
+        "name": "Wearness Alpha Mask",
+        "name_vi": "Mặt nạ độ bền (Wearness Mask)",
+        "definition": "CS2-specific per-pixel durability control embedded in the alpha channel of the Base Color texture, independent of visible transparency.",
+        "definition_vi": "Cơ chế điều khiển độ bền theo từng pixel đặc thù của CS2, nhúng trong kênh alpha của texture Base Color, độc lập với độ trong suốt thị giác.",
+        "recognition_cues": [
+          "Alpha ~196: paint erodes early, visible scratches/chips even at low float (Factory New range)",
+          "Alpha <128: durable, resists scratching",
+          "Alpha = 0 (black): absolute durability, paint never scratches regardless of float value"
+        ],
+        "recognition_cues_vi": [
+          "Alpha ~196: sơn bong sớm, có vết trầy/mẻ ngay cả ở float thấp (khoảng Factory New)",
+          "Alpha <128: bền, chống trầy",
+          "Alpha = 0 (đen): bền tuyệt đối, sơn không bao giờ bị trầy dù float cao"
+        ],
+        "threejs_target": "Custom shader uniform sampling Base Color alpha to drive a wear-blend mix() between pristine and worn material states, keyed by a float value parameter"
+      },
+      {
+        "name": "ORM Channel Packing",
+        "name_vi": "Đóng gói kênh ORM",
+        "definition": "Convention of packing AO, Roughness, and Metalness grayscale maps into the R, G, B channels of a single texture to cut texture-fetch and VRAM cost.",
+        "definition_vi": "Quy ước đóng gói ba bản đồ grayscale AO, Roughness, Metalness vào các kênh R, G, B của một texture duy nhất để giảm chi phí lấy mẫu texture và VRAM.",
+        "recognition_cues": [
+          "Single texture file that looks like flat gray/colored noise, not a recognizable color or normal map",
+          "Source 2 (CS2) packs Roughness/Metalness this way; the raw file needs channel-splitting before separate Three.js texture slots can use it"
+        ],
+        "recognition_cues_vi": [
+          "Một file texture duy nhất trông như nhiễu xám/màu phẳng, không giống ảnh màu hay normal map thông thường",
+          "Source 2 (CS2) đóng gói Roughness/Metalness theo cách này; file gốc cần tách kênh trước khi gán vào các khe texture riêng của Three.js"
+        ],
+        "threejs_target": "One packed texture assigned simultaneously to .aoMap (R), .roughnessMap (G), .metalnessMap (B) per the glTF ORM convention"
+      },
+      {
+        "name": "Color Space: sRGB vs Linear/NoColorSpace",
+        "name_vi": "Không gian màu: sRGB và Linear/NoColorSpace",
+        "definition": "Distinction between human-viewable color data (needs gamma/sRGB) and mathematical data maps (must stay linear/uncorrected).",
+        "definition_vi": "Phân biệt giữa dữ liệu màu để người xem (cần gamma/sRGB) và các bản đồ dữ liệu toán học (phải giữ tuyến tính/không hiệu chỉnh).",
+        "recognition_cues": [
+          "Base color/albedo and emissive textures are the only ones that should look like natural photographic color",
+          "Normal, roughness, metalness, and AO textures look like flat/desaturated data patterns and must never be gamma-corrected"
+        ],
+        "recognition_cues_vi": [
+          "Chỉ có base color/albedo và emissive texture nên trông như ảnh màu tự nhiên",
+          "Normal, roughness, metalness, AO trông như các mẫu dữ liệu phẳng/khử màu và không bao giờ được hiệu chỉnh gamma"
+        ],
+        "threejs_target": "texture.colorSpace = THREE.SRGBColorSpace for .map/.emissiveMap; THREE.NoColorSpace for .normalMap/.roughnessMap/.metalnessMap/.aoMap (Three.js r152+)"
+      },
+      {
+        "name": "Hand-Painted vs PBR Texture",
+        "name_vi": "Kết cấu vẽ tay và kết cấu PBR",
+        "definition": "Distinguishes textures with lighting baked directly into color (static, stylized) from textures that respond dynamically to scene lighting via separate PBR channels.",
+        "definition_vi": "Phân biệt kết cấu có ánh sáng được nướng trực tiếp vào màu (tĩnh, cách điệu) với kết cấu phản hồi động theo ánh sáng cảnh qua các kênh PBR riêng.",
+        "recognition_cues": [
+          "Hand-painted: shadows/highlights stay fixed in place even as the object rotates or lighting changes; visible brushstrokes; single diffuse-only map",
+          "PBR: specular highlights and shadow shapes move logically with view/light angle; micro-detail (pores, scratches) shows directional shading from normal/roughness maps"
+        ],
+        "recognition_cues_vi": [
+          "Vẽ tay: bóng tối/điểm sáng cố định vị trí dù vật xoay hay ánh sáng đổi; thấy vết cọ; chỉ có một map diffuse duy nhất",
+          "PBR: điểm sáng specular và hình dạng bóng di chuyển hợp lý theo góc nhìn/ánh sáng; chi tiết vi mô (lỗ chân lông, vết xước) có bóng đổ theo hướng từ normal/roughness map"
+        ],
+        "threejs_target": "Hand-painted → single .map (baked lighting, SRGBColorSpace); PBR → full MeshPhysicalMaterial channel set (map/normalMap/roughnessMap/metalnessMap/aoMap)"
+      },
+      {
+        "name": "Tangent-Space Normal Encoding (DirectX vs OpenGL)",
+        "name_vi": "Mã hóa Normal Map không gian tiếp tuyến (DirectX và OpenGL)",
+        "definition": "Convention difference in the green (Y) channel of tangent-space normal maps between DirectX-style and OpenGL-style encoding.",
+        "definition_vi": "Sự khác biệt quy ước ở kênh xanh lá (Y) của normal map không gian tiếp tuyến giữa mã hóa kiểu DirectX và kiểu OpenGL.",
+        "recognition_cues": [
+          "Bumps rendering as dents (or vice versa) after import is the visual symptom of a Y-channel mismatch",
+          "CS2/Source 2 extracted normals may need the green channel inverted depending on export convention"
+        ],
+        "recognition_cues_vi": [
+          "Hiện tượng chỗ lồi hiển thị thành chỗ lõm (hoặc ngược lại) sau khi import là dấu hiệu sai lệch kênh Y",
+          "Normal map trích xuất từ CS2/Source 2 có thể cần đảo kênh xanh lá tùy theo quy ước xuất"
+        ],
+        "threejs_target": "Invert the green channel of the source normal texture (texture data flip) before assigning to MeshPhysicalMaterial.normalMap if bump direction reads inverted"
+      }
+    ],
+    "geometry_anatomy": {
+      "rifle": [
+        {
+          "name": "Upper Receiver",
+          "name_vi": "Thân trên",
+          "definition": "Top housing of the rifle containing the bolt carrier group and providing the barrel mounting point.",
+          "definition_vi": "Phần vỏ trên của súng trường chứa cụm bệ khóa nòng và là điểm gắn nòng súng.",
+          "recognition_cues": [
+            "Long central body spanning from the rear sight area to the barrel root, sits above the trigger/lower assembly"
+          ],
+          "recognition_cues_vi": [
+            "Thân dài trung tâm kéo dài từ khu vực thước ngắm đến gốc nòng súng, nằm phía trên cụm cò/thân dưới"
+          ],
+          "threejs_target": "BoxGeometry-based blocked-out shell as the parent node for barrel, sight, and handguard child meshes"
+        },
+        {
+          "name": "Lower Receiver",
+          "name_vi": "Thân dưới",
+          "definition": "Bottom housing containing the trigger assembly, magazine well, and fire-selector.",
+          "definition_vi": "Phần vỏ dưới chứa cụm cò, ổ tiếp đạn (magazine well) và cần chọn chế độ bắn.",
+          "recognition_cues": [
+            "Contains the trigger guard opening and the magazine insertion slot; grip attaches to its rear"
+          ],
+          "recognition_cues_vi": [
+            "Chứa lỗ vành bảo vệ cò và khe lắp hộp tiếp đạn; tay cầm gắn ở phía sau"
+          ],
+          "threejs_target": "BoxGeometry parent hosting trigger, magazine-well cavity (CSG subtract), and grip attachment socket"
+        },
+        {
+          "name": "Barrel",
+          "name_vi": "Nòng súng",
+          "definition": "Steel tube that chambers the cartridge and directs the projectile down its bore.",
+          "definition_vi": "Ống thép chứa buồng đạn và định hướng viên đạn dọc theo lòng nòng.",
+          "recognition_cues": [
+            "Long cylindrical tube protruding from the front of the receiver, tapering slightly, ending at the muzzle"
+          ],
+          "recognition_cues_vi": [
+            "Ống trụ dài nhô ra phía trước thân súng, hơi thon dần, kết thúc ở miệng nòng"
+          ],
+          "threejs_target": "CylinderGeometry(radiusTop≈radiusBottom, height=barrel length)"
+        },
+        {
+          "name": "Muzzle Device (Flash Hider / Compensator / Suppressor)",
+          "name_vi": "Đầu nòng (Loa che lửa / Bù giật / Giảm thanh)",
+          "definition": "End-of-barrel attachment reducing muzzle flash, redirecting gas to counter recoil, or suppressing sound.",
+          "definition_vi": "Phụ kiện gắn ở đầu nòng để giảm lóe lửa, dẫn hướng khí để chống giật, hoặc giảm thanh.",
+          "recognition_cues": [
+            "Distinct slotted or perforated cylindrical/conical cap at the very tip of the barrel, wider than the bore"
+          ],
+          "recognition_cues_vi": [
+            "Nắp hình trụ/nón có rãnh hoặc lỗ thủng rõ rệt ở đầu nòng, rộng hơn lòng nòng"
+          ],
+          "threejs_target": "Small CylinderGeometry or ConeGeometry child node parented to the barrel tip socket"
+        },
+        {
+          "name": "Gas Tube",
+          "name_vi": "Ống dẫn khí",
+          "definition": "Thin tube channeling propellant gas from the barrel to cycle the action.",
+          "definition_vi": "Ống nhỏ dẫn khí thuốc súng từ nòng để vận hành chu trình nạp đạn.",
+          "recognition_cues": [
+            "Thin parallel rod running above/alongside the barrel under the handguard, often barely visible externally"
+          ],
+          "recognition_cues_vi": [
+            "Thanh mảnh song song chạy phía trên/dọc nòng súng dưới ốp lót tay, thường khó thấy từ bên ngoài"
+          ],
+          "threejs_target": "Thin CylinderGeometry hidden mostly inside the handguard mesh"
+        },
+        {
+          "name": "Handguard",
+          "name_vi": "Ốp lót tay",
+          "definition": "Protective sleeve around the barrel preventing burns and providing a forward gripping surface.",
+          "definition_vi": "Vỏ bảo vệ quanh nòng súng ngăn bỏng tay và tạo bề mặt cầm nắm phía trước.",
+          "recognition_cues": [
+            "Ribbed or railed sleeve surrounding the barrel between the receiver and muzzle, often with visible vents or rail slots"
+          ],
+          "recognition_cues_vi": [
+            "Vỏ có gân hoặc rãnh rail bao quanh nòng súng giữa thân súng và đầu nòng, thường có khe thông gió hoặc rail lộ rõ"
+          ],
+          "threejs_target": "Hollow CylinderGeometry or BoxGeometry shell surrounding the barrel (CSG subtract for hollow interior)"
+        },
+        {
+          "name": "Pistol Grip",
+          "name_vi": "Tay cầm khai hỏa",
+          "definition": "Handle behind the trigger used to hold and control the rifle.",
+          "definition_vi": "Tay cầm phía sau cò dùng để giữ và điều khiển súng.",
+          "recognition_cues": [
+            "Angled handle protruding downward directly behind/below the trigger guard, textured for grip"
+          ],
+          "recognition_cues_vi": [
+            "Tay cầm nghiêng nhô xuống ngay phía sau/dưới vành bảo vệ cò, có vân tăng ma sát"
+          ],
+          "threejs_target": "BoxGeometry, angled ~15-20° from vertical, child of lower receiver"
+        },
+        {
+          "name": "Buttstock",
+          "name_vi": "Báng súng",
+          "definition": "Rear section resting against the shooter's shoulder; may be fixed, folding, or collapsible.",
+          "definition_vi": "Phần đuôi tì vào vai xạ thủ; có thể cố định, gấp được hoặc thu gọn được.",
+          "recognition_cues": [
+            "Rearmost component, either a solid contoured shoulder piece (fixed) or a skeletal/folding frame (collapsible)"
+          ],
+          "recognition_cues_vi": [
+            "Bộ phận cuối cùng, hoặc là khối tì vai đặc có đường cong (cố định) hoặc khung xương/gấp được (thu gọn)"
+          ],
+          "threejs_target": "BoxGeometry/ExtrudeGeometry child node parented to rear of lower receiver, with a hinge pivot if foldable"
+        },
+        {
+          "name": "Magazine",
+          "name_vi": "Hộp tiếp đạn / Băng đạn",
+          "definition": "Detachable ammunition container; shape varies by platform (curved 'banana' for AK-type, straight/translucent for AUG).",
+          "definition_vi": "Hộp chứa đạn tháo rời được; hình dạng khác nhau theo dòng súng (cong hình chuối với AK, thẳng/trong suốt với AUG).",
+          "recognition_cues": [
+            "Protrudes downward from the magazine well, curved profile signals AK-pattern rifle, straight signals M4/AR-pattern"
+          ],
+          "recognition_cues_vi": [
+            "Nhô xuống dưới từ ổ tiếp đạn, hình cong báo hiệu súng dòng AK, hình thẳng báo hiệu dòng M4/AR"
+          ],
+          "threejs_target": "ExtrudeGeometry (curved 2D profile extruded) for banana magazines; BoxGeometry for straight magazines"
+        },
+        {
+          "name": "Bolt Carrier Group (BCG) & Charging Handle",
+          "name_vi": "Cụm bệ khóa nòng và Cần kéo nạp đạn",
+          "definition": "Internal mechanism performing chambering/locking/firing/extraction, manually cycled via an external handle.",
+          "definition_vi": "Cơ cấu bên trong thực hiện nạp đạn/khóa nòng/khai hỏa/hất vỏ đạn, được lên đạn thủ công qua cần kéo bên ngoài.",
+          "recognition_cues": [
+            "Mostly hidden internally; visible externally only as the charging handle protrusion (top or side of receiver, AK top cover)"
+          ],
+          "recognition_cues_vi": [
+            "Chủ yếu ẩn bên trong; chỉ thấy được bên ngoài qua cần kéo nạp đạn nhô ra (trên hoặc bên hông thân súng, nắp trên với AK)"
+          ],
+          "threejs_target": "Internal geometry usually omitted/low-detail for closed-bolt weapons; charging handle modeled as small BoxGeometry/CylinderGeometry knob"
+        }
+      ],
+      "pistol": [
+        {
+          "name": "Slide",
+          "name_vi": "Khóa nòng",
+          "definition": "Top moving assembly of a semi-auto pistol that reciprocates rearward on firing to cycle the action.",
+          "definition_vi": "Cụm di động phía trên của súng lục bán tự động, giật lùi khi bắn để thực hiện chu trình nạp đạn.",
+          "recognition_cues": [
+            "Large metal block wrapping the barrel with serrated grip grooves at the rear for manual racking, houses the rear sight"
+          ],
+          "recognition_cues_vi": [
+            "Khối kim loại lớn bao quanh nòng súng, có rãnh răng cưa phía sau để kéo tay, chứa thước ngắm phía sau"
+          ],
+          "threejs_target": "BoxGeometry (rounded top edges) sliding along a rail axis relative to the frame, parent node for rear sight"
+        },
+        {
+          "name": "Barrel (Pistol)",
+          "name_vi": "Nòng súng",
+          "definition": "Tube through which the bullet travels on firing; largely enclosed by the slide in most pistols.",
+          "definition_vi": "Ống mà viên đạn di chuyển qua khi bắn; phần lớn được bao bọc bởi khóa nòng ở hầu hết súng lục.",
+          "recognition_cues": [
+            "Visible mainly at the muzzle opening in the slide; on revolvers it's exposed and fixed, sometimes railed for accessories"
+          ],
+          "recognition_cues_vi": [
+            "Chủ yếu thấy ở lỗ miệng nòng trên khóa nòng; ở súng ổ xoay thì lộ rõ và cố định, đôi khi có rail để gắn phụ kiện"
+          ],
+          "threejs_target": "CylinderGeometry nested inside the slide's CSG-subtracted bore channel"
+        },
+        {
+          "name": "Cylinder (Revolver)",
+          "name_vi": "Ổ xoay / Ổ đạn",
+          "definition": "Rotating drum housing multiple ammunition chambers, characteristic of revolvers.",
+          "definition_vi": "Trống xoay chứa nhiều buồng đạn, đặc trưng của súng ổ xoay.",
+          "recognition_cues": [
+            "Large round block at the mid-body of the weapon, visibly segmented into chamber holes (e.g. 8 for the R8 Revolver)"
+          ],
+          "recognition_cues_vi": [
+            "Khối tròn lớn ở giữa thân súng, thấy rõ được chia thành các lỗ buồng đạn (vd. 8 lỗ ở R8 Revolver)"
+          ],
+          "threejs_target": "CylinderGeometry with radial array of small cylindrical CSG-subtracted chamber holes"
+        },
+        {
+          "name": "Grip",
+          "name_vi": "Tay cầm / Báng súng",
+          "definition": "Frame section gripped by the shooter, with front strap, backstrap, and (on semi-autos) the magazine well running through it.",
+          "definition_vi": "Phần khung mà xạ thủ nắm, gồm mặt trước, mặt sau, và (ở súng bán tự động) ổ tiếp đạn chạy xuyên qua.",
+          "recognition_cues": [
+            "Textured lower frame section below the trigger guard; on semi-autos the magazine inserts from its base"
+          ],
+          "recognition_cues_vi": [
+            "Phần khung dưới có vân nằm dưới vành bảo vệ cò; ở súng bán tự động, hộp tiếp đạn lắp vào từ đáy tay cầm"
+          ],
+          "threejs_target": "BoxGeometry angled child of frame, with a CSG-subtracted magazine-well cavity for semi-autos"
+        },
+        {
+          "name": "Trigger Guard",
+          "name_vi": "Vành bảo vệ cò",
+          "definition": "Loop encircling the trigger to prevent accidental discharge.",
+          "definition_vi": "Vòng bao quanh cò súng để ngăn cò bị bóp vô ý.",
+          "recognition_cues": [
+            "Round or rectangular metal/polymer loop directly beneath the frame, encircling the trigger"
+          ],
+          "recognition_cues_vi": [
+            "Vòng kim loại/nhựa hình tròn hoặc chữ nhật ngay dưới khung súng, bao quanh cò"
+          ],
+          "threejs_target": "TorusGeometry (partial) or ExtrudeGeometry loop child of the frame"
+        },
+        {
+          "name": "Hammer",
+          "name_vi": "Búa đập",
+          "definition": "Component that strikes the firing pin or primer directly to discharge the round.",
+          "definition_vi": "Bộ phận đập vào kim hỏa hoặc trực tiếp vào hạt nổ để khai hỏa viên đạn.",
+          "recognition_cues": [
+            "Small protruding lever at the rear-top of the frame, often manually cockable (pulled back) before firing"
+          ],
+          "recognition_cues_vi": [
+            "Cần nhỏ nhô ra ở phía sau-trên khung súng, thường có thể lên cò thủ công (kéo ra sau) trước khi bắn"
+          ],
+          "threejs_target": "Small hinged BoxGeometry/CylinderGeometry pivot node at the rear of the frame"
+        },
+        {
+          "name": "Cocking Mechanism",
+          "name_vi": "Cơ chế lên đạn / Lên búa",
+          "definition": "Action of preparing the weapon to fire: racking the slide (pistol) or thumbing/fanning the hammer (revolver).",
+          "definition_vi": "Thao tác chuẩn bị súng sẵn sàng bắn: kéo khóa nòng (súng lục) hoặc lên búa bằng ngón cái/kỹ thuật quạt búa (súng ổ xoay).",
+          "recognition_cues": [
+            "Pistol: serrated slide-grip grooves indicate the racking surface",
+            "Revolver: exposed hammer spur sized for thumb cocking; some pistols (Tec-9) use a knob-style charging handle instead"
+          ],
+          "recognition_cues_vi": [
+            "Súng lục: rãnh răng cưa trên khóa nòng cho biết bề mặt để kéo",
+            "Súng ổ xoay: đuôi búa lộ ra đủ lớn để lên cò bằng ngón cái; một số súng lục (Tec-9) dùng cần kéo dạng núm thay thế"
+          ],
+          "threejs_target": "Not a distinct mesh — an animation/interaction state (slide travel distance or hammer rotation) rather than geometry"
+        }
+      ],
+      "knife": [
+        {
+          "name": "Blade",
+          "name_vi": "Lưỡi dao",
+          "definition": "The entire working portion of the knife, encompassing both the cutting edge and the spine.",
+          "definition_vi": "Toàn bộ phần làm việc của con dao, bao gồm cả cạnh sắc và sống dao.",
+          "recognition_cues": [
+            "Main metal body extending from the handle/bolster to the tip"
+          ],
+          "recognition_cues_vi": [
+            "Khối kim loại chính kéo dài từ cán/đệm cán đến mũi dao"
+          ],
+          "threejs_target": "ExtrudeGeometry from a custom 2D THREE.Shape blade silhouette, beveled at the edge side"
+        },
+        {
+          "name": "Edge",
+          "name_vi": "Cạnh sắc / Lưỡi cắt",
+          "definition": "The sharpened line running from heel to tip used for cutting.",
+          "definition_vi": "Đường mài sắc chạy từ gót dao đến mũi dao dùng để cắt.",
+          "recognition_cues": [
+            "Thinnest, beveled, and typically brightest/most reflective line on the blade"
+          ],
+          "recognition_cues_vi": [
+            "Đường mỏng nhất, được vát và thường sáng bóng/phản chiếu nhất trên lưỡi dao"
+          ],
+          "threejs_target": "Beveled edge geometry on the ExtrudeGeometry blade shape (narrow bevel angle on one side of the profile curve)"
+        },
+        {
+          "name": "Spine (Back)",
+          "name_vi": "Sống dao",
+          "definition": "Thick, unsharpened back edge opposite the cutting edge, providing rigidity.",
+          "definition_vi": "Phần lưng dày, không mài sắc, đối diện với cạnh sắc, tạo độ cứng cho lưỡi dao.",
+          "recognition_cues": [
+            "The thickest part of the blade cross-section, flat or gently curved, opposite the sharp edge"
+          ],
+          "recognition_cues_vi": [
+            "Phần dày nhất trong tiết diện lưỡi dao, phẳng hoặc hơi cong, đối diện với cạnh sắc"
+          ],
+          "threejs_target": "CapsuleGeometry or thick unbeveled strip along the back of the ExtrudeGeometry blade profile"
+        },
+        {
+          "name": "Tip / Point",
+          "name_vi": "Mũi dao",
+          "definition": "Convergence point of edge and spine at the front of the blade.",
+          "definition_vi": "Điểm hội tụ giữa cạnh sắc và sống dao ở phía trước lưỡi dao.",
+          "recognition_cues": [
+            "Sharpest point of the whole knife; profile shape (drop point, clip point, karambit hook, tanto) is a strong sub-type identifier"
+          ],
+          "recognition_cues_vi": [
+            "Điểm nhọn nhất của toàn bộ con dao; hình dạng mũi (drop point, clip point, móc karambit, tanto) là dấu hiệu phân loại quan trọng"
+          ],
+          "threejs_target": "Terminal vertex of the ExtrudeGeometry 2D silhouette path — shape of this path segment encodes knife sub-type (e.g. Karambit hook curve)"
+        },
+        {
+          "name": "Tang",
+          "name_vi": "Chuôi lưỡi / Tang",
+          "definition": "Steel extension of the blade running into the handle.",
+          "definition_vi": "Phần thép của lưỡi dao kéo dài vào bên trong cán dao.",
+          "recognition_cues": [
+            "Full tang: visible steel strip running the length of the handle between the scales",
+            "Hidden tang: no visible steel, fully enclosed by handle material"
+          ],
+          "recognition_cues_vi": [
+            "Full tang: dải thép lộ rõ chạy dọc cán dao giữa hai ốp cán",
+            "Hidden tang: không thấy thép, được bọc hoàn toàn bởi vật liệu cán"
+          ],
+          "threejs_target": "Full tang: thin BoxGeometry strip visible between handle-scale meshes; Hidden tang: internal-only geometry, invisible child node"
+        },
+        {
+          "name": "Bolster",
+          "name_vi": "Đệm cán / Khâu dao",
+          "definition": "Thick metal collar at the junction between blade and handle.",
+          "definition_vi": "Miếng đệm kim loại dày nằm ở điểm tiếp giáp giữa lưỡi dao và cán dao.",
+          "recognition_cues": [
+            "Distinct metal band/thickening right where the blade meets the handle, often a different material/finish than both"
+          ],
+          "recognition_cues_vi": [
+            "Dải kim loại/chỗ dày lên rõ rệt ngay tại điểm lưỡi dao gặp cán dao, thường khác vật liệu/finish với cả hai"
+          ],
+          "threejs_target": "Short CylinderGeometry or BoxGeometry collar node between blade and handle meshes"
+        },
+        {
+          "name": "Handle Scales",
+          "name_vi": "Ốp cán",
+          "definition": "Two side panels (wood, G-10, stone, etc.) fastened to the tang to form the grip.",
+          "definition_vi": "Hai miếng vật liệu (gỗ, nhựa G-10, đá,...) gắn vào hai bên chuôi dao để tạo thành tay cầm.",
+          "recognition_cues": [
+            "Paired flat panels on either side of the handle, visible fasteners (rivets/pins), distinct material texture from the blade"
+          ],
+          "recognition_cues_vi": [
+            "Hai tấm phẳng đối xứng hai bên cán dao, thấy rõ đinh tán/chốt, kết cấu vật liệu khác biệt so với lưỡi dao"
+          ],
+          "threejs_target": "Two mirrored BoxGeometry/ExtrudeGeometry panels flanking the tang, with small CylinderGeometry rivets"
+        },
+        {
+          "name": "Pommel (Butt Cap)",
+          "name_vi": "Núm chuôi / Đuôi cán",
+          "definition": "End cap at the terminus of the handle, decorative or functional (striking/counterweight).",
+          "definition_vi": "Nắp chặn ở đầu cuối của cán dao, mang tính trang trí hoặc chức năng (đập/đối trọng).",
+          "recognition_cues": [
+            "Rounded or flat metal cap terminating the handle, often used to secure a hidden tang"
+          ],
+          "recognition_cues_vi": [
+            "Nắp kim loại tròn hoặc phẳng kết thúc cán dao, thường dùng để cố định chuôi ẩn"
+          ],
+          "threejs_target": "SphereGeometry (flattened) or short CylinderGeometry cap child node at the rear of the handle"
+        },
+        {
+          "name": "Balisong Bite/Safe Handle & Latch",
+          "name_vi": "Cán nguy hiểm/Cán an toàn và Chốt khóa (Balisong)",
+          "definition": "Butterfly-knife-specific split handle: the bite handle swings on the edge side, the safe handle on the spine side, locked shut by a latch pin.",
+          "definition_vi": "Cán dao bướm đặc thù chia đôi: cán nguy hiểm ở phía cạnh sắc, cán an toàn ở phía sống dao, được khóa lại bởi chốt latch.",
+          "recognition_cues": [
+            "Two hinged handle halves that fold flat against the blade",
+            "Bite handle closes against the sharp edge (dangerous to grip closed); safe handle closes against the spine",
+            "Small rotating latch pin at the tail end locking the halves together"
+          ],
+          "recognition_cues_vi": [
+            "Hai nửa cán có bản lề gấp phẳng áp vào lưỡi dao",
+            "Cán nguy hiểm đóng về phía cạnh sắc (nguy hiểm khi cầm lúc đóng); cán an toàn đóng về phía sống dao",
+            "Chốt xoay nhỏ ở đuôi cán khóa hai nửa lại với nhau"
+          ],
+          "threejs_target": "Two hinged handle-half meshes with pivot joints at the bolster, plus a small CylinderGeometry latch pin child node"
+        }
+      ],
+      "smg": [
+        {
+          "name": "Stock (SMG-specific)",
+          "name_vi": "Báng súng (đặc trưng SMG)",
+          "definition": "Shoulder-stabilizing rear piece, typically foldable/retractable/collapsible on SMGs to keep the platform compact.",
+          "definition_vi": "Bộ phận tì vai phía sau, thường gấp/rút được ở SMG để giữ súng nhỏ gọn.",
+          "recognition_cues": [
+            "Distinctly more compact and often skeletal/folding compared to a rifle's fixed stock — a strong SMG vs rifle discriminator"
+          ],
+          "recognition_cues_vi": [
+            "Rõ ràng nhỏ gọn hơn và thường dạng khung/gấp được so với báng súng cố định của súng trường — dấu hiệu phân biệt SMG với súng trường"
+          ],
+          "threejs_target": "Hinged BoxGeometry/thin-frame ExtrudeGeometry child node with a fold pivot relative to the receiver"
+        },
+        {
+          "name": "Curved Magazine (MP5-style)",
+          "name_vi": "Băng đạn cong (kiểu MP5)",
+          "definition": "Classic slightly-curved 30-round magazine seated forward of the trigger guard.",
+          "definition_vi": "Băng đạn cong nhẹ cổ điển 30 viên, lắp phía trước vành bảo vệ cò.",
+          "recognition_cues": [
+            "Gentle curve, inserted vertically in front of the trigger guard — silhouette closely tied to the classic MP5 family"
+          ],
+          "recognition_cues_vi": [
+            "Cong nhẹ, lắp thẳng đứng phía trước vành bảo vệ cò — hình dáng gắn liền với dòng MP5 cổ điển"
+          ],
+          "threejs_target": "ExtrudeGeometry with a shallow-curved 2D profile, inserted into a magazine-well socket forward of the grip"
+        },
+        {
+          "name": "Integrated Silencer (MP5-SD)",
+          "name_vi": "Ống giảm thanh tích hợp (MP5-SD)",
+          "definition": "Large cylindrical suppressor sleeve permanently enclosing the barrel on the MP5-SD variant.",
+          "definition_vi": "Vỏ giảm thanh hình trụ lớn bao trùm vĩnh viễn nòng súng ở biến thể MP5-SD.",
+          "recognition_cues": [
+            "Barrel appears uniformly thick/enclosed for its entire length rather than showing a distinct thin barrel + separate can"
+          ],
+          "recognition_cues_vi": [
+            "Nòng súng trông đồng đều dày/được bao bọc suốt chiều dài thay vì có nòng mảnh riêng biệt + ống giảm thanh rời"
+          ],
+          "threejs_target": "Single large CylinderGeometry enclosing the barrel node, replacing separate barrel+suppressor children"
+        },
+        {
+          "name": "Top-Mounted Horizontal Magazine (P90-style)",
+          "name_vi": "Băng đạn nằm ngang phía trên (kiểu P90)",
+          "definition": "Translucent polymer magazine running parallel to and above the barrel, bullpup layout.",
+          "definition_vi": "Băng đạn nhựa trong suốt chạy song song và nằm phía trên nòng súng, bố cục bullpup.",
+          "recognition_cues": [
+            "Magazine lies flat along the top of the receiver rather than protruding downward — the single strongest P90 identifier",
+            "Downward-facing ejection port in the stock area"
+          ],
+          "recognition_cues_vi": [
+            "Băng đạn nằm phẳng dọc theo phía trên thân súng thay vì nhô xuống dưới — dấu hiệu nhận diện P90 mạnh nhất",
+            "Cửa hất vỏ đạn hướng xuống dưới ở khu vực báng súng"
+          ],
+          "threejs_target": "BoxGeometry magazine node parented along the top rail axis instead of the bottom of the receiver"
+        },
+        {
+          "name": "Helical Magazine (Bizon-style)",
+          "name_vi": "Băng đạn hình trụ xoắn (kiểu Bizon)",
+          "definition": "High-capacity (64-round) cylindrical magazine mounted beneath and along the barrel, doubling as a handguard.",
+          "definition_vi": "Băng đạn hình trụ dung lượng lớn (64 viên) lắp dưới và dọc theo nòng súng, kiêm luôn vai trò ốp lót tay.",
+          "recognition_cues": [
+            "Long cylindrical magazine running parallel under the full barrel length, gripped directly by the support hand"
+          ],
+          "recognition_cues_vi": [
+            "Băng đạn hình trụ dài chạy song song dưới suốt chiều dài nòng súng, được tay đỡ nắm trực tiếp"
+          ],
+          "threejs_target": "CylinderGeometry magazine node spanning the underside of the barrel, doubling as the handguard grip surface"
+        }
+      ],
+      "sniper": [
+        {
+          "name": "Bolt Action",
+          "name_vi": "Cơ cấu lên đạn (Bolt Action)",
+          "definition": "Manually-operated locking/cycling mechanism characteristic of precision sniper rifles.",
+          "definition_vi": "Cơ chế khóa nòng/lên đạn vận hành thủ công đặc trưng của súng bắn tỉa chính xác.",
+          "recognition_cues": [
+            "Protruding bolt handle is the visual proxy for this mechanism (see Bolt Handle entry)"
+          ],
+          "recognition_cues_vi": [
+            "Cần kéo khóa nòng nhô ra là dấu hiệu thị giác đại diện cho cơ chế này (xem mục Cần kéo khóa nòng)"
+          ],
+          "threejs_target": "Internal action geometry usually low-detail; represented externally via the bolt handle child mesh"
+        },
+        {
+          "name": "Bolt Handle",
+          "name_vi": "Cần kéo khóa nòng",
+          "definition": "Protruding manual handle used to cycle a bolt-action rifle.",
+          "definition_vi": "Cần kéo thủ công nhô ra dùng để lên đạn cho súng bolt-action.",
+          "recognition_cues": [
+            "Prominent knob/lever extending from the side of the receiver — unlike the recessed charging handles of gas-operated rifles, this is the single strongest sniper-vs-assault-rifle discriminator"
+          ],
+          "recognition_cues_vi": [
+            "Núm/cần nhô rõ rệt từ bên hông thân súng — khác với cần kéo nạp đạn thụt vào của súng trích khí, đây là dấu hiệu phân biệt súng bắn tỉa và súng trường mạnh nhất"
+          ],
+          "threejs_target": "SphereGeometry knob + thin CylinderGeometry arm, child node on the side of the receiver"
+        },
+        {
+          "name": "Heavy/Bull, Free-Floating, Fluted Barrel",
+          "name_vi": "Nòng nặng, Nòng tự do, Nòng có rãnh",
+          "definition": "Thick match-grade barrel variants: bull barrel (vibration control), free-floating (no stock contact, for accuracy), fluted (grooved to save weight).",
+          "definition_vi": "Các biến thể nòng match-grade dày: nòng bull (kiểm soát rung), nòng tự do (không chạm báng súng, tăng độ chính xác), nòng có rãnh (khoét rãnh để giảm trọng lượng).",
+          "recognition_cues": [
+            "Noticeably thicker barrel profile than assault rifles",
+            "A visible air gap between barrel and handguard signals free-floating design",
+            "Longitudinal grooves along the barrel signal fluting"
+          ],
+          "recognition_cues_vi": [
+            "Tiết diện nòng dày rõ rệt hơn súng trường thường",
+            "Khe hở rõ giữa nòng và ốp lót tay báo hiệu thiết kế free-floating",
+            "Các rãnh dọc theo nòng báo hiệu nòng có rãnh (fluted)"
+          ],
+          "threejs_target": "Thicker CylinderGeometry barrel with optional longitudinal groove geometry (repeated thin CSG-subtracted channels) for fluting"
+        },
+        {
+          "name": "Muzzle Brake / Compensator (Heavy)",
+          "name_vi": "Bộ phận hãm giật / Bù giật (cỡ lớn)",
+          "definition": "Oversized gas-redirecting device at the muzzle to counter significant recoil from high-caliber rounds.",
+          "definition_vi": "Thiết bị dẫn hướng khí cỡ lớn ở đầu nòng để chống giật đáng kể từ đạn cỡ lớn.",
+          "recognition_cues": [
+            "Boxy, noticeably wider-than-barrel device with large venting ports at the muzzle tip"
+          ],
+          "recognition_cues_vi": [
+            "Thiết bị dạng hộp, rõ ràng rộng hơn nòng súng, có các lỗ thoát khí lớn ở đầu nòng"
+          ],
+          "threejs_target": "BoxGeometry/CylinderGeometry hybrid, wider radius than the barrel, with CSG-subtracted vent slots"
+        },
+        {
+          "name": "Scope Mount, Rings & Picatinny Rail",
+          "name_vi": "Gá ống ngắm, vòng khuyên giữ và rail Picatinny",
+          "definition": "Hardware (claw mounts, rings, standardized MIL-STD-1913 rail) securing a high-magnification optic well above the bore axis.",
+          "definition_vi": "Phần cứng (gá kẹp, vòng khuyên, rail chuẩn MIL-STD-1913) cố định kính ngắm phóng đại cao, nằm cao hơn hẳn trục nòng.",
+          "recognition_cues": [
+            "Long flat rail spanning the top of the receiver, dominated by a tall scope sitting well above the standard iron-sight line"
+          ],
+          "recognition_cues_vi": [
+            "Rail phẳng dài trải dọc phía trên thân súng, bị chi phối bởi ống ngắm cao nằm hẳn trên đường ngắm cơ bản tiêu chuẩn"
+          ],
+          "threejs_target": "BoxGeometry rail strip on top of receiver + CylinderGeometry scope body + Torus/ring mount clamps as child nodes"
+        },
+        {
+          "name": "Cheek Riser / Adjustable Buttstock",
+          "name_vi": "Ốp má / Báng súng có thể điều chỉnh",
+          "definition": "Elevated, often adjustable stock component aligning the shooter's eye with a high-mounted scope; foldable on some platforms (SSG 08).",
+          "definition_vi": "Bộ phận báng súng nâng cao, thường điều chỉnh được, giúp căn mắt xạ thủ với kính ngắm gắn cao; gấp được ở một số dòng (SSG 08).",
+          "recognition_cues": [
+            "Visible knobs/sliders/adjustment screws on the stock, giving a more 'modular' look than a simple fixed rifle stock"
+          ],
+          "recognition_cues_vi": [
+            "Thấy rõ các núm/thanh trượt/ốc điều chỉnh trên báng súng, tạo cảm giác 'modular' hơn báng súng cố định đơn giản"
+          ],
+          "threejs_target": "ExtrudeGeometry stock body with small CylinderGeometry adjustment knob child nodes and a slide joint for the riser"
+        },
+        {
+          "name": "Bipod / Monopod",
+          "name_vi": "Chân chống hai chân / Chân chống đơn",
+          "definition": "Front two-legged support (bipod) and rear retractable spike (monopod) creating a stable three-point stance when deployed.",
+          "definition_vi": "Chân chống hai chân phía trước (bipod) và chân chống đơn/spike có thể thu vào phía sau (monopod) tạo thế đứng ba điểm ổn định khi triển khai.",
+          "recognition_cues": [
+            "Folding legs under the front handguard plus a small retractable spike under the rear of the stock — together create a distinct three-point silhouette when deployed"
+          ],
+          "recognition_cues_vi": [
+            "Chân gấp dưới ốp lót tay phía trước cộng với spike nhỏ có thể thu vào dưới đuôi báng súng — cùng tạo hình dáng ba điểm rõ rệt khi triển khai"
+          ],
+          "threejs_target": "Two hinged thin CylinderGeometry legs (bipod) + one telescoping CylinderGeometry spike (monopod), child nodes with fold/extend joints"
+        }
+      ],
+      "heavy": [
+        {
+          "name": "Pump Action Forend",
+          "name_vi": "Ốp lót tay trượt",
+          "definition": "Sliding handguard beneath a shotgun barrel, racked back-and-forth to eject and chamber shells.",
+          "definition_vi": "Ốp lót tay có thể trượt dưới nòng shotgun, kéo tới lui để hất vỏ đạn cũ và nạp đạn mới.",
+          "recognition_cues": [
+            "Grooved handguard with a visible forward/backward slide gap along the magazine tube"
+          ],
+          "recognition_cues_vi": [
+            "Ốp lót tay có rãnh, thấy rõ khe trượt tới/lui dọc theo ống chứa đạn"
+          ],
+          "threejs_target": "CylinderGeometry sleeve constrained to slide along the magazine-tube axis (translate-only joint)"
+        },
+        {
+          "name": "Barrel Shroud",
+          "name_vi": "Ốp bao nòng",
+          "definition": "Perforated protective jacket around a heavy-fire barrel (shotgun or MG), dissipating heat and shielding the shooter's hand.",
+          "definition_vi": "Vỏ bảo vệ có lỗ thông quanh nòng súng bắn nhanh (shotgun hoặc súng máy), tản nhiệt và bảo vệ tay xạ thủ.",
+          "recognition_cues": [
+            "Perforated/vented outer sleeve visibly separate from the inner barrel, common on sustained-fire weapons"
+          ],
+          "recognition_cues_vi": [
+            "Vỏ ngoài có lỗ/thông gió, thấy rõ tách biệt với nòng bên trong, phổ biến ở vũ khí bắn liên tục"
+          ],
+          "threejs_target": "Hollow CylinderGeometry outer shell with an array of small CSG-subtracted vent holes, barrel visible inside via a see-through gap"
+        },
+        {
+          "name": "Action Bars",
+          "name_vi": "Thanh truyền động",
+          "definition": "Metal rods linking the pump forend to the bolt, converting hand motion into the cycling action.",
+          "definition_vi": "Thanh kim loại nối ốp lót tay trượt với khóa nòng, chuyển động tác tay thành chu trình nạp đạn.",
+          "recognition_cues": [
+            "Thin parallel rods visible in the gap between forend and receiver when the action is racked open"
+          ],
+          "recognition_cues_vi": [
+            "Thanh mảnh song song thấy được ở khe hở giữa ốp lót tay và thân súng khi kéo mở"
+          ],
+          "threejs_target": "Thin paired CylinderGeometry rods linking forend and bolt-carrier nodes, mostly hidden when closed"
+        },
+        {
+          "name": "Magazine Tube (Shotgun)",
+          "name_vi": "Ống chứa đạn (Shotgun)",
+          "definition": "Tubular ammunition reservoir running beneath and parallel to the barrel.",
+          "definition_vi": "Kho chứa đạn dạng ống chạy dưới và song song với nòng súng.",
+          "recognition_cues": [
+            "Thin cylindrical tube directly under the barrel, terminating near the muzzle end"
+          ],
+          "recognition_cues_vi": [
+            "Ống trụ mảnh ngay dưới nòng súng, kết thúc gần đầu nòng"
+          ],
+          "threejs_target": "Thin CylinderGeometry parallel to and below the main barrel node"
+        },
+        {
+          "name": "Ammo Belt (Linked Ammunition)",
+          "name_vi": "Dây băng đạn",
+          "definition": "Chain of cartridges linked by metal links, feeding a machine gun continuously.",
+          "definition_vi": "Chuỗi đạn liên kết bằng các mắt xích kim loại, tiếp đạn liên tục cho súng máy.",
+          "recognition_cues": [
+            "Segmented chain visible feeding into the top or side of the receiver, often draping from an ammo box or drum"
+          ],
+          "recognition_cues_vi": [
+            "Chuỗi phân đoạn thấy được đang tiếp vào phía trên hoặc bên hông thân súng, thường thõng từ hộp đạn hoặc trống đạn"
+          ],
+          "threejs_target": "TubeGeometry following a curved path from a drum/box node into the feed-cover socket, with segment repetition for the link pattern"
+        },
+        {
+          "name": "Drum Magazine",
+          "name_vi": "Hộp tiếp đạn hình trống",
+          "definition": "High-capacity circular magazine holding coiled belted ammunition.",
+          "definition_vi": "Hộp tiếp đạn hình tròn dung lượng lớn chứa dây đạn cuộn tròn bên trong.",
+          "recognition_cues": [
+            "Large flat circular drum mounted at the feed point, distinctly rounder/flatter than a box or curved magazine"
+          ],
+          "recognition_cues_vi": [
+            "Trống tròn phẳng lớn gắn tại điểm tiếp đạn, rõ ràng tròn/phẳng hơn hộp đạn thẳng hoặc cong"
+          ],
+          "threejs_target": "CylinderGeometry (short height, large radius) mounted at the receiver's feed socket"
+        },
+        {
+          "name": "Bipod (Heavy)",
+          "name_vi": "Giá hai chân",
+          "definition": "Folding two-legged support for stable prone or bench firing of heavy automatic weapons.",
+          "definition_vi": "Chân đỡ hai chân gấp được để bắn ổn định ở tư thế nằm hoặc trên bệ tì cho vũ khí tự động cỡ lớn.",
+          "recognition_cues": [
+            "Folding legs attached near the front of the barrel shroud/handguard"
+          ],
+          "recognition_cues_vi": [
+            "Chân gấp gắn gần phía trước ốp bao nòng/ốp lót tay"
+          ],
+          "threejs_target": "Two hinged thin CylinderGeometry legs, child node with a fold joint near the front handguard"
+        },
+        {
+          "name": "Feed Cover (Top Cover)",
+          "name_vi": "Nắp hộp khóa nòng",
+          "definition": "Hinged lid over the ammunition feed tray, keeping the belt aligned and shielding the loading mechanism.",
+          "definition_vi": "Nắp có bản lề trên khay tiếp đạn, giữ dây đạn thẳng hàng và che chắn cơ cấu nạp đạn.",
+          "recognition_cues": [
+            "Flat hinged panel on top of the receiver, distinct seam line where it can flip open"
+          ],
+          "recognition_cues_vi": [
+            "Tấm phẳng có bản lề phía trên thân súng, có đường nối rõ rệt nơi có thể lật mở"
+          ],
+          "threejs_target": "Flat BoxGeometry panel with a hinge joint at the rear edge of the receiver"
+        },
+        {
+          "name": "Carrying Handle (Heavy)",
+          "name_vi": "Tay xách",
+          "definition": "Handle mounted atop the receiver for transport or rapid barrel changes.",
+          "definition_vi": "Tay cầm gắn phía trên thân súng để vận chuyển hoặc thay nòng nhanh.",
+          "recognition_cues": [
+            "Small looped handle protruding from the top of the receiver, often near the barrel-change latch"
+          ],
+          "recognition_cues_vi": [
+            "Tay cầm hình vòng nhỏ nhô ra từ phía trên thân súng, thường gần chốt thay nòng"
+          ],
+          "threejs_target": "TorusGeometry (partial loop) or thin ExtrudeGeometry handle child node on top of the receiver"
+        }
+      ],
+      "gloves": [
+        {
+          "name": "Cuff",
+          "name_vi": "Cổ găng tay",
+          "definition": "Wrist-covering section of the glove; short cuff ends at/below the wrist, gauntlet extends up the forearm.",
+          "definition_vi": "Phần che cổ tay của găng tay; cổ ngắn kết thúc tại/dưới cổ tay, gauntlet kéo dài lên cẳng tay.",
+          "recognition_cues": [
+            "Short cuff: fabric ends right at the wrist line",
+            "Gauntlet: extended fabric/leather panel covering part of the forearm, often with its own strap"
+          ],
+          "recognition_cues_vi": [
+            "Cổ ngắn: vải kết thúc ngay tại đường cổ tay",
+            "Gauntlet: tấm vải/da kéo dài che một phần cẳng tay, thường có dây đai riêng"
+          ],
+          "threejs_target": "ExtrudeGeometry cuff sleeve, length parameter distinguishes short-cuff vs gauntlet variants"
+        },
+        {
+          "name": "Palm & Palm Slider",
+          "name_vi": "Lòng bàn tay và Miếng trượt lòng bàn tay",
+          "definition": "Grip surface (often goat/kangaroo leather) with a rigid TPU slider puck at the heel to reduce impact injury.",
+          "definition_vi": "Bề mặt cầm nắm (thường bằng da dê/da chuột túi) với miếng trượt TPU cứng ở gót bàn tay để giảm chấn thương khi va chạm.",
+          "recognition_cues": [
+            "Textured leather-like surface on the inner hand",
+            "A distinct hard, smooth puck/patch at the base of the palm (heel), differing in material sheen from the surrounding leather"
+          ],
+          "recognition_cues_vi": [
+            "Bề mặt trong lòng bàn tay có kết cấu giống da",
+            "Có một miếng cứng, nhẵn, riêng biệt ở gốc lòng bàn tay (gót), khác độ bóng vật liệu so với da xung quanh"
+          ],
+          "threejs_target": "Palm mesh with a separate small BoxGeometry/rounded-plate submesh (different material slot: harder roughness, distinct color) at the heel"
+        },
+        {
+          "name": "Knuckle Guard",
+          "name_vi": "Gù bảo vệ khớp",
+          "definition": "Rigid TPU or carbon-fiber plate over the main finger knuckles, dispersing impact and resisting abrasion.",
+          "definition_vi": "Tấm cứng TPU hoặc sợi carbon trên các khớp ngón tay chính, phân tán lực va chạm và chống mài mòn.",
+          "recognition_cues": [
+            "Raised, segmented hard plates across the back of the hand at knuckle positions, visually distinct (matte/textured) from the surrounding soft material"
+          ],
+          "recognition_cues_vi": [
+            "Các tấm cứng nhô lên, phân đoạn trên mu bàn tay tại vị trí khớp, khác biệt rõ (mờ/có kết cấu) so với vật liệu mềm xung quanh"
+          ],
+          "threejs_target": "Segmented ExtrudeGeometry plates (one per knuckle) overlaid on the back-of-hand mesh, separate material with higher roughness/lower sheen"
+        },
+        {
+          "name": "Finger Segments & Gussets",
+          "name_vi": "Đốt ngón tay và Vách ngăn",
+          "definition": "Pre-curved individual finger sections joined by stretch-fabric or mesh gussets for flexibility and ventilation.",
+          "definition_vi": "Các đốt ngón tay cong sẵn riêng lẻ, nối với nhau bằng vách ngăn vải co giãn hoặc lưới để tăng độ linh hoạt và thoáng khí.",
+          "recognition_cues": [
+            "Fingers show a natural pre-curved rest pose rather than lying flat",
+            "Thin, differently-textured strips (mesh/stretch fabric) visible between adjacent fingers"
+          ],
+          "recognition_cues_vi": [
+            "Ngón tay có tư thế nghỉ cong sẵn tự nhiên thay vì nằm thẳng",
+            "Các dải mỏng, kết cấu khác biệt (lưới/vải co giãn) thấy được giữa các ngón tay liền kề"
+          ],
+          "threejs_target": "Slightly pre-curved CapsuleGeometry/tube segments per finger joint, thin plane-strip gusset geometry between finger meshes"
+        },
+        {
+          "name": "Wrist Strap / Closure",
+          "name_vi": "Đai khóa cổ tay",
+          "definition": "Hook-and-loop (Velcro) strap combined with neoprene to secure the glove firmly at the wrist.",
+          "definition_vi": "Dây đai khóa dán (Velcro) kết hợp với neoprene để cố định chắc chắn găng tay tại cổ tay.",
+          "recognition_cues": [
+            "Overlapping strap with a visible rough/looped fastener patch at the cuff, distinct stitched seam"
+          ],
+          "recognition_cues_vi": [
+            "Dây đai chồng lên nhau có miếng khóa dán nhám/có móc thấy rõ ở cổ tay, đường may rõ rệt"
+          ],
+          "threejs_target": "Flat ExtrudeGeometry strap band wrapped around the cuff cylinder, with a small rectangular fastener-patch submesh"
+        }
+      ]
+    },
+    "finish_pattern_rarity": [
+      {
+        "name": "Case Hardened Blue Gem Pattern",
+        "name_vi": "Mẫu Case Hardened Blue Gem",
+        "definition": "A metallic oxidation pattern on Case Hardened skins where paint_seed determines the position/density of blue oxide clusters on the blade/gun surface; tiered by percentage of blue coverage on the playside.",
+        "definition_vi": "Mẫu oxy hóa kim loại trên skin Case Hardened, trong đó paint_seed quyết định vị trí/mật độ cụm oxit xanh trên bề mặt lưỡi dao/súng; phân tầng theo phần trăm độ phủ xanh ở mặt playside.",
+        "recognition_cues": [
+          "Blend of blue (high-oxidation), purple (transition), and yellow/gold (base alloy steel) blotches",
+          "Tier 1 'God Tier': one large continuous blue cluster covering most of the playside (examples reach 94-99% coverage)",
+          "Tier 2-3: blue coverage interrupted by yellow/gold patches or concentrated more on the backside than playside",
+          "Gold Gems are the visual inverse — near-total gold coverage with minimal blue"
+        ],
+        "recognition_cues_vi": [
+          "Pha trộn các vệt xanh dương (oxy hóa cao), tím (chuyển tiếp) và vàng/vàng kim (thép hợp kim nền)",
+          "Tier 1 'God Tier': một cụm xanh lớn liên tục che phủ gần hết mặt playside (một số ví dụ đạt 94-99% độ phủ)",
+          "Tier 2-3: độ phủ xanh bị gián đoạn bởi mảng vàng/vàng kim hoặc tập trung nhiều ở mặt sau hơn mặt playside",
+          "Gold Gems là hình ảnh đảo ngược — gần như toàn bộ phủ vàng kim, rất ít xanh"
+        ],
+        "threejs_target": "Procedural gradient/noise-driven vertex color or texture blend across the blade UV, parameterized by a seed value driving cluster position and blue/purple/gold color ramp",
+        "applies_to": [
+          "knife",
+          "rifle"
+        ]
+      },
+      {
+        "name": "Doppler Phases & Gem Variants",
+        "name_vi": "Các Phase Doppler và biến thể đá quý",
+        "definition": "A family of Doppler knife finishes (Phase 1-4, Ruby, Sapphire, Black Pearl) distinguished by dominant color combination and the presence/absence of an iridescent color-shift effect.",
+        "definition_vi": "Nhóm các finish dao Doppler (Phase 1-4, Ruby, Sapphire, Black Pearl) phân biệt qua tổ hợp màu chủ đạo và có/không có hiệu ứng đổi màu ngũ sắc.",
+        "recognition_cues": [
+          "Phase 1: black-dominant with sparse pink/purple streaks",
+          "Phase 2: vivid pink+purple covering nearly the whole surface, most colorful phase",
+          "Phase 3: black/deep-blue/green mix — green presence is the unique tell for this phase",
+          "Phase 4: bright blue dominant with small black patches",
+          "Ruby: 100% uniform red, no black patches",
+          "Sapphire: 100% uniform blue, no black patches",
+          "Black Pearl: dark purple/black base with a view-angle-dependent iridescent purple-to-green shift — unique among all phases"
+        ],
+        "recognition_cues_vi": [
+          "Phase 1: đen chiếm ưu thế với vệt hồng/tím thưa thớt",
+          "Phase 2: hồng+tím rực rỡ phủ gần toàn bộ bề mặt, phase nhiều màu nhất",
+          "Phase 3: pha trộn đen/xanh dương đậm/xanh lá — sự xuất hiện của xanh lá là dấu hiệu riêng của phase này",
+          "Phase 4: xanh dương sáng chiếm ưu thế với vài mảng đen nhỏ",
+          "Ruby: đỏ đồng nhất 100%, không có mảng đen",
+          "Sapphire: xanh dương đồng nhất 100%, không có mảng đen",
+          "Black Pearl: nền tím đậm/đen với hiệu ứng đổi màu tím-sang-xanh lá ngũ sắc tùy góc nhìn — độc nhất trong các phase"
+        ],
+        "threejs_target": "Binary metalness (1.0) + dynamic color-ramp lookup driven by 3D noise coordinates and view-angle (fresnel-like) term for the iridescent shift; implement as a custom shader/TSL node reading a color-ramp texture keyed by noise + viewDir·normal",
+        "applies_to": [
+          "knife"
+        ]
+      },
+      {
+        "name": "Fade Pattern Percentage",
+        "name_vi": "Tỷ lệ mẫu Fade",
+        "definition": "A gradient finish (purple→pink/magenta→yellow/gold) whose 'fade %' is estimated from how much yellow coverage reaches the tip vs. how much unpainted gray substrate remains.",
+        "definition_vi": "Finish dạng gradient (tím→hồng/magenta→vàng/vàng kim), tỷ lệ '% fade' được ước lượng qua độ phủ vàng đến mũi so với phần chất nền xám chưa sơn còn lại.",
+        "recognition_cues": [
+          "Purple/blue always at the base, magenta/pink in the middle, yellow/gold at the tip — yellow coverage is the key percentage indicator",
+          "100% (Full Fade): yellow fully covers the tip, gradient runs its full length, no gray substrate visible",
+          "80% (Minimum Fade): little to no yellow, dominated by pink/purple with visible gray patches",
+          "Karambit/Talon knives are graded by ratio (e.g. 90/10 pink/purple) rather than gray-substrate percentage",
+          "Some knives (Falchion) can exceed 100% when the gradient spills onto the handle"
+        ],
+        "recognition_cues_vi": [
+          "Tím/xanh dương luôn ở gốc, hồng/magenta ở giữa, vàng/vàng kim ở mũi — độ phủ vàng là chỉ số phần trăm chính",
+          "100% (Full Fade): vàng phủ kín mũi, gradient chạy hết chiều dài, không còn thấy nền xám",
+          "80% (Fade tối thiểu): rất ít hoặc không có vàng, chủ yếu hồng/tím với các mảng xám còn thấy rõ",
+          "Dao Karambit/Talon được đánh giá theo tỷ lệ (vd. 90/10 hồng/tím) thay vì phần trăm nền xám",
+          "Một số dao (Falchion) có thể vượt quá 100% khi gradient tràn sang cả cán dao"
+        ],
+        "threejs_target": "Anodized Airbrushed rendering path (Style 5): triplanar-mapped radial gradient, parameterized by a rotation angle theta derived from paint_seed feeding a purple→pink→yellow color ramp",
+        "applies_to": [
+          "knife",
+          "rifle",
+          "pistol",
+          "smg",
+          "sniper"
+        ]
+      },
+      {
+        "name": "Sticker Placement & Layering",
+        "name_vi": "Vị trí và Phân lớp Sticker",
+        "definition": "Free-placement decal system using relative offset/rotation/scale within preset UV slots, with apply-order-based (not slot-order) layering.",
+        "definition_vi": "Hệ thống decal đặt tự do dùng offset/xoay/tỷ lệ tương đối trong các slot UV cài sẵn, phân lớp theo thứ tự áp dụng (không phải thứ tự slot).",
+        "recognition_cues": [
+          "Decal-like flat graphic sitting on top of the base weapon skin, offset/rotated freely rather than fixed to a single spot",
+          "Newer stickers always render on top of older ones regardless of slot number — layering order = application order",
+          "Most weapons support 5 sticker slots (MP5-SD supports 8)"
+        ],
+        "recognition_cues_vi": [
+          "Đồ họa phẳng dạng decal nằm trên skin súng gốc, có thể lệch/xoay tự do thay vì cố định một vị trí",
+          "Sticker dán sau luôn hiển thị đè lên sticker cũ hơn bất kể số thứ tự slot — thứ tự lớp = thứ tự áp dụng",
+          "Hầu hết súng hỗ trợ 5 slot sticker (MP5-SD hỗ trợ 8)"
+        ],
+        "threejs_target": "Multiple decal planes (PlaneGeometry or projected decal texture) parented to weapon UV reference nodes, z-offset ordered by application timestamp, transform driven by offset_x/offset_y/rotation/scale parameters",
+        "applies_to": [
+          "rifle",
+          "pistol",
+          "smg",
+          "sniper",
+          "heavy"
+        ]
+      },
+      {
+        "name": "CS2 Rarity Tier System",
+        "name_vi": "Hệ thống cấp độ hiếm CS2",
+        "definition": "Color-coded rarity ladder (Consumer Grade through Contraband/Extraordinary) shown as a UI border color, also loosely correlating with unbox probability.",
+        "definition_vi": "Thang phân cấp độ hiếm có mã màu (từ Consumer Grade đến Contraband/Extraordinary) hiển thị dưới dạng màu viền UI, cũng tương quan lỏng lẻo với xác suất mở hòm.",
+        "recognition_cues": [
+          "Consumer Grade: light blue-gray #B0C3D9",
+          "Industrial Grade: light blue #5E98D9",
+          "Mil-Spec: blue #4B69FF",
+          "Restricted: purple #8847FF",
+          "Classified: pink/magenta #D32CE6",
+          "Covert: red #EB4B4B",
+          "Contraband / ★ Extraordinary: gold #E4AE39 or #FFD700"
+        ],
+        "recognition_cues_vi": [
+          "Consumer Grade: xanh xám nhạt #B0C3D9",
+          "Industrial Grade: xanh dương nhạt #5E98D9",
+          "Mil-Spec: xanh dương #4B69FF",
+          "Restricted: tím #8847FF",
+          "Classified: hồng/magenta #D32CE6",
+          "Covert: đỏ #EB4B4B",
+          "Contraband / ★ Extraordinary: vàng kim #E4AE39 hoặc #FFD700"
+        ],
+        "threejs_target": "UI-only metadata field (rarity color) attached to the reconstruction metadata schema — not a shader input, but useful for labeling/QA of generated assets",
+        "applies_to": [
+          "rifle",
+          "pistol",
+          "knife",
+          "smg",
+          "sniper",
+          "heavy",
+          "gloves"
+        ]
+      },
+      {
+        "name": "CS2 Quality Types",
+        "name_vi": "Các loại chất lượng CS2",
+        "definition": "Item-quality prefixes (Normal, Genuine, Vintage, Unusual, StatTrak, Souvenir) that can alter the 3D model itself, not just rarity color.",
+        "definition_vi": "Tiền tố chất lượng vật phẩm (Normal, Genuine, Vintage, Unusual, StatTrak, Souvenir) có thể thay đổi chính mô hình 3D, không chỉ màu độ hiếm.",
+        "recognition_cues": [
+          "StatTrak: an added orange-glow LED counter submesh on guns, or a kill-count number etched into the main color channel on knives",
+          "Souvenir: always paired with 4 fixed gold-plated stickers representing tournament/team/MVP",
+          "Unusual (gloves): triggers a custom inspect loop and swaps in a distinct glove model"
+        ],
+        "recognition_cues_vi": [
+          "StatTrak: có thêm submesh bộ đếm LED phát sáng cam trên súng, hoặc số lần hạ gục khắc vào kênh màu chính trên dao",
+          "Souvenir: luôn đi kèm 4 sticker mạ vàng cố định đại diện giải đấu/đội tuyển/MVP",
+          "Unusual (găng tay): kích hoạt vòng lặp inspect tùy chỉnh và thay thế bằng mô hình găng tay riêng biệt"
+        ],
+        "threejs_target": "Conditional child-mesh injection in the asset graph (e.g. add ST_counter submesh with emissive #FF4500) driven by a quality metadata flag",
+        "applies_to": [
+          "rifle",
+          "pistol",
+          "knife",
+          "smg",
+          "sniper",
+          "heavy",
+          "gloves"
+        ]
+      },
+      {
+        "name": "Wear / Float Level System",
+        "name_vi": "Hệ thống độ mòn / Float",
+        "definition": "Permanent 0.00-1.00 float value fixed at item creation, mapped to five wear-level bands (Factory New, Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred) each with characteristic surface degradation.",
+        "definition_vi": "Giá trị float cố định vĩnh viễn từ 0.00-1.00 khi tạo vật phẩm, ánh xạ sang năm dải cấp độ mòn (Factory New, Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred), mỗi cấp có đặc điểm xuống cấp bề mặt riêng.",
+        "recognition_cues": [
+          "Factory New [0.00-0.07): near-perfect finish, at most barely-visible edge scuffing",
+          "Minimal Wear [0.07-0.15): small micro-scratches at corners, paint intact on ~95% of surface",
+          "Field-Tested [0.15-0.38): clearly visible scratches/chips, paint starting to peel at edges, reduced gloss",
+          "Well-Worn [0.38-0.45): large dense scratches exposing substrate, color oxidation/dulling",
+          "Battle-Scarred [0.45-1.00]: near-total paint loss, deep gouges, dirt/grunge accumulation",
+          "Weathering is geometry-aware: curvature maps concentrate scratches on sharp edges, AO maps protect recesses (which instead darken/accumulate grime)"
+        ],
+        "recognition_cues_vi": [
+          "Factory New [0.00-0.07): finish gần hoàn hảo, cùng lắm là trầy nhẹ khó thấy ở cạnh",
+          "Minimal Wear [0.07-0.15): vết trầy nhỏ li ti ở góc, sơn còn nguyên ~95% bề mặt",
+          "Field-Tested [0.15-0.38): vết trầy/mẻ thấy rõ, sơn bắt đầu bong ở cạnh, độ bóng giảm",
+          "Well-Worn [0.38-0.45): vết trầy lớn dày đặc lộ chất nền, màu bị oxy hóa/xỉn",
+          "Battle-Scarred [0.45-1.00]: mất sơn gần như hoàn toàn, vết lõm sâu, tích tụ bụi bẩn",
+          "Sự xuống cấp có nhận biết hình học: bản đồ độ cong tập trung vết xước ở cạnh sắc, bản đồ AO bảo vệ chỗ lõm (thay vào đó tối màu/tích bụi)"
+        ],
+        "threejs_target": "Float value drives a mix() between pristine and worn material states via the Wearness Alpha Mask, curvature map, and AO map — see rendering_shader_mapping 'Wear-State Material Blend'",
+        "applies_to": [
+          "rifle",
+          "pistol",
+          "knife",
+          "smg",
+          "sniper",
+          "heavy",
+          "gloves"
+        ]
+      },
+      {
+        "name": "Weapon Charm Attachment",
+        "name_vi": "Gắn kết Weapon Charm",
+        "definition": "Independent decorative 3D meshes hung from a weapon via a skeletal spring-joint constraint, reacting dynamically to player movement and recoil.",
+        "definition_vi": "Lưới 3D trang trí độc lập treo trên vũ khí qua ràng buộc khớp lò xo xương, phản ứng động theo chuyển động người chơi và độ giật.",
+        "recognition_cues": [
+          "A small independent 3D object hanging off the gun body, swinging/bouncing with recoil or movement rather than staying rigid",
+          "Cast soft contact shadows onto the weapon surface at its anchor socket",
+          "One charm per weapon max; sockets number in the dozens (e.g. ~17 on AWP, ~20 on AK-47) but avoid the grip/hand-contact zone"
+        ],
+        "recognition_cues_vi": [
+          "Vật thể 3D độc lập nhỏ treo trên thân súng, đung đưa/nảy theo độ giật hoặc chuyển động thay vì đứng yên cứng nhắc",
+          "Đổ bóng tiếp xúc mềm lên bề mặt vũ khí tại điểm neo",
+          "Tối đa một charm mỗi vũ khí; số điểm neo lên đến hàng chục (vd. ~17 ở AWP, ~20 ở AK-47) nhưng tránh vùng tay cầm/tiếp xúc tay"
+        ],
+        "threejs_target": "Independent mesh with a spring-joint (soft constraint) parented to a named attachment socket on the weapon skeleton, simulated via a simple physics/spring update each frame",
+        "applies_to": [
+          "rifle",
+          "pistol",
+          "smg",
+          "sniper",
+          "heavy"
+        ]
+      },
+      {
+        "name": "Glove Float Cap Range",
+        "name_vi": "Giới hạn Float của Găng tay",
+        "definition": "Gloves use a compressed float range (0.06-0.80) compared to weapons (0.00-1.00), making a given float value read as visually more worn on gloves than on a gun.",
+        "definition_vi": "Găng tay dùng dải float bị nén (0.06-0.80) so với vũ khí (0.00-1.00), khiến cùng một giá trị float trông mòn hơn về mặt thị giác trên găng tay so với trên súng.",
+        "recognition_cues": [
+          "Factory New band is unusually narrow: 0.06-0.07 only",
+          "A glove at float 0.15 (nominally 'Minimal Wear') can look as worn as a Field-Tested gun at 0.35",
+          "Wear shows most prominently on the knuckle guard, fingertips, and palm edges"
+        ],
+        "recognition_cues_vi": [
+          "Dải Factory New bất thường hẹp: chỉ 0.06-0.07",
+          "Găng tay ở float 0.15 (danh nghĩa 'Minimal Wear') có thể trông mòn tương đương súng Field-Tested ở 0.35",
+          "Vết mòn thể hiện rõ nhất ở gù bảo vệ khớp, đầu ngón tay và cạnh lòng bàn tay"
+        ],
+        "threejs_target": "Same wear-state mix() shader as weapons but with wear_remap_min=0.06/wear_remap_max=0.80 applied before sampling the float-driven blend",
+        "applies_to": [
+          "gloves"
+        ]
+      },
+      {
+        "name": "CS2 Weapon Finish Styles",
+        "name_vi": "Các kiểu Finish vũ khí CS2",
+        "definition": "Nine distinct paint_style render architectures (Solid, Spray-Paint, Hydrographic, three Anodized variants, Patina, Custom Paint Job, Gunsmith) each with a different wear-erosion behavior.",
+        "definition_vi": "Chín kiến trúc render paint_style riêng biệt (Solid, Spray-Paint, Hydrographic, ba biến thể Anodized, Patina, Custom Paint Job, Gunsmith), mỗi loại có hành vi bào mòn khác nhau.",
+        "recognition_cues": [
+          "Solid Color: flat uniform color, no pattern texture, wears straight to substrate",
+          "Spray-Paint: tiling pattern via triplanar mapping, wears through layers sequentially",
+          "Hydrographic: pattern tiled over native UVs simulating hydro-dipping, wears to substrate",
+          "Anodized (chrome base + single color) / Anodized Multicolored (custom roughness in alpha) / Anodized Airbrushed (soft radial gradients, used for Fade) — all wear TO CHROME first, exposing bright chrome before bare substrate",
+          "Patina: full-color image + normal map, iridescent view-angle sheen, never peels — instead darkens/desaturates/accumulates oxide with wear",
+          "Custom Paint Job: non-tiled illustrative texture, peels/flakes to dark metal substrate via a Wearness Mask",
+          "Gunsmith: hybrid Custom-Paint + Patina, grayscale mask splits regions into peeling-paint zones vs darkening-metal zones"
+        ],
+        "recognition_cues_vi": [
+          "Solid Color: màu phẳng đồng nhất, không có texture pattern, mòn thẳng xuống chất nền",
+          "Spray-Paint: pattern lặp qua triplanar mapping, mòn tuần tự qua từng lớp",
+          "Hydrographic: pattern lặp trên UV gốc mô phỏng hydro-dipping, mòn xuống chất nền",
+          "Anodized (nền chrome + một màu) / Anodized Multicolored (roughness tùy chỉnh trong alpha) / Anodized Airbrushed (gradient tỏa tròn mềm, dùng cho Fade) — tất cả đều mòn RA CHROME trước, lộ chrome sáng trước khi lộ chất nền",
+          "Patina: ảnh đầy màu + normal map, ánh ngũ sắc theo góc nhìn, không bong tróc — thay vào đó tối màu/mất bão hòa/tích oxit khi mòn",
+          "Custom Paint Job: texture minh họa không lặp, bong tróc lộ chất nền kim loại tối qua Wearness Mask",
+          "Gunsmith: lai giữa Custom-Paint và Patina, mặt nạ grayscale chia vùng bong tróc sơn và vùng kim loại tối màu"
+        ],
+        "threejs_target": "Distinct shader path per paint_style value: triplanar UV projection for spray/anodized-airbrushed, native-UV tiling for hydrographic/patina/custom, each feeding a style-specific wear mix() function",
+        "applies_to": [
+          "rifle",
+          "pistol",
+          "smg",
+          "sniper",
+          "heavy"
+        ]
+      }
+    ],
+    "rendering_shader_mapping": [
+      {
+        "name": "MeshPhysicalMaterial Core PBR Fields",
+        "name_vi": "Các trường PBR cốt lõi của MeshPhysicalMaterial",
+        "definition": "The baseline Three.js material exposing direct scalar/map fields for the standard PBR channel set.",
+        "definition_vi": "Vật liệu Three.js cơ bản cung cấp trực tiếp các trường vô hướng/bản đồ cho bộ kênh PBR tiêu chuẩn.",
+        "recognition_cues": [
+          "Use whenever a static (non-procedural) material fully described by baked textures is sufficient — the majority of extracted CS2 skins"
+        ],
+        "recognition_cues_vi": [
+          "Dùng khi vật liệu tĩnh (không thủ tục) được mô tả đầy đủ bằng texture nướng sẵn là đủ — phần lớn skin CS2 trích xuất"
+        ],
+        "threejs_target": "new THREE.MeshPhysicalMaterial({ map, normalMap, roughnessMap, metalnessMap, aoMap, clearcoat, clearcoatRoughness })"
+      },
+      {
+        "name": "CustomShaderMaterial (CSM) Weathering Hooks",
+        "name_vi": "Móc nối phong hóa của CustomShaderMaterial (CSM)",
+        "definition": "Extension library exposing csm_* output variables to inject procedural noise/masks into an otherwise-standard lit material, used for dynamic tarnish/patina effects.",
+        "definition_vi": "Thư viện mở rộng cung cấp các biến đầu ra csm_* để chèn nhiễu/mặt nạ thủ tục vào vật liệu chiếu sáng tiêu chuẩn, dùng cho hiệu ứng xỉn màu/patina động.",
+        "recognition_cues": [
+          "Needed when wear/tarnish must be computed procedurally at runtime rather than fully pre-baked into a texture"
+        ],
+        "recognition_cues_vi": [
+          "Cần khi độ mòn/xỉn màu phải được tính thủ tục tại runtime thay vì nướng sẵn hoàn toàn vào texture"
+        ],
+        "threejs_target": "csm_Roughness / csm_Metalness (procedural noise-driven overrides), csm_FragNormal (custom bump for patina), csm_DiffuseColor (mix base color with oxide/dirt color by mask)"
+      },
+      {
+        "name": "TSL Node Functions for Weathering",
+        "name_vi": "Các hàm nút TSL cho hiệu ứng phong hóa",
+        "definition": "Three.js Shading Language (WebGPU) node-graph functions used to build procedural PBR materials, especially for blending pristine vs. weathered states.",
+        "definition_vi": "Các hàm đồ thị nút của Three.js Shading Language (WebGPU) dùng để xây dựng vật liệu PBR thủ tục, đặc biệt để pha trộn trạng thái nguyên vẹn và trạng thái phong hóa.",
+        "recognition_cues": [
+          "Preferred over CSM on WebGPU-targeted builds; needed for float-driven wear blending and terrain-style masked effects"
+        ],
+        "recognition_cues_vi": [
+          "Ưu tiên hơn CSM trên các bản build nhắm WebGPU; cần cho pha trộn độ mòn theo float và hiệu ứng mặt nạ kiểu địa hình"
+        ],
+        "threejs_target": "material.roughnessNode / .metalnessNode / .normalNode assigned mix(pristineVal, wornVal, wearMask) with smoothstep() for soft transition edges and texture()/varying() for sampling and vertex-to-fragment data"
+      },
+      {
+        "name": "CSG Boolean Operations for Sub-Mesh Composition",
+        "name_vi": "Các phép toán Boolean CSG để kết hợp Sub-Mesh",
+        "definition": "Constructive solid geometry (union/subtract/intersect) for combining or cutting weapon/knife sub-meshes procedurally instead of hand-modeling every variant.",
+        "definition_vi": "Hình học rắn cấu trúc (hợp/trừ/giao) để kết hợp hoặc cắt các sub-mesh vũ khí/dao theo thủ tục thay vì mô hình hóa thủ công từng biến thể.",
+        "recognition_cues": [
+          "Needed for hollowing barrels/handguards, drilling accessory-mount holes, or generating chamfered/cut geometric variants from primitive stacks"
+        ],
+        "recognition_cues_vi": [
+          "Cần khi khoét rỗng nòng súng/ốp lót tay, khoan lỗ gắn phụ kiện, hoặc tạo các biến thể hình học vát/cắt từ chồng khối nguyên thủy"
+        ],
+        "threejs_target": "three-csg-ts (BSP-tree based, TypeScript) or three-bvh-csg for Subtract/Union/Intersect operations between BufferGeometry meshes"
+      },
+      {
+        "name": "CylinderGeometry → Barrels & Round Components",
+        "name_vi": "CylinderGeometry cho Nòng súng và các bộ phận tròn",
+        "definition": "Maps to any barrel-like round-cross-section part.",
+        "definition_vi": "Ánh xạ tới mọi bộ phận có tiết diện tròn dạng nòng.",
+        "recognition_cues": [
+          "Long uniform-cross-section round part (barrel, suppressor, muzzle brake body, cleaning rod, magazine tube)"
+        ],
+        "recognition_cues_vi": [
+          "Bộ phận tròn có tiết diện đều dài (nòng súng, ống giảm thanh, thân bù giật, cần thông nòng, ống chứa đạn)"
+        ],
+        "threejs_target": "CylinderGeometry(radiusTop, radiusBottom, height); radiusTop=0 for conical shapes"
+      },
+      {
+        "name": "BoxGeometry → Slides, Receivers & Grips",
+        "name_vi": "BoxGeometry cho Khóa nòng, Thân súng và Tay cầm",
+        "definition": "Maps to rectangular/blocky sub-assemblies.",
+        "definition_vi": "Ánh xạ tới các cụm lắp ráp hình chữ nhật/khối.",
+        "recognition_cues": [
+          "Flat-faced, roughly rectangular volume (pistol slide, receiver/frame, grip, panel)"
+        ],
+        "recognition_cues_vi": [
+          "Khối gần chữ nhật với các mặt phẳng (khóa nòng súng lục, thân/khung súng, tay cầm, tấm phẳng)"
+        ],
+        "threejs_target": "BoxGeometry(width, height, depth)"
+      },
+      {
+        "name": "CapsuleGeometry → Rounded-Edge Components",
+        "name_vi": "CapsuleGeometry cho các bộ phận có cạnh bo tròn",
+        "definition": "Maps to components with hemispherical rounded ends.",
+        "definition_vi": "Ánh xạ tới các bộ phận có đầu bo tròn dạng bán cầu.",
+        "recognition_cues": [
+          "Rod-like part with distinctly rounded (not flat-cut) ends, e.g. a knife spine or a safety lever"
+        ],
+        "recognition_cues_vi": [
+          "Bộ phận dạng thanh có đầu bo tròn rõ rệt (không cắt phẳng), vd. sống dao hoặc cần an toàn"
+        ],
+        "threejs_target": "CapsuleGeometry(radius, length)"
+      },
+      {
+        "name": "ExtrudeGeometry → Custom Blade/Silhouette Profiles",
+        "name_vi": "ExtrudeGeometry cho hồ sơ lưỡi dao/đường viền tùy chỉnh",
+        "definition": "Maps to any part defined by a unique 2D silhouette pushed into 3D depth with a bevel.",
+        "definition_vi": "Ánh xạ tới bất kỳ bộ phận nào được định nghĩa bằng đường viền 2D độc nhất, đẩy vào chiều sâu 3D với cạnh vát.",
+        "recognition_cues": [
+          "Blade shape that doesn't match a simple primitive — distinctive curved hook (Karambit), curved clip point (Bowie), or other custom silhouette"
+        ],
+        "recognition_cues_vi": [
+          "Hình dạng lưỡi dao không khớp với khối nguyên thủy đơn giản — móc cong đặc trưng (Karambit), điểm clip cong (Bowie), hoặc đường viền tùy chỉnh khác"
+        ],
+        "threejs_target": "ExtrudeGeometry(customTHREEShape, { depth, bevelEnabled, bevelThickness })"
+      },
+      {
+        "name": "TorusGeometry → Rings & Loops",
+        "name_vi": "TorusGeometry cho Vòng khuyên và Vòng lặp",
+        "definition": "Maps to donut-shaped circular features.",
+        "definition_vi": "Ánh xạ tới các chi tiết hình vòng tròn kiểu donut.",
+        "recognition_cues": [
+          "Circular loop feature — bayonet handle ring, finger loop on a Talon knife, trigger guard loop, carrying handle"
+        ],
+        "recognition_cues_vi": [
+          "Chi tiết vòng tròn — vòng cán lưỡi lê, vòng ngón tay trên dao Talon, vòng vành bảo vệ cò, tay xách"
+        ],
+        "threejs_target": "TorusGeometry(radius, tube, radialSegments, tubularSegments)"
+      },
+      {
+        "name": "LatheGeometry → Turned/Radially-Symmetric Parts",
+        "name_vi": "LatheGeometry cho các bộ phận tiện/đối xứng trục",
+        "definition": "Maps to parts generated by revolving a 2D profile around an axis.",
+        "definition_vi": "Ánh xạ tới các bộ phận tạo ra bằng cách xoay một biên dạng 2D quanh một trục.",
+        "recognition_cues": [
+          "Contoured, fully radially-symmetric part — turned wood/metal handle, some muzzle device shapes, adjustment knobs"
+        ],
+        "recognition_cues_vi": [
+          "Bộ phận có biên dạng, đối xứng trục hoàn toàn — cán gỗ/kim loại tiện, một số hình dạng đầu nòng, núm điều chỉnh"
+        ],
+        "threejs_target": "LatheGeometry(points[], segments) where points is a 2D profile curve revolved around the Y-axis"
+      },
+      {
+        "name": "TubeGeometry → Straps, Cables & Belts",
+        "name_vi": "TubeGeometry cho Dây đai, Cáp và Dây băng đạn",
+        "definition": "Maps to flexible components following a 3D curve.",
+        "definition_vi": "Ánh xạ tới các bộ phận mềm dẻo chạy theo một đường cong 3D.",
+        "recognition_cues": [
+          "Flexible, curve-following linear component — sling strap, pressure-switch cable, ammo belt draping into a receiver"
+        ],
+        "recognition_cues_vi": [
+          "Bộ phận tuyến tính mềm dẻo chạy theo đường cong — dây đeo súng, cáp công tắc áp lực, dây băng đạn thõng vào thân súng"
+        ],
+        "threejs_target": "TubeGeometry(curve, tubularSegments, radius, radialSegments)"
+      },
+      {
+        "name": "ConeGeometry → Tapered Tips",
+        "name_vi": "ConeGeometry cho các đầu thon nhọn",
+        "definition": "Maps to tapered projectile-like or pointed components.",
+        "definition_vi": "Ánh xạ tới các bộ phận thon nhọn giống đầu đạn hoặc có mũi nhọn.",
+        "recognition_cues": [
+          "Tapered pointed shape narrowing to a point — projectile tips, some conical muzzle device shapes"
+        ],
+        "recognition_cues_vi": [
+          "Hình thon nhọn thu về một điểm — đầu đạn, một số hình dạng đầu nòng dạng nón"
+        ],
+        "threejs_target": "ConeGeometry(radius, height, radialSegments)"
+      },
+      {
+        "name": "sRGB / Linear Color Space Assignment",
+        "name_vi": "Gán không gian màu sRGB / Linear",
+        "definition": "The mandatory Three.js r152+ rule for tagging each texture as human-viewable color vs. mathematical data before assigning it to a material slot.",
+        "definition_vi": "Quy tắc bắt buộc từ Three.js r152+ để gán nhãn mỗi texture là màu để người xem hay dữ liệu toán học trước khi gán vào khe vật liệu.",
+        "recognition_cues": [
+          "Any imported texture that looks like a natural photo → sRGB; any texture that looks like flat gray/colored data noise → NoColorSpace"
+        ],
+        "recognition_cues_vi": [
+          "Bất kỳ texture nhập vào trông như ảnh tự nhiên → sRGB; bất kỳ texture trông như nhiễu dữ liệu xám/màu phẳng → NoColorSpace"
+        ],
+        "threejs_target": "texture.colorSpace = THREE.SRGBColorSpace (map, emissiveMap) or THREE.NoColorSpace (normalMap, roughnessMap, metalnessMap, aoMap)"
+      },
+      {
+        "name": "ORM Packed Texture Assignment",
+        "name_vi": "Gán texture đóng gói ORM",
+        "definition": "Assigning one R/G/B-packed texture file to three separate MeshPhysicalMaterial slots simultaneously, per the glTF ORM convention.",
+        "definition_vi": "Gán một file texture đóng gói R/G/B vào ba khe riêng biệt của MeshPhysicalMaterial cùng lúc, theo quy ước ORM của glTF.",
+        "recognition_cues": [
+          "Source 2/CS2 exports often ship AO/Roughness/Metalness pre-packed into one file rather than three separate grayscale images"
+        ],
+        "recognition_cues_vi": [
+          "Bản xuất từ Source 2/CS2 thường đóng gói sẵn AO/Roughness/Metalness vào một file thay vì ba ảnh grayscale riêng"
+        ],
+        "threejs_target": "material.aoMap = material.roughnessMap = material.metalnessMap = packedTexture (each field reads its designated R/G/B channel automatically)"
+      },
+      {
+        "name": "UV/Coordinate System Conversion & Attachment Hierarchy",
+        "name_vi": "Chuyển đổi hệ tọa độ UV và Phân cấp gắn kết",
+        "definition": "Handling handedness/up-axis differences (Unity Y-up left-handed vs. USD/glTF right-handed) and representing sub-part attachment via parent-child scene-graph transforms.",
+        "definition_vi": "Xử lý khác biệt tay thuận/trục lên (Unity Y-up trái vs. USD/glTF phải) và biểu diễn gắn kết sub-part qua transform cha-con trong scenegraph.",
+        "recognition_cues": [
+          "A sub-part (scope, blade, strap) that appears mirrored or flipped sideways after import signals a handedness mismatch",
+          "Attachment points behave like named sockets/joints (Unreal sockets, USD UsdPhysicsFixedJoint, 'ghost links') — a local offset+rotation relative to a parent node"
+        ],
+        "recognition_cues_vi": [
+          "Một sub-part (kính ngắm, lưỡi dao, dây đeo) bị lật ngược hoặc lệch sau khi import báo hiệu sai lệch tay thuận",
+          "Điểm gắn kết hoạt động như socket/joint có tên (Unreal sockets, USD UsdPhysicsFixedJoint, 'ghost link') — một offset+xoay cục bộ tương đối với node cha"
+        ],
+        "threejs_target": "THREE.Object3D parent-child hierarchy with each sub-part's local .position/.quaternion set to the source engine's named attachment-socket transform; flip texture.flipY / negate one axis if handedness mismatches"
+      },
+      {
+        "name": "Reconstruction Metadata Schema",
+        "name_vi": "Schema Metadata cho Tái tạo",
+        "definition": "A structured metadata envelope (identity, extraction provenance, geometry stats, texture-slot mapping, rights) accompanying each reconstructed asset to drive and audit the pipeline.",
+        "definition_vi": "Một gói metadata có cấu trúc (định danh, nguồn gốc trích xuất, thống kê hình học, ánh xạ khe texture, quyền sở hữu) đi kèm mỗi tài sản tái tạo để điều khiển và kiểm tra pipeline.",
+        "recognition_cues": [
+          "Needed whenever an agent must trace a generated Three.js asset back to its source skin/paint_seed/rarity for QA or reproducibility"
+        ],
+        "recognition_cues_vi": [
+          "Cần khi agent phải truy vết một tài sản Three.js đã tạo về lại skin/paint_seed/độ hiếm nguồn để QA hoặc tái lập"
+        ],
+        "threejs_target": "JSON sidecar: { weapon_id, paint_index, skin_id, min_float, max_float, rarity, category, source_tool, source_path, checksum, face_count, vertex_count, bounding_box, texture_slots: {slot: colorSpace}, paint_seed, rights }"
+      }
+    ],
+    "description_conventions": [
+      {
+        "name": "CDWA Semantic Field Mapping",
+        "name_vi": "Ánh xạ trường ngữ nghĩa CDWA",
+        "definition": "Top-level object-description keys from the Categories for the Description of Works of Art standard (Object/Work Type, Classification, Measurements, Materials/Techniques, Subject Matter).",
+        "definition_vi": "Các khóa mô tả đối tượng cấp cao nhất từ chuẩn Categories for the Description of Works of Art (Loại đối tượng, Phân loại, Kích thước, Vật liệu/Kỹ thuật, Chủ đề).",
+        "recognition_cues": [
+          "Use as the top-level schema keys whenever an agent must produce a structured (not prose) description of a reference image"
+        ],
+        "recognition_cues_vi": [
+          "Dùng làm các khóa schema cấp cao nhất bất cứ khi nào agent phải tạo mô tả có cấu trúc (không phải văn xuôi) cho ảnh tham chiếu"
+        ],
+        "threejs_target": "Top-level JSON keys: objectType, classification, measurements, materials, subjectMatter — populated per reference image before any 3D generation step"
+      },
+      {
+        "name": "VRA Core 4.0 Attribute-Value Schema",
+        "name_vi": "Schema Thuộc tính-Giá trị VRA Core 4.0",
+        "definition": "XML-derived global attribute qualifiers (vocab, refid, xml:lang, extent) that make every described data element machine-readable and scoped.",
+        "definition_vi": "Các bộ định tính thuộc tính toàn cục có nguồn gốc XML (vocab, refid, xml:lang, extent) giúp mỗi phần tử dữ liệu được mô tả có thể đọc bằng máy và có phạm vi rõ ràng.",
+        "recognition_cues": [
+          "Any attribute-value pair should carry an 'extent' qualifier stating whether it describes the whole object or one sub-part — ambiguity here is the most common schema mistake"
+        ],
+        "recognition_cues_vi": [
+          "Mọi cặp thuộc tính-giá trị nên mang bộ định tính 'extent' cho biết nó mô tả toàn bộ đối tượng hay một sub-part — sự mơ hồ này là lỗi schema phổ biến nhất"
+        ],
+        "threejs_target": "Per-field metadata: { value, vocab, extent } attached to each material/measurement/attribute entry in the reconstruction metadata schema"
+      },
+      {
+        "name": "Scene-Graph Relational Triplets",
+        "name_vi": "Bộ ba quan hệ Scene-Graph",
+        "definition": "<Subject, Predicate, Object> statements capturing spatial/semantic relationships between parts (e.g. <blade, attached_to, handle>), plus per-node bounding box and class label.",
+        "definition_vi": "Các phát biểu <Chủ thể, Vị ngữ, Đối tượng> nắm bắt quan hệ không gian/ngữ nghĩa giữa các bộ phận (vd. <lưỡi dao, gắn_vào, cán dao>), cộng với bounding box và nhãn lớp cho mỗi node.",
+        "recognition_cues": [
+          "Use whenever the pipeline needs a machine-readable assembly blueprint rather than a free-text description of how parts relate spatially"
+        ],
+        "recognition_cues_vi": [
+          "Dùng khi pipeline cần một bản thiết kế lắp ráp máy đọc được thay vì mô tả văn bản tự do về cách các bộ phận liên hệ không gian"
+        ],
+        "threejs_target": "Array of {subject, predicate, object} triplets driving the THREE.Object3D parent-child attachment hierarchy (see 'UV/Coordinate System Conversion & Attachment Hierarchy')"
+      },
+      {
+        "name": "Feldman Method (Description + Analysis Stages)",
+        "name_vi": "Phương pháp Feldman (giai đoạn Mô tả + Phân tích)",
+        "definition": "Structured visual-analysis discipline enforcing Description → Analysis → Interpretation → Judgment; only the first two stages matter for reconstruction, and value-laden adjectives are banned in favor of neutral visual pointers.",
+        "definition_vi": "Kỷ luật phân tích thị giác có cấu trúc buộc theo trình tự Mô tả → Phân tích → Diễn giải → Đánh giá; chỉ hai giai đoạn đầu quan trọng cho tái tạo, và tính từ mang tính đánh giá bị cấm, thay bằng các chỉ điểm thị giác trung lập.",
+        "recognition_cues": [
+          "A description using words like 'beautiful' or 'elegant' has leaked into Interpretation/Judgment and should be rejected",
+          "Acceptable pointers are strictly visual: straight, curved, large, small, symmetric, textured"
+        ],
+        "recognition_cues_vi": [
+          "Một mô tả dùng từ như 'đẹp' hay 'tinh tế' đã lấn sang giai đoạn Diễn giải/Đánh giá và nên bị loại bỏ",
+          "Các chỉ điểm chấp nhận được chỉ mang tính thị giác thuần túy: thẳng, cong, lớn, nhỏ, đối xứng, có kết cấu"
+        ],
+        "threejs_target": "A description-generation prompt/filter step that rejects or rewrites any adjective not drawn from a controlled visual-pointer vocabulary before the schema is populated"
+      },
+      {
+        "name": "Drill-Down Macro-to-Micro Decomposition",
+        "name_vi": "Phân rã Macro-đến-Micro (Drill-Down)",
+        "definition": "Description ordering convention: start with a brief overall-form summary (the 'gist'), then decompose into parts, then into geometric primitives.",
+        "definition_vi": "Quy ước thứ tự mô tả: bắt đầu bằng tóm tắt hình dạng tổng thể ngắn gọn ('gist'), sau đó phân rã thành các bộ phận, rồi thành các khối nguyên thủy hình học.",
+        "recognition_cues": [
+          "A good description names the whole object first ('a bowie-style knife'), then its components ('blade, bolster, handle scales'), then each component's basic solid shape"
+        ],
+        "recognition_cues_vi": [
+          "Một mô tả tốt gọi tên toàn bộ đối tượng trước ('dao kiểu bowie'), sau đó các bộ phận ('lưỡi, đệm cán, ốp cán'), rồi hình khối cơ bản của từng bộ phận"
+        ],
+        "threejs_target": "Nested JSON structure: { gist, components: [{ name, primitiveShape, ... }] } mirroring the geometry_anatomy category's per-part entries"
+      },
+      {
+        "name": "Controlled Vocabulary (AAT Facets)",
+        "name_vi": "Từ vựng có kiểm soát (Facet AAT)",
+        "definition": "Standardized terminology (Getty Art & Architecture Thesaurus facets for materials, activities, physical attributes) replacing vague or inconsistent free-text terms.",
+        "definition_vi": "Thuật ngữ chuẩn hóa (các facet của Getty Art & Architecture Thesaurus cho vật liệu, hoạt động, thuộc tính vật lý) thay thế các từ tự do mơ hồ hoặc không nhất quán.",
+        "recognition_cues": [
+          "Material/attribute terms should be drawn from a fixed enumerated list (e.g. 'brushed steel', 'anodized aluminum') rather than free-form phrasing that varies between descriptions of the same material"
+        ],
+        "recognition_cues_vi": [
+          "Thuật ngữ vật liệu/thuộc tính nên lấy từ danh sách liệt kê cố định (vd. 'thép chải xước', 'nhôm anod hóa') thay vì cách diễn đạt tự do thay đổi giữa các mô tả của cùng một vật liệu"
+        ],
+        "threejs_target": "Enum-constrained metadata fields (materialType, finishStyle) validated against a fixed controlled-vocabulary list before being written to the reconstruction schema"
+      },
+      {
+        "name": "Honest-Uncertainty / Single-Image-Limits Convention",
+        "name_vi": "Quy ước Trung thực về Bất định / Giới hạn Ảnh Đơn",
+        "definition": "Explicit marking of occluded or back-face regions as 'undetermined' rather than inventing plausible-looking detail not visible in the reference.",
+        "definition_vi": "Đánh dấu rõ ràng các vùng bị che khuất hoặc mặt sau là 'chưa xác định' thay vì bịa ra chi tiết trông hợp lý nhưng không thấy trong ảnh tham chiếu.",
+        "recognition_cues": [
+          "Any attribute for a surface not visible in the reference image should be flagged explicitly rather than filled with a guessed value",
+          "This is a hard constraint against hallucinated geometry/material detail feeding into the reconstruction"
+        ],
+        "recognition_cues_vi": [
+          "Bất kỳ thuộc tính nào của bề mặt không thấy được trong ảnh tham chiếu nên được đánh dấu rõ ràng thay vì điền giá trị đoán mò",
+          "Đây là ràng buộc cứng chống lại việc bịa chi tiết hình học/vật liệu đưa vào tái tạo"
+        ],
+        "threejs_target": "Sentinel value \"undetermined\" (or null + a needsAnotherView:true flag) written into any metadata field the agent cannot verify from the given reference image(s)"
+      },
+      {
+        "name": "PBR Vocabulary Caption Calibration",
+        "name_vi": "Hiệu chỉnh Chú thích theo Từ vựng PBR",
+        "definition": "Embedding a technical material-attribute block (Albedo, Metalness, Roughness, Normals) with measured reflectance ranges directly into the structured description, not just prose.",
+        "definition_vi": "Nhúng một khối thuộc tính vật liệu kỹ thuật (Albedo, Metalness, Roughness, Normals) với các dải phản xạ đo lường được trực tiếp vào mô tả có cấu trúc, không chỉ văn xuôi.",
+        "recognition_cues": [
+          "A reconstruction-ready description states measured-style values, e.g. 'raw metal reflectance sRGB 180-255' or 'dielectric F0 ≈ 0.04', not just 'shiny' or 'metallic-looking'"
+        ],
+        "recognition_cues_vi": [
+          "Một mô tả sẵn sàng cho tái tạo nêu giá trị kiểu đo lường, vd. 'phản xạ kim loại thô sRGB 180-255' hoặc 'F0 điện môi ≈ 0.04', không chỉ 'bóng' hay 'trông như kim loại'"
+        ],
+        "threejs_target": "A materialHints sub-object { albedoRangeSRGB, metalness: 0|1, roughnessEstimate, f0Estimate } embedded per-component in the structured description, feeding directly into initial MeshPhysicalMaterial parameter guesses"
+      }
+    ]
+  }
+}

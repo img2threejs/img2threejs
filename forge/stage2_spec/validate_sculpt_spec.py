@@ -52,6 +52,8 @@ VALID_TOPOLOGY_CLASSES = {
     "fiber-strand",
     "material-only",
 }
+CS2_ROUTES = {"reference-projection", "authored-texture", "procedural-finish"}
+CS2_EXACTNESS_TIERS = {"image-only", "metadata-assisted", "exact-texture"}
 # Plan 1.3 Workstream A: primitives that are structurally wrong for a given topology class.
 # Prevents "Flat-Projection Bias" (e.g. a continuous organic bulge picked as a box-stack).
 DISALLOWED_TOPOLOGY_PRIMITIVE_PAIRS: dict[str, set[str]] = {
@@ -394,6 +396,62 @@ def validate_reference_pbr(material_id: str, value: Any, errors: list[str], warn
             warnings.append(f"quality: material {material_id!r} referencePbr.maps missing {channel}")
         else:
             validate_reference_pbr_map(maps[channel], f"material {material_id!r} referencePbr.maps.{channel}", errors)
+
+
+def validate_cs2_view_dependent_environment(spec: dict[str, Any], errors: list[str]) -> None:
+    """View-dependent CS2 finishes (anodized / anodized-multicolored) read their color from
+    environment reflections -- rendering one with no environment at all is a muddy-render gate
+    failure, not a quality nit. The code-generated default environment always exists unless
+    explicitly disabled (cs2Finish.environmentAvailable = false), so this only fires as the
+    last-resort guard described in design.md, never on the default image-only path.
+    See grimoire/build/cs2_finishes.md."""
+    materials = [m for m in spec.get("materials", []) if isinstance(m, dict)]
+    view_dependent = [m for m in materials if m.get("needsEnvironment") is True]
+    if not view_dependent:
+        return
+    cs2_finish = spec.get("cs2Finish")
+    environment_available = not (isinstance(cs2_finish, dict) and cs2_finish.get("environmentAvailable") is False)
+    if not environment_available:
+        names = ", ".join(str(m.get("id")) for m in view_dependent)
+        errors.append(
+            f"material(s) {names} are view-dependent and need an environment map (scene.environment) "
+            "or they render muddy, but cs2Finish.environmentAvailable is false -- enable the "
+            "code-generated default environment or supply a user HDRI before generating "
+            "(see grimoire/build/cs2_finishes.md)"
+        )
+
+
+def validate_cs2_contract(spec: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
+    intake = spec.get("cs2Intake")
+    if intake is None:
+        return
+    if not isinstance(intake, dict):
+        errors.append("cs2Intake must be an object")
+        return
+    route = intake.get("route")
+    tier = intake.get("exactnessTier")
+    if route not in CS2_ROUTES:
+        errors.append("cs2Intake.route must be a supported CS2 route")
+    if tier not in CS2_EXACTNESS_TIERS:
+        errors.append("cs2Intake.exactnessTier must be a supported exactness tier")
+    if intake.get("itemFamily") != "knife":
+        errors.append("cs2Intake requires the registered knife adapter")
+    if route == "reference-projection":
+        camera = spec.get("referenceCamera")
+        source = intake.get("deLitAlbedo") or intake.get("sourceImage")
+        if not isinstance(camera, dict) or camera.get("solved") is not True:
+            warnings.append("quality: reference-projection needs solved referenceCamera")
+        if not isinstance(source, str) or not source.strip():
+            errors.append("reference-projection requires a de-lit source image")
+    if route == "authored-texture":
+        materials = [item for item in spec.get("materials", []) if isinstance(item, dict)]
+        pbr = next((item.get("referencePbr") for item in materials if item.get("id") == "skin-finish"), None)
+        maps = pbr.get("maps") if isinstance(pbr, dict) else None
+        required = ("albedo", "normal", "roughness", "metalness")
+        if tier == "exact-texture" and (not isinstance(maps, dict) or not all(key in maps for key in required)):
+            errors.append("exact-texture authored route requires independent albedo, normal, roughness, and metalness maps")
+    if route == "procedural-finish" and tier == "exact-texture":
+        errors.append("procedural-finish cannot claim exact-texture")
 
 
 def validate_materials(spec: dict[str, Any], errors: list[str], warnings: list[str]) -> set[str]:
@@ -962,7 +1020,7 @@ def validate_quality_contract(spec: dict[str, Any], errors: list[str], warnings:
             validate_string_array(group.get("failureModes"), f"qualityContract.featureGroups[{index}].failureModes", errors)
             if group.get("required") is True and not group.get("qualityCriteria"):
                 warnings.append(f"quality: required feature group {group.get('id', index)!r} has no qualityCriteria")
-    for field in ("visualDeltaChecks", "antiShallowSpecRules"):
+    for field in ("visualDeltaChecks", "antiShallowSpecRules", "mustNotDo"):
         validate_string_array(contract.get(field), f"qualityContract.{field}", errors)
         if isinstance(contract.get(field), list) and not contract[field]:
             warnings.append(f"quality: qualityContract.{field} is empty")
@@ -1722,8 +1780,13 @@ def _has_gloss_response(spec: dict[str, Any]) -> bool:
 
 
 def _has_repetition_or_small_parts(spec: dict[str, Any]) -> bool:
-    if [r for r in spec.get("repetitionSystems", []) if isinstance(r, dict)]:
-        return True
+    for repetition in spec.get("repetitionSystems", []):
+        if not isinstance(repetition, dict):
+            continue
+        if repetition.get("realization") == "map-only" or repetition.get("buildsGeometry") is False:
+            continue
+        if repetition.get("geometry") is not None or repetition.get("instances") is not None or repetition.get("buildsGeometry") is True:
+            return True
     return any(
         isinstance(c, dict) and c.get("level") == "micro"
         for c in spec.get("componentTree", [])
@@ -1846,6 +1909,8 @@ def validate_spec(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     validate_look_dev_targets(spec, errors, warnings)
     evidence_ids = validate_evidence(spec, errors, warnings)
     material_ids = validate_materials(spec, errors, warnings)
+    validate_cs2_contract(spec, errors, warnings)
+    validate_cs2_view_dependent_environment(spec, errors)
     validate_components(spec, material_ids, evidence_ids, errors, warnings)
     lod_plan = spec.get("lodPlan")
     if lod_plan is not None and not isinstance(lod_plan, list):

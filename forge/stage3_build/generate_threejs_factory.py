@@ -305,6 +305,15 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
     target = str(spec.get("targetName") or "Procedural Object")
     type_name = pascal_case(target)
     function_name = f"create{type_name}Model"
+    reconstruction_evidence = {
+        "itemFamily": spec.get("itemFamily"),
+        "subtype": spec.get("subtype"),
+        "componentAdapter": spec.get("componentAdapter"),
+        "route": spec.get("route"),
+        "exactnessTier": spec.get("exactnessTier"),
+        "referenceCamera": spec.get("referenceCamera"),
+        "approximationNotes": spec.get("approximationNotes", []),
+    }
     materials = {
         str(material.get("id") or f"material{index}"): material
         for index, material in enumerate(spec.get("materials", []))
@@ -320,6 +329,7 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
         "import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';",
         "import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';",
         "import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';",
+        "import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';",
         "",
         "export type ProceduralModelOptions = {",
         "  wireframe?: boolean;",
@@ -1013,6 +1023,7 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
         f"export function {function_name}(options: ProceduralModelOptions = {{}}): THREE.Group {{",
         "  const root = new THREE.Group();",
         f"  root.name = {json.dumps(target)};",
+        f"  root.userData.reconstructionEvidence = {json_literal(reconstruction_evidence)};",
         "",
         "  const materialMap: Record<string, THREE.Material> = {};",
         ]
@@ -1316,6 +1327,27 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
             "    composer.addPass(new UnrealBloomPass(size, options.bloomStrength ?? 0.4, 0.4, 0.85));",
             "  }",
             "  return composer;",
+            "}",
+            "",
+            f"export function configure{type_name}Renderer(renderer: THREE.WebGLRenderer): void {{",
+            "  // Load-bearing for view-dependent finishes (anodized / Doppler): without ACES + sRGB",
+            "  // the environment reflection reads flat/washed instead of a believable metal response.",
+            "  renderer.toneMapping = THREE.ACESFilmicToneMapping;",
+            "  renderer.outputColorSpace = THREE.SRGBColorSpace;",
+            "}",
+            "",
+            f"export function create{type_name}InspectControls(",
+            "  camera: THREE.Camera,",
+            "  domElement: HTMLElement,",
+            "): OrbitControls {",
+            "  // View-dependent finishes only read correctly once the user orbits — their color",
+            "  // comes from the environment reflection, not albedo, so free rotation matters here.",
+            "  const controls = new OrbitControls(camera, domElement);",
+            "  controls.enableDamping = true;",
+            "  controls.minDistance = 1.0;",
+            "  controls.maxDistance = 8.0;",
+            "  controls.autoRotate = false;",
+            "  return controls;",
             "}",
             "",
         ]

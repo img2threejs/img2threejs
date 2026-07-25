@@ -85,3 +85,23 @@ The proper fix is a Divine-Eye **reconstruction mode** (reference==photo ⇒ dro
 when a photo-vs-procedural render fails *only* the IoU hard gate but objectness says "same object"
 (≥0.48), it downgrades the confident reject to `probe` and sets `reconstructionModeSuspected:true`. So the
 Eye no longer hard-rejects a faithful reconstruction on framing alone — but still never auto-passes it.
+
+---
+
+## 2D Gates Are Blind to 3D Realism (Critical — from Bowie Knife reconstruction)
+
+**The problem:** 2D visual gates (Divine Eye, diagnose_render) only measure silhouette + colour + tone. They cannot see:
+- Edge sharpness (a constant-thickness slab reads as a toy cutout even with perfect silhouette)
+- Cross-section thickness (blade grind, taper, bevel quality)
+- Material realism (metal vs plastic reflection, surface texture response)
+- True 3D form beyond the silhouette plane
+
+**Consequence:** A strict-PASS at fidelity 0.83 can still read as a flat toy in a three-quarter render.
+
+**Rule:** NEVER report a 2D-gate PASS as "done". Always judge 3D realism on a three-quarter render, and explicitly state what the gate does/doesn't measure in your review notes. When a gate passes but the 3D render looks wrong, the gate measurement was insufficient — not the reconstruction.
+
+**Verification cues:** A procedural object is failing 3D realism when:
+- The silhouette matches but edges are perfectly sharp/flat (no grind, taper, or bevel)
+- Material has correct color but wrong surface response (plastic when should be metal, etc.)
+- Reference depth cues (grind transitions, material thickness, edge bevels) are missing or flat
+- The gate score is high but the object reads as "toy-like" or "cardboard" in angled views

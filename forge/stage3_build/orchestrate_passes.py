@@ -12,6 +12,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 from feature_acceptance_policy import feature_gate_failures
+from status_banner import emit_status
 
 
 DEFAULT_PASS_ORDER = [
@@ -443,6 +444,28 @@ def sync_pipeline(spec: dict[str, Any]) -> dict[str, Any]:
     return pipeline
 
 
+def ledger_disagreements(spec: dict[str, Any], completed: list[str]) -> list[str]:
+    credited = set(completed)
+    ids = pass_order(spec)
+    disagreements: list[str] = []
+    history = spec.get("reviewHistory", [])
+    if not isinstance(history, list):
+        return disagreements
+    for entry in history:
+        if not isinstance(entry, dict) or entry.get("action") != "continue":
+            continue
+        pass_id = entry.get("passId")
+        if not isinstance(pass_id, str) or pass_id in credited:
+            continue
+        if pass_id in ids:
+            index = ids.index(pass_id)
+            blocker = ids[index - 1] if index > 0 else pass_id
+            disagreements.append(f"{pass_id}: reviewed but not credited because {blocker} is incomplete or its evidence/gates failed")
+        else:
+            disagreements.append(f"{pass_id}: reviewed but is not in the declared pass order")
+    return disagreements
+
+
 def has_passing_tier1_result(spec: dict[str, Any], pass_id: str) -> bool:
     """Plan 1.3 Workstream D: Tier 2 (AI-vision) must never run against a render
     that has not passed Tier 1. Checked here rather than in append_review.py so
@@ -521,6 +544,7 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     spec_path = args.spec.expanduser().resolve()
     spec = load_spec(spec_path)
+    emit_status(spec, next_command=f"forge/stage3_build/orchestrate_passes.py {args.command} {spec_path}", stream=sys.stderr if getattr(args, "json", False) else sys.stdout)
 
     if args.command == "status":
         payload = status_payload(spec)
@@ -544,6 +568,14 @@ def main(argv: list[str]) -> int:
         return 0 if ok else 1
 
     if args.command == "sync":
+        ids = pass_order(spec)
+        completed = completed_passes(spec, ids)
+        disagreements = ledger_disagreements(spec, completed)
+        if disagreements:
+            print("ledger disagreement: review history contains uncredited passes", file=sys.stderr)
+            for item in disagreements:
+                print(f"- {item}", file=sys.stderr)
+            return 1
         payload = status_payload(spec)
         output = spec_path if args.in_place else (args.out.expanduser().resolve() if args.out else None)
         if output:

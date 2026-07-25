@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "fixtureId": "cs2-knife-front-v1",
+  "rightsSafeStatus": "user-supplied-review-required",
+  "reference": "assets/knife_reference/knife_front.png",
+  "identity": {
+    "family": "knife",
+    "visibleRegions": ["blade", "edge", "spine", "grip", "guard", "fastener", "pommel"],
+    "criticalFeatures": ["blade_profile", "edge_curve", "guard_quillon", "grip_ring"],
+    "hiddenRegionStrategy": "infer-with-confidence",
+    "hiddenRegionConfidence": 0.25
+  },
+  "camera": {
+    "projection": "orthographic",
+    "azimuthDegrees": 0,
+    "elevationDegrees": 0,
+    "rollDegrees": 0,
+    "target": [0, 0, 0]
+  },
+  "transform": {"position": [0, 0, 0], "rotationDegrees": [0, 0, 0], "scale": [1, 1, 1]},
+  "environment": {"hash": "code-generated-room-v1", "exposure": 0, "toneMapping": "ACESFilmic"},
+  "resolution": {"width": 1024, "height": 1024},
+  "background": "neutral-white",
+  "rendererVersion": "three-runtime-contract-v1",
+  "calibration": {
+    "status": "thresholds-frozen-awaiting-positive-negative-render-corpus",
+    "positiveFixtures": [],
+    "negativeFixtures": []
+  },
+  "thresholds": {
+    "silhouetteIoU": 0.85,
+    "aspectRatioDelta": 0.05,
+    "scaleDelta": 0.08,
+    "projectionCoverage": 0.85,
+    "finishMaterialResponse": 0.8,
+    "identityDetail": 0.8,
+    "paintedRegion": 0.8,
+    "maxOrbitCollapseRatio": 0.15
+  }
+}

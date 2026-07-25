@@ -2,7 +2,7 @@
 name: img2threejs
 description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
 license: Apache-2.0
-version: 1.3.0
+version: 1.4.0
 ---
 
 # img2threejs — Image to procedural Three.js
@@ -24,8 +24,9 @@ action-ready props, game objects, botanical/mechanical parts, and stylized recon
 ## Core Promise
 
 Sculpt from a photo, in order — never one-shot a mesh:
-1. **Validate** the image is a suitable 3D target (`grimoire/intake/validation_rubric.md`).
-2. **Assess** object class + complexity, then write a `qualityContract` before any code.
+1. **Run `python3 forge/next.py <spec>` first.** It reports the current unlocked pass, exact next command, and unmet acceptance criteria.
+2. **Validate** the image is a suitable 3D target (`grimoire/intake/validation_rubric.md`).
+3. **Assess** object class + complexity, then write a `qualityContract` before any code.
 3. **Spec** it: component hierarchy, materials, lighting, pivots, sockets, action anchors.
 4. **Build pass-by-pass** from blockout → structure → form → material → lighting → interaction → optimization.
 5. **Verify** each pass with a screenshot compared against the reference; fail a pass if an identity-defining feature is wrong even when the global score looks fine.
@@ -33,36 +34,101 @@ Sculpt from a photo, in order — never one-shot a mesh:
 State explicitly when output is approximate/stylized/low-poly. A single image cannot reveal
 hidden sides or guarantee exact geometry — say so instead of faking confidence.
 
+## Transparency and Process Debugging (Critical — from Bowie Knife reconstruction)
+
+**The problem:** When the user cannot tell what was done or where something went wrong, they cannot debug the process. Over-claiming (reporting success when features still don't match) destroys trust and makes iterative improvement impossible.
+
+**Rule:** Be transparent + don't over-claim. State exactly what changed each pass, with evidence, and name what still doesn't match:
+- After each pass, explicitly list what changed: "Updated guard shape to extend left edge from -0.56 to -0.48 for handle overlap"
+- Provide evidence: reference the specific values, coordinates, or parameters that changed
+- Name what still doesn't match: "Handle silhouette traced but still flat plane (no Z palm-swell), procedural crosshatch not reference's exact dot-grid knurl"
+- Explain why a change was made: "Extended guard left edge because handle ends at X=-0.42 and guard ended at X=-0.20, causing visual gap"
+- Never claim a feature is "done" when it's only "improved" — use precise language
+- When a gate passes but visual inspection shows issues, explain the limitation: "2D gate passed (fidelity 0.83) but three-quarter render shows blade reads as toy (no grind wedge) — 2D gates are blind to 3D realism"
+
+**The user needs to be able to debug the process, not just the output.** If something is wrong, they should be able to trace which decision led to the error and correct it. Opaque processes force restarts; transparent processes enable refinement.
+
 ## Required Inputs
 
 - one image path / screenshot / URL / attached image (if missing or unreadable, ask)
 - intended use: prop, game object, hero render, playable/destructible object, animation rig
   (default: real-time browser prop with interactive performance)
+- for a CS2 request, an authoritative classification record (family/subtype and evidence refs) or
+  an explicit request for the user/vision provider to supply one; heuristic detection alone is not
+  enough to select a geometry adapter
 
 ## The Loop (scripts do enforcement; agent vision does judgment)
 
 Run scripts from the skill root (`forge/...`). Pure Python 3.10+ stdlib, no pip installs.
 Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that is the agent's job.
 
-1. Probe local images: `forge/stage1_intake/probe_image.py <image>` (metadata only, not a visual check).
+1. **Analyze the image first** (agent vision, before any script): work the layered observation
+   protocol in `grimoire/intake/image_analysis.md` — identify/classify, decompose macro→meso→micro,
+   map part relationships, name materials in PBR terms, list identity-defining features, and flag
+   what the single view hides. Observation before inference; controlled 3D vocabulary; 3D
+   object-space not 2D image-space. This is generic for any subject and feeds every field below.
+   Then probe local images: `forge/stage1_intake/probe_image.py <image>` (metadata only, not a visual check).
+1a. **Local Spec Search** — after image analysis and before writing or refining a spec, local
+    evidence is a pipeline stage, not an optional memory lookup, whenever the request needs
+    domain-specific anatomy, PBR, wear, geometry, runtime, or physics specifications. The pre-spec
+    command automatically runs BM25, chooses `cs2` for CS2 targets and `core_3d` otherwise, and
+    writes a `localSpecSearch` evidence bundle into the assessment:
+    `python3 forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --out assessment.json`.
+    Add observed terms with repeatable `--spec-query "<term>"`; use `--collection <collection>` only
+    when the automatic collection choice is insufficient. `new_sculpt_spec.py --assessment` carries
+    that bundle into the final spec, including snippets, `source_refs`, and `evidence_refs`.
+    For extra focused retrieval, the direct CLI remains available:
+    `python3 forge/stage1_intake/search_specs.py "<query>" --collection <collection> --limit 3 --snippet-chars 250 --json`.
+    For CS2, include English/Vietnamese variants, for example `--spec-query "safety ring vòng ngón"`
+    or `search_specs.py "roughness độ nhám" --collection cs2`. Expand queries with object names,
+    component names, material/finish terms, behavior terms, and bilingual aliases; retry focused
+    alternatives when the first result is incomplete. Build the spec from returned evidence and do
+    not invent domain specs when local evidence exists. Search caches are local/generated only;
+    preserve JSONL records and source provenance rather than replacing them with cache output.
+1b. **CS2 intake manifest** — for a CS2 request, create and validate `cs2-intake.json` before
+    pre-spec authoring. Run admission and probing for every source view, record the heuristic signal
+    as non-authoritative evidence, attach the classification record, resolve the supported family,
+    and choose `route` independently from `exactnessTier`. Missing classification, insufficient
+    coverage, or a contradictory high-confidence class is `request-input`; unsupported families do
+    not continue into spec generation.
 2. **Pre-Spec Assessment Gate** — classify + score complexity + write the quality contract:
    `forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --complexity <simple|moderate|complex|ultra-complex> --out assessment.json`. Rules: `grimoire/intake/quality_contract.md`.
    Set `objectClass.primaryDomain` (`object` | `character` | `hybrid`) and fill the seeded
-   `detailInventory` (its `targetMinDetails` scales with complexity).
+   `detailInventory` (its `targetMinDetails` scales with complexity). **Supported CS2 knife
+   skins**: always pass `--cs2`, which defaults the complexity tier to `ultra-complex`
+   (`targetMinDetails` 16) — the finish/wear/hardware is the item, so CS2 is held to the top
+   fidelity bar; `targetMinDetails` never drops below the 9 floor even if downgraded by hand.
+   **Author procedural GEOMETRY (blade/guard/grip profiles) but make the FINISH a de-lit
+   reference-crop PROJECTION, not a procedural finish material** — projecting the photo's own
+   pixels is what reaches reference fidelity for patterned skins (Doppler/Gamma/Marble/Fade), and
+   is what the v1.3 baseline demos do; a procedural finish for a patterned skin reads visibly wrong
+   against the reference. Take the projection path in step 2c (it generalizes from characters to
+   any reference-matched surface). Procedural finish is the fallback ONLY when live view-dependent
+   response matters more than matching this one reference. Finish routes + rulebook:
+   `grimoire/build/cs2_finishes.md`; optional exact-texture acquisition:
+   `grimoire/intake/cs2_texture_acquisition.md`.
 2b. **Detail inventory** (do not skip for detailed subjects) — scan zones and enumerate every
    identity-defining small detail (gloss, bevel, fasteners, linework, contours, stains):
    `forge/stage1_intake/build_detail_inventory.py <image> --mode grid-3x3 --out-dir <dir> --out di.json`.
    Each detail MUST map to a `component.localFeatures` or `material.localOverrides` entry — never
    prose only. Taxonomy + 3D-term recipes: `grimoire/intake/detail_inventory.md`.
-2c. **Character/hybrid subjects** — capture head-unit proportions + facial/body landmarks:
-   `forge/stage1_intake/extract_landmarks.py <image> --out anatomy.json --overlay overlay.png`, then
-   fill `preSpecAssessment.anatomy`. Route: `grimoire/character/reconstruction.md`. For maximum
-   likeness use the projection-first path (`grimoire/character/likeness_maximization.md`): solve the camera
-   (`stage1_intake/solve_camera_pose.py`), de-light the photo (`stage1_intake/delight_albedo.py`), and project it onto
-   the fitted mesh (`stage3_build/bake_projected_texture.py`). A single image cannot guarantee 100% likeness —
-   report per-region confidence and request more views for a real person.
+2c. **Projection-first fidelity (characters AND reference-matched surfaces — supported CS2 knife skins, decals,
+   painted patterns)** — when the goal is matching a specific reference's surface, put the photo's
+   own pixels on the mesh instead of approximating them procedurally. This is the single biggest
+   fidelity lever; a procedural material for a patterned surface is the #1 reconstruction failure.
+   Recipe (`grimoire/character/likeness_maximization.md` — its two levers, align-mesh+camera and
+   project-the-photo, generalize past characters): solve the camera
+   (`stage1_intake/solve_camera_pose.py` → `referenceCamera`), **de-light** the reference so it is
+   free of baked lighting (`stage1_intake/delight_albedo.py`, hard requirement — this is what makes
+   projection safe, not the flat-lit icon), then project the de-lit crop onto the mesh and bake it
+   into UVs (`stage3_build/bake_projected_texture.py --mesh-id <id>`). For a CS2 skin the mesh is the
+   procedural blade/guard/grip you author in the spec, and the projected de-lit crop IS the finish
+   (front + back from the two views) — no procedural Doppler material. For characters, first capture
+   landmarks (`stage1_intake/extract_landmarks.py --out anatomy.json`), fill `preSpecAssessment.anatomy`,
+   route `grimoire/character/reconstruction.md`. A single view cannot show hidden sides — report
+   per-region confidence and request more views when it matters.
 3. Author the spec from the assessment:
-   `forge/stage2_spec/new_sculpt_spec.py "Name" --image <img> --assessment assessment.json --out object-sculpt-spec.json`.
+   `forge/stage2_spec/new_sculpt_spec.py "Name" --image <img> --assessment assessment.json --manifest cs2-intake.json --out object-sculpt-spec.json`.
    Replace generic starter `featureReviewTargets` with the object's real identity-defining
    systems (≤5 critical, ≤3 important per pass); for characters add `anatomy-proportion`,
    `face-landmark-placement`, `pose-silhouette`, `outfit-and-palette`. Use 3D-graphics terms only
@@ -94,9 +160,81 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
 8. Package one side-by-side sheet, then inspect it with agent vision:
    `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out cmp.png --json`.
 9. Record the review (overall + per-layer + per-feature scores + decision):
-   `forge/stage4_review/append_review.py object-sculpt-spec.json --pass-id <pass> --fidelity <0-1> --action <continue|refine-spec|refine-code|request-input|stop> --summary "..." --render-screenshot <shot> --comparison-image cmp.png --ai-vision-score <0-1> --layer-scores-json '{...}' --feature-reviews-json <f.json> --in-place`.
+    `forge/stage4_review/append_review.py object-sculpt-spec.json --pass-id <pass> --fidelity <0-1> --action <continue|refine-spec|refine-code|request-input|stop> --summary "..." --render-screenshot <shot> --comparison-image cmp.png --ai-vision-score <0-1> --layer-scores-json '{...}' --feature-reviews-json <f.json> --in-place`.
+   For the CS2 knife path, also attach the versioned report with
+   `--cs2-review-json cs2-review.json --review-scene-json forge/tests/fixtures/knife_review_scene.json`.
+   A failed family, painted-region, projection-coverage, critical-detail, or orbit gate blocks
+   `continue` even when the global score passes. See `docs/cs2/review-gates.md`.
 10. Sync pipeline state after manual review edits:
     `forge/stage3_build/orchestrate_passes.py sync object-sculpt-spec.json --in-place`.
+
+## CS2 image-matched rule
+
+For a CS2 item, the target is observable agreement between the supplied image and the rendered
+item: silhouette, proportions, edge profile, hardware layout, coating colour, pattern placement,
+wear, roughness response, and camera framing. Every decision must be traceable to evidence or be
+labelled as an approximation.
+
+The initial CS2 family boundary is **knife only**. Pistol, rifle, SMG, sniper, heavy, glove, and
+unknown knife subtypes must stop with `unsupported-family` or `unsupported-subtype`; they must not
+receive the knife component tree as a generic fallback.
+
+### Layer contract
+
+Pass these records between layers. Do not copy an informal vision description into the next stage:
+
+| Layer | Owns | Must emit | Must not decide alone |
+| --- | --- | --- | --- |
+| Intake | view validity and technical evidence | role, path/hash, resolution, coverage, duplicate status, admission verdict | item identity from aspect ratio or filename |
+| Classification | semantic identity | family, subtype, confidence, evidence refs, provider/version, timeout state | geometry or finish parameters |
+| Identity | skin/name/paint metadata | precedence, resolved values, ambiguity candidates, provenance | guessed paint index, float, or seed |
+| Surface evidence | pixels and texture sources | de-lit reference, PBR channels, map provenance, colour space, UV orientation, confidence | albedo reused as roughness/normal/AO |
+| Geometry adapter | family-specific form | component tree, topology, dimensions, edge/spine, hardware relationships, painted regions | hidden geometry without confidence notes |
+| Spec/route | evidence-backed implementation choice | route, exactness tier, assumptions, feature targets, camera contract | exact-texture claim without exact evidence |
+| Build/review | rendered observables | fixed view, two non-degenerate orbit views, per-region results, failed gates, next action | overriding a failed critical feature with a global score |
+
+The canonical hand-off is `cs2-intake.json` (`schemaVersion: 1`). Its state is one of
+`proceed`, `request-input`, `fallback`, `rejected`, `unsupported-family`, or
+`unsupported-subtype`. Write it atomically and preserve unknown provider fields under
+`extensions`; a fallback must never erase prior evidence.
+
+### CS2 intake order
+
+1. Admit and technically probe every view. Reject undecodable, empty, tiny, fragmented, or
+   duplicate references before classification.
+2. Record the heuristic CS2 signal only as a routing hint. `detect_cs2.py` is never authoritative
+   identity evidence.
+3. Require a classification record before selecting a family adapter. If classification is absent,
+   timed out, or contradicts a high-confidence objectness result, return `request-input`.
+4. Resolve identity in this order: explicit user metadata, uniquely resolved metadata, then the
+   authoritative classification record. Preserve ambiguity rather than guessing.
+5. Select route and exactness independently:
+   - `reference-projection`: default for matching a specific patterned image;
+   - `authored-texture`: only when independent texture maps are supplied or legally acquired;
+   - `procedural-finish`: fallback when projection evidence is unavailable or live response is the
+     stated priority.
+   Exactness is `image-only`, `metadata-assisted`, or `exact-texture`; changing route must not
+   silently upgrade or downgrade the evidence tier.
+6. Select the knife adapter only after family/subtype validation. Record painted regions, unpainted
+   substrate, visible hardware, hidden-region confidence, and every approximation in the spec.
+7. For projection, solve the camera and de-light the source first. Projected pixels provide colour
+   evidence, not automatic geometry truth; geometry still comes from the adapter and silhouette
+   review.
+
+### Surface and review rule
+
+For a specific CS2 reference, preserve the reference's own colour/pattern pixels whenever legal and
+technically possible. Procedural Doppler/Fade/Gamma/Marble patterns are not equivalent to the input
+image and may only be used with an explicit `procedural-finish` route and approximation warning.
+Keep albedo, roughness, metalness, normal/height, AO, mask, and wear as independent channels. Record
+channel source, colour space, UV orientation, dimensions, packed-channel decoding, and missing-channel
+derivation. A low-confidence PBR inference is a refine-input signal, not proof of exact material.
+
+Single-view reconstruction may proceed only when visible identity features are sufficiently covered;
+hidden blade sides, underside, and back hardware must carry inference confidence and may trigger
+`request-input`. Review the fixed camera plus two meaningful orbit views. Report what changed, which
+evidence caused it, what still differs, and choose exactly one next action:
+`continue`, `refine-spec`, `refine-code`, `request-input`, or `stop`.
 
 ## Gates (do not skip)
 
@@ -116,6 +254,12 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
   `forge/stage4_review/diagnose_render_multi_angle.py` flags `degenerate-view` when an orbited
   silhouette collapses (a flat plane faking a volume). Orbit angles use reference-free
   self-consistency — never scored against a reference angle the photo doesn't cover.
+- **CS2 knife review contract**: `forge/stage4_review/cs2_review.py` consumes the manifest and
+  versioned scene fixture, then blocks wrong family identity, missing projection coverage,
+  painted-region mismatch, critical identity-detail failure, finish/material response failure,
+  and degenerate orbit form. It records exactness tier, hidden-region confidence, per-region
+  confidence, approximation notes, camera, environment hash, exposure, tone mapping, resolution,
+  background, and renderer version.
 - **Bounded correction loop (token-burn safety)**: `forge/stage4_review/correction_loop.py`
   guarantees termination (success/repeated-defect/oscillation/plateau/hard-ceiling), escalating to
   `request-input` — never a silent infinite burn.

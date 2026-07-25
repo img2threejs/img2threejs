@@ -1,0 +1,58 @@
+{
+  "profile_schema_version": 1,
+  "defaults": {
+    "encoding": "utf-8",
+    "languages": [
+      "en",
+      "vi"
+    ],
+    "source_extensions": [
+      ".md",
+      ".json",
+      ".jsonl"
+    ],
+    "tokenizer": {
+      "version": "1",
+      "unicode_normalization": "NFKC",
+      "casefold": true,
+      "accent_fold": "vi",
+      "preserve_identifiers": true,
+      "preserve_numbers": true
+    },
+    "aliases": {
+      "enabled": true,
+      "max_expansions": 1
+    },
+    "bm25": {
+      "k1": 1.5,
+      "b": 0.75
+    }
+  },
+  "collections": {
+    "cs2": {
+      "source_roots": [],
+      "optional_source_roots": [
+        "docs/cs2/",
+        "docs/cs2-anatomy/"
+      ],
+      "distilled_records": [
+        "docs/specs/vocabulary/cs2.jsonl",
+        "docs/specs/vocabulary/cs2_reconstruction.jsonl",
+        "docs/specs/vocabulary/core_3d.jsonl",
+        "docs/specs/vocabulary/core_3d_reconstruction.jsonl"
+      ],
+      "documentation": "docs/specs/vocabulary/README.md",
+      "cache": ".cache/spec-search/cs2.json"
+    },
+    "core_3d": {
+      "source_roots": [],
+      "optional_source_roots": [],
+      "distilled_records": [
+        "docs/specs/vocabulary/core_3d.jsonl",
+        "docs/specs/vocabulary/core_3d_reconstruction.jsonl"
+      ],
+      "documentation": "docs/specs/vocabulary/README.md",
+      "cache": ".cache/spec-search/core_3d.json"
+    }
+  }
+}

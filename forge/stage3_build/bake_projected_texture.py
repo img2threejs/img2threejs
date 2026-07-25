@@ -52,6 +52,23 @@ def load_camera(camera_arg: str | None) -> tuple[dict[str, Any] | None, list[str
 
 
 def build_descriptor(args: argparse.Namespace) -> dict[str, Any]:
+    intake = None
+    if getattr(args, "manifest", None):
+        manifest_path = Path(args.manifest).expanduser()
+        intake_value = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(intake_value, dict):
+            raise ValueError("CS2 intake manifest must be a JSON object")
+        intake = intake_value
+        if not args.reference_image:
+            views = intake.get("sourceViews", [])
+            if isinstance(views, list) and views and isinstance(views[0], dict):
+                source_path = views[0].get("path")
+                if isinstance(source_path, str):
+                    args.reference_image = source_path
+        if intake.get("state") != "proceed":
+            return {"projectedTextureBake": {"version": "1.0", "status": "request-input", "reason": f"intake state is {intake.get('state', 'unknown')}"}}
+    if not args.reference_image:
+        raise ValueError("--reference-image or --manifest with a source view is required")
     camera, camera_warnings = load_camera(args.camera)
     warnings = list(camera_warnings)
 
@@ -122,7 +139,8 @@ def build_descriptor(args: argparse.Namespace) -> dict[str, Any]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--reference-image", required=True, help="Path to the original reference photo")
+    parser.add_argument("--reference-image", help="Path to the original reference photo")
+    parser.add_argument("--manifest", type=Path, help="Validated cs2-intake.json with source view and camera evidence")
     parser.add_argument("--delit-image", help="Path to a de-lit albedo produced by stage1_intake/delight_albedo.py, if available")
     parser.add_argument("--camera", help="Path to a referenceCamera JSON produced by stage1_intake/solve_camera_pose.py")
     parser.add_argument("--mesh-id", required=True, help="Identifier of the target mesh/node to project onto")

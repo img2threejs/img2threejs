@@ -10,7 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from feature_acceptance_policy import feature_gate_failures
+from cs2_review import load_review_scene
+from status_banner import emit_status
 
 
 VALID_ACTIONS = {"continue", "refine-spec", "refine-code", "request-input", "stop"}
@@ -141,6 +144,12 @@ def review_completes_pass(spec: dict, entry: dict, pass_id: str) -> bool:
     if entry.get("passId") != pass_id or entry.get("action") != "continue":
         return False
     visual = entry.get("visualEvidence")
+    if pass_id == "blockout" and not entry.get("mapStrippedRender"):
+        return False
+    viewpoints = entry.get("reviewViewpoints")
+    if isinstance(viewpoints, list) and pass_id in VISUAL_PASS_IDS:
+        if not {"thickness-axis", "long-axis"}.issubset(set(viewpoints)):
+            return False
     if pass_id in VISUAL_PASS_IDS and not (isinstance(visual, dict) and visual.get("renderScreenshot")):
         return False
     if pass_id in VISUAL_PASS_IDS:
@@ -221,6 +230,17 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--visual-threshold", type=float, help="Override visual acceptance threshold for this review")
     parser.add_argument("--camera-view", help="Camera/viewpoint label, e.g. front, three-quarter, side, close-up")
     parser.add_argument("--visual-notes", help="Short notes from screenshot comparison")
+    parser.add_argument("--map-stripped-render", help="Blockout render captured with all material maps disabled")
+    parser.add_argument("--review-viewpoints-json", help="JSON array or file containing review viewpoint labels")
+    parser.add_argument("--force-out-of-order", action="store_true", help="Record deliberate re-review outside the unlocked pass")
+    parser.add_argument(
+        "--cs2-review-json",
+        help="Machine-readable CS2 review report JSON or a JSON file path",
+    )
+    parser.add_argument(
+        "--review-scene-json",
+        help="Versioned CS2 review-scene metadata JSON used to validate the report",
+    )
     parser.add_argument(
         "--require-screenshot-files",
         action="store_true",
@@ -242,9 +262,25 @@ def main(argv: list[str]) -> int:
 
     spec_path = args.spec.expanduser().resolve()
     spec = load_spec(spec_path)
+    emit_status(spec, next_command=f"forge/stage4_review/append_review.py {spec_path} --pass-id {args.pass_id}")
     history = spec.setdefault("reviewHistory", [])
     if not isinstance(history, list):
         raise ValueError("reviewHistory must be an array")
+    ids = pass_order(spec)
+    completed: list[str] = []
+    for pass_id in ids:
+        if any(isinstance(item, dict) and review_completes_pass(spec, item, pass_id) for item in history):
+            completed.append(pass_id)
+        else:
+            break
+    expected_pass = "complete" if len(completed) == len(ids) else ids[len(completed)]
+    if args.pass_id != expected_pass and not args.force_out_of_order:
+        raise ValueError(
+            f"cannot record submitted pass {args.pass_id!r}; current unlocked pass is {expected_pass!r}. "
+            f"Complete {expected_pass!r} before recording {args.pass_id!r}, or use --force-out-of-order for deliberate re-review."
+        )
+    if args.pass_id == "blockout" and args.action == "continue" and not args.map_stripped_render:
+        raise ValueError("blockout cannot be credited without --map-stripped-render (unlit, map-stripped evidence)")
     threshold = clamp_score(args.visual_threshold) if args.visual_threshold is not None else visual_acceptance_threshold(spec)
     layer_scores = None
     if args.layer_scores_json:
@@ -307,6 +343,24 @@ def main(argv: list[str]) -> int:
                     + ", ".join(missing_layers)
                 )
 
+    cs2_review = load_json_argument(args.cs2_review_json, "--cs2-review-json")
+    if cs2_review is not None:
+        if not isinstance(cs2_review, dict):
+            raise ValueError("--cs2-review-json must be a JSON object")
+        if args.review_scene_json:
+            scene_path = Path(args.review_scene_json).expanduser()
+            if not scene_path.is_file():
+                raise FileNotFoundError(f"--review-scene-json does not exist: {scene_path}")
+            scene = load_review_scene(scene_path)
+            expected = scene.get("fixtureId")
+            if cs2_review.get("reviewScene", {}).get("fixtureId") != expected:
+                raise ValueError("CS2 review report does not match --review-scene-json")
+        if args.action == "continue" and cs2_review.get("verdict") != "pass":
+            raise ValueError(
+                "CS2 review gate is blocking continuation: "
+                + ", ".join(str(item) for item in cs2_review.get("failedGates", []))
+            )
+
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "passId": args.pass_id,
@@ -323,6 +377,21 @@ def main(argv: list[str]) -> int:
         "codeFixes": split_items(args.code_fixes),
         "evidence": split_items(args.evidence),
     }
+    if args.force_out_of_order:
+        entry["outOfSequence"] = True
+    if args.map_stripped_render:
+        entry["mapStrippedRender"] = args.map_stripped_render
+    if args.review_viewpoints_json:
+        viewpoints = load_json_argument(args.review_viewpoints_json, "--review-viewpoints-json")
+        if not isinstance(viewpoints, list) or not all(isinstance(value, str) for value in viewpoints):
+            raise ValueError("--review-viewpoints-json must be an array of viewpoint labels")
+        entry["reviewViewpoints"] = viewpoints
+        required = {"thickness-axis", "long-axis"}
+        missing = sorted(required - set(viewpoints))
+        if missing and args.action == "continue":
+            raise ValueError("review evidence is missing axial viewpoints: " + ", ".join(missing))
+    if cs2_review is not None:
+        entry["cs2Review"] = cs2_review
     if args.pass_id in VISUAL_PASS_IDS and args.action == "continue":
         feature_failures = feature_gate_failures(spec, entry, args.pass_id)
         if feature_failures:

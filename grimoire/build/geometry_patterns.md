@@ -136,3 +136,45 @@ A procedural object is usually failing when:
 **Grip / friction texture = geometric ridge segments.** For a knurled/wrapped/segmented grip, model raised barrel bands: a thin core cylinder + N short attachment-tube segments (radius just *proud* of the core, small groove gaps). Size them barely larger than the core — oversized tori read as a coil/spring, not a grip. Material texture alone (no geometry) reads as smooth/"thô".
 
 **`invisibleRoot`/container material is still subject to the material-pass PBR gate.** Give the container a *complete* material (roughness map, frequency bands, textureResolution) — copy a proven one — or it fails "needs usable referencePbr / roughness map" even though it never renders.
+
+---
+
+## Critical Reconstruction Patterns (from Bowie Knife reconstruction failure analysis)
+
+### Failure record: Classic Fade projection passed as structure
+
+The Classic Fade incident exposed open card meshes, constant blade stock, and seams
+below the documented overlap. Portable gates now enforce mesh boundaries, seam
+overlap, blade grind/distal taper, map-stripped blockout evidence, and ordered pass
+credit so each failure is visible at the pass that owns it.
+
+**Blades need a real grind, not constant thickness.** A constant-thickness slab reads as a toy cutout even with perfect silhouette. Model a wedge cross-section tapering to a sharp cutting edge using a grind function:
+- For each point on the blade surface, compute height ratio from cutting edge (0) to spine (1)
+- Apply a grind curve (smoothstep or power function) to taper thickness: full stock at spine, zero at edge
+- For clip-point blades, also thin the false edge near the tip
+- Implementation example: Z-warp the projected face plates via a `grindWarp` function that applies `halfThk * grind(height)` per vertex
+
+**Do NOT eyeball proportions — extract 1-to-1 from reference.** Eyeballed shapes (guard, pommel, curves) are consistently wrong. Instead:
+- Trace each part's exact outline from the reference image (foreground / colour-masked top & bottom per image column)
+- Use a fixed image→world mapping function: `X = (nx - 0.5) * SX`, `Y = (CY - ny) * SY` (adjust SX, SY, CY to your reference dimensions)
+- Sample exact colours as RGB medians from reference regions, never guess visually
+- Store traced points as coordinate arrays (world space) and use them directly in Shape constructors
+- For smooth curves, use `splineThru` through traced points rather than manual control point tuning
+
+**Colours: sample, don't guess.** Visual colour estimation is unreliable. For each material:
+- Sample RGB median values from reference regions using image analysis tools
+- Convert RGB (0-255) to hex: `0xRRGGBB` where each component is in hex
+- Example from Bowie: guard gunmetal (71,74,79) → 0x474a4f, handle gray (140,148,158) → 0x8c949e
+- Store these sampled values in comments for traceability and verification
+
+**Parts must physically connect, not just be near each other.** Adjacent components must overlap at their shared seam:
+- Check XY overlap between adjacent components (e.g., guard ↔ handle, blade ↔ guard)
+- Example bug: guard ended at X=-0.20, handle started at X=-0.42 → gap → "floating" appearance
+- Fix: extend one or both shapes so they overlap by at least 0.02-0.05 world units at the seam
+- Verify overlap by checking that `partA.end >= partB.start` for each axis where they meet
+
+**Projection core poke-through prevention.** When using photo-projected face plates over a solid core:
+- A solid core behind photo-projected face plates bleeds onto the blade face in the grind-transition band
+- Keep the core a thin spine rail (top ~18% of blade height) raised well above the red/black boundary
+- Translate the core to sit safely inside the plates: `translate(0, 0, -HALF * 0.525)` for ±0.021 plates
+- Ensure the core never reaches the red/black boundary or the grind zone so it never shows on the blade face

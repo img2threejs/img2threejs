@@ -32,6 +32,8 @@ from extract_part_color_recipe import lab_distance, lab_kmeans_palette, srgb_to_
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage3_build"))
 from orchestrate_passes import DEFAULT_PASS_ORDER, load_spec  # noqa: E402
+from geometry_integrity import measure_geometry_integrity  # noqa: E402
+from status_banner import emit_status, load_optional_spec  # noqa: E402
 
 
 def color_is_gated(pass_id: str | None) -> bool:
@@ -158,6 +160,18 @@ def render_hash(render_path: Path) -> str:
     return hashlib.sha256(render_path.read_bytes()).hexdigest()[:16]
 
 
+def strip_material_maps(scene: object) -> object:
+    if isinstance(scene, list):
+        return [strip_material_maps(item) for item in scene]
+    if not isinstance(scene, dict):
+        return scene
+    result = {key: strip_material_maps(value) for key, value in scene.items()}
+    for key in ("map", "normalMap", "roughnessMap", "metalnessMap", "aoMap"):
+        if key in result:
+            result[key] = None
+    return result
+
+
 def run_tier1(
     reference_path: Path,
     render_path: Path,
@@ -206,6 +220,11 @@ def run_tier1(
                 f"max per-part color delta-E {color_report['maxDeltaE']} exceeds "
                 f"threshold {COLOR_DELTA_E_THRESHOLD}"
             )
+        geometry = spec.get("builtGeometry") or spec.get("geometry")
+        if isinstance(geometry, dict):
+            structural = measure_geometry_integrity(geometry)
+            checks["geometryIntegrity"] = structural
+            failures.extend(structural["failures"])
 
     return {
         "passed": not failures,
@@ -233,10 +252,16 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--pass-id")
     parser.add_argument("--in-place", action="store_true", help="Record the result into --spec")
     parser.add_argument("--out-spec", type=Path, help="Write the spec with the recorded result to this path")
+    parser.add_argument("--map-stripped-scene", type=Path, help="Write a scene JSON with material maps disabled")
+    parser.add_argument("--map-stripped-render", type=Path, help="Existing unlit/map-stripped render evidence")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
     try:
+        emit_status(load_optional_spec(args.spec), next_command="diagnose_render.py", stream=sys.stderr if args.json else sys.stdout)
+        if args.map_stripped_scene:
+            scene = json.loads(args.map_stripped_scene.read_text(encoding="utf-8"))
+            args.map_stripped_scene.write_text(json.dumps(strip_material_maps(scene), indent=2) + "\n", encoding="utf-8")
         spec_path = args.spec.expanduser().resolve() if args.spec else None
         result = run_tier1(
             args.reference.expanduser().resolve(),
@@ -244,6 +269,12 @@ def main(argv: list[str]) -> int:
             spec_path,
             args.pass_id,
         )
+        if args.pass_id == "blockout":
+            if not args.map_stripped_render:
+                result.setdefault("failures", []).append("blockout requires --map-stripped-render evidence")
+                result["passed"] = False
+            else:
+                result["mapStrippedRender"] = str(args.map_stripped_render)
         if spec_path and (args.in_place or args.out_spec):
             spec = json.loads(spec_path.read_text(encoding="utf-8"))
             record_tier1_result(spec, result)

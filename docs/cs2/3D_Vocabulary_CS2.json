@@ -1,0 +1,170 @@
+{
+  "metadata": {
+    "title": "3D Technical Vocabulary - CS2 Items Dictionary",
+    "version": "1.0.0",
+    "created": "2026-07-24",
+    "sources": ["Valve Developer Community", "CS2 Workshop Docs", "Three.js Docs", "Blender Manual", "Meshy Docs"]
+  },
+  "categories": {
+    "core_3d_modeling": {
+      "name": "Core 3D Modeling",
+      "terms": {
+        "vertex": {"en": "Vertex", "vi": "Đỉnh", "def": "A point in 3D space with X, Y, Z coordinates"},
+        "edge": {"en": "Edge", "vi": "Cạnh", "def": "A line connecting two vertices"},
+        "face": {"en": "Face", "vi": "Mặt", "def": "A flat surface enclosed by 3+ edges"},
+        "polygon": {"en": "Polygon", "vi": "Đa giác", "def": "Generic term for a face (triangles, quads)"},
+        "triangle": {"en": "Triangle (Tris)", "vi": "Tam giác", "def": "A 3-sided polygon"},
+        "quad": {"en": "Quad", "vi": "Tứ giác", "def": "A 4-sided polygon, preferred for clean topology"},
+        "n_gon": {"en": "N-gon", "vi": "N-cạnh", "def": "Polygon with 5+ sides, generally avoided"},
+        "mesh": {"en": "Mesh", "vi": "Lưới", "def": "Complete geometric structure of a 3D object"},
+        "topology": {"en": "Topology", "vi": "Cấu trúc", "def": "Arrangement and flow of polygons on mesh surface"},
+        "edge_loop": {"en": "Edge Loop", "vi": "Vòng cạnh", "def": "Continuous ring of edges flowing around mesh"},
+        "retopology": {"en": "Retopology", "vi": "Tái cấu trúc", "def": "Redrawing mesh with cleaner topology"},
+        "high_poly": {"en": "High-Poly", "vi": "Đa giác cao", "def": "Mesh with many polygons for detail"},
+        "low_poly": {"en": "Low-Poly", "vi": "Đa giác thấp", "def": "Mesh with few polygons, optimized for real-time"},
+        "buffer_geometry": {"en": "BufferGeometry", "vi": "BufferGeometry", "def": "Three.js class for custom geometry"}
+      }
+    },
+    "uv_mapping": {
+      "name": "UV Mapping & Texturing",
+      "terms": {
+        "uv_mapping": {"en": "UV Mapping", "vi": "Ánh xạ UV", "def": "Unwrapping 3D surface onto 2D plane for textures"},
+        "uv_coordinates": {"en": "UV Coordinates", "vi": "Tọa độ UV", "def": "2D coordinates mapping texture to surface"},
+        "uv_seam": {"en": "UV Seam", "vi": "Đường may UV", "def": "Edges where UV map is cut for flattening"},
+        "diffuse_map": {"en": "Diffuse/Albedo Map", "vi": "Bản đồ màu", "def": "Base color texture without lighting"},
+        "normal_map": {"en": "Normal Map", "vi": "Bản đồ Normal", "def": "RGB texture simulating surface bumps"},
+        "roughness_map": {"en": "Roughness Map", "vi": "Bản đồ thô", "def": "Controls surface smoothness (0=smooth, 1=rough)"},
+        "metallic_map": {"en": "Metallic Map", "vi": "Bản đồ kim loại", "def": "Defines metallic vs non-metallic areas"},
+        "ao_map": {"en": "Ambient Occlusion", "vi": "Che sáng môi trường", "def": "Shows areas where ambient light is blocked"},
+        "displacement_map": {"en": "Displacement Map", "vi": "Bản đồ dịch chuyển", "def": "Actually moves vertices for real detail"},
+        "emission_map": {"en": "Emission Map", "vi": "Bản đồ phát sáng", "def": "Defines which parts emit light"},
+        "mipmapping": {"en": "Mipmapping", "vi": "Mipmap", "def": "Pre-calculated lower-res texture copies"}
+      }
+    },
+    "pbr_materials": {
+      "name": "PBR Materials",
+      "terms": {
+        "pbr": {"en": "PBR (Physically Based Rendering)", "vi": "Render dựa trên vật lý", "def": "Rendering simulating real-world light interaction"},
+        "metallic_roughness": {"en": "Metallic/Roughness Workflow", "vi": "Quy trình Kim loại/Thô", "def": "PBR workflow using Base Color + Metallic + Roughness"},
+        "specular_glossiness": {"en": "Specular/Glossiness Workflow", "vi": "Quy trình Phản chiếu/Bóng", "def": "Alternative PBR workflow"},
+        "base_color": {"en": "Base Color", "vi": "Màu cơ bản", "def": "Fundamental surface color without lighting"},
+        "metalness": {"en": "Metalness", "vi": "Độ kim loại", "def": "0=dielectric, 1=metal"},
+        "roughness": {"en": "Roughness", "vi": "Độ thô", "def": "0=mirror-smooth, 1=completely rough"},
+        "fresnel": {"en": "Fresnel", "vi": "Fresnel", "def": "Reflectivity increases at grazing angles"},
+        "energy_conservation": {"en": "Energy Conservation", "vi": "Bảo toàn năng lượng", "def": "Reflected light cannot exceed incoming light"}
+      }
+    },
+    "cs2_specific": {
+      "name": "CS2 Specific Terminology",
+      "terms": {
+        "skin": {"en": "Skin", "vi": "Da súng", "def": "Cosmetic finish changing weapon appearance"},
+        "paint_kit": {"en": "Paint Kit", "vi": "Bộ sơn", "def": "Complete texture set defining skin appearance"},
+        "float_value": {"en": "Float Value", "vi": "Giá trị float", "def": "Decimal 0.000-1.000 determining wear"},
+        "factory_new": {"en": "Factory New (FN)", "vi": "Mới từ nhà máy", "def": "Float 0.00-0.07, pristine condition"},
+        "minimal_wear": {"en": "Minimal Wear (MW)", "vi": "Mòn tối thiểu", "def": "Float 0.07-0.15, minor scratches"},
+        "field_tested": {"en": "Field-Tested (FT)", "vi": "Đã thử nghiệm", "def": "Float 0.15-0.38, noticeable wear"},
+        "well_worn": {"en": "Well-Worn (WW)", "vi": "Mòn nhiều", "def": "Float 0.38-0.45, significant wear"},
+        "battle_scarred": {"en": "Battle-Scarred (BS)", "vi": "Chiến tích", "def": "Float 0.45-1.00, heavy damage"},
+        "pattern_index": {"en": "Pattern Index", "vi": "Chỉ mẫu", "def": "Integer 0-1000 controlling texture slice"},
+        "blue_gem": {"en": "Blue Gem", "vi": "Đá xanh", "def": "Rare Case Hardened pattern, mostly blue"},
+        "fade_percentage": {"en": "Fade Percentage", "vi": "Phần trăm Fade", "def": "Color gradient visibility on Fade skins"},
+        "doppler_phase": {"en": "Doppler Phase", "vi": "Giai đoạn Doppler", "def": "Color variations in Doppler skins"},
+        "stattrak": {"en": "StatTrak™", "vi": "StatTrak™", "def": "Kill counter variant, ~10% drop rate"},
+        "souvenir": {"en": "Souvenir", "vi": "Hàng lưu niệm", "def": "Major tournament exclusive with stickers"},
+        "sticker": {"en": "Sticker", "vi": "Tem", "def": "Cosmetic item applied to weapons"},
+        "sticker_craft": {"en": "Sticker Craft", "vi": "Bộ tem", "def": "Combination of skin with applied stickers"},
+        "wear_remap": {"en": "Float Clipping", "vi": "Cắt float", "def": "Per-skin float range restriction"}
+      }
+    },
+    "file_formats": {
+      "name": "3D File Formats",
+      "terms": {
+        "obj": {"en": "OBJ", "vi": "OBJ", "def": "Simple text format for geometry, no animation"},
+        "fbx": {"en": "FBX", "vi": "FBX", "def": "Autodesk format, primary game engine exchange"},
+        "gltf_glb": {"en": "glTF/GLB", "vi": "glTF/GLB", "def": "Open web standard, GLB is binary version"},
+        "stl": {"en": "STL", "vi": "STL", "def": "Geometry-only, standard for 3D printing"},
+        "mdl": {"en": "MDL", "vi": "MDL", "def": "Valve's model format for Source engine"},
+        "vtf": {"en": "VTF", "vi": "VTF", "def": "Valve Texture Format"},
+        "vmt": {"en": "VMT", "vi": "VMT", "def": "Valve Material Type definition"},
+        "items_game": {"en": "items_game.txt", "vi": "items_game.txt", "def": "CS2 config defining all item properties"}
+      }
+    },
+    "animation_rigging": {
+      "name": "Animation & Rigging",
+      "terms": {
+        "skeleton": {"en": "Skeleton", "vi": "Bộ xương", "def": "Hierarchical bone structure for deformation"},
+        "bone": {"en": "Bone", "vi": "Xương", "def": "Individual element in skeleton hierarchy"},
+        "rigging": {"en": "Rigging", "vi": "Cấp xương", "def": "Creating and binding skeleton to mesh"},
+        "weight_painting": {"en": "Weight Painting", "vi": "Vẽ trọng số", "def": "Defining bone influence on vertices"},
+        "keyframe": {"en": "Keyframe Animation", "vi": "Hoạt hình khoá khung", "def": "Animation defined by specific poses at times"},
+        "ik": {"en": "Inverse Kinematics (IK)", "vi": "Động học nghịch đảo", "def": "Calculate joints from end position"},
+        "fk": {"en": "Forward Kinematics (FK)", "vi": "Động học thuận", "def": "Set rotations from root to tip"},
+        "morph_targets": {"en": "Morph Targets", "vi": "Mục tiêu biến đổi", "def": "Pre-defined vertex positions for blending"},
+        "skinned_mesh": {"en": "SkinnedMesh", "vi": "SkinnedMesh", "def": "Three.js mesh deformable by skeleton"}
+      }
+    },
+    "rendering_optimization": {
+      "name": "Rendering & Optimization",
+      "terms": {
+        "draw_call": {"en": "Draw Call", "vi": "Lệnh vẽ", "def": "Single CPU→GPU command to render"},
+        "batching": {"en": "Batching", "vi": "Gộp", "def": "Combining objects into fewer draw calls"},
+        "instancing": {"en": "Instancing", "vi": "Thực thể hóa", "def": "Rendering many copies with one draw call"},
+        "lod": {"en": "Level of Detail (LOD)", "vi": "Chi tiết cấp độ", "def": "Lower-poly models at distance"},
+        "polygon_budget": {"en": "Polygon Budget", "vi": "Ngân sách đa giác", "def": "Max polygons allowed for object/scene"},
+        "occlusion_culling": {"en": "Occlusion Culling", "vi": "Loại trừ che khuất", "def": "Not rendering hidden objects"},
+        "frustum_culling": {"en": "Frustum Culling", "vi": "Loại trừ ngoài khung hình", "def": "Not rendering objects outside view"}
+      }
+    },
+    "threejs_web3d": {
+      "name": "Three.js / Web 3D",
+      "terms": {
+        "webgl": {"en": "WebGL", "vi": "WebGL", "def": "JavaScript API for hardware-accelerated 3D"},
+        "scene": {"en": "Scene", "vi": "Cảnh", "def": "Container for all 3D objects"},
+        "camera": {"en": "Camera", "vi": "Máy ảnh", "def": "Defines the viewpoint"},
+        "renderer": {"en": "Renderer", "vi": "Bộ kết xuất", "def": "Converts scene to pixels"},
+        "mesh_standard": {"en": "MeshStandardMaterial", "vi": "MeshStandardMaterial", "def": "PBR material, most realistic"},
+        "mesh_phong": {"en": "MeshPhongMaterial", "vi": "MeshPhongMaterial", "def": "Simpler, faster for mobile"},
+        "gltf_loader": {"en": "GLTFLoader", "vi": "GLTFLoader", "def": "Loads glTF/GLB files"},
+        "instanced_mesh": {"en": "InstancedMesh", "vi": "InstancedMesh", "def": "Many copies with one draw call"}
+      }
+    },
+    "cs2_workshop": {
+      "name": "CS2 Workshop Workflow",
+      "terms": {
+        "workshop_submission": {"en": "Workshop Submission", "vi": "Gửi lên Workshop", "def": "Submitting custom skins to CS2"},
+        "substance_painter": {"en": "Substance Painter", "vi": "Substance Painter", "def": "Industry-standard texture painting tool"},
+        "source_2": {"en": "Source 2", "vi": "Source 2", "def": "Valve's game engine for CS2"},
+        "tri_count": {"en": "Tri Count", "vi": "Số tam giác", "def": "Total triangle count of weapon model"},
+        "paint_pattern": {"en": "Paint Pattern", "vi": "Mẫu sơn", "def": "2D texture projected onto 3D via UV"},
+        "wear_overlay": {"en": "Wear Overlay", "vi": "Lớp phủ mòn", "def": "Texture adding damage based on float"},
+        "material_proxy": {"en": "Material Proxy", "vi": "Proxy vật liệu", "def": "Dynamic parameter changes based on state"}
+      }
+    }
+  },
+  "cs2_wear_ranges": {
+    "factory_new": {"min": 0.00, "max": 0.07, "abbreviation": "FN", "vi": "Mới từ nhà máy"},
+    "minimal_wear": {"min": 0.07, "max": 0.15, "abbreviation": "MW", "vi": "Mòn tối thiểu"},
+    "field_tested": {"min": 0.15, "max": 0.38, "abbreviation": "FT", "vi": "Đã thử nghiệm"},
+    "well_worn": {"min": 0.38, "max": 0.45, "abbreviation": "WW", "vi": "Mòn nhiều"},
+    "battle_scarred": {"min": 0.45, "max": 1.00, "abbreviation": "BS", "vi": "Chiến tích"}
+  },
+  "cs2_rarity_grades": [
+    {"grade": "Consumer Grade", "vi": "Hàng tiêu dùng", "color": "white"},
+    {"grade": "Industrial Grade", "vi": "Hàng công nghiệp", "color": "light blue"},
+    {"grade": "Mil-Spec", "vi": "Mil-Spec", "color": "blue"},
+    {"grade": "Restricted", "vi": "Hạn chế", "color": "purple"},
+    {"grade": "Classified", "vi": "Phân loại", "color": "pink"},
+    {"grade": "Covert", "vi": "Bí mật", "color": "red"},
+    {"grade": "Contraband", "vi": "Hàng cấm", "color": "gold"}
+  ],
+  "cs2_finish_styles": [
+    "Anodized",
+    "Anodized Multicolored",
+    "Custom Paint Job",
+    "Gunsmith",
+    "Hydrographic",
+    "Patina",
+    "Solid Color",
+    "Sprayed"
+  ]
+}

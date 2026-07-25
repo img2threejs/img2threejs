@@ -102,11 +102,12 @@ class DivineEyeIntegrationTest(unittest.TestCase):
         self.assertTrue(r["hardGateFailures"])
 
     def test_shifted_same_shape_is_rescued_by_objectness(self):
-        # subject moved to a corner → low IoU hard gate, BUT it is the same (square)
-        # shape → objectness (bg/pose/scale-invariant) recognises it → reconstruction-mode
-        # rescue downgrades the confident reject to a probe (still not a pass).
+        # SAME-SIZE square translated to a corner (100x100 → 100x100, area & aspect identical) →
+        # only the IoU hard gate trips (scale/aspect pass), and objectness (bg/pose/scale-invariant)
+        # recognises the same shape → reconstruction-mode rescue. Soft fidelity is well below target
+        # (misaligned pixels tank ssim/edge), so it routes to probe, never an auto-pass.
         ren = self.dir / "shifted.png"
-        write_rgb_png(ren, 200, 200, block(0, 0, 60, 60))
+        write_rgb_png(ren, 200, 200, block(0, 0, 100, 100))
         r = evaluate(self.ref, ren)
         self.assertTrue(r["hardGateFailures"])          # IoU still trips
         self.assertTrue(r["reconstructionModeSuspected"])

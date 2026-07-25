@@ -1,0 +1,207 @@
+{
+  "metadata": {
+    "title": "3D Technical Mapping - CS2 to Three.js",
+    "version": "1.0.0",
+    "created": "2026-07-24",
+    "notebook_id": "30ec3dba-5a20-4980-8886-ce89b506b634",
+    "sources": [
+      "Three.js Docs",
+      "Valve Developer Community",
+      "CSFloat Blog",
+      "Steam Community",
+      "Three.js Forum"
+    ]
+  },
+  "pbr_properties": {
+    "core": {
+      "color": {"type": "Color", "default": "0xffffff", "range": null, "effect": "Base surface color", "perf": "low"},
+      "metalness": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "0=dielectric, 1=metal", "perf": "low"},
+      "roughness": {"type": "Float", "default": 1.0, "range": [0.0, 1.0], "effect": "0=mirror, 1=matte", "perf": "low"},
+      "envMapIntensity": {"type": "Float", "default": 1.0, "range": [0.0, null], "effect": "Reflection strength", "perf": "low"},
+      "flatShading": {"type": "Boolean", "default": false, "effect": "Faceted vs smooth", "perf": "low"},
+      "side": {"type": "Enum", "default": "FRONT", "effect": "Rendered face(s)", "perf": "low"}
+    },
+    "advanced": {
+      "clearcoat": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "Extra glossy layer", "perf": "medium"},
+      "clearcoatRoughness": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "Clearcoat roughness", "perf": "medium"},
+      "transmission": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "Light transmission", "perf": "very_high"},
+      "thickness": {"type": "Float", "default": 0.0, "range": [0.0, null], "effect": "Absorption thickness", "perf": "high"},
+      "ior": {"type": "Float", "default": 1.5, "range": [1.0, 2.33], "effect": "Refraction index", "perf": "medium"},
+      "sheen": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "Velvet/fabric effect", "perf": "medium"},
+      "sheenRoughness": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "Sheen roughness", "perf": "medium"},
+      "sheenColor": {"type": "Color", "default": "0x000000", "effect": "Sheen color tint", "perf": "medium"},
+      "iridescence": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "Thin-film interference", "perf": "high"},
+      "iridescenceIOR": {"type": "Float", "default": 1.3, "range": [1.0, 3.0], "effect": "Iridescent layer IOR", "perf": "high"},
+      "iridescenceThicknessRange": {"type": "[min,max]", "default": [100, 400], "effect": "Iridescence thickness", "perf": "high"},
+      "anisotropy": {"type": "Float", "default": 0.0, "range": [0.0, 1.0], "effect": "Stretched highlights", "perf": "high"},
+      "anisotropyRotation": {"type": "Float", "default": 0.0, "range": [0, 6.28], "effect": "Anisotropic direction", "perf": "high"},
+      "attenuationColor": {"type": "Color", "default": "0xffffff", "effect": "Transmission absorption color", "perf": "high"},
+      "attenuationDistance": {"type": "Float", "default": 0.5, "range": [0.0, null], "effect": "Absorption distance", "perf": "high"}
+    }
+  },
+  "material_presets": {
+    "polished_metal": {"color": "0xaaaaaa", "metalness": 1.0, "roughness": 0.05, "envMapIntensity": 1.5},
+    "brushed_steel": {"color": "0x888888", "metalness": 1.0, "roughness": 0.3, "anisotropy": 0.8},
+    "matte_plastic": {"color": "0x1a1a1a", "metalness": 0.0, "roughness": 0.75, "ior": 1.45},
+    "gunmetal": {"color": "0x3a3a3a", "metalness": 1.0, "roughness": 0.45, "envMapIntensity": 1.2},
+    "glass": {"color": "0xffffff", "metalness": 0.0, "roughness": 0.0, "transmission": 1.0, "thickness": 0.5, "ior": 1.5},
+    "wood": {"color": "0x6f4e37", "metalness": 0.0, "roughness": 0.6, "clearcoat": 0.2},
+    "fabric": {"color": "0x2d2d2d", "metalness": 0.0, "roughness": 0.9, "sheen": 1.0, "sheenColor": "0xffffff"},
+    "rubber": {"color": "0x111111", "metalness": 0.0, "roughness": 0.85, "clearcoat": 0.1}
+  },
+  "cs2_finish_styles": {
+    "anodized": {
+      "metalness": [1.0, 1.0],
+      "roughness": [0.05, 0.15],
+      "clearcoat": [0.3, 0.5],
+      "iridescence": [0.0, 0.2],
+      "wear_behavior": "Color peels from edges, reveals base metal",
+      "examples": ["Fade", "Blue Steel"]
+    },
+    "anodized_multicolored": {
+      "metalness": [1.0, 1.0],
+      "roughness": [0.05, 0.10],
+      "iridescence": [0.3, 0.5],
+      "iridescenceIOR": [1.5, 2.0],
+      "wear_behavior": "Gloss fades, color gradient shifts",
+      "examples": ["Fade 100%", "Doppler"]
+    },
+    "custom_paint_job": {
+      "metalness": [0.0, 0.0],
+      "roughness": [0.3, 0.5],
+      "clearcoat": [0.2, 0.4],
+      "wear_behavior": "Paint scratches from edges, reveals metal",
+      "examples": ["Slaughter", "Crimson Web", "Asiimov"]
+    },
+    "gunsmith": {
+      "metalness": [0.7, 0.9],
+      "roughness": [0.2, 0.4],
+      "clearcoat": [0.0, 0.1],
+      "wear_behavior": "Combined paint fading + metal exposure",
+      "examples": ["Night", "Corticera"]
+    },
+    "hydrographic": {
+      "metalness": [0.0, 0.0],
+      "roughness": [0.5, 0.7],
+      "clearcoat": [0.1, 0.2],
+      "wear_behavior": "Large patches peel, exposes base",
+      "examples": ["Boreal Forest", "Safari Mesh"]
+    },
+    "patina": {
+      "metalness": [0.9, 1.0],
+      "roughness": [0.2, 0.4],
+      "iridescence": [0.3, 0.6],
+      "wear_behavior": "Color shifts/darkens, oxidation",
+      "examples": ["Case Hardened", "Blue Steel"]
+    },
+    "solid_color": {
+      "metalness": [0.0, 0.0],
+      "roughness": [0.3, 0.5],
+      "clearcoat": [0.2, 0.3],
+      "wear_behavior": "Scratches reveal metal at edges",
+      "examples": ["Urban Masked", "Jungle Spray"]
+    },
+    "sprayed": {
+      "metalness": [0.0, 0.0],
+      "roughness": [0.6, 0.8],
+      "clearcoat": [0.0, 0.0],
+      "wear_behavior": "Heavy scratching, base metal visible",
+      "examples": ["Scorched", "Sand Dune"]
+    }
+  },
+  "wear_tiers": {
+    "factory_new": {"min": 0.00, "max": 0.07, "abbr": "FN"},
+    "minimal_wear": {"min": 0.07, "max": 0.15, "abbr": "MW"},
+    "field_tested": {"min": 0.15, "max": 0.38, "abbr": "FT"},
+    "well_worn": {"min": 0.38, "max": 0.45, "abbr": "WW"},
+    "battle_scarred": {"min": 0.45, "max": 1.00, "abbr": "BS"}
+  },
+  "knife_components": {
+    "blade_types": {
+      "clip_point": {"geometry": "ExtrudeGeometry", "ratio": "1:3.5", "metalness": 1.0, "roughness": 0.15},
+      "drop_point": {"geometry": "ExtrudeGeometry", "ratio": "1:3", "metalness": 0.9, "roughness": 0.2},
+      "tanto": {"geometry": "ExtrudeGeometry", "ratio": "1:3", "metalness": 1.0, "roughness": 0.1},
+      "karambit": {"geometry": "ExtrudeGeometry", "ratio": "1:2", "metalness": 1.0, "roughness": 0.05},
+      "falchion": {"geometry": "LatheGeometry", "ratio": "1:4", "metalness": 1.0, "roughness": 0.15},
+      "gut_hook": {"geometry": "ExtrudeGeometry+CSG", "ratio": "1:2.5", "metalness": 1.0, "roughness": 0.3}
+    },
+    "handle": {
+      "tang": {"geometry": "BoxGeometry", "metalness": 1.0, "roughness": 0.4},
+      "scales": {"geometry": "ExtrudeGeometry", "metalness": 0.0, "roughness": 0.75},
+      "screws": {"geometry": "CylinderGeometry", "metalness": 1.0, "roughness": 0.35},
+      "guard": {"geometry": "BoxGeometry", "metalness": 1.0, "roughness": 0.3},
+      "pommel": {"geometry": "CylinderGeometry", "metalness": 1.0, "roughness": 0.35},
+      "lanyard": {"geometry": "TorusGeometry", "metalness": 0.0, "roughness": 0.9}
+    }
+  },
+  "pistol_components": {
+    "slide": {"geometry": "BoxGeometry", "boolean": ["ejection_port", "rail"]},
+    "frame": {"geometry": "ExtrudeGeometry+Box", "boolean": ["mag_well"]},
+    "barrel": {"geometry": "CylinderGeometry", "boolean": ["bore"]},
+    "trigger_guard": {"geometry": "ExtrudeGeometry", "boolean": []},
+    "magazine": {"geometry": "BoxGeometry", "boolean": ["feed_lips"]},
+    "sights": {"geometry": "BoxGeometry", "boolean": []},
+    "grip": {"geometry": "ExtrudeGeometry", "boolean": [], "note": "Use normalMap for texture"}
+  },
+  "rifle_components": {
+    "receiver_upper": {"geometry": "BoxGeometry"},
+    "receiver_lower": {"geometry": "BoxGeometry"},
+    "barrel": {"geometry": "CylinderGeometry"},
+    "handguard": {"geometry": "BoxGeometry/CylinderGeometry"},
+    "stock": {"geometry": "BoxGeometry"},
+    "magazine": {"geometry": "BoxGeometry"},
+    "pistol_grip": {"geometry": "ExtrudeGeometry"},
+    "scope": {"geometry": "TubeGeometry+SphereGeometry"},
+    "muzzle": {"geometry": "CylinderGeometry"}
+  },
+  "spatial_wear_glossary": {
+    "core_industry_terms": {
+      "surface_imperfections": {"en": "Surface Imperfections", "vi": "Khuyết điểm bề mặt", "def": "Microscopic variations (fingerprints, micro-scratches) that break uniform reflections."},
+      "weathering_aging": {"en": "Weathering / Aging", "vi": "Phong hóa / Lão hóa", "def": "Surface degradation from environmental exposure over time."},
+      "wear_and_tear": {"en": "Wear and Tear", "vi": "Hao mòn sử dụng", "def": "Physical damage from active use or friction."},
+      "edge_wear": {"en": "Edge Wear", "vi": "Mòn cạnh viền", "def": "Damage concentrated along sharp corners or high-exposure edges."},
+      "procedural_grunge": {"en": "Procedural Grunge", "vi": "Cáu bẩn thuật toán", "def": "Algorithmically generated dirt distributed via AO or curvature masks."}
+    },
+    "damage_types_pbr_impact": {
+      "oxidation_rust_patina": {
+        "en": "Oxidation / Rust / Patina", 
+        "vi": "Oxy hóa / Rỉ sét / Lớp ô-xy hóa",
+        "albedo": "Orange-brown or dark-green shift",
+        "roughness": {"range": [0.8, 1.0], "impact": "Increases significantly"},
+        "metalness": {"range": [0.0, 0.0], "impact": "Drops to 0 (Dielectric oxide)"},
+        "normal_height": "Adds high-frequency pitting and scaling"
+      },
+      "scratches_dents": {
+        "en": "Scratches / Dents", 
+        "vi": "Vết xước / Móp méo",
+        "albedo": "Exposes base silver/grey metal",
+        "roughness": {"range": [0.1, 0.2], "impact": "Decreases at center (shiny base)"},
+        "metalness": {"range": [1.0, 1.0], "impact": "Increases if paint is scraped"},
+        "normal_height": "Sharp linear indentations"
+      },
+      "smudges_fingerprints": {
+        "en": "Smudges / Fingerprints", 
+        "vi": "Vết ố / Dấu vân tay",
+        "albedo": "Negligible change",
+        "roughness": {"range": [0.4, 0.6], "impact": "Localized increase (oily layer)"},
+        "metalness": {"range": [null, null], "impact": "Unchanged"},
+        "normal_height": "Unchanged"
+      },
+      "dust_dirt_mud": {
+        "en": "Dust / Dirt / Mud", 
+        "vi": "Bụi / Đất sét / Bùn",
+        "albedo": "Matches environment (tan/brown/grey)",
+        "roughness": {"range": [0.9, 1.0], "impact": "Becomes completely rough"},
+        "metalness": {"range": [0.0, 0.0], "impact": "Drops to 0 (Non-metallic soil)"},
+        "normal_height": "Smooths micro-structures or adds thick volume"
+      }
+    },
+    "spatial_modifiers": {
+      "tip_to_spine_gradient": {"en": "Tip-to-spine gradient", "vi": "Gradient từ mũi đến sống dao"},
+      "edge_heavy": {"en": "Edge-heavy wear", "vi": "Mòn tập trung ở cạnh"},
+      "friction_point": {"en": "Friction-point wear", "vi": "Mòn điểm ma sát"},
+      "speckled": {"en": "Speckled", "vi": "Dạng đốm"},
+      "exposed_core": {"en": "Exposed core", "vi": "Lộ lõi"}
+    }
+  }
+}
