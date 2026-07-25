@@ -182,13 +182,24 @@ The `grimoire/` folder holds the detailed rubrics each gate applies (validation,
 
 ## Roadmap
 
-- **v1.0** — object pipeline: staged sculpt, render-vs-reference review loop, action-ready hierarchy. *Shipped.*
-- **v1.1** — detail-first analysis: required detail inventory, strict-quality gate. *Shipped.*
-- **v1.2** — humanoid character generator: anatomy track, proportion-lock and feature-placement passes. *Shipped.*
-- **v1.3** — likeness maximization: projection-first character rendering, per-region confidence. *Planned.*
-- **v1.4** — animation-ready rigs: SkinnedMesh, morph targets, glTF export. *Planned.*
+Every release carries one theme, so there is always a single answer to "what is this version about".
 
-Full detail and later milestones: [ROADMAP.md](ROADMAP.md). Technical specification: [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
+| Version | Theme | What it unlocks |
+| --- | --- | --- |
+| v1.0–v1.3 | Object, detail, character & creature foundations | Staged sculpt pipeline, detail-inventory gate, anatomy track, projection-based likeness, 4 creature body plans. *Shipped.* |
+| **v1.4** | 🔫 **The Weapon Update** | 1:1 photorealistic, non-stylized rendering for CS2-class hard-surface assets — strict PBR + texture projection, mechanical reasoning, metal/polymer/wood materials, lower cost per pass. *Shipping soon.* |
+| **v1.5** | 👤 **The Character Update** | Character reconstruction, facial features, rigging-ready topology, blendshape prep, hair & clothing. *In progress.* |
+| **v1.6** | 🌍 **The Environment Update** | Buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction. |
+| **v1.7** | 🎮 **The Game Pipeline Update** | Unity / Unreal exporters, Blender bridge, FBX/OBJ/glTF, LOD + collision meshes. |
+| **v1.8** | 🎬 **The Animation Update** | Auto rigging, auto skin weights, Mixamo compatibility, facial rig, lip-sync prep. |
+| **v1.9** | 🤖 **The AI Studio Update** | Web UI, drag & drop, batch processing, visual prompt builder, cloud rendering, showcase integration. |
+| **v2.0** | 🚀 **The Procedural World Update** | Multi-view reconstruction, large scenes, semantic world understanding, procedural cities, multi-agent pipeline, plugin API. |
+
+**The arc:** assets (v1.4–v1.5) → worlds (v1.6–v1.7) → production (v1.8–v1.9) → an AI game-asset
+platform that generates playable worlds from reference images (v2.0).
+
+Full detail, per-version breakdowns, and the tracked capability gaps: [ROADMAP.md](ROADMAP.md).
+Technical specification: [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
 
 ---
 
