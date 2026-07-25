@@ -9,28 +9,80 @@ can plan around.
 
 ## Shipped
 
-| Version | Theme | Highlights |
-|---|---|---|
-| v1.0 | Object pipeline | Staged sculpt pipeline (blockout through optimization), render-vs-reference review loop, action-ready runtime hierarchy |
-| v1.1 | Detail-first analysis | Required `detailInventory` artifact (gloss, bevel, fasteners, linework, stains), strict-quality gate blocking shallow specs before codegen |
-| v1.2 | Humanoid character generator | Character/hybrid domain detection, anatomy and facial landmarks, proportion-lock and feature-placement build passes, per-part character materials |
-| v1.3 | Likeness + creature generator | Projection-first likeness path (camera solve, de-lighting, texture projection) with per-region confidence reporting. Creature track: 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft (RMF) / membrane-wing / instanced-scale geometry, ΔE00 colour gates, straight-bind rig data |
+| Version | Theme | Date | Highlights |
+|---|---|---|---|
+| v1.0 | Object pipeline | 2026-07-15 | Staged sculpt pipeline (blockout through optimization), render-vs-reference review loop, action-ready runtime hierarchy |
+| v1.1 | Detail-first analysis | 2026-07-15 | Required `detailInventory` artifact (gloss, bevel, fasteners, linework, stains), strict-quality gate blocking shallow specs before codegen |
+| v1.2 | Humanoid character generator | 2026-07-21 | Character/hybrid domain detection, anatomy-aware track, proportion-lock and feature-placement gated passes, per-part character materials |
+| v1.3 | Quality & efficiency (Divine Eye) | 2026-07-22 | Deterministic multi-signal review harness, input-integrity and geometry-truth gates, reference-grounded texture/material analysis, CIEDE2000 colour math |
+| — | Creature generator | 2026-07-23 | 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft (RMF) / membrane-wing / instanced-scale geometry, ΔE00 colour gates, straight-bind rig data |
 
-> **Note on numbering.** Versions up to and including the creature generator are consolidated
-> under v1.3 here so that v1.4 onward can carry the themed roadmap below. `CHANGELOG.md` still
-> tags the creature release as `1.4.0`; that entry is being re-tagged onto a `1.3.x` line.
+> **Note on numbering.** The creature-generator tranche is shipped but currently tagged `1.4.0` in
+> `CHANGELOG.md`, and `SKILL.md` reads `1.5.0`. Both are being re-tagged onto a `1.3.x` line so that
+> v1.4 onward can carry the themed roadmap below.
+
+### v1.2 — Humanoid character generator
+
+Characters and hybrid subjects became first-class citizens of the pipeline, alongside a round of
+engine work on the code generator itself.
+
+- **Character / hybrid domain detection** — assessment recognises character-like form language and
+  routes the reconstruction through an anatomy-aware track instead of the hard-surface object path.
+- **Humanoid component template** — measured head-unit proportions, facial landmark placement, and
+  pose alignment emitted from the assessment stage.
+- **Proportion-lock build pass** — a gated pass enforcing anatomical proportion correctness before
+  any form or material work proceeds.
+- **Feature-placement build pass** — a gated pass placing and validating facial and body landmarks
+  against the reference.
+- **Per-part character materials** — skin, hair, cloth, and accessory materials wired into the
+  detail machinery, for stylized figures with recognisable likeness.
+- **Surface-topology classification** — parts classified by surface topology to drive more accurate
+  geometry choices, with per-part colour / RGBA recipes for tighter reference matching.
+- **Real extrude / lathe / tube geometry** — genuine geometry generation replaced the prior
+  approximations; plus tier-1 diagnostics and content-hash caching across passes.
+
+### v1.3 — Quality & efficiency (Divine Eye)
+
+The review harness became deterministic-first: signals are computed by scripts, and the model's
+judgment is spent only where a script cannot decide.
+
+- **Divine Eye** — a deterministic multi-signal ensemble (`divine_eye.py`): IoU and scale hard
+  gates; proportion, symmetry-parity, pHash, SSIM, edge, blowout, flatness, and tonal-parity soft
+  signals; self-uncertainty `probe` routing.
+- **Input integrity** — reference admission and intake-correctness cross-checks, property
+  auto-binding, shared pHash.
+- **Geometry truth** — curve-sweep, a flatness gate, and Blum lathe-profile derivation.
+- **Multi-angle** — degenerate-view detection with reference-free self-consistency, plus
+  auto-framing.
+- **Eye judgment layers** — a gated VLM check, per-feature verification, a bounded stop policy, and
+  a calibration harness (report-only, with a separation check).
+- **Texture-finish analysis** — classifies finish (gem-metal / gemstone / painted-metal /
+  worn-composite / brushed-steel / plastic / `candy-coat`) and writes doc-grounded
+  `MeshPhysicalMaterial` scalars. The `candy-coat` recipe exists so a saturated anodized or doppler
+  coat keeps its hue instead of the environment stealing it.
+- **Reference-grounded gradient stops** — foreground-masked per-band median sampling extracts a
+  material's true gradient from the reference instead of hand-guessing it, and flags blue-leaning
+  stops that would collapse to blue under tone-mapping.
+- **CIEDE2000 colour math** — full ΔE00 (`_shared/color_metrics.py`), verified against the canonical
+  Sharma test pairs, feeding report-only `hue_zone_parity` and `specular_wash` signals that catch
+  "purple rendered blue" where luma and structure signals cannot.
+- **Objectness** — a pure-stdlib HOG-like descriptor and cosine similarity, wired in as a soft
+  signal plus a reconstruction-mode rescue.
+- **Efficiency** — per-module codegen cache with neighbour invalidation.
+- **Presentation** — reference-conditional post-fx (DOF / bloom) kept strictly off the evaluation
+  path, so bloom cannot blow highlights the gate is measuring.
 
 ## Roadmap
 
 | Version | Theme | Primary goal | Highlights |
 |---|---|---|---|
-| **v1.4** | 🔫 Weapon Pipeline | Become the best tool for hard-surface game assets | Weapon reconstruction accuracy · better mechanical reasoning · better materials (metal, polymer, wood) · optimized cost & speed · better prompting & docs |
-| **v1.5** | 👤 Character Pipeline | Start supporting characters properly | Character reconstruction · facial features · rigging-ready topology · blendshape preparation · hair & clothing improvements |
-| **v1.6** | 🌍 Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
-| **v1.7** | 🎮 Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
-| **v1.8** | 🎬 Animation Pipeline | Move assets into production | Auto rigging · auto skin weights · Mixamo compatibility · facial rig · lip-sync preparation · animation-ready exports |
-| **v1.9** | 🤖 AI Studio | Cut the manual work | Web UI · drag & drop workflow · batch processing · visual prompt builder · project management · cloud rendering · public showcase integration |
-| **v2.0** | 🚀 Procedural World Generation | Whole worlds from reference images | Multi-view reconstruction · large scene generation · semantic world understanding · procedural city generation · interior reconstruction · multi-agent generation pipeline · plugin ecosystem & API |
+| **v1.4** | Weapon Pipeline | Become the best tool for hard-surface game assets | Weapon reconstruction accuracy · better mechanical reasoning · better materials (metal, polymer, wood) · optimized cost & speed · better prompting & docs |
+| **v1.5** | Character Pipeline | Start supporting characters properly | Character reconstruction · facial features · rigging-ready topology · blendshape preparation · hair & clothing improvements |
+| **v1.6** | Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
+| **v1.7** | Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
+| **v1.8** | Animation Pipeline | Move assets into production | Auto rigging · auto skin weights · Mixamo compatibility · facial rig · lip-sync preparation · animation-ready exports |
+| **v1.9** | AI Studio | Cut the manual work | Web UI · drag & drop workflow · batch processing · visual prompt builder · project management · cloud rendering · public showcase integration |
+| **v2.0** | Procedural World Generation | Whole worlds from reference images | Multi-view reconstruction · large scene generation · semantic world understanding · procedural city generation · interior reconstruction · multi-agent generation pipeline · plugin ecosystem & API |
 
 ### Release names
 
