@@ -22,7 +22,7 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 
 *A single reference image reconstructed in code — correct proportions, colours, bevels, gold trim, and an emissive emblem — running live in the browser.*
 
-### [→ Open the Live Demo Gallery](https://hoainho.github.io/img2threejs-showcase/)
+### [→ Open the Live Demo Gallery](https://img2threejs-showcase.pages.dev/)
 
 Every model in the gallery is generated code, running in your browser. No mesh files, no downloads.
 
@@ -34,14 +34,14 @@ Reconstructions built entirely from primitives, procedural shaders, and generate
 
 | Demo | Preview | Subject | View | Source |
 | --- | --- | --- | --- | --- |
-| Sony WF-1000XM3 Earbuds + Case | <img src="assets/sony-wf1000xm3.gif" width="260" alt="Sony WF-1000XM3 live demo" /> | hard-surface object | [Live](https://hoainho.github.io/img2threejs-showcase/#/demo/sony-wf1000xm3) | [code](https://github.com/hoainho/img2threejs-showcase/blob/main/src/demos/sony-wf1000xm3/createSonyWf1000xm3Model.ts) |
-| ISSACA 12 Gauge Shotgun | <img src="assets/issaca-shotgun.gif" width="260" alt="ISSACA 12 Gauge Shotgun live demo" /> | hard-surface object | [Live](https://hoainho.github.io/img2threejs-showcase/#/demo/issaca-shotgun) | [code](https://github.com/hoainho/img2threejs-showcase/blob/main/src/demos/issaca-shotgun/createIssacaShotgunModel.ts) |
-| Gerber Paracord Knife | <img src="assets/gerber-knife.gif" width="260" alt="Gerber Paracord Knife live demo" /> | hard-surface object | [Live](https://hoainho.github.io/img2threejs-showcase/#/demo/gerber-knife) | [code](https://github.com/hoainho/img2threejs-showcase/blob/main/src/demos/gerber-knife/createGerberKnifeModel.ts) |
-| Doraemon House (isometric diorama) | <img src="assets/doraemon-house.gif" width="260" alt="Doraemon House live demo" /> | hard-surface object | [Live](https://hoainho.github.io/img2threejs-showcase/#/demo/doraemon-house) | [code](https://github.com/hoainho/img2threejs-showcase/blob/main/src/demos/doraemon-house/createDoraemonHouseModel.ts) |
-| War-Hauler "SECTOR 07" | <img src="assets/warhauler.gif" width="260" alt="War-Hauler SECTOR 07 live demo" /> | hard-surface object | [Live](https://hoainho.github.io/img2threejs-showcase/#/demo/warhauler) | [code](https://github.com/hoainho/img2threejs-showcase/blob/main/src/demos/warhauler/createWarHaulerModel.ts) |
-| Crowned Loot Chest | <img src="assets/crown-chest.gif" width="260" alt="Crowned Loot Chest live demo" /> | hard-surface object | [Live](https://hoainho.github.io/img2threejs-showcase/#/demo/crown-chest) | [code](https://github.com/hoainho/img2threejs-showcase/blob/main/src/demos/crown-chest/createCrownChestModel.ts) |
+| Sony WF-1000XM3 Earbuds + Case | <img src="assets/sony-wf1000xm3.gif" width="260" alt="Sony WF-1000XM3 live demo" /> | hard-surface object | [Live](https://img2threejs-showcase.pages.dev/#/demo/sony-wf1000xm3) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/sony-wf1000xm3/createSonyWf1000xm3Model.ts) |
+| ISSACA 12 Gauge Shotgun | <img src="assets/issaca-shotgun.gif" width="260" alt="ISSACA 12 Gauge Shotgun live demo" /> | hard-surface object | [Live](https://img2threejs-showcase.pages.dev/#/demo/issaca-shotgun) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/issaca-shotgun/createIssacaShotgunModel.ts) |
+| Gerber Paracord Knife | <img src="assets/gerber-knife.gif" width="260" alt="Gerber Paracord Knife live demo" /> | hard-surface object | [Live](https://img2threejs-showcase.pages.dev/#/demo/gerber-knife) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/gerber-knife/createGerberKnifeModel.ts) |
+| Doraemon House (isometric diorama) | <img src="assets/doraemon-house.gif" width="260" alt="Doraemon House live demo" /> | hard-surface object | [Live](https://img2threejs-showcase.pages.dev/#/demo/doraemon-house) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/doraemon-house/createDoraemonHouseModel.ts) |
+| War-Hauler "SECTOR 07" | <img src="assets/warhauler.gif" width="260" alt="War-Hauler SECTOR 07 live demo" /> | hard-surface object | [Live](https://img2threejs-showcase.pages.dev/#/demo/warhauler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/warhauler/createWarHaulerModel.ts) |
+| Crowned Loot Chest | <img src="assets/crown-chest.gif" width="260" alt="Crowned Loot Chest live demo" /> | hard-surface object | [Live](https://img2threejs-showcase.pages.dev/#/demo/crown-chest) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/crown-chest/createCrownChestModel.ts) |
 
-The gallery source lives in [hoainho/img2threejs-showcase](https://github.com/hoainho/img2threejs-showcase). If this project is useful, a star on this repo helps others find it.
+The gallery source lives in [img2threejs/img2threejs-showcase](https://github.com/img2threejs/img2threejs-showcase). If this project is useful, a star on this repo helps others find it.
 
 ---
 
@@ -110,7 +110,7 @@ After every pass the agent chooses exactly one action: `continue`, `refine-spec`
 1. **Install** — place this folder in your skills directory:
 
    ```bash
-   git clone https://github.com/hoainho/img2threejs.git ~/.claude/skills/img2threejs
+   git clone https://github.com/img2threejs/img2threejs.git ~/.claude/skills/img2threejs
    ```
 
 2. **Invoke** — in Claude Code, attach or point to an object image and run:
@@ -119,7 +119,35 @@ After every pass the agent chooses exactly one action: `continue`, `refine-spec`
    /img2threejs Rebuild this object as a Three.js model, keep the proportions, angles, and colours.
    ```
 
+   That is enough: the skill classifies the subject, runs the detail inventory, and gates every pass on its own.
+
 3. **Follow the pipeline** — the skill validates the image, writes an assessment and spec, generates the factory pass by pass, and shows you a side-by-side comparison at each step until the render matches.
+
+### Driving it harder
+
+The one-liner leaves the judgement calls to the skill. When you already know what "correct" means for your subject, say so — each line below maps onto a real gate or artifact in the pipeline, so it changes what gets enforced rather than just adding adjectives:
+
+```
+/img2threejs Rebuild the subject in this image as a procedural Three.js model.
+
+Fidelity   Hold proportions and silhouette to the reference. Enumerate the identity-defining
+           details first — bevels and rounding, panel seams, fasteners, engraved or painted
+           linework, gloss vs matte zones, wear — and drop any detail you cannot place on a
+           real component instead of faking it.
+Materials  Derive the finish class and gradient stops from the reference pixels, not from
+           memory. Flag any colour that will not survive tone-mapping.
+Runtime    Expose pivots and sockets for whatever should move, plus a userData.tick for a
+           looping idle animation.
+Gates      Run --strict-quality, and do not advance a pass until the side-by-side review
+           passes. Report per-region confidence for anything the image cannot show.
+```
+
+Useful additions depending on the subject:
+
+- **A specific person or character** — `Maximize likeness: fit the parametric template to the landmarks, de-light and camera-match the reference, then project it. Tell me which regions are inferred.`
+- **An animal or creature** — `This is a creature, not a humanoid — use the quadruped body plan and the body-unit proportion system.`
+- **A saturated anodized or candy finish** — `The coat is candy-coat, not gem-metal. Keep the hue; do not let the environment steal it.`
+- **A cost ceiling** — `Stay at low effort and skip the presentation composer; I only need the evaluation render.`
 
 The scripts run from the skill root and need only Python 3.10+ — nothing to install.
 
@@ -182,13 +210,27 @@ The `grimoire/` folder holds the detailed rubrics each gate applies (validation,
 
 ## Roadmap
 
-- **v1.0** — object pipeline: staged sculpt, render-vs-reference review loop, action-ready hierarchy. *Shipped.*
-- **v1.1** — detail-first analysis: required detail inventory, strict-quality gate. *Shipped.*
-- **v1.2** — humanoid character generator: anatomy track, proportion-lock and feature-placement passes. *Shipped.*
-- **v1.3** — likeness maximization: projection-first character rendering, per-region confidence. *Planned.*
-- **v1.4** — animation-ready rigs: SkinnedMesh, morph targets, glTF export. *Planned.*
+**Shipped:**
 
-Full detail and later milestones: [ROADMAP.md](ROADMAP.md). Technical specification: [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
+- **v1.0** — object pipeline: staged sculpt, render-vs-reference review loop, action-ready hierarchy.
+- **v1.1** — detail-first analysis: required detail inventory, strict-quality gate.
+- **v1.2** — humanoid character generator: anatomy track, proportion-lock and feature-placement passes.
+- **v1.3** — quality & efficiency: the Divine Eye deterministic review harness, input-integrity and geometry-truth gates, reference-grounded texture and gradient analysis, CIEDE2000 colour math.
+- **creature generator** — 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft geometry, ΔE00 colour gates.
+
+**Next — one theme per release:**
+
+- **v1.4 — The Weapon Update** *(shipping soon)*: a 1:1 photorealistic, non-stylized pipeline for CS2-class hard-surface assets — strict PBR standards and texture projection, mechanical reasoning about the assembly, and true metal / polymer / wood response.
+- **v1.5 — The Character Update** *(in progress)*: character reconstruction, facial features, rigging-ready topology, blendshape preparation, hair and clothing.
+- **v1.6 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
+- **v1.7 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
+- **v1.8 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
+- **v1.9 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
+- **v2.0 — The Procedural World Update**: multi-view reconstruction, procedural city generation, semantic world understanding, plugin ecosystem and API.
+
+The arc: assets (v1.4–v1.5) → worlds (v1.6–v1.7) → production (v1.8–v1.9) → an AI game-asset platform that generates playable worlds from reference images (v2.0).
+
+**→ Full roadmap** — per-version detail, the four-phase long view, and the tracked capability gaps: **[ROADMAP.md](ROADMAP.md)**. Technical specification: [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
 
 ---
 
