@@ -1,68 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="img2threejs organization avatar">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 374 346" width="374" height="346" role="img" aria-label="img2threejs organization logo">
   <title>img2threejs</title>
   <defs>
-    <linearGradient id="a-bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1b1244"/>
-      <stop offset="0.55" stop-color="#120e2e"/>
-      <stop offset="1" stop-color="#0a0918"/>
-    </linearGradient>
-    <radialGradient id="a-glow-cyan" cx="0.78" cy="0.16" r="0.62">
-      <stop offset="0" stop-color="#38e8ff" stop-opacity="0.30"/>
-      <stop offset="1" stop-color="#38e8ff" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="a-glow-violet" cx="0.16" cy="0.86" r="0.66">
-      <stop offset="0" stop-color="#8b5cff" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#8b5cff" stop-opacity="0"/>
-    </radialGradient>
-
-    <linearGradient id="a-top" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="m-top" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#8b5cff"/>
       <stop offset="1" stop-color="#38e8ff"/>
     </linearGradient>
-    <linearGradient id="a-left" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="m-left" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#2bd4c8"/>
       <stop offset="1" stop-color="#118a9c"/>
     </linearGradient>
-    <linearGradient id="a-right" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="m-right" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#6a3cf0"/>
       <stop offset="1" stop-color="#2a1a7a"/>
     </linearGradient>
-    <linearGradient id="a-pix" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="m-pix" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#ffd76a"/>
       <stop offset="1" stop-color="#ff8bd0"/>
     </linearGradient>
-
-    <filter id="a-shadow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="18"/>
-    </filter>
   </defs>
 
-  <!-- full-bleed badge: GitHub applies its own corner rounding -->
-  <rect width="512" height="512" fill="url(#a-bg)"/>
-  <rect width="512" height="512" fill="url(#a-glow-cyan)"/>
-  <rect width="512" height="512" fill="url(#a-glow-violet)"/>
+  <!-- content bbox trimmed to a tight 374x346 box with 12px padding -->
+  <g transform="translate(-36,-98)">
+    <!-- source pixels dissolving into the cube (image -> 3D) -->
+    <rect x="48" y="320" width="48" height="48" rx="11" fill="url(#m-pix)" opacity="0.35"/>
+    <rect x="48" y="384" width="48" height="48" rx="11" fill="url(#m-pix)" opacity="0.60"/>
+    <rect x="112" y="384" width="48" height="48" rx="11" fill="url(#m-pix)" opacity="0.85"/>
 
-  <g transform="translate(256,256) scale(0.92) translate(-256,-256)">
-    <g transform="translate(16,-4)">
-      <!-- contact shadow -->
-      <ellipse cx="256" cy="412" rx="132" ry="26" fill="#05040d" opacity="0.55" filter="url(#a-shadow)"/>
+    <!-- isometric cube -->
+    <polygon points="256,110 398,181 256,252 114,181" fill="url(#m-top)"/>
+    <polygon points="114,181 256,252 256,402 114,331" fill="url(#m-left)"/>
+    <polygon points="398,181 256,252 256,402 398,331" fill="url(#m-right)"/>
 
-      <!-- source pixels dissolving into the cube (image -> 3D) -->
-      <rect x="48" y="320" width="48" height="48" rx="11" fill="url(#a-pix)" opacity="0.38"/>
-      <rect x="48" y="384" width="48" height="48" rx="11" fill="url(#a-pix)" opacity="0.62"/>
-      <rect x="112" y="384" width="48" height="48" rx="11" fill="url(#a-pix)" opacity="0.88"/>
+    <!-- edge definition -->
+    <path d="M114,181 L256,110 L398,181" fill="none" stroke="#ffffff" stroke-opacity="0.32" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M256,252 L256,402" fill="none" stroke="#0b0a1f" stroke-opacity="0.20" stroke-width="5" stroke-linecap="round"/>
 
-      <!-- isometric cube -->
-      <polygon points="256,110 398,181 256,252 114,181" fill="url(#a-top)"/>
-      <polygon points="114,181 256,252 256,402 114,331" fill="url(#a-left)"/>
-      <polygon points="398,181 256,252 256,402 398,331" fill="url(#a-right)"/>
-
-      <!-- edge definition -->
-      <path d="M114,181 L256,110 L398,181" fill="none" stroke="#ffffff" stroke-opacity="0.34" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-      <path d="M256,252 L256,402" fill="none" stroke="#0b0a1f" stroke-opacity="0.22" stroke-width="5" stroke-linecap="round"/>
-
-      <!-- specular glint on the top face -->
-      <path d="M248,127 L256,147 L276,155 L256,163 L248,183 L240,163 L220,155 L240,147 Z" fill="#f4faff" opacity="0.94"/>
-    </g>
+    <!-- specular glint on the top face -->
+    <path d="M248,127 L256,147 L276,155 L256,163 L248,183 L240,163 L220,155 L240,147 Z" fill="#f4faff" opacity="0.92"/>
   </g>
 </svg>
