@@ -55,8 +55,12 @@ class PipelineTest(unittest.TestCase):
         self.spec = self.dir / "object-sculpt-spec.json"
         self.ref = self.dir / "ref.png"
         self.render = self.dir / "render.png"
+        # blockout is credited only against a maps-disabled render, so structure is
+        # judged on geometry alone (see diagnose_render.py / append_review.py gates).
+        self.map_stripped = self.dir / "render-map-stripped.png"
         write_png(self.ref)
         write_png(self.render)
+        write_png(self.map_stripped)
 
     def test_probe_image(self):
         r = run("stage1_intake/probe_image.py", self.ref)
@@ -238,8 +242,11 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("Tier 1 diagnostics have not passed", blocked.stdout + blocked.stderr)
 
         # Recording a PASSING tier1 result (identical ref/render) unblocks it.
+        # blockout additionally requires maps-disabled evidence, or the recorded
+        # tier1Result stays passed=false and the pass never unlocks.
         run("stage4_review/diagnose_render.py", "--reference", self.ref, "--render", self.ref,
-            "--pass-id", "blockout", "--spec", self.spec, "--in-place")
+            "--pass-id", "blockout", "--spec", self.spec, "--in-place",
+            "--map-stripped-render", self.map_stripped)
         unblocked = run("stage3_build/orchestrate_passes.py", "check", self.spec, "--pass-id", "blockout")
         self.assertEqual(unblocked.returncode, 0, unblocked.stderr)
 
@@ -573,12 +580,48 @@ class PipelineTest(unittest.TestCase):
                 "--fidelity", "0.8", "--action", "continue",
                 "--summary", "Blockout silhouette acceptable.",
                 "--render-screenshot", self.render, "--comparison-image", cmp,
+                "--map-stripped-render", self.map_stripped,
                 "--ai-vision-score", "0.8", "--layer-scores-json", layers,
                 "--feature-reviews-json", freviews,
                 "--camera-view", "front", "--in-place")
         self.assertEqual(r.returncode, 0, r.stderr)
         spec = json.loads(self.spec.read_text())
         self.assertTrue(len(spec.get("reviewHistory", [])) >= 1)
+
+    def test_blockout_continue_refused_without_map_stripped_render(self):
+        # v1.4.1 gate: a convincing texture must not stand in for real structure,
+        # so blockout cannot be credited on a render with material maps enabled.
+        run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
+        r = run("stage4_review/append_review.py", self.spec, "--pass-id", "blockout",
+                "--fidelity", "0.8", "--action", "continue", "--summary", "no stripped evidence",
+                "--render-screenshot", self.render, "--in-place")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("--map-stripped-render", r.stdout + r.stderr)
+
+    def test_append_review_refuses_out_of_order_pass(self):
+        # v1.4.1 gate: passes are credited in unlocked order unless a re-review is
+        # explicitly requested with --force-out-of-order.
+        run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
+        blocked = run("stage4_review/append_review.py", self.spec, "--pass-id", "material-pass",
+                      "--fidelity", "0.8", "--action", "continue", "--summary", "skipping ahead",
+                      "--render-screenshot", self.render, "--in-place")
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("--force-out-of-order", blocked.stdout + blocked.stderr)
+
+    def test_diagnose_render_fails_blockout_without_map_stripped_render(self):
+        # The same evidence rule is enforced one stage earlier, so the recorded
+        # tier1Result is passed=false and orchestrate_passes.py keeps the pass locked.
+        run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
+        run("stage4_review/diagnose_render.py", "--reference", self.ref, "--render", self.ref,
+            "--pass-id", "blockout", "--spec", self.spec, "--in-place")
+        spec = json.loads(self.spec.read_text())
+        results = spec.get("tier1Results", [])
+        self.assertTrue(results, "diagnose_render should record a tier1Result")
+        self.assertFalse(results[-1]["passed"])
+        self.assertIn("blockout requires --map-stripped-render evidence", results[-1]["failures"])
+        still_locked = run("stage3_build/orchestrate_passes.py", "check", self.spec,
+                           "--pass-id", "blockout")
+        self.assertNotEqual(still_locked.returncode, 0)
 
     def test_pbr_extraction_runs(self):
         # low-detail synthetic image: either passes or refuses (non-zero) — both are valid,

@@ -57,6 +57,10 @@ Evidence flags: `--matched --mismatches --spec-fixes --code-fixes --evidence --r
 --feature-reviews-json f.json --ai-vision-notes "..." --visual-threshold 0-1 --camera-view NAME
 --require-screenshot-files`. Layer keys: `silhouetteProportion, componentStructure, formDetail,
 materialSurface, lightingCamera`. Records one self-correction entry into `reviewHistory`.
+Two hard gates block `--action continue`: `blockout` requires `--map-stripped-render SHOT`
+(an unlit, maps-disabled render, also required by `stage4_review/diagnose_render.py`), and passes
+are credited in unlocked order — any other `--pass-id` is refused unless `--force-out-of-order`
+is passed for a deliberate re-review.
 
 ## stage1_intake/extract_pbr_evidence.py
 `stage1_intake/extract_pbr_evidence.py <crop> --out-dir DIR --material-id ID [--target-threshold 0.7] [--size N]
