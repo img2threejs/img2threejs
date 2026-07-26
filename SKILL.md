@@ -270,6 +270,20 @@ evidence caused it, what still differs, and choose exactly one next action:
   Details + per-layer scorecard: `grimoire/feedback/render_capture.md`.
 - **Action-ready**: build a runtime hierarchy (pivots, sockets, colliders, destruction groups),
   never an inert lump; expose `root.userData.sculptRuntime`. `grimoire/readiness/action_rigging.md`.
+- **Assembly gate (structure, not pixels) — every model ships explodable AND clickable**: this is
+  a build requirement, not a per-project extra. Name every mesh; flag surface relief
+  `userData.explodeWithParent` so it rides its shell; let a named group of *anonymous* meshes be one
+  part while a named group of *named* parts stays a container. Explode and part-picking must share
+  one definition of "a part" — if they disagree, both are wrong. Separate parts by SCALING the
+  layout about the model centre, never by pushing every part the same distance (that translates the
+  arrangement without opening any gap). Then run
+  `forge/stage4_review/check_part_coverage.py --spec <spec> --manifest <parts.json>`: it FAILS on a
+  specified component that was never built and on two components fused onto one mesh; it warns on
+  inventoried details that never reached the spec and on meshes belonging to no named part. This is
+  the only gate that scores STRUCTURE — every other one scores pixels, and a single fused mesh
+  wearing a projected photo passes all of those. Its limit is honest and must be stated when
+  reporting: it proves you built what you specified, never that you specified enough.
+  Full contract + the two rules it took a wrong pass to learn: `grimoire/build/geometry_patterns.md`.
 - **Attachment**: child appendages (branches/limbs/handles/tubes) need `attachment.parentSocket`,
   `localStart`, `localEnd`, `contactType`, `embedDepth`/`overlap`, `gapTolerance` — no mid-air parts.
   `grimoire/readiness/joint_attachment.md`.
