@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.svg" width="112" height="112" alt="img2threejs logo" />
+<img src="assets/logo.svg" width="112" height="104" alt="img2threejs logo" />
 
 # img2threejs
 
