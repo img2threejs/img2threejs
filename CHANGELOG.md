@@ -5,6 +5,54 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-07-26
+
+The hardening update for the CS2 reconstruction pipeline: explicit component coverage, a pistol
+assembly contract, and review evidence that distinguishes real structure from a convincing texture.
+
+### Added
+- **Assembly coverage gate** — `stage4_review/check_part_coverage.py` verifies that every specified
+  component is built, prevents multiple specified components from collapsing into one mesh, and
+  reports unowned meshes and inventory details that never reached the spec.
+- **Glock-18 adapter** — the CS2 route now supports a dedicated `pistol` / `glock-18` component tree
+  with separate slide, frame, magazine, trigger-guard, control, barrel, and internal-mechanism
+  contracts; it does not reuse the knife topology.
+- **Structure-first guidance** — documented rules for named, explodable and selectable parts, plus
+  correct layout scaling for exploded views in `SKILL.md` and
+  `grimoire/build/geometry_patterns.md`.
+
+### Changed
+- **Strict review evidence** — the pipeline requires map-stripped blockout evidence, ordered pass
+  credit, and thickness- and long-axis viewpoints before a visual pass can continue.
+- **Geometry-integrity checks** — Tier 1 now surfaces open separate geometry, insufficient seams,
+  constant blade grinds, and missing distal taper so projection cannot hide structural defects.
+
+## [1.4.0] — 2026-07-25
+
+**Theme: Weapon Pipeline.** Image-matched CS2 hard-surface reconstruction: evidence-backed identity,
+projection-first finish matching, family-specific geometry, and gate-driven review.
+
+### Added
+- **CS2 intake and provenance contract** — reference admission, technical probing, identity routing,
+  metadata lookup, VPK/texture discovery, and an atomic `cs2-intake.json` hand-off that preserves
+  uncertainty instead of guessing.
+- **CS2 knowledge base and local search** — bilingual BM25 search profiles, curated vocabulary and
+  anatomy references, plus provenance-aware result handling for specification work.
+- **Family-specific reconstruction** — knife adapters, supported subtype validation, component-tree
+  contracts, projected-texture baking, and a strict-quality route for CS2 assets.
+- **Evidence-backed CS2 review** — `cs2_review.py`, geometry-integrity measurements, fixed and orbit
+  review views, family/finish/projection/critical-detail gates, and versioned review-scene metadata.
+- **Reference preview and prompt assets** — a browser smoke-tested CS2 knife preview, reference
+  fixture, and focused knife, pistol, and technical-analysis skill prompts.
+
+### Changed
+- **Projection-first finish workflow** — de-lit reference crops are the default path for matching
+  skin patterns, decals, and painted surfaces; procedural finishes remain an explicitly disclosed
+  fallback.
+- **Divine Eye calibration** — scale and aspect signals are live, and the reconstruction rescue path
+  now requires objectness, soft-fidelity, and proportion evidence rather than accepting an IoU-only
+  result.
+
 ## [1.3.0] — 2026-07-22
 
 The "quality & efficiency" line: a deterministic-first review harness (Divine Eye), stronger
@@ -131,6 +179,9 @@ and harness improvements to the underlying code generator.
 - Action-ready runtime hierarchy exposing pivots, sockets, and colliders.
 - Token-efficient, code-only output (diffable TypeScript + JSON spec, no binaries).
 
+[1.4.1]: https://github.com/hoainho/img2threejs/compare/v1.4.0...4e9fbecae0e63b370581737c89991d4dca84c287
+[1.4.0]: https://github.com/hoainho/img2threejs/releases/tag/v1.4.0
+[1.3.0]: https://github.com/hoainho/img2threejs/releases/tag/v1.3
 [1.2.0]: https://github.com/hoainho/img2threejs/releases/tag/v1.2.0
 [1.1.0]: https://github.com/hoainho/img2threejs/releases/tag/v1.1.0
 [1.0.0]: https://github.com/hoainho/img2threejs/releases/tag/v1.0.0

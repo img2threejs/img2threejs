@@ -15,11 +15,7 @@ can plan around.
 | v1.1 | Detail-first analysis | 2026-07-15 | Required `detailInventory` artifact (gloss, bevel, fasteners, linework, stains), strict-quality gate blocking shallow specs before codegen |
 | v1.2 | Humanoid character generator | 2026-07-21 | Character/hybrid domain detection, anatomy-aware track, proportion-lock and feature-placement gated passes, per-part character materials |
 | v1.3 | Quality & efficiency (Divine Eye) | 2026-07-22 | Deterministic multi-signal review harness, input-integrity and geometry-truth gates, reference-grounded texture/material analysis, CIEDE2000 colour math |
-| — | Creature generator | 2026-07-23 | 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft (RMF) / membrane-wing / instanced-scale geometry, ΔE00 colour gates, straight-bind rig data |
-
-> **Note on numbering.** The creature-generator tranche is shipped but currently tagged `1.4.0` in
-> `CHANGELOG.md`, and `SKILL.md` reads `1.5.0`. Both are being re-tagged onto a `1.3.x` line so that
-> v1.4 onward can carry the themed roadmap below.
+| v1.4 | Weapon Pipeline | 2026-07-25–26 | CS2 image-matched reconstruction, provenance-aware intake and local search, projection-first finishes, family-specific adapters, structural review and component-coverage gates |
 
 ### v1.2 — Humanoid character generator
 
@@ -76,7 +72,6 @@ judgment is spent only where a script cannot decide.
 
 | Version | Theme | Primary goal | Highlights |
 |---|---|---|---|
-| **v1.4** | Weapon Pipeline | Become the best tool for hard-surface game assets | Weapon reconstruction accuracy · better mechanical reasoning · better materials (metal, polymer, wood) · optimized cost & speed · better prompting & docs |
 | **v1.5** | Character Pipeline | Start supporting characters properly | Character reconstruction · facial features · rigging-ready topology · blendshape preparation · hair & clothing improvements |
 | **v1.6** | Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
 | **v1.7** | Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
@@ -86,7 +81,6 @@ judgment is spent only where a script cannot decide.
 
 ### Release names
 
-- **v1.4 — The Weapon Update**
 - **v1.5 — The Character Update**
 - **v1.6 — The Environment Update**
 - **v1.7 — The Game Pipeline Update**
@@ -96,19 +90,19 @@ judgment is spent only where a script cannot decide.
 
 ## Version details
 
-### v1.4 — The Weapon Update · *shipping soon*
+### v1.4 — The Weapon Update · *shipped 2026-07-25–26*
 
-A 1:1 photorealistic, non-stylized rendering pipeline for CS2-class hard-surface assets, built on
-strict PBR standards and texture projection. Where earlier versions accepted a stylized read of a
-weapon, v1.4 targets reference-exactness: correct metal response, correct polymer sheen, correct
-wood grain, and a projected-texture path that puts the reference's own pixels onto the observed
-surfaces instead of approximating them.
+v1.4 establishes image-matched reconstruction for CS2 hard-surface assets. The pipeline records
+reference admission, family/subtype identity, metadata and texture provenance, exactness tier, and
+hidden-region confidence before authoring geometry. It defaults patterned finishes, decals, and skin
+surfaces to a de-lit reference projection, rather than presenting a procedural approximation as an
+exact match.
 
-Mechanical reasoning improves alongside the materials. A weapon is an assembly with function —
-slide, magazine well, trigger group, rail, muzzle — and the pipeline reasons about those parts as
-mechanism rather than silhouette, which is what makes seams, insets, and part boundaries land where
-a player expects them. Cost and speed are tuned in the same tranche, and the prompting guidance and
-docs are rewritten around the weapon workflow.
+The initial family route covers supported knives and the Glock-18 with dedicated component contracts.
+Review now combines fixed and orbit renders with family, finish, projection, critical-detail,
+geometry-integrity, and component-coverage gates. The v1.4.1 hardening update also requires
+map-stripped blockout evidence and ordered pass credit, so a fused or incomplete assembly cannot pass
+on the strength of a projected texture alone.
 
 ### v1.5 — The Character Update
 
