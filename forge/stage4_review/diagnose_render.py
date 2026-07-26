@@ -63,17 +63,30 @@ COLOR_DELTA_E_THRESHOLD = 20.0  # generous vs. the JND (~2-3) to tolerate render
 MASK_GRID_SIZE = 224
 
 
-def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> list[bool]:
-    """Returns a flat row-major boolean grid of length size*size (foreground=True)."""
+def mask_is_inverted(warnings: list[str]) -> bool:
+    """build_foreground_mask falls back to "all opaque pixels" when keyed coverage is
+    under 3.5%, which turns a tiny silhouette into a full frame. Any silhouette
+    comparison against an inverted mask is meaningless — two disjoint small objects
+    both invert to the full frame and score IoU 1.0 — so callers must gate on this
+    instead of scoring it. Mirrors the same check in diagnose_render_multi_angle.py."""
+    return any("tiny" in str(warning).lower() for warning in warnings)
+
+
+def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], list[str]]:
+    """Returns (flat row-major boolean grid of length size*size, mask warnings).
+
+    The warnings are returned rather than dropped because the <3.5%-coverage fallback
+    inverts the mask; a caller that discards them cannot tell a real silhouette from a
+    full-frame inversion. Gate with mask_is_inverted()."""
     width, height, pixels, _warnings = load_image(png_path)
-    mask, _diag, _warn = build_foreground_mask(width, height, pixels)
+    mask, _diag, mask_warnings = build_foreground_mask(width, height, pixels)
     resized: list[bool] = []
     for y in range(size):
         sy = min(height - 1, int(y * height / size))
         for x in range(size):
             sx = min(width - 1, int(x * width / size))
             resized.append(mask[sy * width + sx])
-    return resized
+    return resized, mask_warnings
 
 
 def silhouette_iou(reference_mask: list[bool], render_mask: list[bool]) -> float:
@@ -84,7 +97,9 @@ def silhouette_iou(reference_mask: list[bool], render_mask: list[bool]) -> float
             union += 1
             if ref and render:
                 intersection += 1
-    return intersection / union if union else 1.0
+    # An empty union means neither image has any foreground — two failed captures, not a
+    # perfect match. Scoring that 1.0 passes the IoU hard gate on no evidence at all.
+    return intersection / union if union else 0.0
 
 
 def bbox_of(mask: list[bool], size: int = MASK_GRID_SIZE) -> tuple[int, int, int, int]:
@@ -178,8 +193,12 @@ def run_tier1(
     spec_path: Path | None = None,
     pass_id: str | None = None,
 ) -> dict[str, Any]:
-    reference_mask = load_mask(reference_path)
-    render_mask = load_mask(render_path)
+    reference_mask, reference_mask_warnings = load_mask(reference_path)
+    render_mask, render_mask_warnings = load_mask(render_path)
+    mask_warnings = (
+        [f"reference: {w}" for w in reference_mask_warnings]
+        + [f"render: {w}" for w in render_mask_warnings]
+    )
 
     iou = silhouette_iou(reference_mask, render_mask)
     reference_bbox = bbox_of(reference_mask)
@@ -194,6 +213,14 @@ def run_tier1(
         "bilateralSymmetryError": round(symmetry, 4),
     }
     failures: list[str] = []
+    # Gate this BEFORE reading IoU: an inverted mask makes every silhouette-derived
+    # number meaningless, and the inverted case reads as a perfect match, not a bad one.
+    if mask_is_inverted(reference_mask_warnings) or mask_is_inverted(render_mask_warnings):
+        failures.append(
+            "silhouette evidence is unusable: the foreground mask fell back to whole-frame "
+            "coverage (subject under 3.5% of the frame), so IoU and proportion are not "
+            "measuring the subject; re-capture with the subject filling more of the frame"
+        )
     if iou < SILHOUETTE_IOU_THRESHOLD:
         failures.append(f"silhouette IoU {iou:.3f} is below threshold {SILHOUETTE_IOU_THRESHOLD}")
     if proportions["aspect_ratio_delta"] > ASPECT_RATIO_DELTA_THRESHOLD:
@@ -230,6 +257,7 @@ def run_tier1(
         "passed": not failures,
         "checks": checks,
         "failures": failures,
+        "maskWarnings": mask_warnings,
         "renderHash": render_hash(render_path),
         "passId": pass_id,
     }
