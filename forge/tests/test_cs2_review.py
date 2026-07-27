@@ -102,18 +102,25 @@ class Cs2ReviewGateTest(unittest.TestCase):
             spec_path.write_text(json.dumps({"sourceImage": "ref.png"}), encoding="utf-8")
             report_path.write_text(json.dumps(report), encoding="utf-8")
             failed_path.write_text(json.dumps(failed), encoding="utf-8")
+            # This test exercises the CS2 report gate, not pass ordering: credit is
+            # deliberately recorded out of the unlocked order, so --force-out-of-order
+            # is required for both calls.
             append_review_main([
                 str(spec_path), "--pass-id", "optimization-pass", "--fidelity", "0.9",
                 "--action", "continue", "--summary", "ok", "--cs2-review-json", str(report_path),
                 "--review-scene-json", str(ROOT / "tests" / "fixtures" / "knife_review_scene.json"),
-                "--in-place",
+                "--force-out-of-order", "--in-place",
             ])
             persisted = json.loads(spec_path.read_text(encoding="utf-8"))
             self.assertEqual(persisted["reviewHistory"][0]["cs2Review"]["verdict"], "pass")
-            with self.assertRaises(ValueError):
+            # Assert on the message so this stays a CS2-gate test: without
+            # --force-out-of-order the ordered-credit gate would raise first and
+            # silently mask the behaviour under test.
+            with self.assertRaisesRegex(ValueError, "CS2 review gate is blocking continuation"):
                 append_review_main([
                     str(spec_path), "--pass-id", "optimization-pass", "--fidelity", "0.9",
                     "--action", "continue", "--summary", "blocked", "--cs2-review-json", str(failed_path),
+                    "--force-out-of-order",
                 ])
 
 

@@ -157,10 +157,18 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    `forge/stage3_build/generate_threejs_factory.py object-sculpt-spec.json --out src/createObjectModel.ts`
    (generator is pass-gated: a future `--pass-id` fails until prior passes are reviewed `continue`).
 7. Render the current pass in a browser/preview, capture a screenshot at a review viewpoint.
+   For `blockout`, capture a second **map-stripped** render from the same viewpoint with every
+   material map disabled (`map`, `normalMap`, `roughnessMap`, `metalnessMap`, `aoMap`), so structure
+   is judged on geometry alone and a convincing texture cannot stand in for real form. Keep that
+   shot: `diagnose_render.py` and `append_review.py` both refuse to credit `blockout` without it.
 8. Package one side-by-side sheet, then inspect it with agent vision:
    `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out cmp.png --json`.
 9. Record the review (overall + per-layer + per-feature scores + decision):
     `forge/stage4_review/append_review.py object-sculpt-spec.json --pass-id <pass> --fidelity <0-1> --action <continue|refine-spec|refine-code|request-input|stop> --summary "..." --render-screenshot <shot> --comparison-image cmp.png --ai-vision-score <0-1> --layer-scores-json '{...}' --feature-reviews-json <f.json> --in-place`.
+   For `blockout`, add `--map-stripped-render <shot>` (the maps-disabled render from step 7);
+   `action=continue` is refused without it.
+   Passes are credited in order: submitting any pass other than the currently unlocked one is
+   refused. Use `--force-out-of-order` only for a deliberate re-review of an already-visited pass.
    For the CS2 knife path, also attach the versioned report with
    `--cs2-review-json cs2-review.json --review-scene-json forge/tests/fixtures/knife_review_scene.json`.
    A failed family, painted-region, projection-coverage, critical-detail, or orbit gate blocks
@@ -263,7 +271,11 @@ evidence caused it, what still differs, and choose exactly one next action:
 - **Bounded correction loop (token-burn safety)**: `forge/stage4_review/correction_loop.py`
   guarantees termination (success/repeated-defect/oscillation/plateau/hard-ceiling), escalating to
   `request-input` — never a silent infinite burn.
-- **Tier 1 (legacy, still valid)**: "Tier 2 (AI-vision) never runs against a render that has not passed Tier 1." Run `forge/stage4_review/diagnose_render.py` (silhouette IoU/proportion/symmetry/per-part color) and record it (`--spec ... --in-place`) before requesting a comparison sheet; `orchestrate_passes.py check` refuses otherwise.
+- **Tier 1 (legacy, still valid)**: "Tier 2 (AI-vision) never runs against a render that has not
+  passed Tier 1." Run `forge/stage4_review/diagnose_render.py` (silhouette IoU/proportion/symmetry/
+  per-part color) and record it (`--spec ... --in-place`) before requesting a comparison sheet;
+  `orchestrate_passes.py check` refuses otherwise. On `blockout` it also fails without
+  `--map-stripped-render <shot>`, leaving the result `passed: false` so the pass stays locked.
 - **Pre-spec / strict-quality**: blocks code gen until the spec is deep enough for its contract.
 - **Screenshot feedback**: `continue` is allowed only with a render + comparison sheet + global
   AI-vision score ≥ threshold (default 0.7) AND every critical feature ≥ its own threshold.
