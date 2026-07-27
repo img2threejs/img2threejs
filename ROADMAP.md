@@ -173,7 +173,7 @@ latent bug.
 | # | Gap | Status / plan | Priority |
 |---|---|---|---|
 | G1 | SkinnedMesh + Bones + Morph targets (organic deform, facial expression) | Roadmap **v1.8 — Animation** (rig-ready topology prepared in v1.5) | deferred |
-| G2 | glTF / GLB export + AnimationMixer (engine portability) | Roadmap **v1.7 — Game Pipeline** | deferred |
+| G2 | glTF / GLB export + AnimationMixer (engine portability) | **Model-level GLB export shipped** — one-click viewer export via `export/glbExporter.js` (Blender-ready `.glb`, sanitized clone, PBR + canvas textures). AnimationMixer / rig export still deferred to **v1.7 — Game Pipeline** | partial |
 | G3 | **InstancedMesh — real latent bug**: `instanced-cluster` in `VALID_PRIMITIVES` has no `geometry_for()` branch; repetition systems emit a hand-rolled `Mesh` clone loop, not `InstancedMesh` (`generate_threejs_factory.py:1091-1146`) | **Hotfix in progress** | high |
 | G4 | UV unwrapping / atlas, normal+AO baking (high→low), LOD, BVH; procedural-UV seams stretch at primitive joins | Partial today (procedural cyl/triplanar UV + height→normal). Baking and LOD land in **v1.7** | med |
 | G5 | WebGPURenderer + TSL node materials | Deferred — architecture, not render quality | low |
