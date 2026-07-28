@@ -5,6 +5,20 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-07-28
+
+### Added
+- add Python CI and automated releases
+- update changelog and roadmap
+- enhance skill and strict cs2 component render
+
+### Fixed
+- stabilize pHash brightness invariance
+- align tests with review evidence gates
+- sponsor donate link + weekly and all-language Trendshift badges (#42)
+- use the logo mark for the README, at its real aspect ratio (#36)
+- restore assets/logo.svg so the README logo stops 404-ing (#35)
+
 ## [1.4.1] — 2026-07-26
 
 The hardening update for the CS2 reconstruction pipeline: explicit component coverage, a pistol
@@ -179,6 +193,7 @@ and harness improvements to the underlying code generator.
 - Action-ready runtime hierarchy exposing pivots, sockets, and colliders.
 - Token-efficient, code-only output (diffable TypeScript + JSON spec, no binaries).
 
+[1.5.0]: https://github.com/img2threejs/img2threejs/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/hoainho/img2threejs/compare/v1.4.0...4e9fbecae0e63b370581737c89991d4dca84c287
 [1.4.0]: https://github.com/hoainho/img2threejs/releases/tag/v1.4.0
 [1.3.0]: https://github.com/hoainho/img2threejs/releases/tag/v1.3
