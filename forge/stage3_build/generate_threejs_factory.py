@@ -1067,6 +1067,7 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
         material_id = str(component.get("material") or next(iter(materials.keys()), "base"))
         parent = component.get("parent") or "root"
         name = str(component.get("name") or component_id)
+        is_root_node = component.get("parent") is None or component.get("level") == "root"
         lines.extend(
             [
                 "",
@@ -1081,32 +1082,43 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
                 "  } else {",
                 f"    {node_var}.position.set({vector(transform.get('position'), [0, 0, 0])});",
                 f"    {node_var}.rotation.set({vector(transform.get('rotation'), [0, 0, 0])});",
-                f"    {node_var}.scale.set({scale_vector(component, transform)});",
+                f"    // Group scale always 1 — dimensions applied to child Mesh so descendants aren't double-scaled",
+                f"    {node_var}.scale.set(1, 1, 1);",
                 "  }",
                 f"  {node_var}.userData.sculptComponent = {json.dumps(component, ensure_ascii=False)};",
                 f"  {node_var}.userData.actionProfile = {json.dumps(action_profile, ensure_ascii=False)};",
                 f"  (nodes[{json.dumps(str(parent))}] ?? root).add({node_var});",
                 f"  nodes[{json.dumps(component_id)}] = {node_var};",
-                f"  const {component_var}Geometry = {endpoint_var}",
-                f"    ? new THREE.CylinderGeometry({endpoint_var}.endRadius, {endpoint_var}.baseRadius, {endpoint_var}.length, 32, 12)",
-                f"    : {geometry_for(primitive, component)};",
-                f"  const {component_var} = new THREE.Mesh(",
-                f"    {component_var}Geometry,",
-                f"    materialMap[{json.dumps(material_id)}] ?? new THREE.MeshStandardMaterial({{ color: 0x888888 }})",
-                "  );",
-                f"  {component_var}.name = {json.dumps(name)};",
-                f"  if ({endpoint_var}) {{",
-                f"    {component_var}.position.copy({endpoint_var}.midpoint);",
-                f"    {component_var}.quaternion.copy({endpoint_var}.quaternion);",
-                "  }",
-                f"  {component_var}.castShadow = options.castShadow ?? true;",
-                f"  {component_var}.receiveShadow = options.receiveShadow ?? true;",
-                f"  {component_var}.userData.sculptComponent = {json.dumps(component, ensure_ascii=False)};",
-                f"  {node_var}.add({component_var});",
-                f"  meshes[{json.dumps(component_id)}] = {component_var};",
-                f"  colliders[{json.dumps(component_id)}] = {json.dumps(action_profile.get('collider', {}), ensure_ascii=False)};",
             ]
         )
+        # Root-level component (parent=None) is a pivot-only group — no visible mesh.
+        # This prevents a 1×1×1 placeholder box from dominating the scene.
+        if not is_root_node:
+            dims = scale_vector(component, transform)
+            lines.extend(
+                [
+                    f"  const {component_var}Geometry = {endpoint_var}",
+                    f"    ? new THREE.CylinderGeometry({endpoint_var}.endRadius, {endpoint_var}.baseRadius, {endpoint_var}.length, 32, 12)",
+                    f"    : {geometry_for(primitive, component)};",
+                    f"  const {component_var} = new THREE.Mesh(",
+                    f"    {component_var}Geometry,",
+                    f"    materialMap[{json.dumps(material_id)}] ?? new THREE.MeshStandardMaterial({{ color: 0x888888 }})",
+                    "  );",
+                    f"  {component_var}.name = {json.dumps(name)};",
+                    f"  if ({endpoint_var}) {{",
+                    f"    {component_var}.position.copy({endpoint_var}.midpoint);",
+                    f"    {component_var}.quaternion.copy({endpoint_var}.quaternion);",
+                    f"  }} else {{",
+                    f"    {component_var}.scale.set({dims});",
+                    "  }",
+                    f"  {component_var}.castShadow = options.castShadow ?? true;",
+                    f"  {component_var}.receiveShadow = options.receiveShadow ?? true;",
+                    f"  {component_var}.userData.sculptComponent = {json.dumps(component, ensure_ascii=False)};",
+                    f"  {node_var}.add({component_var});",
+                    f"  meshes[{json.dumps(component_id)}] = {component_var};",
+                    f"  colliders[{json.dumps(component_id)}] = {json.dumps(action_profile.get('collider', {}), ensure_ascii=False)};",
+                ]
+            )
         if isinstance(fracture_group, str) and fracture_group:
             lines.extend(
                 [
