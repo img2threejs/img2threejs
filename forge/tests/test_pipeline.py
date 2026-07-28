@@ -384,6 +384,53 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("BoxGeometry", out.read_text())
 
+    def test_instanced_cluster_base_geometry_emits_its_helper(self):
+        # Regression: two features that were correct on their own disagreed at their seam.
+        # geometry_for() resolves an instanced-cluster to its baseGeometry and emits that
+        # primitive's call (e.g. buildTubeGeometry), but the helper-emission gate read only
+        # the top-level "primitive" — so "tube" never entered used_primitives and the helper
+        # was never defined. The generated .ts referenced an undefined function and failed
+        # tsc in the consuming project.
+        #
+        # The existing instanced-cluster test only exercises the default box base, which
+        # needs no helper, so it could never catch this.
+        for base, builder in (
+            ("tube", "buildTubeGeometry"),
+            ("lathe", "buildLatheGeometry"),
+            ("extrude", "buildExtrudeGeometry"),
+        ):
+            with self.subTest(base=base):
+                run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
+                spec = json.loads(self.spec.read_text())
+                component = spec["componentTree"][0]
+                component["primitive"] = "instanced-cluster"
+                component["geometryDescriptor"]["baseGeometry"] = base
+                self.spec.write_text(json.dumps(spec))
+                out = self.dir / "createOakModel.ts"
+                r = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out, "--force")
+                self.assertEqual(r.returncode, 0, r.stderr)
+                ts = out.read_text()
+                self.assertIn(f"{builder}(", ts)
+                self.assertIn(f"function {builder}(", ts,
+                              f"{builder} is called but never defined — undefined function in generated output")
+
+    def test_instanced_cluster_still_omits_unrelated_helpers(self):
+        # The gate exists to keep noUnusedLocals builds passing; resolving the cluster's base
+        # must widen it by exactly one primitive, not disable it.
+        run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
+        spec = json.loads(self.spec.read_text())
+        component = spec["componentTree"][0]
+        component["primitive"] = "instanced-cluster"
+        component["geometryDescriptor"]["baseGeometry"] = "tube"
+        self.spec.write_text(json.dumps(spec))
+        out = self.dir / "createOakModel.ts"
+        r = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        ts = out.read_text()
+        self.assertIn("function buildTubeGeometry", ts)
+        self.assertNotIn("function buildLatheGeometry", ts)
+        self.assertNotIn("function buildCurveSweepGeometry", ts)
+
     def test_repetition_system_emits_instanced_mesh(self):
         # Repeated parts (teeth/fasteners/spokes) must render as ONE THREE.InstancedMesh
         # (single draw call), not a per-instance Mesh clone loop (real-time perf principle).
