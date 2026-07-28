@@ -239,7 +239,8 @@ class PipelineTest(unittest.TestCase):
 
         # Recording a PASSING tier1 result (identical ref/render) unblocks it.
         run("stage4_review/diagnose_render.py", "--reference", self.ref, "--render", self.ref,
-            "--pass-id", "blockout", "--spec", self.spec, "--in-place")
+            "--pass-id", "blockout", "--spec", self.spec,
+            "--map-stripped-render", self.ref, "--in-place")
         unblocked = run("stage3_build/orchestrate_passes.py", "check", self.spec, "--pass-id", "blockout")
         self.assertEqual(unblocked.returncode, 0, unblocked.stderr)
 
@@ -575,7 +576,7 @@ class PipelineTest(unittest.TestCase):
                 "--render-screenshot", self.render, "--comparison-image", cmp,
                 "--ai-vision-score", "0.8", "--layer-scores-json", layers,
                 "--feature-reviews-json", freviews,
-                "--camera-view", "front", "--in-place")
+                "--camera-view", "front", "--map-stripped-render", self.render, "--in-place")
         self.assertEqual(r.returncode, 0, r.stderr)
         spec = json.loads(self.spec.read_text())
         self.assertTrue(len(spec.get("reviewHistory", [])) >= 1)
