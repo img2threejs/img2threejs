@@ -28,7 +28,9 @@ TEMPLATES_DIR = TOOLS_DIR / "templates"
 # ── External template loader ────────────────────────────────────────────
 
 
-def load_external_templates(templates_dir: Path = TEMPLATES_DIR) -> list[dict[str, Any]]:
+def load_external_templates(
+    templates_dir: Path = TEMPLATES_DIR,
+) -> list[dict[str, Any]]:
     """Load all JSON template files from *templates_dir*.
 
     Each file must contain a dict with at minimum ``categoryMatchers``.
@@ -94,9 +96,14 @@ def C(
     topo: str = "assembled-solid",
     topo_r: str = "",
     features: list[str] | None = None,
-    geometryDescriptor: dict | None = None,
+    **kwargs: Any,
 ) -> dict:
-    """Create a component dict matching the sculpt spec format."""
+    """Create a component dict matching the sculpt spec format.
+
+    Extra keyword arguments (e.g. ``geometryDescriptor=...``) are stored
+    directly on the component dict so adding new template fields never
+    requires a signature change.
+    """
     c: dict[str, Any] = {
         "id": cid,
         "name": name,
@@ -120,8 +127,9 @@ def C(
         c["details"] = details
     if features:
         c["localFeatures"] = features
-    if geometryDescriptor:
-        c["geometryDescriptor"] = geometryDescriptor
+    for k, v in kwargs.items():
+        if v is not None:
+            c[k] = v
     return c
 
 
@@ -129,9 +137,14 @@ def T(tx: float = 0, ty: float = 0, tz: float = 0) -> dict:
     return {"tx": tx, "ty": ty, "tz": tz}
 
 
-def A(parent_socket: str = "root", contact: str = "continuous",
-      embed: float = 0.01, overlap: float = 0.0,
-      start=(0, 0, 0), end=(0, 0, 0)) -> dict:
+def A(
+    parent_socket: str = "root",
+    contact: str = "continuous",
+    embed: float = 0.01,
+    overlap: float = 0.0,
+    start=(0, 0, 0),
+    end=(0, 0, 0),
+) -> dict:
     return {
         "parentSocket": parent_socket,
         "contactType": contact,
@@ -147,171 +160,445 @@ def A(parent_socket: str = "root", contact: str = "continuous",
 
 CAR_TEMPLATE: dict[str, Any] = {
     "categoryMatchers": [
-        "automobile", "car", "hatchback", "sedan", "truck", "vehicle",
-        "van", "suv", "pickup", "crossover", "wagon", "coupe", "convertible",
+        "automobile",
+        "car",
+        "hatchback",
+        "sedan",
+        "truck",
+        "vehicle",
+        "van",
+        "suv",
+        "pickup",
+        "crossover",
+        "wagon",
+        "coupe",
+        "convertible",
     ],
     "description": "Car/automobile with body, wheels, windows, lights, mirrors, bumpers",
     "defaultDimensions": {"L": 4.0, "W": 1.7, "H": 1.5},
-
     "components": [
         # root is always present; we add children to it. No need to re-add root.
-
-        C("body", "Car body shell", "macro", "box", "root", "body-paint",
-          {"width": {"$eval": "L * 0.95"}, "height": {"$eval": "H * 0.7"},
-           "depth": {"$eval": "W * 0.95"}, "units": "meters", "confidence": 0.85},
-          T(0, {"$eval": "H * 0.15"}, 0),
-          A("root", "continuous", 0.01, 0.0, (0, 0, 0), (0, 0, 0)),
-          imp=1.0, conf=0.9, topo="assembled-solid",
-          topo_r="Main body shell with compound curves, panel gaps, character lines.",
-          kids=["windshield", "side-windows", "front-grille",
-                "headlight-left", "headlight-right", "bumper"],
-          features=["body-character-line"]),
-
-        C("windshield", "Front windshield", "meso", "plane-card", "body", "glass",
-          {"width": 1.2, "height": 0.7, "depth": 0.02,
-           "units": "meters", "confidence": 0.8},
-          T(1.5, 0.5, 0),
-          A("body", "recessed", 0.005, 0.002, (1.5, 0.5, 0), (1.5, 0.5, 0)),
-          topo="conforming-shell", topo_r="Thin curved transparent panel."),
-
-        C("side-windows", "Side windows", "meso", "plane-card", "body", "glass",
-          {"width": 1.8, "height": 0.4, "depth": 0.02,
-           "units": "meters", "confidence": 0.75},
-          T(0.2, 0.5, {"$eval": "W * 0.5 + 0.01"}),
-          A("body", "recessed", 0.005, 0.002,
-            (0.2, 0.5, {"$eval": "W * 0.5 + 0.01"}),
-            (0.2, 0.5, {"$eval": "W * 0.5 + 0.01"})),
-          topo="conforming-shell", topo_r="Thin curved side window panels."),
-
-        C("front-grille", "Hexagonal front grille", "meso", "plane-card", "body", "chrome",
-          {"width": 0.5, "height": 0.25, "depth": 0.05,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "L * 0.5"}, 0.15, 0),
-          A("body", "continuous", 0.01, 0.001,
-            ({"$eval": "L * 0.5"}, 0.15, 0),
-            ({"$eval": "L * 0.5"}, 0.15, 0)),
-          features=["grille-chrome-slats"],
-          topo="surface-relief", topo_r="Grille with chrome slats on body surface."),
-
-        C("headlight-left", "Left headlight", "meso", "sphere", "body", "headlight-mat",
-          {"width": 0.2, "height": 0.12, "depth": 0.1,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "L * 0.49"}, 0.35, {"$eval": "-W * 0.35"}),
-          A("body", "recessed", 0.01, 0.002,
-            ({"$eval": "L * 0.49"}, 0.35, {"$eval": "-W * 0.35"}),
-            ({"$eval": "L * 0.49"}, 0.35, {"$eval": "-W * 0.35"})),
-          topo="continuous-sculpt", topo_r="Smooth swept-back headlamp housing on front wing."),
-
-        C("headlight-right", "Right headlight", "meso", "sphere", "body", "headlight-mat",
-          {"width": 0.2, "height": 0.12, "depth": 0.1,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "L * 0.49"}, 0.35, {"$eval": "W * 0.35"}),
-          A("body", "recessed", 0.01, 0.002,
-            ({"$eval": "L * 0.49"}, 0.35, {"$eval": "W * 0.35"}),
-            ({"$eval": "L * 0.49"}, 0.35, {"$eval": "W * 0.35"})),
-          topo="continuous-sculpt", topo_r="Smooth swept-back headlamp housing on front wing."),
-
-        C("bumper", "Front bumper", "meso", "box", "body", "plastic-trim",
-          {"width": 0.3, "height": 0.25, "depth": {"$eval": "W * 0.5"},
-           "units": "meters", "confidence": 0.8},
-          T({"$eval": "L * 0.51"}, -0.05, 0),
-          A("body", "continuous", 0.01, 0.001,
-            ({"$eval": "L * 0.51"}, -0.05, 0),
-            ({"$eval": "L * 0.51"}, -0.05, 0)),
-          features=["fog-light-bezels", "black-bumper-inserts"],
-          topo="assembled-solid", topo_r="Boxy front bumper below grille."),
-
-        C("wheel-fl", "Wheel front-left", "meso", "cylinder", "root", "alloy",
-          {"width": 0.3, "height": 0.3, "depth": 0.25,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "L * 0.3"}, 0.15, {"$eval": "-W * 0.6"}),
-          A("root", "continuous", 0.005, 0.005,
-            ({"$eval": "L * 0.3"}, 0.15, {"$eval": "-W * 0.6"}),
-            ({"$eval": "L * 0.3"}, 0.15, {"$eval": "-W * 0.6"})),
-          features=["multi-spoke-wheels"]),
-
-        C("wheel-fr", "Wheel front-right", "meso", "cylinder", "root", "alloy",
-          {"width": 0.3, "height": 0.3, "depth": 0.25,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "L * 0.3"}, 0.15, {"$eval": "W * 0.6"}),
-          A("root", "continuous", 0.005, 0.005,
-            ({"$eval": "L * 0.3"}, 0.15, {"$eval": "W * 0.6"}),
-            ({"$eval": "L * 0.3"}, 0.15, {"$eval": "W * 0.6"})),
-          features=["multi-spoke-wheels"]),
-
-        C("wheel-rl", "Wheel rear-left", "meso", "cylinder", "root", "alloy",
-          {"width": 0.3, "height": 0.3, "depth": 0.25,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "-L * 0.325"}, 0.15, {"$eval": "-W * 0.6"}),
-          A("root", "continuous", 0.005, 0.005,
-            ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "-W * 0.6"}),
-            ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "-W * 0.6"}))),
-
-        C("wheel-rr", "Wheel rear-right", "meso", "cylinder", "root", "alloy",
-          {"width": 0.3, "height": 0.3, "depth": 0.25,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "-L * 0.325"}, 0.15, {"$eval": "W * 0.6"}),
-          A("root", "continuous", 0.005, 0.005,
-            ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "W * 0.6"}),
-            ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "W * 0.6"}))),
-
-        C("mirror-left", "Left side mirror", "micro", "box", "root", "plastic-trim",
-          {"width": 0.15, "height": 0.1, "depth": 0.08,
-           "units": "meters", "confidence": 0.8},
-          T({"$eval": "L * 0.35"}, 0.6, {"$eval": "-W * 0.56"}),
-          A("root", "continuous", 0.005, 0.002,
-            ({"$eval": "L * 0.35"}, 0.6, {"$eval": "-W * 0.56"}),
-            ({"$eval": "L * 0.35"}, 0.6, {"$eval": "-W * 0.56"})),
-          features=["turn-signal-mirrors"]),
-
-        C("mirror-right", "Right side mirror", "micro", "box", "root", "plastic-trim",
-          {"width": 0.15, "height": 0.1, "depth": 0.08,
-           "units": "meters", "confidence": 0.8},
-          T({"$eval": "L * 0.35"}, 0.6, {"$eval": "W * 0.56"}),
-          A("root", "continuous", 0.005, 0.002,
-            ({"$eval": "L * 0.35"}, 0.6, {"$eval": "W * 0.56"}),
-            ({"$eval": "L * 0.35"}, 0.6, {"$eval": "W * 0.56"}))),
+        C(
+            "body",
+            "Car body shell",
+            "macro",
+            "box",
+            "root",
+            "body-paint",
+            {
+                "width": {"$eval": "L * 0.95"},
+                "height": {"$eval": "H * 0.7"},
+                "depth": {"$eval": "W * 0.95"},
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T(0, {"$eval": "H * 0.15"}, 0),
+            A("root", "continuous", 0.01, 0.0, (0, 0, 0), (0, 0, 0)),
+            imp=1.0,
+            conf=0.9,
+            topo="assembled-solid",
+            topo_r="Main body shell with compound curves, panel gaps, character lines.",
+            kids=[
+                "windshield",
+                "side-windows",
+                "front-grille",
+                "headlight-left",
+                "headlight-right",
+                "bumper",
+            ],
+            features=["body-character-line"],
+        ),
+        C(
+            "windshield",
+            "Front windshield",
+            "meso",
+            "plane-card",
+            "body",
+            "glass",
+            {
+                "width": 1.2,
+                "height": 0.7,
+                "depth": 0.02,
+                "units": "meters",
+                "confidence": 0.8,
+            },
+            T(1.5, 0.5, 0),
+            A("body", "recessed", 0.005, 0.002, (1.5, 0.5, 0), (1.5, 0.5, 0)),
+            topo="conforming-shell",
+            topo_r="Thin curved transparent panel.",
+        ),
+        C(
+            "side-windows",
+            "Side windows",
+            "meso",
+            "plane-card",
+            "body",
+            "glass",
+            {
+                "width": 1.8,
+                "height": 0.4,
+                "depth": 0.02,
+                "units": "meters",
+                "confidence": 0.75,
+            },
+            T(0.2, 0.5, {"$eval": "W * 0.5 + 0.01"}),
+            A(
+                "body",
+                "recessed",
+                0.005,
+                0.002,
+                (0.2, 0.5, {"$eval": "W * 0.5 + 0.01"}),
+                (0.2, 0.5, {"$eval": "W * 0.5 + 0.01"}),
+            ),
+            topo="conforming-shell",
+            topo_r="Thin curved side window panels.",
+        ),
+        C(
+            "front-grille",
+            "Hexagonal front grille",
+            "meso",
+            "plane-card",
+            "body",
+            "chrome",
+            {
+                "width": 0.5,
+                "height": 0.25,
+                "depth": 0.05,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "L * 0.5"}, 0.15, 0),
+            A(
+                "body",
+                "continuous",
+                0.01,
+                0.001,
+                ({"$eval": "L * 0.5"}, 0.15, 0),
+                ({"$eval": "L * 0.5"}, 0.15, 0),
+            ),
+            features=["grille-chrome-slats"],
+            topo="surface-relief",
+            topo_r="Grille with chrome slats on body surface.",
+        ),
+        C(
+            "headlight-left",
+            "Left headlight",
+            "meso",
+            "sphere",
+            "body",
+            "headlight-mat",
+            {
+                "width": 0.2,
+                "height": 0.12,
+                "depth": 0.1,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "L * 0.49"}, 0.35, {"$eval": "-W * 0.35"}),
+            A(
+                "body",
+                "recessed",
+                0.01,
+                0.002,
+                ({"$eval": "L * 0.49"}, 0.35, {"$eval": "-W * 0.35"}),
+                ({"$eval": "L * 0.49"}, 0.35, {"$eval": "-W * 0.35"}),
+            ),
+            topo="continuous-sculpt",
+            topo_r="Smooth swept-back headlamp housing on front wing.",
+        ),
+        C(
+            "headlight-right",
+            "Right headlight",
+            "meso",
+            "sphere",
+            "body",
+            "headlight-mat",
+            {
+                "width": 0.2,
+                "height": 0.12,
+                "depth": 0.1,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "L * 0.49"}, 0.35, {"$eval": "W * 0.35"}),
+            A(
+                "body",
+                "recessed",
+                0.01,
+                0.002,
+                ({"$eval": "L * 0.49"}, 0.35, {"$eval": "W * 0.35"}),
+                ({"$eval": "L * 0.49"}, 0.35, {"$eval": "W * 0.35"}),
+            ),
+            topo="continuous-sculpt",
+            topo_r="Smooth swept-back headlamp housing on front wing.",
+        ),
+        C(
+            "bumper",
+            "Front bumper",
+            "meso",
+            "box",
+            "body",
+            "plastic-trim",
+            {
+                "width": 0.3,
+                "height": 0.25,
+                "depth": {"$eval": "W * 0.5"},
+                "units": "meters",
+                "confidence": 0.8,
+            },
+            T({"$eval": "L * 0.51"}, -0.05, 0),
+            A(
+                "body",
+                "continuous",
+                0.01,
+                0.001,
+                ({"$eval": "L * 0.51"}, -0.05, 0),
+                ({"$eval": "L * 0.51"}, -0.05, 0),
+            ),
+            features=["fog-light-bezels", "black-bumper-inserts"],
+            topo="assembled-solid",
+            topo_r="Boxy front bumper below grille.",
+        ),
+        C(
+            "wheel-fl",
+            "Wheel front-left",
+            "meso",
+            "cylinder",
+            "root",
+            "alloy",
+            {
+                "width": 0.3,
+                "height": 0.3,
+                "depth": 0.25,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "L * 0.3"}, 0.15, {"$eval": "-W * 0.6"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.005,
+                ({"$eval": "L * 0.3"}, 0.15, {"$eval": "-W * 0.6"}),
+                ({"$eval": "L * 0.3"}, 0.15, {"$eval": "-W * 0.6"}),
+            ),
+            features=["multi-spoke-wheels"],
+        ),
+        C(
+            "wheel-fr",
+            "Wheel front-right",
+            "meso",
+            "cylinder",
+            "root",
+            "alloy",
+            {
+                "width": 0.3,
+                "height": 0.3,
+                "depth": 0.25,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "L * 0.3"}, 0.15, {"$eval": "W * 0.6"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.005,
+                ({"$eval": "L * 0.3"}, 0.15, {"$eval": "W * 0.6"}),
+                ({"$eval": "L * 0.3"}, 0.15, {"$eval": "W * 0.6"}),
+            ),
+            features=["multi-spoke-wheels"],
+        ),
+        C(
+            "wheel-rl",
+            "Wheel rear-left",
+            "meso",
+            "cylinder",
+            "root",
+            "alloy",
+            {
+                "width": 0.3,
+                "height": 0.3,
+                "depth": 0.25,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "-L * 0.325"}, 0.15, {"$eval": "-W * 0.6"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.005,
+                ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "-W * 0.6"}),
+                ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "-W * 0.6"}),
+            ),
+        ),
+        C(
+            "wheel-rr",
+            "Wheel rear-right",
+            "meso",
+            "cylinder",
+            "root",
+            "alloy",
+            {
+                "width": 0.3,
+                "height": 0.3,
+                "depth": 0.25,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "-L * 0.325"}, 0.15, {"$eval": "W * 0.6"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.005,
+                ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "W * 0.6"}),
+                ({"$eval": "-L * 0.325"}, 0.15, {"$eval": "W * 0.6"}),
+            ),
+        ),
+        C(
+            "mirror-left",
+            "Left side mirror",
+            "micro",
+            "box",
+            "root",
+            "plastic-trim",
+            {
+                "width": 0.15,
+                "height": 0.1,
+                "depth": 0.08,
+                "units": "meters",
+                "confidence": 0.8,
+            },
+            T({"$eval": "L * 0.35"}, 0.6, {"$eval": "-W * 0.56"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.002,
+                ({"$eval": "L * 0.35"}, 0.6, {"$eval": "-W * 0.56"}),
+                ({"$eval": "L * 0.35"}, 0.6, {"$eval": "-W * 0.56"}),
+            ),
+            features=["turn-signal-mirrors"],
+        ),
+        C(
+            "mirror-right",
+            "Right side mirror",
+            "micro",
+            "box",
+            "root",
+            "plastic-trim",
+            {
+                "width": 0.15,
+                "height": 0.1,
+                "depth": 0.08,
+                "units": "meters",
+                "confidence": 0.8,
+            },
+            T({"$eval": "L * 0.35"}, 0.6, {"$eval": "W * 0.56"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.002,
+                ({"$eval": "L * 0.35"}, 0.6, {"$eval": "W * 0.56"}),
+                ({"$eval": "L * 0.35"}, 0.6, {"$eval": "W * 0.56"}),
+            ),
+        ),
     ],
-
     "materials": [
-        {"id": "body-paint", "displayName": "Body paint", "type": "standard",
-         "albedo": {"hex": "#F0F0F0", "type": "sRGB"},
-         "roughness": {"base": 0.3, "map": {"type": "procedural", "variation": 0.1}},
-         "metalness": 0.0, "clearcoat": 0.3, "clearcoatRoughness": 0.4},
-        {"id": "glass", "displayName": "Glass", "type": "standard",
-         "albedo": {"hex": "#C8E8F0", "type": "sRGB"},
-         "roughness": {"base": 0.05}, "metalness": 0.0,
-         "transmission": 0.85, "ior": 1.5, "clearcoat": 0.0},
-        {"id": "plastic-trim", "displayName": "Black plastic trim", "type": "standard",
-         "albedo": {"hex": "#1A1A1A", "type": "sRGB"},
-         "roughness": {"base": 0.7}, "metalness": 0.0, "clearcoat": 0.0},
-        {"id": "chrome", "displayName": "Chrome trim", "type": "standard",
-         "albedo": {"hex": "#E8E8E8", "type": "sRGB"},
-         "roughness": {"base": 0.1}, "metalness": 1.0, "clearcoat": 0.5},
-        {"id": "alloy", "displayName": "Alloy wheel", "type": "standard",
-         "albedo": {"hex": "#A0A0A0", "type": "sRGB"},
-         "roughness": {"base": 0.4}, "metalness": 0.8, "clearcoat": 0.2},
-        {"id": "headlight-mat", "displayName": "Headlight housing", "type": "standard",
-         "albedo": {"hex": "#CCCCCC", "type": "sRGB"},
-         "roughness": {"base": 0.2}, "metalness": 0.0, "clearcoat": 0.8},
-        {"id": "rubber", "displayName": "Rubber tire", "type": "standard",
-         "albedo": {"hex": "#222222", "type": "sRGB"},
-         "roughness": {"base": 0.9}, "metalness": 0.0, "clearcoat": 0.0},
+        {
+            "id": "body-paint",
+            "displayName": "Body paint",
+            "type": "standard",
+            "albedo": {"hex": "#F0F0F0", "type": "sRGB"},
+            "roughness": {"base": 0.3, "map": {"type": "procedural", "variation": 0.1}},
+            "metalness": 0.0,
+            "clearcoat": 0.3,
+            "clearcoatRoughness": 0.4,
+        },
+        {
+            "id": "glass",
+            "displayName": "Glass",
+            "type": "standard",
+            "albedo": {"hex": "#C8E8F0", "type": "sRGB"},
+            "roughness": {"base": 0.05},
+            "metalness": 0.0,
+            "transmission": 0.85,
+            "ior": 1.5,
+            "clearcoat": 0.0,
+        },
+        {
+            "id": "plastic-trim",
+            "displayName": "Black plastic trim",
+            "type": "standard",
+            "albedo": {"hex": "#1A1A1A", "type": "sRGB"},
+            "roughness": {"base": 0.7},
+            "metalness": 0.0,
+            "clearcoat": 0.0,
+        },
+        {
+            "id": "chrome",
+            "displayName": "Chrome trim",
+            "type": "standard",
+            "albedo": {"hex": "#E8E8E8", "type": "sRGB"},
+            "roughness": {"base": 0.1},
+            "metalness": 1.0,
+            "clearcoat": 0.5,
+        },
+        {
+            "id": "alloy",
+            "displayName": "Alloy wheel",
+            "type": "standard",
+            "albedo": {"hex": "#A0A0A0", "type": "sRGB"},
+            "roughness": {"base": 0.4},
+            "metalness": 0.8,
+            "clearcoat": 0.2,
+        },
+        {
+            "id": "headlight-mat",
+            "displayName": "Headlight housing",
+            "type": "standard",
+            "albedo": {"hex": "#CCCCCC", "type": "sRGB"},
+            "roughness": {"base": 0.2},
+            "metalness": 0.0,
+            "clearcoat": 0.8,
+        },
+        {
+            "id": "rubber",
+            "displayName": "Rubber tire",
+            "type": "standard",
+            "albedo": {"hex": "#222222", "type": "sRGB"},
+            "roughness": {"base": 0.9},
+            "metalness": 0.0,
+            "clearcoat": 0.0,
+        },
     ],
-
     "repetitionSystems": [
-        {"id": "wheel-repetition",
-         "description": "Four wheels at corners, mirrored left-right and front-rear",
-         "pattern": "mirror-quad",
-         "components": ["wheel-fl", "wheel-fr", "wheel-rl", "wheel-rr"],
-         "variations": [{"component": "wheel-rl", "transform": {"$eval": "T(-L*0.625, 0, -W*0.6)"}},
-                        {"component": "wheel-rr", "transform": {"$eval": "T(-L*0.625, 0, W*0.6)"}}]},
-        {"id": "mirror-repetition",
-         "description": "Side mirrors, mirrored left-right",
-         "pattern": "mirror-pair",
-         "components": ["mirror-left", "mirror-right"]},
+        {
+            "id": "wheel-repetition",
+            "description": "Four wheels at corners, mirrored left-right and front-rear",
+            "pattern": "mirror-quad",
+            "components": ["wheel-fl", "wheel-fr", "wheel-rl", "wheel-rr"],
+            "variations": [
+                {
+                    "component": "wheel-rl",
+                    "transform": {"$eval": "T(-L*0.625, 0, -W*0.6)"},
+                },
+                {
+                    "component": "wheel-rr",
+                    "transform": {"$eval": "T(-L*0.625, 0, W*0.6)"},
+                },
+            ],
+        },
+        {
+            "id": "mirror-repetition",
+            "description": "Side mirrors, mirrored left-right",
+            "pattern": "mirror-pair",
+            "components": ["mirror-left", "mirror-right"],
+        },
     ],
-
     "lighting": {
         "setup": "studio-key-fill",
         "key": {"direction": [1, -1, 2], "intensity": 1.0, "color": "#FFFFFF"},
@@ -319,214 +606,452 @@ CAR_TEMPLATE: dict[str, Any] = {
         "rim": {"direction": [0, 1, -1], "intensity": 0.3, "color": "#FFFFFF"},
         "environment": {"type": "studio", "intensity": 0.3},
     },
-
     "featureReviewTargets": [
-        {"id": "silhouette", "name": "Car silhouette and proportions", "required": True,
-         "tier": "critical"},
-        {"id": "body-form", "name": "Body shell compound curves and panel gaps", "required": True,
-         "tier": "critical"},
-        {"id": "wheel-placement", "name": "Wheel arch position and size relative to body",
-         "required": True, "tier": "critical"},
-        {"id": "grille-headlights", "name": "Grille and headlight shape and placement",
-         "required": True, "tier": "important"},
-        {"id": "materials", "name": "Material response: paint, glass, chrome, plastic, rubber",
-         "required": False, "tier": "detail"},
+        {
+            "id": "silhouette",
+            "name": "Car silhouette and proportions",
+            "required": True,
+            "tier": "critical",
+        },
+        {
+            "id": "body-form",
+            "name": "Body shell compound curves and panel gaps",
+            "required": True,
+            "tier": "critical",
+        },
+        {
+            "id": "wheel-placement",
+            "name": "Wheel arch position and size relative to body",
+            "required": True,
+            "tier": "critical",
+        },
+        {
+            "id": "grille-headlights",
+            "name": "Grille and headlight shape and placement",
+            "required": True,
+            "tier": "important",
+        },
+        {
+            "id": "materials",
+            "name": "Material response: paint, glass, chrome, plastic, rubber",
+            "required": False,
+            "tier": "detail",
+        },
     ],
-
     "detailMappings": [
-        {"detailId": "grille-chrome-slats", "componentId": "front-grille",
-         "featureType": "geometry"},
-        {"detailId": "swept-headlamps", "componentId": "headlight-left",
-         "featureType": "geometry"},
-        {"detailId": "fog-light-bezels", "componentId": "bumper",
-         "featureType": "geometry"},
-        {"detailId": "multi-spoke-wheels", "componentId": "wheel-fl",
-         "featureType": "geometry"},
-        {"detailId": "body-character-line", "componentId": "body",
-         "featureType": "geometry"},
-        {"detailId": "turn-signal-mirrors", "componentId": "mirror-left",
-         "featureType": "geometry"},
-        {"detailId": "black-bumper-inserts", "componentId": "bumper",
-         "featureType": "material"},
-        {"detailId": "white-metallic-paint", "componentId": "body",
-         "featureType": "material"},
+        {
+            "detailId": "grille-chrome-slats",
+            "componentId": "front-grille",
+            "featureType": "geometry",
+        },
+        {
+            "detailId": "swept-headlamps",
+            "componentId": "headlight-left",
+            "featureType": "geometry",
+        },
+        {
+            "detailId": "fog-light-bezels",
+            "componentId": "bumper",
+            "featureType": "geometry",
+        },
+        {
+            "detailId": "multi-spoke-wheels",
+            "componentId": "wheel-fl",
+            "featureType": "geometry",
+        },
+        {
+            "detailId": "body-character-line",
+            "componentId": "body",
+            "featureType": "geometry",
+        },
+        {
+            "detailId": "turn-signal-mirrors",
+            "componentId": "mirror-left",
+            "featureType": "geometry",
+        },
+        {
+            "detailId": "black-bumper-inserts",
+            "componentId": "bumper",
+            "featureType": "material",
+        },
+        {
+            "detailId": "white-metallic-paint",
+            "componentId": "body",
+            "featureType": "material",
+        },
     ],
 }
 
 HANDGUN_TEMPLATE: dict[str, Any] = {
     "categoryMatchers": [
-        "pistol", "handgun", "gun", "firearm", "desert eagle", "weapon",
-        "revolver", "semiautomatic", "semi-automatic",
+        "pistol",
+        "handgun",
+        "gun",
+        "firearm",
+        "desert eagle",
+        "weapon",
+        "revolver",
+        "semiautomatic",
+        "semi-automatic",
     ],
     "description": "Handgun/pistol with slide, barrel, grip, trigger guard, trigger, magazine, sights",
     "defaultDimensions": {"L": 0.25, "W": 0.14, "H": 0.03},
-
     "components": [
-        C("slide", "Slide / upper receiver", "macro", "extrude", "root", "gunmetal",
-          {"width": {"$eval": "L * 0.65"}, "height": {"$eval": "H * 0.35"},
-           "depth": {"$eval": "W * 0.85"}, "units": "meters", "confidence": 0.9},
-          T({"$eval": "L * 0.12"}, {"$eval": "H * 0.35"}, 0),
-          A("root", "continuous", 0.005, 0.0,
-            ({"$eval": "L * 0.12"}, {"$eval": "H * 0.35"}, 0),
-            ({"$eval": "L * 0.12"}, {"$eval": "H * 0.35"}, 0)),
-          imp=1.0, conf=0.95, topo="assembled-solid",
-          topo_r="Main upper slide body with serrations, ejection port, and sight mounts.",
-          kids=["barrel", "rear-sight", "front-sight"],
-          geometryDescriptor={
-              "profile2D": {
-                  "points": [
-                      [-0.5, -0.35],
-                      [-0.5, 0.3],
-                      [-0.35, 0.5],
-                      [-0.2, 0.45],
-                      [0.0, 0.42],
-                      [0.2, 0.42],
-                      [0.38, 0.2],
-                      [0.5, -0.05],
-                      [0.5, -0.15],
-                      [0.3, -0.3],
-                      [-0.1, -0.35],
-                      [-0.5, -0.35],
-                  ],
-                  "depth": 1.0,
-              }
-          }),
-
-        C("barrel", "Barrel", "meso", "box", "slide", "gunmetal-dark",
-          {"width": 0.012, "height": 0.012, "depth": {"$eval": "L * 0.5"},
-           "units": "meters", "confidence": 0.9},
-          T({"$eval": "L * 0.15"}, {"$eval": "-H * 0.05"}, 0),
-          A("slide", "continuous", 0.01, 0.0,
-            ({"$eval": "L * 0.15"}, {"$eval": "-H * 0.05"}, 0),
-            ({"$eval": "L * 0.15"}, {"$eval": "-H * 0.05"}, 0)),
-          topo="assembled-solid", topo_r="Rectangular barrel extending forward from slide.",
-          features=["muzzle", "barrel-port"]),
-
-        C("rear-sight", "Rear sight", "micro", "box", "slide", "sight",
-          {"width": 0.025, "height": 0.01, "depth": 0.005,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "-L * 0.05"}, {"$eval": "H * 0.55"}, 0),
-          A("slide", "continuous", 0.005, 0.0,
-            ({"$eval": "-L * 0.05"}, {"$eval": "H * 0.55"}, 0),
-            ({"$eval": "-L * 0.05"}, {"$eval": "H * 0.55"}, 0)),
-          topo="assembled-solid", topo_r="Small rear notch sight dovetailed onto slide."),
-
-        C("front-sight", "Front sight", "micro", "box", "slide", "sight",
-          {"width": 0.015, "height": 0.012, "depth": 0.005,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "L * 0.4"}, {"$eval": "H * 0.55"}, 0),
-          A("slide", "continuous", 0.005, 0.0,
-            ({"$eval": "L * 0.4"}, {"$eval": "H * 0.55"}, 0),
-            ({"$eval": "L * 0.4"}, {"$eval": "H * 0.55"}, 0)),
-          topo="assembled-solid", topo_r="Small front blade sight on slide."),
-
-        C("grip", "Grip frame / lower receiver", "macro", "extrude", "root", "polymer",
-          {"width": {"$eval": "L * 0.3"}, "height": {"$eval": "H * 0.45"},
-           "depth": {"$eval": "W * 0.45"}, "units": "meters", "confidence": 0.9},
-          T({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.4"}, 0),
-          A("root", "continuous", 0.005, 0.01,
-            ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.4"}, 0),
-            ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.4"}, 0)),
-          features=["grip-texture", "finger-grooves", "beavertail"],
-          kids=["trigger-guard", "magazine"],
-          geometryDescriptor={
-              "profile2D": {
-                  "points": [
-                      [-0.4, -0.45],
-                      [0.3, -0.45],
-                      [0.35, -0.2],
-                      [0.4, 0.1],
-                      [0.35, 0.4],
-                      [-0.3, 0.4],
-                      [-0.4, 0.1],
-                      [-0.45, -0.2],
-                      [-0.4, -0.45],
-                  ],
-                  "depth": 1.0,
-              }
-          }),
-
-        C("trigger-guard", "Trigger guard", "meso", "tube", "grip", "polymer",
-          {"width": 0.035, "height": 0.03, "depth": 0.02,
-           "units": "meters", "confidence": 0.85},
-          T(0.02, {"$eval": "-H * 0.15"}, 0),
-          A("grip", "continuous", 0.005, 0.002,
-            (0.02, {"$eval": "-H * 0.15"}, 0),
-            (0.02, {"$eval": "-H * 0.15"}, 0)),
-          features=["trigger-guard-underside"],
-          topo="continuous-sculpt", topo_r="Arched guard protecting the trigger.",
-          geometryDescriptor={
-              "tubePath": {
-                  "points": [
-                      [-0.45, 0.45, 0],
-                      [-0.35, 0.0, 0],
-                      [-0.15, -0.45, 0],
-                      [0.15, -0.45, 0],
-                      [0.35, 0.0, 0],
-                      [0.45, 0.45, 0],
-                  ],
-                  "radius": 0.06,
-                  "closed": False,
-              }
-          }),
-
-        C("trigger", "Trigger", "micro", "box", "root", "gunmetal-dark",
-          {"width": 0.01, "height": 0.025, "depth": 0.005,
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "L * 0.0"}, {"$eval": "-H * 0.05"}, {"$eval": "W * 0.25"}),
-          A("root", "continuous", 0.005, 0.001,
-            ({"$eval": "L * 0.0"}, {"$eval": "-H * 0.05"}, {"$eval": "W * 0.25"}),
-            ({"$eval": "L * 0.0"}, {"$eval": "-H * 0.05"}, {"$eval": "W * 0.25"})),
-          topo="assembled-solid", topo_r="Small curved trigger blade within the guard."),
-
-        C("magazine", "Magazine", "meso", "box", "grip", "gunmetal-dark",
-          {"width": 0.025, "height": {"$eval": "H * 0.25"}, "depth": {"$eval": "W * 0.4"},
-           "units": "meters", "confidence": 0.85},
-          T({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.65"}, 0),
-          A("grip", "continuous", 0.01, 0.005,
-            ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.65"}, 0),
-            ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.65"}, 0)),
-          features=["magazine-floor-plate"],
-          topo="assembled-solid", topo_r="Rectangular magazine inserted into grip."),
-
-        C("safety", "Safety / decocker lever", "micro", "box", "root", "gunmetal-dark",
-          {"width": 0.01, "height": 0.008, "depth": 0.02,
-           "units": "meters", "confidence": 0.75},
-          T({"$eval": "L * 0.0"}, {"$eval": "H * 0.25"}, {"$eval": "W * 0.5"}),
-          A("root", "continuous", 0.005, 0.0,
-            ({"$eval": "L * 0.0"}, {"$eval": "H * 0.25"}, {"$eval": "W * 0.5"}),
-            ({"$eval": "L * 0.0"}, {"$eval": "H * 0.25"}, {"$eval": "W * 0.5"})),
-          topo="assembled-solid", topo_r="Small thumb safety lever on frame."),
+        C(
+            "slide",
+            "Slide / upper receiver",
+            "macro",
+            "extrude",
+            "root",
+            "gunmetal",
+            {
+                "width": {"$eval": "L * 0.65"},
+                "height": {"$eval": "H * 0.35"},
+                "depth": {"$eval": "W * 0.85"},
+                "units": "meters",
+                "confidence": 0.9,
+            },
+            T({"$eval": "L * 0.12"}, {"$eval": "H * 0.35"}, 0),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.0,
+                ({"$eval": "L * 0.12"}, {"$eval": "H * 0.35"}, 0),
+                ({"$eval": "L * 0.12"}, {"$eval": "H * 0.35"}, 0),
+            ),
+            imp=1.0,
+            conf=0.95,
+            topo="assembled-solid",
+            topo_r="Main upper slide body with serrations, ejection port, and sight mounts.",
+            kids=["barrel", "rear-sight", "front-sight"],
+            geometryDescriptor={
+                "profile2D": {
+                    "points": [
+                        [-0.5, -0.35],
+                        [-0.5, 0.3],
+                        [-0.35, 0.5],
+                        [-0.2, 0.45],
+                        [0.0, 0.42],
+                        [0.2, 0.42],
+                        [0.38, 0.2],
+                        [0.5, -0.05],
+                        [0.5, -0.15],
+                        [0.3, -0.3],
+                        [-0.1, -0.35],
+                        [-0.5, -0.35],
+                    ],
+                    "depth": 1.0,
+                }
+            },
+        ),
+        C(
+            "barrel",
+            "Barrel",
+            "meso",
+            "box",
+            "slide",
+            "gunmetal-dark",
+            {
+                "width": 0.012,
+                "height": 0.012,
+                "depth": {"$eval": "L * 0.5"},
+                "units": "meters",
+                "confidence": 0.9,
+            },
+            T({"$eval": "L * 0.15"}, {"$eval": "-H * 0.05"}, 0),
+            A(
+                "slide",
+                "continuous",
+                0.01,
+                0.0,
+                ({"$eval": "L * 0.15"}, {"$eval": "-H * 0.05"}, 0),
+                ({"$eval": "L * 0.15"}, {"$eval": "-H * 0.05"}, 0),
+            ),
+            topo="assembled-solid",
+            topo_r="Rectangular barrel extending forward from slide.",
+            features=["muzzle", "barrel-port"],
+        ),
+        C(
+            "rear-sight",
+            "Rear sight",
+            "micro",
+            "box",
+            "slide",
+            "sight",
+            {
+                "width": 0.025,
+                "height": 0.01,
+                "depth": 0.005,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "-L * 0.05"}, {"$eval": "H * 0.55"}, 0),
+            A(
+                "slide",
+                "continuous",
+                0.005,
+                0.0,
+                ({"$eval": "-L * 0.05"}, {"$eval": "H * 0.55"}, 0),
+                ({"$eval": "-L * 0.05"}, {"$eval": "H * 0.55"}, 0),
+            ),
+            topo="assembled-solid",
+            topo_r="Small rear notch sight dovetailed onto slide.",
+        ),
+        C(
+            "front-sight",
+            "Front sight",
+            "micro",
+            "box",
+            "slide",
+            "sight",
+            {
+                "width": 0.015,
+                "height": 0.012,
+                "depth": 0.005,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "L * 0.4"}, {"$eval": "H * 0.55"}, 0),
+            A(
+                "slide",
+                "continuous",
+                0.005,
+                0.0,
+                ({"$eval": "L * 0.4"}, {"$eval": "H * 0.55"}, 0),
+                ({"$eval": "L * 0.4"}, {"$eval": "H * 0.55"}, 0),
+            ),
+            topo="assembled-solid",
+            topo_r="Small front blade sight on slide.",
+        ),
+        C(
+            "grip",
+            "Grip frame / lower receiver",
+            "macro",
+            "extrude",
+            "root",
+            "polymer",
+            {
+                "width": {"$eval": "L * 0.3"},
+                "height": {"$eval": "H * 0.45"},
+                "depth": {"$eval": "W * 0.45"},
+                "units": "meters",
+                "confidence": 0.9,
+            },
+            T({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.4"}, 0),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.01,
+                ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.4"}, 0),
+                ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.4"}, 0),
+            ),
+            features=["grip-texture", "finger-grooves", "beavertail"],
+            kids=["trigger-guard", "magazine"],
+            geometryDescriptor={
+                "profile2D": {
+                    "points": [
+                        [-0.4, -0.45],
+                        [0.3, -0.45],
+                        [0.35, -0.2],
+                        [0.4, 0.1],
+                        [0.35, 0.4],
+                        [-0.3, 0.4],
+                        [-0.4, 0.1],
+                        [-0.45, -0.2],
+                        [-0.4, -0.45],
+                    ],
+                    "depth": 1.0,
+                }
+            },
+        ),
+        C(
+            "trigger-guard",
+            "Trigger guard",
+            "meso",
+            "tube",
+            "grip",
+            "polymer",
+            {
+                "width": 0.035,
+                "height": 0.03,
+                "depth": 0.02,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T(0.02, {"$eval": "-H * 0.15"}, 0),
+            A(
+                "grip",
+                "continuous",
+                0.005,
+                0.002,
+                (0.02, {"$eval": "-H * 0.15"}, 0),
+                (0.02, {"$eval": "-H * 0.15"}, 0),
+            ),
+            features=["trigger-guard-underside"],
+            topo="continuous-sculpt",
+            topo_r="Arched guard protecting the trigger.",
+            geometryDescriptor={
+                "tubePath": {
+                    "points": [
+                        [-0.45, 0.45, 0],
+                        [-0.35, 0.0, 0],
+                        [-0.15, -0.45, 0],
+                        [0.15, -0.45, 0],
+                        [0.35, 0.0, 0],
+                        [0.45, 0.45, 0],
+                    ],
+                    "radius": 0.06,
+                    "closed": False,
+                }
+            },
+        ),
+        C(
+            "trigger",
+            "Trigger",
+            "micro",
+            "box",
+            "root",
+            "gunmetal-dark",
+            {
+                "width": 0.01,
+                "height": 0.025,
+                "depth": 0.005,
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "L * 0.0"}, {"$eval": "-H * 0.05"}, {"$eval": "W * 0.25"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.001,
+                ({"$eval": "L * 0.0"}, {"$eval": "-H * 0.05"}, {"$eval": "W * 0.25"}),
+                ({"$eval": "L * 0.0"}, {"$eval": "-H * 0.05"}, {"$eval": "W * 0.25"}),
+            ),
+            topo="assembled-solid",
+            topo_r="Small curved trigger blade within the guard.",
+        ),
+        C(
+            "magazine",
+            "Magazine",
+            "meso",
+            "box",
+            "grip",
+            "gunmetal-dark",
+            {
+                "width": 0.025,
+                "height": {"$eval": "H * 0.25"},
+                "depth": {"$eval": "W * 0.4"},
+                "units": "meters",
+                "confidence": 0.85,
+            },
+            T({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.65"}, 0),
+            A(
+                "grip",
+                "continuous",
+                0.01,
+                0.005,
+                ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.65"}, 0),
+                ({"$eval": "-L * 0.25"}, {"$eval": "-H * 0.65"}, 0),
+            ),
+            features=["magazine-floor-plate"],
+            topo="assembled-solid",
+            topo_r="Rectangular magazine inserted into grip.",
+        ),
+        C(
+            "safety",
+            "Safety / decocker lever",
+            "micro",
+            "box",
+            "root",
+            "gunmetal-dark",
+            {
+                "width": 0.01,
+                "height": 0.008,
+                "depth": 0.02,
+                "units": "meters",
+                "confidence": 0.75,
+            },
+            T({"$eval": "L * 0.0"}, {"$eval": "H * 0.25"}, {"$eval": "W * 0.5"}),
+            A(
+                "root",
+                "continuous",
+                0.005,
+                0.0,
+                ({"$eval": "L * 0.0"}, {"$eval": "H * 0.25"}, {"$eval": "W * 0.5"}),
+                ({"$eval": "L * 0.0"}, {"$eval": "H * 0.25"}, {"$eval": "W * 0.5"}),
+            ),
+            topo="assembled-solid",
+            topo_r="Small thumb safety lever on frame.",
+        ),
     ],
-
     "materials": [
-        {"id": "gunmetal", "displayName": "Gunmetal steel", "type": "standard",
-         "albedo": {"hex": "#2A2A2E", "type": "sRGB"},
-         "roughness": {"base": 0.35, "map": {"type": "procedural", "variation": 0.05}},
-         "metalness": 0.9, "clearcoat": 0.1, "clearcoatRoughness": 0.6},
-        {"id": "gunmetal-dark", "displayName": "Dark gunmetal / blued steel", "type": "standard",
-         "albedo": {"hex": "#1A1A1E", "type": "sRGB"},
-         "roughness": {"base": 0.4}, "metalness": 0.95, "clearcoat": 0.05},
-        {"id": "polymer", "displayName": "Polymer grip frame", "type": "standard",
-         "albedo": {"hex": "#1A1A1A", "type": "sRGB"},
-         "roughness": {"base": 0.8}, "metalness": 0.0, "clearcoat": 0.0},
-        {"id": "sight", "displayName": "Sight (white dot)", "type": "standard",
-         "albedo": {"hex": "#FFFFFF", "type": "sRGB"},
-         "roughness": {"base": 0.3}, "metalness": 0.0, "clearcoat": 0.2},
-        {"id": "grip-insert", "displayName": "Grip insert / texture panel", "type": "standard",
-         "albedo": {"hex": "#0D0D0D", "type": "sRGB"},
-         "roughness": {"base": 0.9}, "metalness": 0.0, "clearcoat": 0.0},
+        {
+            "id": "gunmetal",
+            "displayName": "Gunmetal steel",
+            "type": "standard",
+            "albedo": {"hex": "#2A2A2E", "type": "sRGB"},
+            "roughness": {
+                "base": 0.35,
+                "map": {"type": "procedural", "variation": 0.05},
+            },
+            "metalness": 0.9,
+            "clearcoat": 0.1,
+            "clearcoatRoughness": 0.6,
+        },
+        {
+            "id": "gunmetal-dark",
+            "displayName": "Dark gunmetal / blued steel",
+            "type": "standard",
+            "albedo": {"hex": "#1A1A1E", "type": "sRGB"},
+            "roughness": {"base": 0.4},
+            "metalness": 0.95,
+            "clearcoat": 0.05,
+        },
+        {
+            "id": "polymer",
+            "displayName": "Polymer grip frame",
+            "type": "standard",
+            "albedo": {"hex": "#1A1A1A", "type": "sRGB"},
+            "roughness": {"base": 0.8},
+            "metalness": 0.0,
+            "clearcoat": 0.0,
+        },
+        {
+            "id": "sight",
+            "displayName": "Sight (white dot)",
+            "type": "standard",
+            "albedo": {"hex": "#FFFFFF", "type": "sRGB"},
+            "roughness": {"base": 0.3},
+            "metalness": 0.0,
+            "clearcoat": 0.2,
+        },
+        {
+            "id": "grip-insert",
+            "displayName": "Grip insert / texture panel",
+            "type": "standard",
+            "albedo": {"hex": "#0D0D0D", "type": "sRGB"},
+            "roughness": {"base": 0.9},
+            "metalness": 0.0,
+            "clearcoat": 0.0,
+        },
     ],
-
     "repetitionSystems": [
-        {"id": "sight-pair",
-         "description": "Rear and front sight aligned on slide top",
-         "pattern": "linear-pair",
-         "components": ["rear-sight", "front-sight"],
-         "variations": [{"component": "front-sight",
-                          "transform": {"$eval": "T(L*0.4, H*0.55, 0)"}}]},
+        {
+            "id": "sight-pair",
+            "description": "Rear and front sight aligned on slide top",
+            "pattern": "linear-pair",
+            "components": ["rear-sight", "front-sight"],
+            "variations": [
+                {
+                    "component": "front-sight",
+                    "transform": {"$eval": "T(L*0.4, H*0.55, 0)"},
+                }
+            ],
+        },
     ],
-
     "lighting": {
         "setup": "studio-key-fill",
         "key": {"direction": [1, -0.5, 2], "intensity": 1.2, "color": "#FFFFFF"},
@@ -534,28 +1059,58 @@ HANDGUN_TEMPLATE: dict[str, Any] = {
         "rim": {"direction": [0, 1, -1.5], "intensity": 0.3, "color": "#FFFFFF"},
         "environment": {"type": "studio", "intensity": 0.2},
     },
-
     "featureReviewTargets": [
-        {"id": "silhouette", "name": "Gun silhouette and proportions", "required": True,
-         "tier": "critical"},
-        {"id": "slide-barrel", "name": "Slide and barrel alignment and profile",
-         "required": True, "tier": "critical"},
-        {"id": "grip-frame", "name": "Grip angle, texture, and trigger guard shape",
-         "required": True, "tier": "important"},
-        {"id": "sights", "name": "Sight alignment on slide top", "required": True,
-         "tier": "important"},
-        {"id": "materials", "name": "Material contrast: steel vs polymer vs sight dots",
-         "required": False, "tier": "detail"},
+        {
+            "id": "silhouette",
+            "name": "Gun silhouette and proportions",
+            "required": True,
+            "tier": "critical",
+        },
+        {
+            "id": "slide-barrel",
+            "name": "Slide and barrel alignment and profile",
+            "required": True,
+            "tier": "critical",
+        },
+        {
+            "id": "grip-frame",
+            "name": "Grip angle, texture, and trigger guard shape",
+            "required": True,
+            "tier": "important",
+        },
+        {
+            "id": "sights",
+            "name": "Sight alignment on slide top",
+            "required": True,
+            "tier": "important",
+        },
+        {
+            "id": "materials",
+            "name": "Material contrast: steel vs polymer vs sight dots",
+            "required": False,
+            "tier": "detail",
+        },
     ],
-
     "detailMappings": [
         {"detailId": "muzzle", "componentId": "barrel", "featureType": "geometry"},
         {"detailId": "barrel-port", "componentId": "barrel", "featureType": "geometry"},
         {"detailId": "grip-texture", "componentId": "grip", "featureType": "material"},
-        {"detailId": "finger-grooves", "componentId": "grip", "featureType": "geometry"},
+        {
+            "detailId": "finger-grooves",
+            "componentId": "grip",
+            "featureType": "geometry",
+        },
         {"detailId": "beavertail", "componentId": "grip", "featureType": "geometry"},
-        {"detailId": "magazine-floor-plate", "componentId": "magazine", "featureType": "geometry"},
-        {"detailId": "trigger-guard-underside", "componentId": "trigger-guard", "featureType": "geometry"},
+        {
+            "detailId": "magazine-floor-plate",
+            "componentId": "magazine",
+            "featureType": "geometry",
+        },
+        {
+            "detailId": "trigger-guard-underside",
+            "componentId": "trigger-guard",
+            "featureType": "geometry",
+        },
     ],
 }
 
@@ -565,17 +1120,19 @@ TEMPLATES: list[dict[str, Any]] = [
     # External JSON templates from templates/ directory are appended at runtime
 ]
 
+
 def get_all_templates(extra_dir: Path | None = None) -> list[dict[str, Any]]:
-    """Return built-in + external templates.
+    """Return external + built-in templates (highest-priority first).
 
     External JSON files from *TEMPLATES_DIR* (and optionally *extra_dir*)
-    are loaded and appended after built-in templates so external files can
-    override only when they appear earlier in the list.
+    are loaded **before** the built-in template dicts so they are matched
+    first when scores tie.
     """
-    tmpls = list(TEMPLATES)
-    for d in [TEMPLATES_DIR, extra_dir].copy():
+    tmpls: list[dict[str, Any]] = []
+    for d in [TEMPLATES_DIR, extra_dir]:
         if d is not None:
             tmpls.extend(load_external_templates(d))
+    tmpls.extend(TEMPLATES)
     return tmpls
 
 
@@ -589,7 +1146,9 @@ def score_template(tmpl: dict, primary_type: str) -> int:
     return sum(1 for m in matchers if m.lower() in lower)
 
 
-def select_template(primary_type: str, templates: list[dict] | None = None) -> dict | None:
+def select_template(
+    primary_type: str, templates: list[dict] | None = None
+) -> dict | None:
     """Find the best-matching template from *templates* (default: all templates)."""
     candidates = templates if templates is not None else get_all_templates()
     best_score = 0
@@ -628,8 +1187,28 @@ def get_root_material(tmpl: dict) -> str:
     return "default"
 
 
-def enrich_spec(spec: dict, assessment: dict, tmpl: dict) -> dict:
-    """Enrich a skeleton spec dict with template data."""
+def enrich_spec(spec: dict, assessment: dict, tmpl: dict, regen: bool = False) -> dict:
+    """Enrich a skeleton spec dict with template data.
+
+    Parameters
+    ----------
+    regen : bool
+        When True, replace existing components from template instead of
+        skipping them.  Useful after template edits.
+    """
+    # ── Preserve top-level keys the template never touches ──────────────
+    _TEMPLATE_CONTROLLED = {
+        "componentTree",
+        "materials",
+        "repetitionSystems",
+        "lighting",
+        "featureReviewTargets",
+        "detailInventory",
+    }
+    preserved: dict[str, Any] = {
+        k: v for k, v in spec.items() if k not in _TEMPLATE_CONTROLLED
+    }
+
     # Get dimensions from template (can be overridden by assessment)
     dims = dict(tmpl.get("defaultDimensions", {}))
 
@@ -657,7 +1236,11 @@ def enrich_spec(spec: dict, assessment: dict, tmpl: dict) -> dict:
             tx = t.get("tx", 0)
             ty = t.get("ty", 0)
             tz = t.get("tz", 0)
-            if isinstance(tx, (int, float)) and isinstance(ty, (int, float)) and isinstance(tz, (int, float)):
+            if (
+                isinstance(tx, (int, float))
+                and isinstance(ty, (int, float))
+                and isinstance(tz, (int, float))
+            ):
                 t["position"] = [tx, ty, tz]
     comp_map = build_component_map(components)
 
@@ -686,9 +1269,15 @@ def enrich_spec(spec: dict, assessment: dict, tmpl: dict) -> dict:
             bb_min["z"] = min(bb_min["z"], tz - dd / 2)
             bb_max["z"] = max(bb_max["z"], tz + dd / 2)
 
-    root_w = bb_max["x"] - bb_min["x"] if bb_max["x"] != bb_min["x"] else dims.get("L", 1)
-    root_h = bb_max["y"] - bb_min["y"] if bb_max["y"] != bb_min["y"] else dims.get("H", 1)
-    root_d = bb_max["z"] - bb_min["z"] if bb_max["z"] != bb_min["z"] else dims.get("W", 1)
+    root_w = (
+        bb_max["x"] - bb_min["x"] if bb_max["x"] != bb_min["x"] else dims.get("L", 1)
+    )
+    root_h = (
+        bb_max["y"] - bb_min["y"] if bb_max["y"] != bb_min["y"] else dims.get("H", 1)
+    )
+    root_d = (
+        bb_max["z"] - bb_min["z"] if bb_max["z"] != bb_min["z"] else dims.get("W", 1)
+    )
 
     # Update existing root component
     skeleton_tree = spec.get("componentTree", [])
@@ -700,8 +1289,11 @@ def enrich_spec(spec: dict, assessment: dict, tmpl: dict) -> dict:
             comp["children"] = root_children
             comp["topologyClass"] = "assembled-solid"
             comp["dimensions"] = {
-                "width": root_w, "height": root_h, "depth": root_d,
-                "units": "meters", "confidence": 0.8,
+                "width": root_w,
+                "height": root_h,
+                "depth": root_d,
+                "units": "meters",
+                "confidence": 0.8,
             }
             if "topologyRationale" not in comp:
                 comp["topologyRationale"] = "Root group for the assembled object."
@@ -710,26 +1302,42 @@ def enrich_spec(spec: dict, assessment: dict, tmpl: dict) -> dict:
     if not root_found:
         # Create a root if none exists
         root_mat = get_root_material(tmpl)
-        skeleton_tree.insert(0, {
-            "id": "root",
-            "name": "Object root",
-            "level": "root",
-            "primitive": "box",
-            "parent": None,
-            "material": root_mat,
-            "importance": 1.0,
-            "confidence": 1.0,
-            "topologyClass": "assembled-solid",
-            "topologyRationale": "Root group for assembled object.",
-            "dimensions": {"width": dims.get("L", 1), "height": dims.get("H", 1),
-                           "depth": dims.get("W", 1), "units": "meters", "confidence": 0.8},
-            "children": root_children,
-        })
+        skeleton_tree.insert(
+            0,
+            {
+                "id": "root",
+                "name": "Object root",
+                "level": "root",
+                "primitive": "box",
+                "parent": None,
+                "material": root_mat,
+                "importance": 1.0,
+                "confidence": 1.0,
+                "topologyClass": "assembled-solid",
+                "topologyRationale": "Root group for assembled object.",
+                "dimensions": {
+                    "width": dims.get("L", 1),
+                    "height": dims.get("H", 1),
+                    "depth": dims.get("W", 1),
+                    "units": "meters",
+                    "confidence": 0.8,
+                },
+                "children": root_children,
+            },
+        )
 
-    # Append template components (skip those already in tree)
+    # Merge template components into tree
     existing_ids = {c.get("id") for c in skeleton_tree}
     for c in components:
-        if c["id"] not in existing_ids:
+        if c["id"] in existing_ids:
+            if regen:
+                # Replace in-place so ordering/children references stay valid
+                for i, existing in enumerate(skeleton_tree):
+                    if existing.get("id") == c["id"]:
+                        skeleton_tree[i] = c
+                        break
+            # else: skip (keep existing)
+        else:
             skeleton_tree.append(c)
 
     spec["componentTree"] = skeleton_tree
@@ -748,15 +1356,17 @@ def enrich_spec(spec: dict, assessment: dict, tmpl: dict) -> dict:
                 print(f"   Fix: root material updated to '{first_mat}'")
 
     # Repetition systems
-    spec["repetitionSystems"] = tmpl.get("repetitionSystems",
-                                         spec.get("repetitionSystems", []))
+    spec["repetitionSystems"] = tmpl.get(
+        "repetitionSystems", spec.get("repetitionSystems", [])
+    )
 
     # Lighting
     spec["lighting"] = tmpl.get("lighting", spec.get("lighting", {}))
 
     # Feature review targets
-    spec["featureReviewTargets"] = tmpl.get("featureReviewTargets",
-                                            spec.get("featureReviewTargets", []))
+    spec["featureReviewTargets"] = tmpl.get(
+        "featureReviewTargets", spec.get("featureReviewTargets", [])
+    )
 
     # Detail inventory mappings — link assessment details to component localFeatures
     detail_inv = assessment.get("detailInventory", {})
@@ -783,10 +1393,25 @@ def enrich_spec(spec: dict, assessment: dict, tmpl: dict) -> dict:
         }
     else:
         # Merge existing details
-        existing_dids = {d.get("id") for d in spec.get("detailInventory", {}).get("details", [])}
+        existing_dids = {
+            d.get("id") for d in spec.get("detailInventory", {}).get("details", [])
+        }
         for d in details_list:
             if d.get("id") not in existing_dids:
-                spec.setdefault("detailInventory", {}).setdefault("details", []).append(d)
+                spec.setdefault("detailInventory", {}).setdefault("details", []).append(
+                    d
+                )
+
+    # ── Restore preserved keys (buildPasses, reviewHistory, etc.) ──────
+    for k, v in preserved.items():
+        if k not in spec or not spec[k]:
+            spec[k] = v
+        elif k == "buildPasses":
+            # Merge, don't overwrite, so template can add passes
+            existing_ids = {p["id"] for p in spec[k]}
+            for p in v:
+                if p.get("id") not in existing_ids:
+                    spec[k].append(p)
 
     return spec
 
@@ -814,7 +1439,9 @@ def validate_enriched(spec: dict) -> list[str]:
     for c in comp_list:
         for child in c.get("children", []):
             if child not in comp_ids:
-                warnings.append(f"⚠️  Child '{child}' of '{c.get('id')}' not found in componentTree")
+                warnings.append(
+                    f"⚠️  Child '{child}' of '{c.get('id')}' not found in componentTree"
+                )
 
     # Material references exist
     for c in comp_list:
@@ -825,7 +1452,9 @@ def validate_enriched(spec: dict) -> list[str]:
     # featureReviewTargets have tier
     for frt in spec.get("featureReviewTargets", []):
         if "tier" not in frt:
-            warnings.append(f"⚠️  featureReviewTarget '{frt.get('id')}' missing required 'tier' field")
+            warnings.append(
+                f"⚠️  featureReviewTarget '{frt.get('id')}' missing required 'tier' field"
+            )
 
     # topologyClass + primitive compatibility
     DISALLOWED_TOPOLOGY_PRIMITIVE_PAIRS: dict[str, set[str]] = {
@@ -836,8 +1465,10 @@ def validate_enriched(spec: dict) -> list[str]:
         prim = c.get("primitive", "")
         blocked = DISALLOWED_TOPOLOGY_PRIMITIVE_PAIRS.get(topo, set())
         if prim in blocked:
-            warnings.append(f"⚠️  '{c.get('id')}': topologyClass '{topo}' incompatible "
-                           f"with primitive '{prim}'. Suggested: {_suggest_primitives(topo)}")
+            warnings.append(
+                f"⚠️  '{c.get('id')}': topologyClass '{topo}' incompatible "
+                f"with primitive '{prim}'. Suggested: {_suggest_primitives(topo)}"
+            )
 
     return warnings
 
@@ -854,13 +1485,29 @@ def _suggest_primitives(topo: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Enrich a skeleton sculpt-spec with a full component tree from assessment data.")
+        description="Enrich a skeleton sculpt-spec with a full component tree from assessment data."
+    )
     parser.add_argument("assessment", help="Path to pre-spec assessment JSON")
-    parser.add_argument("spec", help="Path to skeleton sculpt spec JSON (modified in-place unless --out)")
+    parser.add_argument(
+        "spec",
+        help="Path to skeleton sculpt spec JSON (modified in-place unless --out)",
+    )
     parser.add_argument("--out", help="Output path (default: modify spec in-place)")
-    parser.add_argument("--force", action="store_true", help="Overwrite output if it exists")
-    parser.add_argument("--template-dir", type=Path, default=None,
-                        help="Extra directory of JSON template files to load")
+    parser.add_argument(
+        "--force", action="store_true", help="Overwrite output if it exists"
+    )
+    parser.add_argument(
+        "--regen",
+        action="store_true",
+        help="Replace existing components from template instead of skipping them "
+        "(useful after editing template geometry descriptors or dimensions)",
+    )
+    parser.add_argument(
+        "--template-dir",
+        type=Path,
+        default=None,
+        help="Extra directory of JSON template files to load",
+    )
     args = parser.parse_args()
 
     assessment_path = Path(args.assessment)
@@ -900,7 +1547,9 @@ def main():
     if not primary_type:
         print("⚠️  Assessment has no objectClass.primaryType. Cannot match template.")
         print("   Saving spec unchanged.")
-        out_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8")
+        out_path.write_text(
+            json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         sys.exit(0)
 
     print(f"🔍 Object type: {primary_type}")
@@ -911,13 +1560,15 @@ def main():
     if tmpl is None:
         print(f"⚠️  No template matches '{primary_type}'. Saving spec unchanged.")
         print("   To add a template, place a JSON file in tools/templates/.")
-        out_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8")
+        out_path.write_text(
+            json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         sys.exit(0)
 
     print(f"   Matched template: {tmpl.get('description', '?')}")
 
     # Enrich
-    enriched = enrich_spec(spec, raw_assessment, tmpl)
+    enriched = enrich_spec(spec, raw_assessment, tmpl, regen=args.regen)
 
     # Validate
     warnings = validate_enriched(enriched)
@@ -929,7 +1580,9 @@ def main():
         print("\n   ✅ Validation passed")
 
     # Save
-    out_path.write_text(json.dumps(enriched, indent=2, ensure_ascii=False), encoding="utf-8")
+    out_path.write_text(
+        json.dumps(enriched, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     comp_count = len(enriched.get("componentTree", []))
     mat_count = len(enriched.get("materials", []))
