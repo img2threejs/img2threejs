@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a focused, code-only improvement to the img2threejs pipeline.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the idea. img2threejs prioritizes procedural, code-only reconstruction with observable quality gates. Please explain how the proposal supports that contract.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: This proposal does not depend on silently downloading meshes or art packs.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the user or pipeline problem, not just the proposed implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the observable behavior, acceptance criteria, and affected stage or documentation area if known.
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Reference examples or alternatives
+      description: Link examples, related issues, or describe alternatives you considered.
+    validations:
+      required: false

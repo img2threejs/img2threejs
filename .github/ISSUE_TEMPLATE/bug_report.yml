@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible problem in the img2threejs pipeline.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve img2threejs. Please remove or redact any private reference images, API keys, or other sensitive material before submitting.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I confirmed this is a reproducible behavior problem, not a request for help using the project.
+          required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: State the observed behavior and the behavior you expected instead.
+      placeholder: The pipeline produced ...; I expected ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest sequence of commands and inputs that reproduces the problem.
+      placeholder: |
+        1. From the skill root, run `...`
+        2. Use this sanitized input or configuration: `...`
+        3. Observe `...`
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference image or input characteristics
+      description: Describe the subject, image dimensions, viewpoint, and any relevant visual characteristics. Attach a sanitized image or screenshot when sharing it is permitted.
+      placeholder: Hard-surface object, 2048×2048 PNG, three-quarter view, reflective finish.
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Relevant output and evidence
+      description: Include the relevant spec, generated-output excerpt, traceback, and/or render screenshots. Redact sensitive content.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - img2threejs version or commit:
+        - Python version:
+        - Host agent (Claude Code, Codex, OpenCode, or other):
+        - Operating system:
+      render: markdown
+    validations:
+      required: true

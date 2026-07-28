@@ -31,11 +31,21 @@ explicit, flagged, opt-in mode.
 - Keep changes backward compatible: existing object specs must continue to validate.
 - No emojis in source, docs, or generated output.
 
+## Before you open an issue
+
+- Search existing issues first.
+- For a bug, include the reference image characteristics, the exact command, the relevant spec or generated output, expected versus actual behavior, and a render screenshot when it helps. Do not post private images, credentials, or other sensitive material.
+- For a proposal, describe the problem, the observable outcome, and how it preserves the project's code-only procedural reconstruction contract.
+- Use a discussion channel or another appropriate forum for usage questions when one is available; issues should be actionable bugs or focused proposals.
+
 ## Pull requests
 
 - Keep PRs focused and describe the behavior change plus how you verified it.
 - Add or update tests for new gates, schema fields, or templates.
 - Update `docs/UPGRADE_PLAN.md` status when you land a roadmap item.
+- Link the issue with `Fixes #<number>` when applicable.
+- For changes that affect visual fidelity, include the relevant render or comparison-sheet evidence and the result of its review.
+- Do not include private reference images, credentials, or other sensitive material in the PR description, commits, or attachments.
 
 ## Reporting issues
 
