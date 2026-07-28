@@ -81,14 +81,15 @@ def phash(gray: list[list[float]], hash_size: int = 8) -> int:
     coeffs = _dct_2d(gray)
     low = [coeffs[k][l] for k in range(hash_size) for l in range(hash_size)]
     # Exclude the DC term (index 0) from the median so overall brightness doesn't dominate.
-    ac = low[1:]
+    ac = [abs(value) for value in low[1:]]
     ordered = sorted(ac)
     mid = len(ordered) // 2
     median = ordered[mid] if len(ordered) % 2 else 0.5 * (ordered[mid - 1] + ordered[mid])
+    noise_floor = max(abs(low[0]), *(abs(value) for value in ac)) * 1e-12
     bits = 0
     for i, value in enumerate(low):
         bits <<= 1
-        if value > median:
+        if abs(value) > median + noise_floor:
             bits |= 1
     return bits
 
