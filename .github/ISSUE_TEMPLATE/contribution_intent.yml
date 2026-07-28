@@ -1,0 +1,60 @@
+name: Contribution intent
+description: Propose a bounded fix or offer to work on an existing issue.
+title: "[Contribution]: "
+labels: ["contribution: proposed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for offering to contribute. This form records intent; it does not assign, reserve, or guarantee acceptance of the work. A maintainer will discuss the proposal before any claim is confirmed.
+
+  - type: dropdown
+    id: target_type
+    attributes:
+      label: What are you proposing?
+      options:
+        - Fix an existing issue
+        - A bounded new fix
+    validations:
+      required: true
+
+  - type: input
+    id: target_issue
+    attributes:
+      label: Target issue URL or number
+      description: Required when fixing an existing issue. Otherwise write "new bounded fix".
+      placeholder: "#123"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: Explain the behavior you plan to change and what you will intentionally leave out.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and validation plan
+      description: State how maintainers can tell the fix is complete, including relevant tests or visual evidence.
+    validations:
+      required: true
+
+  - type: textarea
+    id: availability
+    attributes:
+      label: Availability
+      description: Share any timing or capacity context that helps maintainers coordinate; no response-time commitment is implied.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: I understand this form does not assign or reserve the work, and I will reference the issue number in any implementation PR.
+          required: true

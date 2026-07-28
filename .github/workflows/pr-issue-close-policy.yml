@@ -1,0 +1,22 @@
+name: PR Issue Close Policy
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  reject-closing-keywords:
+    runs-on: ubuntu-latest
+    env:
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+    steps:
+      - name: Require manual issue closure
+        run: |
+          if printf '%s\n%s' "$PR_TITLE" "$PR_BODY" | grep -Eqi '\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b[[:space:]]+([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+'; then
+            echo "PR title/body must use Refs #123, not a closing keyword. Maintainers close issues manually after documented discussion and verification."
+            exit 1
+          fi

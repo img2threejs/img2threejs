@@ -38,12 +38,25 @@ explicit, flagged, opt-in mode.
 - For a proposal, describe the problem, the observable outcome, and how it preserves the project's code-only procedural reconstruction contract.
 - Use a discussion channel or another appropriate forum for usage questions when one is available; issues should be actionable bugs or focused proposals.
 
+## Triage and contributor intent
+
+- The issue itself is the triage discussion record. A `triage: needs-review` label means the issue
+  is waiting for maintainer review; a label is not a promise that it will be implemented.
+- Maintainers record a decision comment before setting priority, contributor state, or closure.
+  `priority: low` keeps an issue open and must include a reason and a revisit trigger.
+- To offer a fix, use the **Contribution intent** form. It records your proposed scope and does not
+  reserve or assign the work. A maintainer will discuss and, if appropriate, mark the target issue
+  `contribution: claimed`.
+- Link implementation PRs with `Refs #<number>` or `Related to #<number>`. Do not use closing
+  keywords. A maintainer manually closes an issue only after recording the merged PR, verification,
+  and closure rationale in a final comment.
+
 ## Pull requests
 
 - Keep PRs focused and describe the behavior change plus how you verified it.
 - Add or update tests for new gates, schema fields, or templates.
 - Update `docs/UPGRADE_PLAN.md` status when you land a roadmap item.
-- Link the issue with `Fixes #<number>` when applicable.
+- Link the issue with `Refs #<number>` when applicable.
 - For changes that affect visual fidelity, include the relevant render or comparison-sheet evidence and the result of its review.
 - Do not include private reference images, credentials, or other sensitive material in the PR description, commits, or attachments.
 

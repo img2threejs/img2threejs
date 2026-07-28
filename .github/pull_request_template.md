@@ -4,7 +4,7 @@ Thanks for contributing to img2threejs. Keep the pull request focused and remove
 
 ## Summary
 
-<!-- What behavior or documentation changes? Why is it needed? Link related issues with "Fixes #123" where applicable. -->
+<!-- What behavior or documentation changes? Why is it needed? Link related issues with "Refs #123" where applicable. Do not use closing keywords: maintainers close issues manually after final verification. -->
 
 ## Changes
 

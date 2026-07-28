@@ -1,0 +1,54 @@
+name: Issue Triage
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Dry-run lists all candidates; backfill writes notices for historical candidates."
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - backfill
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-triage-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  TRIAGE_ROLLOUT_AFTER: "2026-07-28T00:00:00Z"
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.10"
+      - name: Run issue triage
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          args=()
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            epoch_day=$(( $(date -u +%s) / 86400 ))
+            if [ $(( epoch_day % 2 )) -ne 0 ]; then
+              echo "Skipping today: the continuous two-day cadence runs on even UTC epoch days."
+              exit 0
+            fi
+            args+=(--rollout-after "$TRIAGE_ROLLOUT_AFTER")
+          elif [ "${{ inputs.mode }}" = "dry-run" ]; then
+            args+=(--dry-run)
+          fi
+          python3 scripts/issue_triage.py "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
