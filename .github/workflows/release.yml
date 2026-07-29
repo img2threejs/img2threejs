@@ -1,53 +1,19 @@
-name: Release
+name: Governed Release
 
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
 
 permissions:
   contents: write
 
-concurrency:
-  group: release-main
-  cancel-in-progress: false
-
 jobs:
   release:
-    if: "!startsWith(github.event.head_commit.message, 'chore(release): v')"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - id: metadata
-        env:
-          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
-        run: |
-          latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n 1)"
-          if [ -n "$latest_tag" ]; then
-            git log --format=%B%x1e "$latest_tag..HEAD" > "$RUNNER_TEMP/commits.txt"
-          else
-            git log --format=%B%x1e > "$RUNNER_TEMP/commits.txt"
-          fi
-          result="$(python3 scripts/release_metadata.py --commits-file "$RUNNER_TEMP/commits.txt" --repository-url "$REPOSITORY_URL")"
-          echo "result=$result" >> "$GITHUB_OUTPUT"
-      - name: Commit and tag release
-        if: fromJSON(steps.metadata.outputs.result).release
-        env:
-          VERSION: ${{ fromJSON(steps.metadata.outputs.result).version }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add SKILL.md README.md CHANGELOG.md
-          git commit -m "chore(release): v$VERSION"
-          git tag -a "v$VERSION" -m "v$VERSION"
-          git push origin HEAD:main --follow-tags
-      - name: Create GitHub release
-        if: fromJSON(steps.metadata.outputs.result).release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ fromJSON(steps.metadata.outputs.result).version }}
-        run: gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+    # ci-workflows v1.0.0-initial. Update this SHA through a reviewed PR.
+    uses: img2threejs/ci-workflows/.github/workflows/governed-tag-release.yml@66e4071913652d7ce9e0ad66709a5e4e66497e0d
+    with:
+      tag: ${{ github.ref_name }}
+      version-file: SKILL.md
+      bootstrap-release: ${{ github.ref_name == 'v1.4.3' }}
+      # For the first governed tag this remains empty. Update it in the next release-prep PR.
+      previous-governed-tag: ""
