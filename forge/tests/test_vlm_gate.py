@@ -3,14 +3,18 @@
 
 from __future__ import annotations
 
+import io
+import json
 import sys
+import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "stage4_review"))
 
-from vlm_gate import aggregate_samples, calibrate, evidence_consistent, gate  # noqa: E402
+from vlm_gate import aggregate_samples, calibrate, evidence_consistent, gate, main  # noqa: E402
 
 
 def const_sampler(scores: dict):
@@ -19,6 +23,22 @@ def const_sampler(scores: dict):
 
 def high_all(claimed="knife"):
     return {"objectness": 0.9, "semantic": 0.88, "structural": 0.86, "specular": 0.85, "claimedClass": claimed}
+
+
+def run_main_with_samples(samples):
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        eye = root / "eye.json"
+        sample_file = root / "samples.json"
+        eye.write_text(json.dumps({
+            "verdict": "pass",
+            "action": "continue",
+            "hardGateFailures": [],
+        }), encoding="utf-8")
+        sample_file.write_text(json.dumps(samples), encoding="utf-8")
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            return main(["--eye", str(eye), "--samples", str(sample_file)]), stderr.getvalue()
 
 
 class VlmGateTest(unittest.TestCase):
@@ -95,6 +115,24 @@ class VlmGateTest(unittest.TestCase):
     def test_aggregate_median(self):
         agg = aggregate_samples([{"objectness": 0.2}, {"objectness": 0.8}, {"objectness": 0.6}])
         self.assertAlmostEqual(agg["criteria"]["objectness"], 0.6, places=5)
+
+    def test_cli_rejects_empty_samples(self):
+        return_code, stderr = run_main_with_samples([])
+
+        self.assertEqual(return_code, 2)
+        self.assertIn("--samples must contain a non-empty JSON list", stderr)
+
+    def test_cli_rejects_non_list_samples(self):
+        return_code, stderr = run_main_with_samples({})
+
+        self.assertEqual(return_code, 2)
+        self.assertIn("--samples must contain a non-empty JSON list", stderr)
+
+    def test_cli_rejects_non_object_sample_entries(self):
+        return_code, stderr = run_main_with_samples([1])
+
+        self.assertEqual(return_code, 2)
+        self.assertIn("--samples entries must be JSON objects", stderr)
 
 
 if __name__ == "__main__":
