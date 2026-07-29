@@ -221,9 +221,15 @@ def main(argv=None) -> int:
     ap.add_argument("--material-id", help="material id to apply the recipe to (with --spec)")
     ap.add_argument("--in-place", action="store_true", help="write the spec back")
     args = ap.parse_args(argv)
+    has_patch_target = args.spec is not None and args.material_id is not None
+    if (args.spec is None) != (args.material_id is None):
+        ap.error("--spec and --material-id must be used together")
+    if args.in_place and not has_patch_target:
+        ap.error("--in-place requires --spec and --material-id")
+
     result = analyze(args.image)
 
-    if args.spec and args.material_id:
+    if has_patch_target:
         spec = json.loads(args.spec.read_text())
         mats = [m for m in spec.get("materials", []) if m.get("id") == args.material_id]
         if not mats:

@@ -2,15 +2,17 @@
 """Tests for analyze_texture.py — finish classification + recipe. Pure stdlib, zero token.
 Run: python3 forge/tests/test_analyze_texture.py
 """
+import io
 import struct
 import sys
 import tempfile
 import unittest
 import zlib
+from contextlib import redirect_stderr
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage1_intake"))
-from analyze_texture import RECIPES, analyze  # noqa: E402
+from analyze_texture import RECIPES, analyze, main  # noqa: E402
 
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
 
@@ -112,6 +114,26 @@ class AnalyzeTextureTest(unittest.TestCase):
                 "ior", "envMapIntensity", "anisotropy", "procedural"}
         for name, rec in RECIPES.items():
             self.assertTrue(keys <= set(rec), f"{name} missing keys")
+
+    def test_patch_target_requires_spec_and_material_id_together(self):
+        for args in (
+            ["missing.png", "--spec", "spec.json"],
+            ["missing.png", "--material-id", "frame"],
+        ):
+            with self.subTest(args=args), redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as raised:
+                    main(args)
+
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn("--spec and --material-id must be used together", stderr.getvalue())
+
+    def test_in_place_requires_patch_target(self):
+        with redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as raised:
+                main(["missing.png", "--in-place"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--in-place requires --spec and --material-id", stderr.getvalue())
 
 
 if __name__ == "__main__":
