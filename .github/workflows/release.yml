@@ -41,7 +41,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add SKILL.md README.md CHANGELOG.md
+          git add SKILL.md README.md CHANGELOG.md .claude-plugin/plugin.json
           git commit -m "chore(release): v$VERSION"
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin HEAD:main --follow-tags

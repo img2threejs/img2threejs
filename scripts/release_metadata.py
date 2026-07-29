@@ -13,6 +13,7 @@ from typing import Final
 
 VERSION_PATTERN: Final = re.compile(r"^version: (\d+)\.(\d+)\.(\d+)$", re.MULTILINE)
 BADGE_PATTERN: Final = re.compile(r"version-\d+\.\d+\.\d+-green\.svg")
+MANIFEST_VERSION_PATTERN: Final = re.compile(r'"version": "\d+\.\d+\.\d+"')
 HEADING_PATTERN: Final = re.compile(r"^## \[", re.MULTILINE)
 REFERENCE_PATTERN: Final = re.compile(r"^\[", re.MULTILINE)
 BREAKING_PATTERN: Final = re.compile(r"^[a-z]+(?:\([^\n]+\))?!:", re.MULTILINE)
@@ -124,18 +125,24 @@ def apply_release(request: ReleaseRequest) -> ReleasePlan | None:
     skill_path = request.root / "SKILL.md"
     readme_path = request.root / "README.md"
     changelog_path = request.root / "CHANGELOG.md"
+    manifest_path = request.root / ".claude-plugin" / "plugin.json"
     skill_text = skill_path.read_text(encoding="utf-8")
     current = parse_version(skill_text)
     plan = ReleasePlan(current=current, next=current.bump(level), level=level, commits=request.commits)
     updated_skill = replace_once(VERSION_PATTERN, skill_text, f"version: {plan.next}", "SKILL.md")
     readme_text = readme_path.read_text(encoding="utf-8")
     updated_readme = replace_once(BADGE_PATTERN, readme_text, f"version-{plan.next}-green.svg", "README.md")
+    manifest_text = manifest_path.read_text(encoding="utf-8")
+    updated_manifest = replace_once(
+        MANIFEST_VERSION_PATTERN, manifest_text, f'"version": "{plan.next}"', ".claude-plugin/plugin.json"
+    )
     changelog_text = changelog_path.read_text(encoding="utf-8")
     updated_changelog = update_changelog(changelog_text, plan, request.release_date, request.repository_url)
     if request.dry_run:
         return plan
     skill_path.write_text(updated_skill, encoding="utf-8")
     readme_path.write_text(updated_readme, encoding="utf-8")
+    manifest_path.write_text(updated_manifest, encoding="utf-8")
     changelog_path.write_text(updated_changelog, encoding="utf-8")
     return plan
 

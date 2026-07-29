@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "img2threejs",
+  "description": "Image-to-procedural-Three.js reconstruction for coding agents.",
+  "owner": {
+    "name": "img2threejs",
+    "url": "https://github.com/img2threejs"
+  },
+  "plugins": [
+    {
+      "name": "img2threejs",
+      "source": "./",
+      "description": "Rebuild the object in a reference image as a code-only, procedural, quality-gated, animation-ready Three.js model.",
+      "category": "3d",
+      "tags": [
+        "threejs",
+        "3d",
+        "image-to-3d",
+        "procedural",
+        "webgl"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://img2threejs.github.io/img2threejs-showcase/",
+      "repository": "https://github.com/img2threejs/img2threejs"
+    }
+  ]
+}

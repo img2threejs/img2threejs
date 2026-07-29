@@ -59,7 +59,9 @@ hidden sides or guarantee exact geometry — say so instead of faking confidence
 
 ## The Loop (scripts do enforcement; agent vision does judgment)
 
-Run scripts from the skill root (`forge/...`). Pure Python 3.10+ stdlib, no pip installs.
+Run scripts from the skill root — the directory holding this `SKILL.md`, which is
+`${CLAUDE_PLUGIN_ROOT}` on a plugin install. Every `forge/...` and `grimoire/...` path below is
+relative to it. Pure Python 3.10+ stdlib, no pip installs.
 Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that is the agent's job.
 
 1. **Analyze the image first** (agent vision, before any script): work the layered observation

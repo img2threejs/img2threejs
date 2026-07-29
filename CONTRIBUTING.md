@@ -27,6 +27,7 @@ explicit, flagged, opt-in mode.
 
 - Scripts are pure Python 3.10+ standard library. No pip dependencies.
 - Run the test suite from the skill root: `python3 forge/tests/test_pipeline.py`.
+- After touching `.claude-plugin/`, check the manifests with `claude plugin validate . --strict`.
 - Validate a spec before generation: `python3 forge/stage2_spec/validate_sculpt_spec.py spec.json --strict-quality`.
 - Keep changes backward compatible: existing object specs must continue to validate.
 - No emojis in source, docs, or generated output.

@@ -23,6 +23,12 @@ class ReleaseMetadataTests(unittest.TestCase):
             "[1.4.1]: https://github.com/img2threejs/img2threejs/releases/tag/v1.4.1\n",
             encoding="utf-8",
         )
+        manifest = directory / ".claude-plugin"
+        manifest.mkdir()
+        (manifest / "plugin.json").write_text(
+            '{\n  "name": "img2threejs",\n  "version": "1.4.1",\n  "skills": ["./"]\n}\n',
+            encoding="utf-8",
+        )
         commits = directory / "commits.txt"
         return directory, commits
 
@@ -59,6 +65,9 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout)["version"], "1.5.0")
             self.assertIn("version: 1.5.0", (project / "SKILL.md").read_text(encoding="utf-8"))
             self.assertIn("version-1.5.0-green.svg", (project / "README.md").read_text(encoding="utf-8"))
+            manifest = (project / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+            self.assertIn('"version": "1.5.0"', manifest)
+            self.assertEqual(json.loads(manifest)["skills"], ["./"])
             changelog = (project / "CHANGELOG.md").read_text(encoding="utf-8")
             self.assertIn("## [1.5.0] — 2026-07-26", changelog)
             self.assertIn("[1.5.0]: https://github.com/img2threejs/img2threejs/compare/v1.4.1...v1.5.0", changelog)
