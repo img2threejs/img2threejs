@@ -230,14 +230,14 @@ def main(argv=None) -> int:
     result = analyze(args.image)
 
     if has_patch_target:
-        spec = json.loads(args.spec.read_text())
+        spec = json.loads(args.spec.read_text(encoding="utf-8"))
         mats = [m for m in spec.get("materials", []) if m.get("id") == args.material_id]
         if not mats:
             print(f"material {args.material_id!r} not found in spec", file=sys.stderr)
             return 2
         apply_to_material(mats[0], result)
         if args.in_place:
-            args.spec.write_text(json.dumps(spec, indent=2))
+            args.spec.write_text(json.dumps(spec, indent=2), encoding="utf-8")
             print(f"applied {result['finishClass']} recipe to material {args.material_id!r} in {args.spec.name}")
         else:
             print(json.dumps(mats[0], indent=2))
