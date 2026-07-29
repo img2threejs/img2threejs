@@ -10,10 +10,8 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - run: python3 -m unittest discover -s forge/tests
+    # ci-workflows v1.0.0-initial
+    uses: img2threejs/ci-workflows/.github/workflows/python-ci.yml@66e4071913652d7ce9e0ad66709a5e4e66497e0d
+    with:
+      python-version: "3.10"
+      test-command: python3 -m unittest discover -s forge/tests
