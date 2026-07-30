@@ -167,6 +167,12 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--eye", required=True, type=Path, help="divine_eye result JSON")
     parser.add_argument("--samples", type=Path, help="JSON list of VLM sample dicts (offline/testing)")
+    parser.add_argument("--provider", choices=["minimax"], default=None,
+                        help="live VLM provider to sample from (requires --image)")
+    parser.add_argument("--image", type=Path, help="render image the provider should look at")
+    parser.add_argument("--region", default="global_en", help="provider region endpoint")
+    parser.add_argument("--model", default=None, help="override the provider's default model")
+    parser.add_argument("--n-samples", type=int, default=3, help="provider self-consistency samples")
     parser.add_argument("--geometry-class", default=None)
     parser.add_argument("--criteria-min", type=float, default=DEFAULT_CRITERIA_MIN)
     parser.add_argument("--json", action="store_true")
@@ -174,10 +180,22 @@ def main(argv: list[str]) -> int:
     try:
         eye = json.loads(args.eye.read_text(encoding="utf-8"))
         sampler = None
-        if args.samples:
+        n_samples = args.n_samples
+        if args.provider == "minimax":
+            if not args.image:
+                raise ValueError("--provider minimax requires --image")
+            # Lazy import: offline/test runs pay no import cost and need no provider config.
+            from vlm_provider_minimax import config_from_env, make_sampler  # noqa: E402
+            cfg_kwargs: dict[str, Any] = {"region": args.region}
+            if args.model:
+                cfg_kwargs["model"] = args.model
+            sampler = make_sampler(config_from_env(**cfg_kwargs), args.image,
+                                   geometry_class=args.geometry_class)
+        elif args.samples:
             preloaded = json.loads(args.samples.read_text(encoding="utf-8"))
             sampler = lambda i: preloaded[i % len(preloaded)]  # noqa: E731
-        result = gate(eye, sampler, n_samples=len(json.loads(args.samples.read_text())) if args.samples else 3,
+            n_samples = len(preloaded)
+        result = gate(eye, sampler, n_samples=n_samples,
                       criteria_min=args.criteria_min, geometry_class=args.geometry_class)
     except Exception as exc:  # noqa: BLE001
         print(f"error: {exc}", file=sys.stderr)
