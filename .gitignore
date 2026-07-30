@@ -29,6 +29,10 @@ runtime/**/dist/
 runtime/**/.vite/
 
 .cache/spec-search/
+
+# Durable checkpoints are reviewable artifacts; leases and atomic-write remnants are local coordination state.
+.agent-state/items/*/lease.json
+.agent-state/items/*/.*.tmp
 # Demo GIFs/renders in assets/ stay local, but the README's logo must ship with the repo.
 # Note the trailing `*`: git cannot re-include a file whose parent directory is excluded,
 # so `assets/` + `!assets/logo.svg` would silently not work.

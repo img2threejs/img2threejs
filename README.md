@@ -145,6 +145,22 @@ For the script-by-script reference and the full list of output artifacts, see [d
 
 ---
 
+## Cross-agent resume
+
+Use a durable checkpoint when a reconstruction moves between Claude Code, Codex, OpenCode, or a fresh session. The state records only workflow position, artifact hashes, lease ownership, and handoff metadata; it never stores transcripts or credentials.
+
+```bash
+python3 forge/state.py init --item-id 2026-07-29-dragon --primary-reference assets/dragon.png --json
+python3 forge/state.py resume 2026-07-29-dragon --json
+python3 forge/state.py claim 2026-07-29-dragon --actor codex --json
+python3 forge/state.py acknowledge 2026-07-29-dragon 0 --actor codex --json
+python3 forge/state.py preflight 2026-07-29-dragon intake --actor codex --json
+```
+
+After an interrupted side effect, do not rerun it blindly. Use `read` to inspect the operation ID, then run `recover <item-id> --operation-id <id> --actor <actor> --json`. Checkpoints are under `.agent-state/items/<item-id>/`; `lease.json` and atomic-write leftovers stay local, while snapshots and event ledgers are safe to review and commit.
+
+---
+
 ## Roadmap
 
 **Shipped:**

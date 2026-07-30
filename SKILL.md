@@ -24,15 +24,47 @@ action-ready props, game objects, botanical/mechanical parts, and stylized recon
 ## Core Promise
 
 Sculpt from a photo, in order — never one-shot a mesh:
-1. **Run `python3 forge/next.py <spec>` first.** It reports the current unlocked pass, exact next command, and unmet acceptance criteria.
-2. **Validate** the image is a suitable 3D target (`grimoire/intake/validation_rubric.md`).
-3. **Assess** object class + complexity, then write a `qualityContract` before any code.
-3. **Spec** it: component hierarchy, materials, lighting, pivots, sockets, action anchors.
-4. **Build pass-by-pass** from blockout → structure → form → material → lighting → interaction → optimization.
-5. **Verify** each pass with a screenshot compared against the reference; fail a pass if an identity-defining feature is wrong even when the global score looks fine.
+1. **Run the mandatory `item-reconstruction-intake` skill first.** Do not run
+   `forge/next.py`, choose geometry/topology/UV/material routes, or write an assessment
+   until the intake skill has produced a saved intake record.
+2. **Run `python3 forge/next.py <spec>` only after intake passes.** It reports the current
+   unlocked pass, exact next command, and unmet acceptance criteria.
+3. **Validate** the image is a suitable 3D target (`grimoire/intake/validation_rubric.md`).
+4. **Assess** object class + complexity, then write a `qualityContract` before any code.
+5. **Spec** it: component hierarchy, materials, lighting, pivots, sockets, action anchors.
+6. **Build pass-by-pass** from blockout → structure → form → material → lighting → interaction → optimization.
+7. **Verify** each pass with a screenshot compared against the reference; fail a pass if an identity-defining feature is wrong even when the global score looks fine.
 
 State explicitly when output is approximate/stylized/low-poly. A single image cannot reveal
 hidden sides or guarantee exact geometry — say so instead of faking confidence.
+
+## Mandatory Intake Gate
+
+Before any reconstruction work or pipeline intake, invoke the `item-reconstruction-intake` skill
+and follow it completely. This is a hard dependency, not optional guidance. If the host cannot
+invoke that skill, stop and report the missing dependency. The skill must create or update
+`item-intake.json` (or the project-approved equivalent) with the target/evidence boundary,
+observation labels (`OBSERVED`, `SUPPORTED`, `INFERRED`, `UNKNOWN`, `IMPLEMENTATION`),
+macro-to-micro decomposition, topology/surface routes, quality contract, and open findings.
+
+The next stage is permitted only when the record has a final status of `PASS` or an explicitly
+accepted `REQUEST`/`REFINE` handoff. `BLOCKED`, `STOP`, rejected references, missing required
+views, unavailable required source review, unresolved topology conflicts, and missing intake
+records are terminal for this turn: report the blocker and request the smallest missing input.
+
+For CS2, `cs2-intake.json` is the specialized classification/route manifest and must be linked
+from the general intake record; it does not replace the mandatory intake gate. Preserve the
+intake record and its evidence references through assessment, spec, build, and review.
+
+## Compaction-Safe Resume Gate
+
+Conversation history is disposable. After a fresh agent start, context compaction, provider switch,
+or interruption, the agent MUST treat persisted item state as the only continuity source. The
+first action is `forge/state.py list --status incomplete --json`; after the user selects an item,
+run `forge/state.py resume <itemId> --json` and validate its artifact hashes and next safe action
+before reading old transcripts or touching project files. If state is missing, corrupt, stale, or
+contradictory, stop at `recover`/`request-input`; do not reconstruct context from memory or guess
+the next pass.
 
 ## Transparency and Process Debugging (Critical — from Bowie Knife reconstruction)
 
@@ -62,7 +94,9 @@ hidden sides or guarantee exact geometry — say so instead of faking confidence
 Run scripts from the skill root (`forge/...`). Pure Python 3.10+ stdlib, no pip installs.
 Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that is the agent's job.
 
-1. **Analyze the image first** (agent vision, before any script): work the layered observation
+0. **Complete the mandatory intake gate first** (see above). No image analysis, script, or
+   domain decision may bypass it; the intake record is the handoff into this loop.
+1. **Analyze the image** (agent vision, after intake): work the layered observation
    protocol in `grimoire/intake/image_analysis.md` — identify/classify, decompose macro→meso→micro,
    map part relationships, name materials in PBR terms, list identity-defining features, and flag
    what the single view hides. Observation before inference; controlled 3D vocabulary; 3D
@@ -157,15 +191,22 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    `forge/stage3_build/generate_threejs_factory.py object-sculpt-spec.json --out src/createObjectModel.ts`
    (generator is pass-gated: a future `--pass-id` fails until prior passes are reviewed `continue`).
 7. Render the current pass in a browser/preview, capture a screenshot at a review viewpoint.
-8. Package one side-by-side sheet, then inspect it with agent vision:
+8. **NotebookLM review continuity gate** — when the intake record contains NotebookLM analysis,
+   use the same notebook and source-role registry for review. Upload the settled render as
+   `QA_RENDER` (and the side-by-side result as `QA_COMPARISON`) before asking comparison
+   questions. Ask NotebookLM to compare reference versus render using `OBSERVED / SUPPORTED /
+   INFERRED / UNKNOWN` labels, record citations, contradictions, confidence, and the next action
+   in the intake/review record. If the required notebook or source review is unavailable, return
+   `request-input` or an explicitly documented lower-confidence fallback; never silently skip it.
+9. Package one side-by-side sheet, then inspect it with agent vision:
    `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out cmp.png --json`.
-9. Record the review (overall + per-layer + per-feature scores + decision):
+10. Record the review (overall + per-layer + per-feature scores + decision):
     `forge/stage4_review/append_review.py object-sculpt-spec.json --pass-id <pass> --fidelity <0-1> --action <continue|refine-spec|refine-code|request-input|stop> --summary "..." --render-screenshot <shot> --comparison-image cmp.png --ai-vision-score <0-1> --layer-scores-json '{...}' --feature-reviews-json <f.json> --in-place`.
    For the CS2 knife path, also attach the versioned report with
    `--cs2-review-json cs2-review.json --review-scene-json forge/tests/fixtures/knife_review_scene.json`.
    A failed family, painted-region, projection-coverage, critical-detail, or orbit gate blocks
    `continue` even when the global score passes. See `docs/cs2/review-gates.md`.
-10. Sync pipeline state after manual review edits:
+11. Sync pipeline state after manual review edits:
     `forge/stage3_build/orchestrate_passes.py sync object-sculpt-spec.json --in-place`.
 
 ## CS2 image-matched rule
