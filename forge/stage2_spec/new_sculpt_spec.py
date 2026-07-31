@@ -8,6 +8,7 @@ import json
 import math
 import re
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 from status_banner import emit_status
@@ -872,21 +873,36 @@ def apply_cs2_manifest_evidence(spec: dict, manifest: dict) -> dict:
     return spec
 
 
-def make_spec(target_name: str, image: str | None, assessment_payload: dict | None = None) -> dict:
+def make_spec(
+    target_name: str,
+    image: str | None,
+    assessment_payload: Mapping[str, object] | None = None,
+) -> dict:
     target_id = slugify(target_name)
     pre_spec_assessment = make_pre_spec_assessment(target_name)
     quality_contract = make_quality_contract()
     local_spec_search = None
+    source_images = [image] if image else []
+    multi_view_synthesis = None
     if assessment_payload:
         incoming_assessment = assessment_payload.get("preSpecAssessment")
         incoming_contract = assessment_payload.get("qualityContract")
         incoming_local_spec_search = assessment_payload.get("localSpecSearch")
+        incoming_source_images = assessment_payload.get("sourceImages")
+        incoming_synthesis = assessment_payload.get("multiViewSynthesis")
         if isinstance(incoming_assessment, dict):
             pre_spec_assessment = incoming_assessment
         if isinstance(incoming_contract, dict):
             quality_contract = incoming_contract
         if isinstance(incoming_local_spec_search, dict):
             local_spec_search = incoming_local_spec_search
+        if isinstance(incoming_source_images, list) and all(
+            isinstance(value, str) and value for value in incoming_source_images
+        ):
+            source_images = incoming_source_images
+        if isinstance(incoming_synthesis, dict):
+            multi_view_synthesis = incoming_synthesis
+    source_image = source_images[0] if source_images else ""
     spec = {
         "targetName": target_name,
         "targetId": target_id,
@@ -927,7 +943,8 @@ def make_spec(target_name: str, image: str | None, assessment_payload: dict | No
             ],
             "descriptionRule": "Use measurable 3D graphics terms. Avoid vague words unless they are paired with concrete geometry/material/shader parameters.",
         },
-        "sourceImage": image or "",
+        "sourceImage": source_image,
+        "sourceImages": source_images,
         "referenceCamera": {
             "solved": False,
             "fovDegrees": 40.0,
@@ -1558,6 +1575,61 @@ def make_spec(target_name: str, image: str | None, assessment_payload: dict | No
     }
     if local_spec_search is not None:
         spec["localSpecSearch"] = local_spec_search
+    if multi_view_synthesis is not None:
+        spec["multiViewSynthesis"] = multi_view_synthesis
+        brief = multi_view_synthesis.get("brief")
+        if isinstance(brief, dict):
+            spec["multiViewBrief"] = brief
+            components = brief.get("components")
+            if isinstance(components, dict):
+                for component in spec["componentTree"]:
+                    if not isinstance(component, dict):
+                        continue
+                    component_id = component.get("id")
+                    brief_component = components.get(component_id)
+                    if not isinstance(brief_component, dict):
+                        continue
+                    dimensions = brief_component.get("dimensions")
+                    if isinstance(dimensions, dict):
+                        component["multiViewDimensions"] = dimensions
+                    curvature = brief_component.get("curvature")
+                    if isinstance(curvature, (str, dict)):
+                        component["multiViewCurvature"] = curvature
+                    confidence = brief_component.get("confidence")
+                    if isinstance(confidence, (int, float)):
+                        component["multiViewConfidence"] = confidence
+        # Rebuild viewEvidence from namedViews when available.
+        # The hardcoded single-entry viewEvidence is replaced with per-view
+        # entries so downstream (TypeScript generation, diagnostics) can
+        # reference the correct source image for each face.
+        # namedViews can be in brief sub-object or at top level of synthesis.
+        named_views = None
+        if isinstance(brief, dict):
+            named_views = brief.get("namedViews")
+        if not named_views:
+            named_views = multi_view_synthesis.get("namedViews")
+        if isinstance(named_views, dict) and named_views:
+            synthesis_confidence = (
+                brief.get("confidence", 0.5) if isinstance(brief, dict)
+                else multi_view_synthesis.get("confidence", 0.5)
+            )
+            spec["viewEvidence"] = [
+                {
+                    "id": view_name,
+                    "view": view_name,
+                    "sourceImage": str(view_path),
+                    "imageRegion": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "width": 1.0,
+                        "height": 1.0,
+                        "units": "normalized",
+                    },
+                    "observations": [],
+                    "confidence": round(synthesis_confidence, 4),
+                }
+                for view_name, view_path in named_views.items()
+            ]
     inject_geometry_rules(spec, target_name)
     return spec
 
@@ -1565,7 +1637,12 @@ def make_spec(target_name: str, image: str | None, assessment_payload: dict | No
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target_name", help="Human-readable object name")
-    parser.add_argument("--image", help="Reference image path or URL")
+    parser.add_argument(
+        "--image",
+        action="append",
+        default=[],
+        help="Reference image path or URL; repeat for each distinct view.",
+    )
     parser.add_argument("--assessment", type=Path, help="Pre-spec assessment JSON from stage2_spec/new_pre_spec_assessment.py")
     parser.add_argument("--manifest", type=Path, help="Validated cs2-intake.json produced by stage1 intake")
     parser.add_argument("--out", type=Path, help="Output JSON path")
@@ -1601,7 +1678,8 @@ def main(argv: list[str]) -> int:
             parser.error(f"CS2 intake is not ready for spec authoring: {manifest.get('state', 'unknown')}")
         if manifest.get("itemFamily") != "knife":
             parser.error("CS2 spec authoring currently supports only the knife family")
-    spec = make_spec(args.target_name, args.image, assessment)
+    primary_image = args.image[0] if args.image else None
+    spec = make_spec(args.target_name, primary_image, assessment)
     domain = None
     cs2_marker = False
     if isinstance(assessment, dict):

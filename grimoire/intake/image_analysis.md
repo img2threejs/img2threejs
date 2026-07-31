@@ -97,6 +97,39 @@ this protocol IS the raw material for `new_pre_spec_assessment.py` and `build_de
   perspective distortion. Every unknown here becomes a
   `preSpecAssessment.unknownsToResolveBeforeImplementation` entry and may justify `request-input`.
 
+## Layer 9 — Multi-view independent evidence (when multiple images provided)
+
+When multiple images of the same object are provided, treat each as an **independent evidence
+source** — NOT as views to be fused into a single multi-view representation.
+
+### What each view provides
+
+| View | Provides | Does NOT provide |
+|------|----------|------------------|
+| Front image | Front-facing geometry + front texture | Back geometry, depth (Z) |
+| Back image | Back-facing geometry + back texture | Front geometry, depth (Z) |
+| Top image | Top silhouette + top texture | Side geometry, depth |
+| Side image | Side silhouette + side texture | Front/back geometry |
+
+### What depth (Z-dimension) comes from
+
+Depth comes from **procedural parameters** (thickness, taper, cross-section shape), NOT from
+image analysis. Images are 2D projections — they cannot reliably determine 3D depth.
+
+### Patterned skins (Doppler/Gamma/Marble/Fade)
+
+For patterned skins where front and back have **different patterns** (e.g., CS2 Gamma Doppler):
+- Front image → front face texture ONLY
+- Back image → back face texture ONLY
+- Do NOT attempt feature matching between views (matchConfidence will be near 0)
+- Do NOT fuse images into a single representation
+- Each face gets its own texture from its corresponding image
+
+### Rule
+
+Never fuse multiple images into a single multi-view representation. Each image is an independent
+evidence source that contributes to specific faces/parts of the 3D model.
+
 ## Output → where each layer lands
 
 | Layer | Feeds |

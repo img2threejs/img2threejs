@@ -10,7 +10,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from orchestrate_passes import pass_specific_gaps
+if __package__ in {None, ""}:
+    project_root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(project_root))
+    from forge.stage3_build.orchestrate_passes import pass_specific_gaps
+else:
+    from .orchestrate_passes import pass_specific_gaps
 
 
 VALID_PRIMITIVES = {
@@ -26,6 +31,7 @@ VALID_PRIMITIVES = {
     "extrude",
     "ground-blade",
     "curve-sweep",
+    "tapered-sweep",
     "plane-card",
     "instanced-cluster",
 }
@@ -210,15 +216,17 @@ def vector(values: Any, fallback: list[float]) -> str:
 
 
 def scale_vector(component: dict[str, Any], transform: dict[str, Any]) -> str:
-    if "scale" in transform:
-        return vector(transform.get("scale"), [1, 1, 1])
-    dimensions = component.get("dimensions")
+    dimensions = component.get("multiViewDimensions")
+    if not isinstance(dimensions, dict):
+        dimensions = component.get("dimensions")
     if isinstance(dimensions, dict):
         width = dimensions.get("width", dimensions.get("radius", 0.5) * 2 if isinstance(dimensions.get("radius"), (int, float)) else 1)
         height = dimensions.get("height", dimensions.get("length", 1))
         depth = dimensions.get("depth", dimensions.get("radius", 0.5) * 2 if isinstance(dimensions.get("radius"), (int, float)) else 1)
         if all(isinstance(item, (int, float)) for item in (width, height, depth)):
             return vector([width, height, depth], [1, 1, 1])
+    if "scale" in transform:
+        return vector(transform.get("scale"), [1, 1, 1])
     return vector(None, [1, 1, 1])
 
 
@@ -252,9 +260,23 @@ _DEFAULT_CURVE_SWEEP = {
     "crossSection": {"points": [[-0.04, -0.02], [0.04, -0.02], [0.04, 0.02], [-0.04, 0.02]]},
     "closed": False,
 }
+# Volcano-style tapered sweep: spine + taper curve + cross-section
+# Section is swept along spine, scaled by taper at each station
+_DEFAULT_TAPERED_SWEEP = {
+    "spine": [[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [1.0, 0.0, 0.0]],
+    "taper": [
+        {"width": 0.08, "thickness": 0.005},
+        {"width": 0.35, "thickness": 0.005},
+        {"width": 0.00, "thickness": 0.000},
+    ],
+    "sectionType": "diamond",
+}
 
 
 def geometry_for(primitive: str, component: dict[str, Any] | None = None) -> str:
+    curvature = component.get("multiViewCurvature") if isinstance(component, dict) else None
+    if isinstance(curvature, dict) and curvature.get("profile") == "ellipsoid":
+        return "new THREE.SphereGeometry(0.5, 64, 40)"
     if primitive == "box":
         return "new THREE.BoxGeometry(1, 1, 1, 12, 12, 12)"
     if primitive in {"sphere", "ellipsoid"}:
@@ -290,6 +312,9 @@ def geometry_for(primitive: str, component: dict[str, Any] | None = None) -> str
     if primitive == "curve-sweep":
         sweep = descriptor.get("curveSweep") if isinstance(descriptor.get("curveSweep"), dict) else _DEFAULT_CURVE_SWEEP
         return f"buildCurveSweepGeometry({json_literal(sweep)})"
+    if primitive == "tapered-sweep":
+        sweep = descriptor.get("taperedSweep") if isinstance(descriptor.get("taperedSweep"), dict) else _DEFAULT_TAPERED_SWEEP
+        return f"buildTaperedSweepGeometry({json_literal(sweep)})"
     if primitive == "instanced-cluster":
         # An instanced cluster's *geometry* is its base shape; the instancing itself is applied
         # by the repetition-system emitter (THREE.InstancedMesh). Resolve the base primitive from
@@ -312,6 +337,9 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
         "route": spec.get("route"),
         "exactnessTier": spec.get("exactnessTier"),
         "referenceCamera": spec.get("referenceCamera"),
+        "sourceImages": spec.get("sourceImages", []),
+        "multiViewSynthesis": spec.get("multiViewSynthesis"),
+        "multiViewBrief": spec.get("multiViewBrief"),
         "approximationNotes": spec.get("approximationNotes", []),
     }
     materials = {
@@ -515,6 +543,78 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
                 "    steps: Math.max(24, spine.length * 8),",
                 "    bevelEnabled: false,",
                 "  });",
+                "}",
+                "",
+            ]
+        )
+    if "tapered-sweep" in used_primitives:
+        lines.extend(
+            [
+                "// Volcano-style tapered sweep: spine + taper curve + diamond cross-section.",
+                "// Section is swept along spine, scaled by taper at each station.",
+                "// Diamond section: spine (top) → right edge → edge (bottom, sharp) → left edge",
+                "function buildTaperedSweepGeometry(",
+                "  sweep: {",
+                "    spine: [number, number, number][];",
+                "    taper: { width: number; thickness: number }[];",
+                "    sectionType?: 'diamond' | 'rectangular' | 'circular';",
+                "  },",
+                "): THREE.BufferGeometry {",
+                "  const spine = sweep.spine;",
+                "  const taper = sweep.taper;",
+                "  const sectionType = sweep.sectionType ?? 'diamond';",
+                "  const nSections = Math.max(spine.length, 10);",
+                "  const pos: number[] = [];",
+                "  const uv: number[] = [];",
+                "  const tri = (a: number[], b: number[], c: number[]) => pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);",
+                "  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;",
+                "  const lerpTaper = (t: number) => {",
+                "    const s = Math.max(0, Math.min(1, t)) * (taper.length - 1);",
+                "    const i = Math.min(taper.length - 2, Math.floor(s));",
+                "    const f = s - i;",
+                "    return {",
+                "      width: lerp(taper[i].width, taper[i+1].width, f),",
+                "      thickness: lerp(taper[i].thickness, taper[i+1].thickness, f),",
+                "    };",
+                "  };",
+                "  const section = (w: number, h: number): [number, number][] => {",
+                "    const hw = w / 2, hh = h / 2;",
+                "    if (sectionType === 'rectangular') return [[-hw,hh],[hw,hh],[hw,-hh],[-hw,-hh]];",
+                "    if (sectionType === 'circular') {",
+                "      const pts: [number, number][] = [];",
+                "      for (let i = 0; i < 8; i++) {",
+                "        const a = (i / 8) * Math.PI * 2;",
+                "        pts.push([Math.cos(a) * hw, Math.sin(a) * hh]);",
+                "      }",
+                "      return pts;",
+                "    }",
+                "    // diamond: spine (top) → right → edge (bottom) → left",
+                "    return [[0,hh],[hw,0],[0,-hh],[-hw,0]];",
+                "  };",
+                "  for (let i = 0; i < nSections - 1; i++) {",
+                "    const t0 = i / (nSections - 1), t1 = (i+1) / (nSections - 1);",
+                "    const si0 = Math.min(spine.length - 1, Math.floor(t0 * (spine.length - 1)));",
+                "    const si1 = Math.min(spine.length - 1, Math.floor(t1 * (spine.length - 1)));",
+                "    const p0 = spine[si0], p1 = spine[si1];",
+                "    const tap0 = lerpTaper(t0), tap1 = lerpTaper(t1);",
+                "    const sec0 = section(tap0.width, tap0.thickness);",
+                "    const sec1 = section(tap1.width, tap1.thickness);",
+                "    const n = sec0.length;",
+                "    for (let j = 0; j < n; j++) {",
+                "      const j1 = (j+1) % n;",
+                "      const a0 = [p0[0]+sec0[j][0], p0[1]+sec0[j][1], p0[2]];",
+                "      const b0 = [p0[0]+sec0[j1][0], p0[1]+sec0[j1][1], p0[2]];",
+                "      const a1 = [p1[0]+sec1[j][0], p1[1]+sec1[j][1], p1[2]];",
+                "      const b1 = [p1[0]+sec1[j1][0], p1[1]+sec1[j1][1], p1[2]];",
+                "      tri(a0, b0, a1); tri(b0, b1, a1);",
+                "      uv.push(j/n,t0, (j+1)/n,t0, j/n,t1, (j+1)/n,t0, (j+1)/n,t1, j/n,t1);",
+                "    }",
+                "  }",
+                "  const g = new THREE.BufferGeometry();",
+                "  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));",
+                "  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));",
+                "  g.computeVertexNormals();",
+                "  return g;",
                 "}",
                 "",
             ]

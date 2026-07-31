@@ -62,7 +62,7 @@ hidden sides or guarantee exact geometry — say so instead of faking confidence
 Run scripts from the skill root (`forge/...`). Pure Python 3.10+ stdlib, no pip installs.
 Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that is the agent's job.
 
-1. **Analyze the image first** (agent vision, before any script): work the layered observation
+1. **Analyze every supplied image first** (agent vision, before any script): work the layered observation
    protocol in `grimoire/intake/image_analysis.md` — identify/classify, decompose macro→meso→micro,
    map part relationships, name materials in PBR terms, list identity-defining features, and flag
    what the single view hides. Observation before inference; controlled 3D vocabulary; 3D
@@ -74,6 +74,10 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
     command automatically runs BM25, chooses `cs2` for CS2 targets and `core_3d` otherwise, and
     writes a `localSpecSearch` evidence bundle into the assessment:
     `python3 forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --out assessment.json`.
+    Repeat `--image <img>` in a stable view order when the user supplies multiple views. The assessment
+    preserves all paths and runs bounded multi-view synthesis for readable local files. Ordinary
+    captures remain `evidence-only`; pass `--calibration calibrated-camera.json` only when the file
+    provides verified `cameraMatrix`, `focalLengthPx`, and `baselineUnits` for metric-depth evidence.
     Add observed terms with repeatable `--spec-query "<term>"`; use `--collection <collection>` only
     when the automatic collection choice is insufficient. `new_sculpt_spec.py --assessment` carries
     that bundle into the final spec, including snippets, `source_refs`, and `evidence_refs`.
@@ -92,7 +96,7 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
     coverage, or a contradictory high-confidence class is `request-input`; unsupported families do
     not continue into spec generation.
 2. **Pre-Spec Assessment Gate** — classify + score complexity + write the quality contract:
-   `forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --complexity <simple|moderate|complex|ultra-complex> --out assessment.json`. Rules: `grimoire/intake/quality_contract.md`.
+   `forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --complexity <simple|moderate|complex|ultra-complex> --out assessment.json`. Repeat `--image` for each view, then pass the assessment to `new_sculpt_spec.py`; do not collapse multi-view evidence into one selected image. Rules: `grimoire/intake/quality_contract.md`.
    Set `objectClass.primaryDomain` (`object` | `character` | `hybrid`) and fill the seeded
    `detailInventory` (its `targetMinDetails` scales with complexity). **Supported CS2 knife
    skins**: always pass `--cs2`, which defaults the complexity tier to `ultra-complex`

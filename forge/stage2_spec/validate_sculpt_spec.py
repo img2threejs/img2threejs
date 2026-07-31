@@ -331,6 +331,61 @@ def validate_evidence(spec: dict[str, Any], errors: list[str], warnings: list[st
     return refs
 
 
+def validate_multi_view_provenance(spec: dict[str, Any], errors: list[str]) -> None:
+    source_images = spec.get("sourceImages")
+    source_image = spec.get("sourceImage")
+    if source_images is not None:
+        if not isinstance(source_images, list) or not all(
+            isinstance(image, str) and image for image in source_images
+        ):
+            errors.append("sourceImages must be an array of non-empty strings")
+        elif isinstance(source_image, str) and source_image and source_images and source_image != source_images[0]:
+            errors.append("sourceImage must match the first sourceImages entry")
+    synthesis = spec.get("multiViewSynthesis")
+    if synthesis is not None:
+        if not isinstance(synthesis, dict):
+            errors.append("multiViewSynthesis must be an object")
+        else:
+            if not isinstance(synthesis.get("status"), str):
+                errors.append("multiViewSynthesis.status must be a string")
+            view_count = synthesis.get("viewCount")
+            if view_count is not None:
+                validate_nonnegative_int(view_count, "multiViewSynthesis.viewCount", errors)
+            confidence = synthesis.get("confidence")
+            if confidence is not None:
+                validate_unit_interval(confidence, "multiViewSynthesis.confidence", errors)
+            brief = synthesis.get("brief")
+            if brief is not None and not isinstance(brief, dict):
+                errors.append("multiViewSynthesis.brief must be an object")
+    brief = spec.get("multiViewBrief")
+    if brief is not None and not isinstance(brief, dict):
+        errors.append("multiViewBrief must be an object")
+    component_tree = spec.get("componentTree")
+    if not isinstance(component_tree, list):
+        return
+    for component in component_tree:
+        if not isinstance(component, dict):
+            continue
+        component_id = component.get("id", "unknown")
+        curvature = component.get("multiViewCurvature")
+        if curvature is not None and not isinstance(curvature, (str, dict)):
+            errors.append(f"component {component_id!r} multiViewCurvature must be a string or object")
+        if isinstance(curvature, dict):
+            profile = curvature.get("profile")
+            if profile is not None and not isinstance(profile, str):
+                errors.append(f"component {component_id!r} multiViewCurvature.profile must be a string")
+            curvature_confidence = curvature.get("confidence")
+            if curvature_confidence is not None:
+                validate_unit_interval(
+                    curvature_confidence,
+                    f"component {component_id!r} multiViewCurvature.confidence",
+                    errors,
+                )
+        confidence = component.get("multiViewConfidence")
+        if confidence is not None:
+            validate_unit_interval(confidence, f"component {component_id!r} multiViewConfidence", errors)
+
+
 def validate_material_scalar_or_layer(value: Any, label: str, errors: list[str]) -> None:
     if value is None:
         return
@@ -910,6 +965,7 @@ def validate_components(
                             f"component {component_id!r} materialLayers references unknown material {material_layer!r}"
                         )
         validate_dimensions(component_id, component.get("dimensions"), errors)
+        validate_dimensions(component_id, component.get("multiViewDimensions"), errors)
         transform = component.get("transform", {})
         if transform is not None and not isinstance(transform, dict):
             errors.append(f"component {component_id!r} transform must be an object")
@@ -1908,6 +1964,7 @@ def validate_spec(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     validate_sculpt_pipeline(spec, build_pass_ids, errors, warnings)
     validate_look_dev_targets(spec, errors, warnings)
     evidence_ids = validate_evidence(spec, errors, warnings)
+    validate_multi_view_provenance(spec, errors)
     material_ids = validate_materials(spec, errors, warnings)
     validate_cs2_contract(spec, errors, warnings)
     validate_cs2_view_dependent_environment(spec, errors)

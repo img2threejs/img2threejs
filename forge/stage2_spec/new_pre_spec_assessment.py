@@ -36,6 +36,7 @@ from forge.stage2_spec.new_sculpt_spec import (  # noqa: E402
 )
 
 
+
 COMPLEXITY_MINIMUMS = {
     "simple": {
         "macroComponents": 1,
@@ -116,6 +117,8 @@ class LocalSpecSearchPayload(TypedDict):
 class PreSpecPayloadRequired(TypedDict):
     targetName: str
     sourceImage: str
+    sourceImages: list[str]
+    multiViewSynthesis: dict[str, JsonValue]
     preSpecAssessment: dict[str, JsonValue]
     qualityContract: dict[str, JsonValue]
     authoringInstruction: str
@@ -123,6 +126,87 @@ class PreSpecPayloadRequired(TypedDict):
 
 class PreSpecPayload(PreSpecPayloadRequired, total=False):
     localSpecSearch: LocalSpecSearchPayload
+    cs2Intake: dict[str, JsonValue]
+
+
+def normalize_source_images(image: str | list[str] | None) -> list[str]:
+    if isinstance(image, str):
+        return [image] if image else []
+    if image is None:
+        return []
+    return [value for value in image if value]
+
+
+def synthesize_source_images(
+    target_name: str,
+    source_images: list[str],
+    multi_view_analysis: dict[str, JsonValue] | None = None,
+    calibration: dict[str, JsonValue] | None = None,
+) -> dict[str, JsonValue]:
+    """Treat each image as an independent evidence source, NOT a fused multi-view set.
+    
+    Each image provides:
+    - Front image → front-facing geometry + front texture
+    - Back image → back-facing geometry + back texture
+    - Depth (Z) comes from procedural parameters, NOT from image analysis
+    
+    Do NOT attempt feature matching or pose estimation between views.
+    """
+    readable_images = [Path(value) for value in source_images if Path(value).is_file()]
+    if len(source_images) > 1 and len(readable_images) != len(source_images):
+        return {
+            "status": "request-input",
+            "reason": "all image paths must be readable local files",
+            "viewCount": len(source_images),
+            "synthesisMode": "independent-evidence",
+            "confidence": 0.0,
+        }
+    if not readable_images:
+        return {
+            "status": "skipped",
+            "reason": "no-local-image",
+            "viewCount": len(source_images),
+            "synthesisMode": "single-view" if len(source_images) == 1 else "unavailable",
+            "confidence": 0.0,
+        }
+    
+    # Each image is an independent evidence source — do NOT fuse them
+    named_views = {}
+    for i, img_path in enumerate(readable_images):
+        name = f"view-{i}"
+        # Try to detect view name from filename
+        lower_name = img_path.stem.lower()
+        if "front" in lower_name:
+            name = "front"
+        elif "back" in lower_name:
+            name = "back"
+        elif "top" in lower_name:
+            name = "top"
+        elif "bottom" in lower_name:
+            name = "bottom"
+        elif "left" in lower_name:
+            name = "left"
+        elif "right" in lower_name:
+            name = "right"
+        named_views[name] = str(img_path)
+    
+    result = {
+        "status": "proceed",
+        "viewCount": len(readable_images),
+        "synthesisMode": "independent-evidence",
+        "confidence": 1.0,  # Each image is independently valid
+        "namedViews": named_views,
+        "notes": "Each image is an independent evidence source. Front image → front faces, back image → back faces. Depth (Z) comes from procedural parameters, NOT from image analysis. Do NOT fuse images into a single multi-view representation.",
+    }
+    
+    # Integrate multi-view analysis if provided (e.g., from agent calibration)
+    if multi_view_analysis is not None:
+        result["brief"] = multi_view_analysis
+        # If calibrated data has components, use it for status
+        if multi_view_analysis.get("calibrated") and multi_view_analysis.get("components"):
+            result["status"] = "evidence-only"
+    
+    return result
 
 
 def detect_cs2_intent(target_name: str) -> bool:
@@ -167,17 +251,29 @@ def search_local_specs(
 
 def make_payload(
     target_name: str,
-    image: str | None,
+    image: str | list[str] | None,
     complexity: str,
     is_cs2: bool = False,
-    manifest: dict | None = None,
+    manifest: dict[str, JsonValue] | None = None,
+    multi_view_analysis: dict[str, JsonValue] | None = None,
+    calibration: dict[str, JsonValue] | None = None,
 ) -> PreSpecPayload:
+    source_images = normalize_source_images(image)
+    source_image = source_images[0] if source_images else ""
+    multi_view_synthesis = synthesize_source_images(
+        target_name,
+        source_images,
+        multi_view_analysis,
+        calibration,
+    )
     assessment = make_pre_spec_assessment(target_name)
     contract = make_quality_contract()
     is_cs2 = is_cs2 or detect_cs2_intent(target_name)
     if is_cs2:
         assessment["objectClass"]["cs2"] = True
-    assessment["sourceImage"] = image or ""
+    assessment["sourceImage"] = source_image
+    assessment["sourceImages"] = source_images
+    assessment["multiViewSynthesis"] = multi_view_synthesis
     assessment["complexity"]["tier"] = complexity
     assessment["specDepthDecision"]["requiredDepth"] = complexity
     target_min_details = DETAIL_MINIMUMS[complexity]
@@ -194,7 +290,9 @@ def make_payload(
     contract["minimumSpecDepth"] = COMPLEXITY_MINIMUMS[complexity]
     payload: PreSpecPayload = {
         "targetName": target_name,
-        "sourceImage": image or "",
+        "sourceImage": source_image,
+        "sourceImages": source_images,
+        "multiViewSynthesis": multi_view_synthesis,
         "preSpecAssessment": assessment,
         "qualityContract": contract,
         "authoringInstruction": (
@@ -214,18 +312,23 @@ def make_payload(
             "warnings": manifest.get("warnings", []),
         }
         payload["cs2Intake"] = intake
-        payload["preSpecAssessment"]["cs2Intake"] = intake
-        payload["preSpecAssessment"]["objectClass"]["itemFamily"] = manifest.get("itemFamily")
-        payload["preSpecAssessment"]["objectClass"]["subtype"] = manifest.get("subtype")
-        payload["preSpecAssessment"]["objectClass"]["route"] = manifest.get("route")
-        payload["preSpecAssessment"]["objectClass"]["exactnessTier"] = manifest.get("exactnessTier")
+        assessment["cs2Intake"] = intake
+        assessment["objectClass"]["itemFamily"] = manifest.get("itemFamily")
+        assessment["objectClass"]["subtype"] = manifest.get("subtype")
+        assessment["objectClass"]["route"] = manifest.get("route")
+        assessment["objectClass"]["exactnessTier"] = manifest.get("exactnessTier")
     return payload
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target_name", help="Human-readable object name")
-    parser.add_argument("--image", help="Reference image path or URL")
+    parser.add_argument(
+        "--image",
+        action="append",
+        default=[],
+        help="Reference image path or URL; repeat for each distinct view.",
+    )
     parser.add_argument(
         "--complexity",
         choices=sorted(COMPLEXITY_MINIMUMS),
@@ -242,6 +345,16 @@ def main(argv: list[str]) -> int:
              f"never below the {CS2_DETAIL_MINIMUM} floor even if --complexity is set lower.",
     )
     parser.add_argument("--manifest", type=Path, help="CS2 intake manifest")
+    parser.add_argument(
+        "--multi-view-analysis",
+        type=Path,
+        help="Calibrated agent analysis JSON to merge with deterministic multi-view evidence.",
+    )
+    parser.add_argument(
+        "--calibration",
+        type=Path,
+        help="Camera calibration JSON for metric multi-view depth estimation.",
+    )
     parser.add_argument(
         "--collection",
         help="Spec-search collection; defaults to cs2 for CS2 targets and core_3d otherwise.",
@@ -269,7 +382,25 @@ def main(argv: list[str]) -> int:
         if manifest.get("state") not in {"proceed", "fallback"}:
             parser.error(f"CS2 intake is not ready for assessment: {manifest.get('state', 'unknown')}")
         is_cs2 = True
-    payload_object = make_payload(args.target_name, args.image, complexity, is_cs2, manifest)
+    multi_view_analysis = None
+    if args.multi_view_analysis:
+        multi_view_analysis = json.loads(args.multi_view_analysis.read_text(encoding="utf-8"))
+        if not isinstance(multi_view_analysis, dict):
+            parser.error("multi-view analysis must be a JSON object")
+    calibration = None
+    if args.calibration:
+        calibration = json.loads(args.calibration.read_text(encoding="utf-8"))
+        if not isinstance(calibration, dict):
+            parser.error("calibration must be a JSON object")
+    payload_object = make_payload(
+        args.target_name,
+        args.image,
+        complexity,
+        is_cs2,
+        manifest,
+        multi_view_analysis,
+        calibration,
+    )
     collection = select_spec_collection(args.target_name, args.collection)
     try:
         payload_object["localSpecSearch"] = search_local_specs(

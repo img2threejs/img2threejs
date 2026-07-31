@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://img2threejs.dev/schemas/intake-record-multi-view.json",
+  "title": "Intake Record Multi-View Extension",
+  "type": "object",
+  "properties": {
+    "sourceImage": {"type": "string"},
+    "sourceImages": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "synthesis": {
+      "type": "object",
+      "properties": {
+        "status": {"enum": ["skipped", "evidence-only", "complete", "failed", "request-input"]},
+        "viewCount": {"type": "integer", "minimum": 0},
+        "synthesisMode": {"type": "string"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "brief": {"type": "object"}
+      },
+      "required": ["status", "viewCount", "synthesisMode", "confidence"]
+    }
+  }
+}

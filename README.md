@@ -135,11 +135,17 @@ The scripts run from the skill root and need only Python 3.10+ — nothing to in
 
 ```bash
 python3 forge/stage1_intake/probe_image.py <image>
-python3 forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <image> --out assessment.json
-python3 forge/stage2_spec/new_sculpt_spec.py "Name" --image <image> --assessment assessment.json --out spec.json
+python3 forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <front-image> --image <rear-image> --out assessment.json
+python3 forge/stage2_spec/new_sculpt_spec.py "Name" --assessment assessment.json --out spec.json
 python3 forge/stage2_spec/validate_sculpt_spec.py spec.json --strict-quality
 python3 forge/stage3_build/generate_threejs_factory.py spec.json --out src/createObjectModel.ts
 ```
+
+Repeat `--image` once per reference view, in a stable order. The resulting assessment and spec retain
+`sourceImages`, a multi-view brief, and per-view review provenance. Multiple ordinary photos remain
+`evidence-only`: they do not yield an automatic finished mesh or invented metric dimensions. Supply a
+verified calibration JSON (`cameraMatrix`, `focalLengthPx`, `baselineUnits`) to enable the bounded
+calibrated-depth envelope; semantic component boundaries still require authored review.
 
 For the script-by-script reference and the full list of output artifacts, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

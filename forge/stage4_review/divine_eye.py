@@ -419,14 +419,86 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
     }
 
 
+def evaluate_multiple(
+    reference_paths: dict[str, Path],
+    render_paths: dict[str, Path],
+) -> dict[str, Any]:
+    if not reference_paths:
+        raise ValueError("at least one reference view is required")
+    per_view_results: dict[str, dict[str, Any]] = {}
+    missing_views: list[str] = []
+    failed_views: list[str] = []
+    scores: list[float] = []
+    for view_name, reference_path in reference_paths.items():
+        render_path = render_paths.get(view_name)
+        if render_path is None or not reference_path.is_file() or not render_path.is_file():
+            per_view_results[view_name] = {
+                "status": "missing",
+                "reference": str(reference_path),
+                "render": str(render_path) if render_path is not None else None,
+                "fidelity": 0.0,
+            }
+            missing_views.append(view_name)
+            failed_views.append(view_name)
+            scores.append(0.0)
+            continue
+        result = evaluate(reference_path, render_path)
+        per_view_results[view_name] = {"status": "compared", **result}
+        fidelity = float(result["fidelity"])
+        scores.append(fidelity)
+        if result["verdict"] != "pass":
+            failed_views.append(view_name)
+    extra_render_views = sorted(set(render_paths) - set(reference_paths))
+    fidelity = sum(scores) / len(scores)
+    complete = not missing_views and not extra_render_views
+    passed = complete and not failed_views
+    if passed:
+        verdict, action = "pass", "continue"
+    elif any(
+        result.get("verdict") == "low-confidence"
+        for result in per_view_results.values()
+        if result["status"] == "compared"
+    ):
+        verdict, action = "low-confidence", "probe"
+    else:
+        verdict, action = "reject", "refine-code"
+    worst_view = min(per_view_results, key=lambda view_name: per_view_results[view_name]["fidelity"])
+    return {
+        "verdict": verdict,
+        "action": action,
+        "fidelity": round(fidelity, 4),
+        "fidelityTarget": FIDELITY_TARGET,
+        "viewCount": len(reference_paths),
+        "complete": complete,
+        "passed": passed,
+        "missingViews": missing_views,
+        "extraRenderViews": extra_render_views,
+        "failedViews": failed_views,
+        "worstView": worst_view,
+        "perViewResults": per_view_results,
+    }
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--reference", required=True, type=Path)
-    parser.add_argument("--render", required=True, type=Path)
+    parser.add_argument("--reference", action="append", default=[], type=Path)
+    parser.add_argument("--render", action="append", default=[], type=Path)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if not args.reference or not args.render:
+        parser.error("provide --reference and --render")
+    if len(args.reference) != len(args.render):
+        parser.error("provide one --render for each --reference, in matching order")
     try:
-        result = evaluate(args.reference.expanduser().resolve(), args.render.expanduser().resolve())
+        references = [path.expanduser().resolve() for path in args.reference]
+        renders = [path.expanduser().resolve() for path in args.render]
+        if len(references) == 1:
+            result = evaluate(references[0], renders[0])
+        else:
+            result = evaluate_multiple(
+                {f"view-{index + 1}": path for index, path in enumerate(references)},
+                {f"view-{index + 1}": path for index, path in enumerate(renders)},
+            )
     except Exception as exc:  # noqa: BLE001
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -435,7 +507,7 @@ def main(argv: list[str]) -> int:
     else:
         print(f"{result['verdict'].upper()} → {result['action']}  fidelity={result['fidelity']} "
               f"(target {result['fidelityTarget']})")
-        for f in result["hardGateFailures"]:
+        for f in result.get("hardGateFailures", []):
             print(f"  HARD: {f}")
     # exit 0 only on a clean pass; non-zero otherwise so a pipeline can gate on it.
     return 0 if result["verdict"] == "pass" else 1

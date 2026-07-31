@@ -1,0 +1,159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://img2threejs.dev/schemas/geometry-brief.json",
+  "title": "Geometry Brief Schema",
+  "description": "Schema for multi-view synthesis geometry briefs",
+  "type": "object",
+  "required": ["viewCount", "synthesisMode", "confidence"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["evidence-only", "complete", "skipped", "failed"],
+      "description": "Whether the brief contains evidence only or verified component geometry"
+    },
+    "viewCount": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of reference views provided"
+    },
+    "synthesisMode": {
+      "type": "string",
+      "enum": ["single-view", "basic", "standard", "full", "optimal", "hybrid"],
+      "description": "Synthesis mode based on view count"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Evidence-derived confidence score (0-1), never inferred from view count alone"
+    },
+    "inputViewCount": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of input images before duplicate-view grouping"
+    },
+    "duplicateViewCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of input views removed by duplicate-view grouping"
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "featureCoverage": {"type": "number", "minimum": 0, "maximum": 1},
+        "matchCoverage": {"type": "number", "minimum": 0, "maximum": 1},
+        "matchConfidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "poseConfidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "depthConfidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "calibratedDepthAvailable": {"type": "boolean"}
+      }
+    },
+    "namedViews": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Mapping of view names to image paths"
+    },
+    "featureCount": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Number of features detected per view"
+    },
+    "matchCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of feature matches across all view pairs"
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ComponentGeometry"
+      },
+      "description": "Per-component geometry data"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about the synthesis"
+    }
+  },
+  "definitions": {
+    "ComponentGeometry": {
+      "type": "object",
+      "required": ["visibleIn", "confidence"],
+      "properties": {
+        "visibleIn": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of view names where this component is visible"
+        },
+        "dimensions": {
+          "$ref": "#/definitions/Dimensions",
+          "description": "Component dimensions"
+        },
+        "curvature": {
+          "oneOf": [
+            {"type": "string"},
+            {
+              "type": "object",
+              "properties": {
+                "profile": {"type": "string"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+              }
+            }
+          ],
+          "description": "Measured or agent-authored surface curvature evidence"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in this component's geometry"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about this component"
+        }
+      }
+    },
+    "Dimensions": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Width in mm"
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Height in mm"
+        },
+        "depth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Depth in mm"
+        },
+        "diameter": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Diameter in mm (for cylindrical objects)"
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Radius in mm (for circular objects)"
+        },
+        "length": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Length in mm"
+        }
+      }
+    }
+  }
+}

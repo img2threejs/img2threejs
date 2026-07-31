@@ -13,6 +13,123 @@ Use this reference only when implementing a model.
 - tube along curve: cables, roots, branches, straps, hoses
 - instanced mesh: screws, rivets, leaves, needles, scales, pebbles, repeated ornaments
 - plane cards: thin leaves, feathers, labels, cloth strips, decals
+- **tapered curve sweep**: blades, knives, swords, tools with variable cross-section — the Volcano technique (see below)
+
+## Tapered Curve Technique (Volcano / Blade Generation)
+
+**The problem with ExtrudeGeometry:** It pushes a single 2D shape through space at constant thickness. A knife blade needs variable thickness (thick at spine, thin at edge) and variable cross-section (flat at spine, pointed at edge).
+
+**The solution:** Three curves per part, based on the Volcano sword generator paper:
+
+### 1. Spine (centerline path)
+The centerline of the blade, from tip to tang. Defines the overall length and direction.
+
+```javascript
+// Spine: array of 3D points along the blade center
+const spine = [
+  new THREE.Vector3(0, 0, 0),      // tang (guard junction)
+  new THREE.Vector3(1.0, 0, 0),    // mid-blade
+  new THREE.Vector3(2.0, 0, 0),    // near tip
+  new THREE.Vector3(2.4, 0.02, 0), // tip (slight upward curve)
+];
+```
+
+### 2. Taper Curve (width + thickness along spine)
+Defines how wide and thick the blade is at each point along the spine.
+
+```javascript
+// Taper: width and thickness at each spine point
+const taper = [
+  { width: 0.08, thickness: 0.005 },  // tang: narrow, thin
+  { width: 0.40, thickness: 0.005 },  // guard: wide, thin
+  { width: 0.38, thickness: 0.004 },  // mid-blade: slightly narrower
+  { width: 0.15, thickness: 0.002 },  // near tip: much narrower
+  { width: 0.00, thickness: 0.000 },  // tip: zero width, zero thickness
+];
+```
+
+### 3. Section Curve (cross-section shape)
+The 2D cross-section at each point. For a knife blade, this is a diamond shape.
+
+```javascript
+// Diamond cross-section at a given width and thickness
+function diamondSection(width, thickness) {
+  const hw = width / 2;   // half-width
+  const ht = thickness / 2; // half-thickness
+  return [
+    new THREE.Vector3(0, ht, 0),      // spine (top)
+    new THREE.Vector3(hw, 0, 0),      // right edge
+    new THREE.Vector3(0, -ht, 0),     // edge (bottom)
+    new THREE.Vector3(-hw, 0, 0),     // left edge
+  ];
+}
+```
+
+### 4. Sweep Algorithm
+At each point along the spine:
+1. Compute the section curve (diamond) scaled by the taper values
+2. Orient the section perpendicular to the spine direction
+3. Connect adjacent sections to form triangles
+
+```javascript
+function sweepTaperedCurve(spine, taper, sectionFn) {
+  const geometry = new THREE.BufferGeometry();
+  const vertices = [];
+  const normals = [];
+  const uvs = [];
+  
+  for (let i = 0; i < spine.length - 1; i++) {
+    const p0 = spine[i];
+    const p1 = spine[i + 1];
+    const t0 = taper[i];
+    const t1 = taper[i + 1];
+    
+    // Section at this point
+    const section0 = sectionFn(t0.width, t0.thickness);
+    const section1 = sectionFn(t1.width, t1.thickness);
+    
+    // Connect sections with triangles
+    for (let j = 0; j < section0.length; j++) {
+      const j1 = (j + 1) % section0.length;
+      
+      // Triangle 1
+      vertices.push(
+        p0.x + section0[j].x, p0.y + section0[j].y, p0.z + section0[j].z,
+        p0.x + section0[j1].x, p0.y + section0[j1].y, p0.z + section0[j1].z,
+        p1.x + section1[j].x, p1.y + section1[j].y, p1.z + section1[j].z,
+      );
+      
+      // Triangle 2
+      vertices.push(
+        p0.x + section0[j1].x, p0.y + section0[j1].y, p0.z + section0[j1].z,
+        p1.x + section1[j1].x, p1.y + section1[j1].y, p1.z + section1[j1].z,
+        p1.x + section1[j].x, p1.y + section1[j].y, p1.z + section1[j].z,
+      );
+    }
+  }
+  
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+```
+
+### 5. Grind Parameters (from Volcano paper)
+
+For a knife blade, the section curve is parameterized by:
+- **Symmetry Ratio** (0-1): 0 = single-edged (asymmetric), 1 = dual-edged (symmetric)
+- **Diamond Ratio** (0-1): controls "sharpness" — 0 = triangle, 1 = full diamond
+- **Curvature Ratio** (0-1): 0 = flat facets, 1 = curved (hollow grind)
+
+### 6. Face-Specific Texturing
+
+When the blade has different patterns on front and back:
+- Front face (right side of diamond) → front texture
+- Back face (left side of diamond) → back texture
+- Spine face (top of diamond) → edge color
+- Edge face (bottom of diamond) → edge color (sharp)
+
+The UV mapping must NOT mirror — front and back textures occupy distinct UV regions.
 
 ## Material Recipes
 

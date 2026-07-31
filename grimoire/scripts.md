@@ -1,8 +1,9 @@
 # Scripts Cheatsheet
 
-All scripts are pure Python 3.10+ **standard library** — no pip install, no PIL/numpy, no
-Playwright/Chromium. PNG read/write is done via `struct`/`zlib`. Run from the skill root so
-paths resolve as `forge/<name>.py`. Non-zero exit = a gate failed; read the printed reasons.
+All scripts run with Python 3.10+ and retain a standard-library fallback. Multi-view detection
+uses SIFT/ORB only when OpenCV is already installed; otherwise it uses deterministic PNG edge
+features. PNG read/write is done via `struct`/`zlib`. Run from the skill root so paths resolve as
+`forge/<name>.py`. Non-zero exit = a gate failed; read the printed reasons.
 
 Division of labor: **scripts enforce structure and package evidence; they never score visuals.**
 The acceptance score always comes from the agent's own vision inspecting the comparison sheet.
@@ -12,14 +13,36 @@ The acceptance score always comes from the agent's own vision inspecting the com
 issues. Metadata only; not a substitute for visual inspection.
 
 ## stage2_spec/new_pre_spec_assessment.py
-`stage2_spec/new_pre_spec_assessment.py "Name" [--image IMG] [--complexity simple|moderate|complex|ultra-complex] --out assessment.json [--force]`
+`stage2_spec/new_pre_spec_assessment.py "Name" [--image IMG]... [--calibration calibrated-camera.json] [--multi-view-analysis analysis.json] [--complexity simple|moderate|complex|ultra-complex] --out assessment.json [--force]`
 Emits a pre-spec assessment + `qualityContract` skeleton. Refine `--complexity` after looking at
-the image. See `intake/quality_contract.md` for the scoring axes and contract checklist.
+the image. Repeat `--image` in a stable order to retain each reference view and run bounded local
+multi-view synthesis. See `intake/quality_contract.md` for the scoring axes and contract checklist.
+
+## stage1b_multi_view/synthesize.py
+`python forge/stage1b_multi_view/synthesize.py IMAGE [IMAGE ...] [--calibration calibrated-camera.json] [--output geometry-brief.json]`
+Produces a schema-validated geometry brief. Without verified calibration it reports `evidence-only`;
+with `cameraMatrix`, `focalLengthPx`, and `baselineUnits`, it can emit a bounded calibrated depth envelope.
+Feature results are cached in-process by image path, modification time, size, method, and feature limit.
+
+## stage1b_multi_view/benchmark.py
+`python -m forge.stage1b_multi_view.benchmark IMAGE [IMAGE ...]`
+Measures cold and warm synthesis in one process. Use six representative images to verify the local
+five-second performance target and record the JSON result with the review evidence.
+
+## stage1b_multi_view/validate_release_evidence.py
+`python -m forge.stage1b_multi_view.validate_release_evidence release-evidence.json`
+Validates the empirical release claim: a baseline of at least 40 iterations, a multi-view run of at
+most 15, two or more source images, and a complete passing Divine Eye result for every reviewed view.
 
 ## stage2_spec/new_sculpt_spec.py
-`stage2_spec/new_sculpt_spec.py "Name" [--image IMG] [--assessment assessment.json] --out object-sculpt-spec.json [--force]`
+`stage2_spec/new_sculpt_spec.py "Name" [--image IMG]... [--assessment assessment.json] --out object-sculpt-spec.json [--force]`
 Starter `ObjectSculptSpec` (schema 2.0). With `--assessment` it seeds from the completed gate.
 Always replace generic starter `featureReviewTargets` with real identity-defining systems.
+
+## stage4_review/divine_eye.py
+`stage4_review/divine_eye.py --reference FRONT --render FRONT_RENDER [--reference REAR --render REAR_RENDER]... [--json]`
+Compares each ordered reference/render pair. A missing view fails closed; multi-view output includes
+per-view results plus an aggregate fidelity.
 
 ## stage2_spec/validate_sculpt_spec.py
 `stage2_spec/validate_sculpt_spec.py spec.json [--json] [--strict-quality]`

@@ -5,6 +5,13 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Notes
+- **Multi-image reconstruction best practice** — treat reference photos as a calibrated dataset, not interchangeable illustrations. Use named front/back/left/right/top/bottom views (plus optional three-quarter views), consistent focal length and distance, a stable crop, and at least one verified scale anchor. Record per-view image hashes, dimensions, crop/registration, camera or calibration data, and source-to-render pairing in an evidence manifest.
+- **Confidence modes** — ordinary uncalibrated photos remain `evidence-only`: they preserve view provenance and qualitative constraints but MUST NOT be interpreted as automatically solved metric geometry. Calibrated camera data and a verified scale are required before the pipeline can safely use bounded depth or dimensional constraints.
+- **All-view acceptance** — reconstruct the outer shell/topology before small controls, and reject a front-view improvement when it regresses a named side, rear, top, or bottom reference. A release result should publish the source/render pairs, per-view verdicts, and the commands used to produce them.
+
 ## [1.4.3] — 2026-07-30
 
 The accepted current release line is `1.4.x`. GitHub Releases are the canonical changelog from
