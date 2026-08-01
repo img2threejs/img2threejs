@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+"""CS2 intake manifest: admission, classification-gated family/subtype routing, and identity
+resolution for a CS2 weapon/glove skin reference.
+
+Canonical taxonomy source: the community-maintained `ByMykel/CSGO-API` skins.json
+(https://github.com/ByMykel/CSGO-API), reachable via forge/stage1_intake/fetch_cs2_metadata.py.
+That script resolves per-skin identity (paint index, float range, rarity) from the same index
+and is cheap and safe to run by default whenever a skin name is given or suspected, even with no
+local CS2 install -- see grimoire/intake/cs2_texture_acquisition.md step 1. It is a different,
+much smaller ask than that doc's VPK/texture-extraction steps 2-3, which stay an optional Tier-3
+exactness upgrade requiring the user's own local game install.
+
+Family/subtype support here must stay in sync with forge/stage2_spec/cs2_adapters.py (the
+FamilyAdapter registered per family) -- a family/subtype supported here with no adapter there
+raises at spec-authoring time instead of at intake, which is a worse failure mode.
+"""
 from __future__ import annotations
 
 import argparse
@@ -9,23 +24,72 @@ import tempfile
 from pathlib import Path
 from typing import Any, Final
 
-from forge.stage1_intake.check_reference_admission import check_admission
-from forge.stage1_intake.cs2_foundation import enrich_manifest_with_metadata, normalize_cs2_metadata, resolve_identity
-from forge.stage1_intake.cs2_review_contract import build_review_scene
-from forge.stage1_intake.detect_cs2 import detect_cs2_signals
+# Insert the skill root so the absolute `forge.X.Y` imports below resolve under direct script
+# execution (`python3 forge/stage1_intake/cs2_manifest.py ...` from any cwd), not just when
+# PYTHONPATH already includes it or the module is imported as a package (e.g. by pytest).
+# Pre-existing gap: this file was the only forge.stage1_intake module doing cross-package
+# `from forge.X` imports without it, so it silently only ever worked via `-m` invocation or
+# under pytest's own import machinery -- never as a plain script, until a test exercised that.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from forge.stage1_intake.check_reference_admission import check_admission  # noqa: E402
+from forge.stage1_intake.cs2_foundation import enrich_manifest_with_metadata, normalize_cs2_metadata, resolve_identity  # noqa: E402
+from forge.stage1_intake.cs2_review_contract import build_review_scene  # noqa: E402
+from forge.stage1_intake.detect_cs2 import detect_cs2_signals  # noqa: E402
 from forge.stage1_intake.probe_image import probe
 
 SCHEMA_VERSION: Final[int] = 1
-SUPPORTED_FAMILIES: Final[frozenset[str]] = frozenset({"knife"})
-UNSUPPORTED_FAMILIES: Final[frozenset[str]] = frozenset(
-    {"pistol", "rifle", "smg", "sniper", "heavy", "glove"}
+SUPPORTED_FAMILIES: Final[frozenset[str]] = frozenset(
+    {"knife", "pistol", "sniper", "rifle", "smg", "heavy", "glove"}
 )
-# Knife subtypes that have a dedicated geometry adapter. A subtype absent here is
-# `unsupported-subtype`, never silently routed through another subtype's tree.
-KNIFE_SUBTYPES: Final[frozenset[str]] = frozenset(
-    {"karambit", "butterfly", "bayonet", "m9", "flip", "gut", "falchion", "bowie", "navaja",
-     "talon", "classic"}
+# Physical CS2 items with their own skins but no adapter yet (Zeus x27, C4, defuse kit, Kevlar).
+# Not a weapon/knife/glove topology at all -- distinct from an unrecognized/junk classification.
+UNSUPPORTED_FAMILIES: Final[frozenset[str]] = frozenset({"equipment"})
+# Subtypes with a dedicated geometry adapter, per family (see forge/stage2_spec/cs2_adapters.py
+# -- keep these two files' subtype sets identical; a mismatch lets intake proceed into a spec
+# author call that then raises for a family/subtype cs2_adapters.py doesn't recognize).
+# A subtype absent from its family's set is `unsupported-subtype`, never silently routed
+# through another subtype's tree.
+KNIFE_SUBTYPES: Final[frozenset[str]] = frozenset({
+    "karambit", "butterfly", "bayonet", "m9", "flip", "gut", "falchion", "bowie", "navaja",
+    "talon", "classic",
+    "huntsman", "kukri", "nomad", "paracord", "shadow-daggers", "skeleton", "stiletto",
+    "survival", "ursus",
+})
+PISTOL_SUBTYPES: Final[frozenset[str]] = frozenset({
+    "glock-18", "usp-s", "p2000", "dual-berettas", "p250", "cz75-auto", "five-seven", "tec-9",
+    "desert-eagle", "r8-revolver",
+})
+# CS2's "Sniper Rifles" Market category -- bolt-action AWP plus the semi-auto SSG08/G3SG1/
+# SCAR-20. AWP is the only one built against a real reference so far (see
+# src/demos/awp-medusa/createAwpMedusaModel.ts in the img2threejs-showcase project); the other
+# three are gate-registered only, per this file's module docstring.
+SNIPER_SUBTYPES: Final[frozenset[str]] = frozenset({"awp", "ssg08", "g3sg1", "scar-20"})
+# CS2's "Rifles" Market category (semi/full-auto, no detachable scope) -- distinct from Sniper
+# Rifles above. None built against a real reference yet.
+RIFLE_SUBTYPES: Final[frozenset[str]] = frozenset(
+    {"ak-47", "m4a4", "m4a1-s", "famas", "galil-ar", "sg-553", "aug"}
 )
+SMG_SUBTYPES: Final[frozenset[str]] = frozenset(
+    {"mac-10", "mp9", "mp7", "mp5-sd", "ump-45", "p90", "pp-bizon"}
+)
+# CS2's "Heavy" Market category covers both shotguns and machine guns -- genuinely different
+# shapes; see the _HEAVY comment in cs2_adapters.py.
+HEAVY_SUBTYPES: Final[frozenset[str]] = frozenset(
+    {"nova", "xm1014", "sawed-off", "mag-7", "m249", "negev"}
+)
+GLOVE_SUBTYPES: Final[frozenset[str]] = frozenset(
+    {"bloodhound", "broken-fang", "driver", "hand-wraps", "hydra", "moto", "specialist", "sport"}
+)
+FAMILY_SUBTYPES: Final[dict[str, frozenset[str]]] = {
+    "knife": KNIFE_SUBTYPES,
+    "pistol": PISTOL_SUBTYPES,
+    "sniper": SNIPER_SUBTYPES,
+    "rifle": RIFLE_SUBTYPES,
+    "smg": SMG_SUBTYPES,
+    "heavy": HEAVY_SUBTYPES,
+    "glove": GLOVE_SUBTYPES,
+}
 ROUTES: Final[frozenset[str]] = frozenset(
     {"reference-projection", "authored-texture", "procedural-finish"}
 )
@@ -157,12 +221,12 @@ def build_manifest(
     if family not in SUPPORTED_FAMILIES:
         manifest["state"] = "unsupported-family"
         manifest["unsupportedReason"] = f"no adapter registered for {family}"
-    elif subtype and subtype not in KNIFE_SUBTYPES:
+    elif subtype and subtype not in FAMILY_SUBTYPES[family]:
         manifest["state"] = "unsupported-subtype"
-        manifest["unsupportedReason"] = f"no knife adapter fixture for {subtype}"
+        manifest["unsupportedReason"] = f"no {family} adapter fixture for {subtype}"
     else:
         manifest["state"] = "proceed"
-        manifest["componentAdapter"] = "cs2-knife-v1"
+        manifest["componentAdapter"] = f"cs2-{family}-v1"
     if metadata:
         manifest = enrich_manifest_with_metadata(manifest, {"status": "resolved", "identity": metadata})
         manifest["metadata"] = normalize_cs2_metadata(metadata)
@@ -180,7 +244,7 @@ def validate_manifest(manifest: dict[str, Any]) -> bool:
         return False
     if not isinstance(manifest["sourceViews"], list) or not isinstance(manifest["warnings"], list):
         return False
-    if manifest["state"] == "proceed" and manifest.get("itemFamily") != "knife":
+    if manifest["state"] == "proceed" and manifest.get("itemFamily") not in SUPPORTED_FAMILIES:
         return False
     return True
 

@@ -193,9 +193,45 @@ item: silhouette, proportions, edge profile, hardware layout, coating colour, pa
 wear, roughness response, and camera framing. Every decision must be traceable to evidence or be
 labelled as an approximation.
 
-The initial CS2 family boundary is **knife only**. Pistol, rifle, SMG, sniper, heavy, glove, and
-unknown knife subtypes must stop with `unsupported-family` or `unsupported-subtype`; they must not
-receive the knife component tree as a generic fallback.
+CS2 intake supports all seven Market-category families, each with its own dedicated geometry
+adapter (`forge/stage2_spec/cs2_adapters.py`) — no family is ever handed the knife (or any other
+family's) component tree as a generic fallback:
+
+| Family | Subtypes registered | Notes |
+| --- | --- | --- |
+| knife | 20 (karambit, butterfly, bayonet, m9, flip, gut, falchion, bowie, navaja, talon, classic, huntsman, kukri, nomad, paracord, shadow-daggers, skeleton, stiletto, survival, ursus) | shadow-daggers is a paired-blade outlier within this family |
+| pistol | 10 (glock-18, usp-s, p2000, dual-berettas, p250, cz75-auto, five-seven, tec-9, desert-eagle, r8-revolver) | dual-berettas is two guns; r8-revolver is a cylinder, not a slide |
+| sniper | 4 (awp, ssg08, g3sg1, scar-20) | CS2's "Sniper Rifles" category; only AWP is built against a real reference so far |
+| rifle | 7 (ak-47, m4a4, m4a1-s, famas, galil-ar, sg-553, aug) | CS2's "Rifles" category — semi/full-auto, no detachable scope |
+| smg | 7 (mac-10, mp9, mp7, mp5-sd, ump-45, p90, pp-bizon) | p90/pp-bizon have non-box-magazine topology (top-mount / drum) |
+| heavy | 6 (nova, xm1014, sawed-off, mag-7, m249, negev) | shotguns and machine guns are genuinely different shapes sharing one Market category |
+| glove | 8 (bloodhound, broken-fang, driver, hand-wraps, hydra, moto, specialist, sport) | hand/wrist topology, not a weapon or a full character |
+
+An unlisted subtype of a supported family (e.g. rifle/ak47 without the hyphen, sniper/m24) stops
+with `unsupported-subtype`; an unlisted family (e.g. `equipment` — Zeus x27, C4, defuse kit,
+Kevlar — has real CS2 skins but no adapter yet) stops with `unsupported-family`. Registering a
+family/subtype here only unblocks *intake* — it does not generate geometry. The actual component
+tree still has to be measured from real reference image(s) and hand-authored the way
+`src/demos/awp-medusa/createAwpMedusaModel.ts` (img2threejs-showcase) was built; `new_sculpt_spec.py`
+seeds a topology-appropriate starter skeleton per family (barrel/receiver/stock for a rifle,
+slide/frame for a pistol, cuff/back-of-hand/fingers/palm for a glove, etc.) via `--family`/
+`--subtype`, but that skeleton is still a placeholder to replace, not a finished spec.
+
+Extending support to a genuinely new family/subtype means adding a real `FamilyAdapter` + subtype
+entry in `cs2_adapters.py` **and** the matching entry in `cs2_manifest.py`'s
+`SUPPORTED_FAMILIES`/`FAMILY_SUBTYPES` — the two subtype sets must stay identical (a mismatch lets
+intake proceed into a spec-authoring call that then raises for a family/subtype `cs2_adapters.py`
+doesn't recognize, a worse failure mode than catching it at intake). Never bypass the gate for a
+one-off item.
+
+**Identity resolution — do this by default, not just for exact-texture work.** Whenever a skin
+name is given or suspected, run `forge/stage1_intake/fetch_cs2_metadata.py` against the public
+CSGO-API index to resolve the real paint index, float range, and rarity — it needs no local game
+install and costs nothing, so there is no reason to leave float/paint-seed as "unknown" in a spec
+when this would resolve it. This is a *different, much cheaper* step than
+`grimoire/intake/cs2_texture_acquisition.md`'s VPK/texture-extraction steps, which stay an
+optional Tier-3 exactness upgrade requiring the user's own local CS2 install — do not conflate
+the two or skip the cheap one because the expensive one is optional.
 
 For every CS2 reconstruction, MUST read the full layer contract, intake order, and surface/review
 rule in `grimoire/intake/cs2_intake_contract.md` before intake state can advance.

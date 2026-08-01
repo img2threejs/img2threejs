@@ -1,6 +1,10 @@
 # CS2 Texture Acquisition (optional exactness upgrade)
 
-This is **not** part of the default image-first path. It is an optional Tier-3 upgrade for exact
+**Step 1 (metadata) is a different, much cheaper ask than steps 2-3 and should generally be run
+by default** whenever a skin name is given or suspected — it needs no local game install, hits a
+public community index, and turns an "unknown" float/paint-seed in the spec into a measured one
+for free. Steps 2-3 (locating the user's VPK and extracting Valve's own authored textures) are
+**not** part of the default image-first path — that part is an optional Tier-3 upgrade for exact
 texture likeness, driven autonomously by the host agent from the **user's own legal CS2 install**.
 The user performs no manual step beyond, at most, pointing at the install / VPK path. If nothing is
 found the agent falls back to the image-only reconstruction — it never fabricates a wrong render.

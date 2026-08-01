@@ -810,6 +810,62 @@ class PipelineTest(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("environment", r.stdout.lower())
 
+    def test_cs2_family_aware_scaffold_per_family(self):
+        # Each family gets its own topology-appropriate placeholder component tree, not the
+        # knife-shaped default (root/blade/grip/guard/pommel/bolster) that new_sculpt_spec.py
+        # used to hand back for every non-knife family before the CS2 taxonomy was generalized.
+        cases = {
+            "pistol": ("usp-s", {"slide", "frame", "barrel", "magazine", "trigger"}),
+            "sniper": ("awp", {"barrel", "receiver", "scope", "stock", "magazine"}),
+            "rifle": ("ak-47", {"barrel", "receiver", "handguard", "stock", "pistol-grip", "magazine"}),
+            "smg": ("mp9", {"barrel", "receiver", "magazine", "stock", "pistol-grip"}),
+            "heavy": ("xm1014", {"barrel", "receiver", "handguard", "feed", "stock"}),
+            "glove": ("sport", {"cuff", "back-of-hand", "fingers", "palm"}),
+        }
+        for family, (subtype, expected_ids) in cases.items():
+            with self.subTest(family=family):
+                spec = self.dir / f"{family}-spec.json"
+                r = run("stage2_spec/new_sculpt_spec.py", f"{family} test", "--cs2",
+                        "--family", family, "--subtype", subtype, "--out", spec, "--force")
+                self.assertEqual(r.returncode, 0, r.stderr)
+                payload = json.loads(spec.read_text())
+                ids = {c["id"] for c in payload["componentTree"]} - {"root"}
+                self.assertEqual(ids, expected_ids)
+                # every family's scaffold must itself be a valid, non-knife-shaped spec
+                v = run("stage2_spec/validate_sculpt_spec.py", spec)
+                self.assertEqual(v.returncode, 0, v.stdout + v.stderr)
+
+    def test_cs2_no_family_or_manifest_warns_and_defaults_to_knife(self):
+        r = run("stage2_spec/new_sculpt_spec.py", "Mystery Item", "--cs2", "--out", self.spec)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("defaulting itemfamily to 'knife'", r.stderr.lower())
+        spec = json.loads(self.spec.read_text())
+        self.assertEqual({c["id"] for c in spec["componentTree"]} - {"root"},
+                         {"blade", "grip", "guard", "pommel", "bolster"})
+
+    def test_cs2_invalid_family_subtype_is_a_clean_cli_error(self):
+        r = run("stage2_spec/new_sculpt_spec.py", "Bad Item", "--cs2",
+                "--family", "rifle", "--subtype", "not-a-real-gun", "--out", self.spec)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("unsupported-subtype", r.stderr.lower())
+
+    def test_cs2_family_flag_overrides_conflicting_manifest_with_warning(self):
+        manifest = self.dir / "cs2-intake.json"
+        run("stage1_intake/cs2_manifest.py", self.ref, "--out", manifest)
+        # patch the manifest to a proceed state for a family other than the one we'll pass
+        payload = json.loads(manifest.read_text())
+        payload["state"] = "proceed"
+        payload["itemFamily"] = "knife"
+        manifest.write_text(json.dumps(payload))
+        r = run("stage2_spec/new_sculpt_spec.py", "Override Item", "--cs2",
+                "--manifest", manifest, "--family", "smg", "--subtype", "mp9",
+                "--out", self.spec, "--force")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("overrides manifest itemfamily", r.stderr.lower())
+        spec = json.loads(self.spec.read_text())
+        self.assertEqual({c["id"] for c in spec["componentTree"]} - {"root"},
+                         {"barrel", "receiver", "magazine", "stock", "pistol-grip"})
+
     def test_fetch_cs2_metadata_resolves_and_flags_ambiguity(self):
         index = self.dir / "skins.json"
         index.write_text(json.dumps([

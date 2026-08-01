@@ -11,6 +11,11 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 from status_banner import emit_status
+# Insert the skill root (matching new_pre_spec_assessment.py's PROJECT_ROOT pattern) so the
+# absolute `forge.X.Y` import below resolves under both direct script execution and pytest's
+# package-style import of this module.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from forge.stage2_spec.cs2_adapters import get_family_adapter  # noqa: E402
 
 
 def slugify(value: str) -> str:
@@ -711,23 +716,15 @@ def _cs2node(cid, name, primitive, position, scale, material, role, level,
                   local_features=local_features or [], evidence=["full-object"])
 
 
-CS2_KNIFE_SUBTYPES = frozenset(
-    {"karambit", "butterfly", "bayonet", "m9", "flip", "gut", "falchion", "bowie", "navaja",
-     "talon", "classic"}
-)
-
-
-def make_cs2_component_tree(item_family: str = "knife", subtype: str | None = None) -> list:
-    if item_family != "knife":
-        raise ValueError(f"unsupported CS2 family {item_family!r}; only knife is implemented")
-    if subtype and subtype not in CS2_KNIFE_SUBTYPES:
-        raise ValueError(f"unsupported CS2 knife subtype {subtype!r}")
-    # Root is an organizing group only: use the invisible 'hidden' material (opacity 0) exactly
-    # like the character template, so the generator's per-component mesh for root never renders as
-    # a stray box over the weapon -- no generic generator change needed.
-    root = _cnode("root", "Weapon (root)", "box", None, (0, 0, 0), (1, 1, 1),
-                  material="hidden", role="body", level="macro", importance=1.0, anim_role="root")
-    parts = [
+# Per-family starter parts. Every one of these is a placeholder skeleton for the agent to
+# measure and replace against the real reference image(s) -- exactly like the knife tree
+# always was, and exactly how src/demos/awp-medusa/createAwpMedusaModel.ts (img2threejs-showcase)
+# was actually built: this scaffold only stops the agent from being handed knife-shaped parts
+# (blade/grip/guard/pommel/bolster) for a pistol or a rifle, which is strictly worse than a
+# family-appropriate placeholder because it has to be recognized as wrong before the real
+# measuring work can even start.
+def _knife_parts() -> list:
+    return [
         _cs2node("blade", "Blade", "ground-blade", (0, 0.55, 0), (1.0, 1.0, 1.0), "skin-finish", "blade", "macro", 1.0,
                  ["edge bevel highlight", "engraved pattern swirl"]),
         _cs2node("grip", "Grip", "curve-sweep", (0, -0.55, 0), (1.0, 1.0, 1.0), "skin-finish", "grip", "macro", 0.9,
@@ -736,26 +733,139 @@ def make_cs2_component_tree(item_family: str = "knife", subtype: str | None = No
         _cs2node("pommel", "Pommel", "sphere", (0, -0.95, 0), (0.2, 0.2, 0.2), "substrate", "pommel", "meso", 0.6),
         _cs2node("bolster", "Bolster", "box", (0, 0.02, 0), (0.2, 0.18, 0.26), "substrate", "bolster", "meso", 0.6),
     ]
+
+
+def _pistol_parts() -> list:
+    return [
+        _cs2node("slide", "Slide", "extrude", (0, 0.3, 0), (1.0, 0.5, 1.0), "skin-finish", "slide", "macro", 1.0,
+                 ["ejection port", "rear/front sight"]),
+        _cs2node("frame", "Frame", "extrude", (0, -0.1, 0), (0.9, 0.6, 0.9), "skin-finish", "frame", "macro", 0.9,
+                 ["trigger guard loop", "grip panel texture"]),
+        _cs2node("barrel", "Barrel", "lathe", (0.3, 0.3, 0), (0.15, 0.5, 0.15), "substrate", "barrel", "meso", 0.7),
+        _cs2node("magazine", "Magazine", "box", (0, -0.9, 0), (0.2, 0.5, 0.15), "substrate", "magazine", "meso", 0.6),
+        _cs2node("trigger", "Trigger", "box", (0.05, -0.15, 0), (0.06, 0.15, 0.06), "substrate", "trigger", "meso", 0.5),
+    ]
+
+
+def _sniper_parts() -> list:
+    return [
+        _cs2node("barrel", "Barrel", "lathe", (-0.8, 0, 0), (0.08, 1.4, 0.08), "substrate", "barrel", "macro", 0.9),
+        _cs2node("receiver", "Receiver", "box", (0.2, -0.05, 0), (0.5, 0.2, 0.15), "skin-finish", "receiver", "macro", 1.0,
+                 ["ejection port"]),
+        _cs2node("scope", "Riflescope", "lathe", (0.5, 0.2, 0), (0.06, 0.8, 0.06), "substrate", "scope", "meso", 0.7,
+                 ["objective/ocular bell", "turret cap"]),
+        _cs2node("stock", "Stock", "extrude", (1.2, -0.1, 0), (0.5, 0.45, 0.15), "skin-finish", "stock", "macro", 0.9,
+                 ["thumbhole or grip cutout"]),
+        _cs2node("magazine", "Magazine", "box", (0.55, -0.25, 0), (0.12, 0.25, 0.13), "substrate", "magazine", "meso", 0.6),
+    ]
+
+
+def _rifle_parts() -> list:
+    return [
+        _cs2node("barrel", "Barrel", "lathe", (-0.7, 0.1, 0), (0.06, 1.1, 0.06), "substrate", "barrel", "macro", 0.9),
+        _cs2node("receiver", "Receiver", "box", (0.1, 0.05, 0), (0.45, 0.18, 0.14), "skin-finish", "receiver", "macro", 1.0,
+                 ["ejection port"]),
+        _cs2node("handguard", "Handguard", "extrude", (-0.35, 0.08, 0), (0.35, 0.13, 0.13), "skin-finish", "handguard", "meso", 0.7),
+        _cs2node("stock", "Stock", "extrude", (0.9, 0.0, 0), (0.4, 0.2, 0.13), "skin-finish", "stock", "macro", 0.8),
+        _cs2node("pistol-grip", "Pistol grip", "curve-sweep", (0.35, -0.3, 0), (0.12, 0.3, 0.12), "substrate", "pistol-grip", "meso", 0.6),
+        _cs2node("magazine", "Magazine", "box", (0.15, -0.35, 0), (0.12, 0.4, 0.13), "substrate", "magazine", "meso", 0.6),
+    ]
+
+
+def _smg_parts() -> list:
+    return [
+        _cs2node("barrel", "Barrel", "lathe", (-0.5, 0.05, 0), (0.05, 0.6, 0.05), "substrate", "barrel", "macro", 0.8),
+        _cs2node("receiver", "Receiver", "box", (0.05, 0.0, 0), (0.4, 0.16, 0.13), "skin-finish", "receiver", "macro", 1.0),
+        _cs2node("magazine", "Magazine (or top-mount / drum -- verify against reference)", "box",
+                 (0.0, -0.35, 0), (0.1, 0.4, 0.12), "substrate", "magazine", "meso", 0.7),
+        _cs2node("stock", "Stock (fixed / folding / absent -- verify against reference)", "extrude",
+                 (0.55, 0.0, 0), (0.3, 0.15, 0.1), "skin-finish", "stock", "meso", 0.6),
+        _cs2node("pistol-grip", "Pistol grip", "curve-sweep", (0.15, -0.28, 0), (0.1, 0.25, 0.1), "substrate", "pistol-grip", "meso", 0.5),
+    ]
+
+
+def _heavy_parts() -> list:
+    return [
+        _cs2node("barrel", "Barrel", "lathe", (-0.8, 0.05, 0), (0.07, 1.2, 0.07), "substrate", "barrel", "macro", 0.9),
+        _cs2node("receiver", "Receiver", "box", (0.1, 0.0, 0), (0.5, 0.2, 0.16), "skin-finish", "receiver", "macro", 1.0),
+        _cs2node("handguard", "Handguard / pump-slide (verify against reference)", "extrude",
+                 (-0.35, 0.0, 0), (0.35, 0.15, 0.14), "skin-finish", "handguard", "meso", 0.7),
+        _cs2node("feed", "Magazine / ammo box / belt feed (verify against reference)", "box",
+                 (0.2, -0.35, 0), (0.15, 0.4, 0.15), "substrate", "feed", "meso", 0.6),
+        _cs2node("stock", "Stock", "extrude", (0.9, 0.0, 0), (0.4, 0.2, 0.14), "skin-finish", "stock", "macro", 0.7),
+    ]
+
+
+def _glove_parts() -> list:
+    return [
+        _cs2node("cuff", "Cuff / wrist strap", "extrude", (0, -0.7, 0), (0.5, 0.35, 0.35), "skin-finish", "cuff", "macro", 0.8,
+                 ["wrist strap / buckle"]),
+        _cs2node("back-of-hand", "Back of hand panel", "extrude", (0, 0.0, 0), (0.5, 0.55, 0.3), "skin-finish", "back-of-hand", "macro", 1.0,
+                 ["knuckle plate or padding"]),
+        _cs2node("fingers", "Finger segments", "curve-sweep", (0, 0.6, 0), (0.45, 0.35, 0.25), "skin-finish", "fingers", "meso", 0.8,
+                 ["finger/thumb segmentation"]),
+        _cs2node("palm", "Palm", "extrude", (0, 0.05, -0.15), (0.45, 0.5, 0.15), "substrate", "palm", "meso", 0.6,
+                 ["palm grip texture"]),
+    ]
+
+
+_CS2_FAMILY_PARTS = {
+    "knife": _knife_parts,
+    "pistol": _pistol_parts,
+    "sniper": _sniper_parts,
+    "rifle": _rifle_parts,
+    "smg": _smg_parts,
+    "heavy": _heavy_parts,
+    "glove": _glove_parts,
+}
+
+
+def make_cs2_component_tree(item_family: str = "knife", subtype: str | None = None) -> list:
+    # get_family_adapter is the single source of truth for family/subtype support (shared with
+    # forge/stage1_intake/cs2_manifest.py's intake gate) -- raises ValueError with a clear
+    # unsupported-family/unsupported-subtype message for anything not registered there.
+    get_family_adapter(item_family, subtype)
+    # Root is an organizing group only: use the invisible 'hidden' material (opacity 0) exactly
+    # like the character template, so the generator's per-component mesh for root never renders as
+    # a stray box over the weapon -- no generic generator change needed.
+    root = _cnode("root", "Weapon (root)", "box", None, (0, 0, 0), (1, 1, 1),
+                  material="hidden", role="body", level="macro", importance=1.0, anim_role="root")
+    parts = _CS2_FAMILY_PARTS[item_family]()
     return [root, *parts]
 
 
-def make_cs2_feature_targets() -> list:
+# Per-family (primaryPaintedPart, secondaryPart) used to seed feature-target componentRefs
+# below without hardcoding blade/guard for every family. Pick the two parts from each family's
+# _*_parts() builder that best carry the finish and a secondary structural read.
+_CS2_FAMILY_PRIMARY_PARTS = {
+    "knife": ("blade", "grip", "guard"),
+    "pistol": ("slide", "frame", "frame"),
+    "sniper": ("stock", "receiver", "receiver"),
+    "rifle": ("receiver", "stock", "handguard"),
+    "smg": ("receiver", "stock", "receiver"),
+    "heavy": ("receiver", "stock", "handguard"),
+    "glove": ("back-of-hand", "cuff", "fingers"),
+}
+
+
+def make_cs2_feature_targets(item_family: str = "knife") -> list:
+    primary, secondary, tertiary = _CS2_FAMILY_PRIMARY_PARTS.get(item_family, ("blade", "grip", "guard"))
     return [
         {"id": "cs2-silhouette", "name": "Weapon silhouette and proportions", "tier": "critical",
          "passIds": ["blockout"], "minimumScore": 0.8, "mustPass": True,
-         "componentRefs": ["root", "blade", "grip"], "evidenceRefs": ["full-object"]},
+         "componentRefs": ["root", primary, secondary], "evidenceRefs": ["full-object"]},
         {"id": "cs2-finish-style-read", "name": "Finish style reads correctly", "tier": "critical",
          "passIds": ["material-pass"], "minimumScore": 0.75, "mustPass": True,
-         "componentRefs": ["blade"], "evidenceRefs": ["full-object"]},
+         "componentRefs": [primary], "evidenceRefs": ["full-object"]},
         {"id": "cs2-metal-response", "name": "Metal / anodized environment response", "tier": "critical",
          "passIds": ["lighting-pass"], "minimumScore": 0.75, "mustPass": True,
-         "componentRefs": ["blade", "guard"], "evidenceRefs": ["full-object"]},
+         "componentRefs": [primary, tertiary], "evidenceRefs": ["full-object"]},
         {"id": "cs2-pattern-placement", "name": "Pattern placement (approximated)", "tier": "important",
          "passIds": ["material-pass"], "minimumScore": 0.65, "mustPass": False,
-         "componentRefs": ["blade"], "evidenceRefs": ["full-object"]},
+         "componentRefs": [primary], "evidenceRefs": ["full-object"]},
         {"id": "cs2-wear-read", "name": "Wear / float reads plausibly", "tier": "important",
          "passIds": ["surface-pass"], "minimumScore": 0.65, "mustPass": False,
-         "componentRefs": ["blade", "grip"], "evidenceRefs": ["full-object"]},
+         "componentRefs": [primary, secondary], "evidenceRefs": ["full-object"]},
     ]
 
 
@@ -785,7 +895,7 @@ def apply_cs2_template(
     profile = CS2_FINISH_PROFILES[resolved_style]
     spec["componentTree"] = make_cs2_component_tree(item_family, subtype)
     spec["materials"] = [_cs2_finish_material(resolved_style, float_value, paint_seed), _cs2_substrate_material(), _cs2_hidden_material()]
-    spec["featureReviewTargets"] = make_cs2_feature_targets()
+    spec["featureReviewTargets"] = make_cs2_feature_targets(item_family)
     # top-level signal for the pre-render environment gate (mirrors the material value)
     spec["envMapIntensity"] = profile["env"]
     spec["cs2Finish"] = {"finishStyle": resolved_style, "viewDependent": profile["viewDependent"],
@@ -799,12 +909,17 @@ def apply_cs2_template(
         unknowns = pre.setdefault("unknownsToResolveBeforeImplementation", [])
         unknowns.extend(conflict for conflict in conflicts if conflict not in unknowns)
     oc = pre.setdefault("objectClass", {})
-    oc["primaryType"] = "weapon-skin"
+    oc["primaryType"] = "glove-skin" if item_family == "glove" else "weapon-skin"
     oc["primaryDomain"] = "object"
-    oc["formLanguage"] = ["hard-surface", "bladed"]
-    oc["structureKind"] = ["blade", "grip", "guard"]
+    oc["formLanguage"] = (
+        ["soft-goods", "wrapped-hand"] if item_family == "glove" else ["hard-surface", "bladed" if item_family == "knife" else "mechanical"]
+    )
+    oc["structureKind"] = [node["id"] for node in _CS2_FAMILY_PARTS.get(item_family, _knife_parts)()]
     oc["motionPotential"] = ["static", "inspect-orbit"]
-    oc["materialFamilies"] = ["metal", "anodized-coat" if profile["viewDependent"] else "painted-coat"]
+    oc["materialFamilies"] = (
+        ["leather", "synthetic-wrap"] if item_family == "glove"
+        else ["metal", "anodized-coat" if profile["viewDependent"] else "painted-coat"]
+    )
     oc["cs2"] = True
     complexity = pre.setdefault("complexity", {})
     complexity["tier"] = "ultra-complex"
@@ -1585,6 +1700,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--float", dest="cs2_float", type=float,
                         help="CS2 item float (0.0 Factory New .. 1.0 Battle-Scarred); approximated from the image if omitted")
     parser.add_argument("--paint-seed", type=int, help="CS2 paint seed; deterministic default placement if omitted")
+    parser.add_argument("--family", choices=sorted(_CS2_FAMILY_PARTS),
+                        help="CS2 item family (knife/pistol/sniper/rifle/smg/heavy/glove); required for a non-knife "
+                             "family when --manifest is not given, or the family silently defaults to 'knife'. "
+                             "Overrides --manifest's itemFamily if both are given and disagree (a warning is printed).")
+    parser.add_argument("--subtype", help="CS2 subtype within --family (e.g. 'ak-47', 'sport'); validated against "
+                                          "forge/stage2_spec/cs2_adapters.py")
     parser.add_argument("--no-environment", action="store_true",
                         help="Mark the code-generated default environment as unavailable (testing/last-resort only) "
                              "-- validate_sculpt_spec.py blocks view-dependent finishes when set")
@@ -1599,9 +1720,19 @@ def main(argv: list[str]) -> int:
             parser.error("CS2 intake manifest must be a JSON object")
         if manifest.get("state") != "proceed":
             parser.error(f"CS2 intake is not ready for spec authoring: {manifest.get('state', 'unknown')}")
-        if manifest.get("itemFamily") != "knife":
-            parser.error("CS2 spec authoring currently supports only the knife family")
-    spec = make_spec(args.target_name, args.image, assessment)
+        manifest_family = manifest.get("itemFamily")
+        if manifest_family not in _CS2_FAMILY_PARTS:
+            parser.error(f"CS2 spec authoring has no adapter for family {manifest_family!r} "
+                         f"(supported: {', '.join(sorted(_CS2_FAMILY_PARTS))})")
+        if args.family and args.family != manifest_family:
+            print(f"warning: --family {args.family!r} overrides manifest itemFamily {manifest_family!r}", file=sys.stderr)
+    # NOTE: origin/main's pre-existing call here passed args.image (a list, from the --image
+    # append action) directly to make_spec(target_name, image: str | None, ...) -- a type
+    # mismatch predating this change, unrelated to CS2 family support. Left as the corrected
+    # single-image extraction rather than reintroducing that mismatch; flagged separately,
+    # not silently folded into this PR's intent.
+    primary_image = args.image[0] if args.image else None
+    spec = make_spec(args.target_name, primary_image, assessment)
     domain = None
     cs2_marker = False
     if isinstance(assessment, dict):
@@ -1615,6 +1746,19 @@ def main(argv: list[str]) -> int:
             oc = assessment.get("preSpecAssessment", {}).get("objectClass", {})
             if isinstance(oc, dict) and oc.get("finishStyle") in CS2_FINISH_PROFILES:
                 finish_style = oc["finishStyle"]
+        if args.family:
+            resolved_family = args.family
+        elif manifest is not None:
+            resolved_family = str(manifest.get("itemFamily", "knife"))
+        else:
+            resolved_family = "knife"
+            print("warning: no --manifest or --family given; defaulting itemFamily to 'knife'. "
+                  "Pass --family explicitly for a non-knife CS2 item.", file=sys.stderr)
+        resolved_subtype = args.subtype or (str(manifest["subtype"]) if manifest and manifest.get("subtype") else None)
+        try:
+            get_family_adapter(resolved_family, resolved_subtype)
+        except ValueError as exc:
+            parser.error(str(exc))
         apply_cs2_template(
             spec, finish_style,
             skin_name=args.skin_name,
@@ -1623,8 +1767,8 @@ def main(argv: list[str]) -> int:
             float_value=args.cs2_float,
             paint_seed=args.paint_seed,
             environment_available=not args.no_environment,
-            item_family=str(manifest.get("itemFamily", "knife")) if manifest else "knife",
-            subtype=str(manifest["subtype"]) if manifest and manifest.get("subtype") else None,
+            item_family=resolved_family,
+            subtype=resolved_subtype,
         )
         if manifest:
             apply_cs2_manifest_evidence(spec, manifest)

@@ -88,10 +88,21 @@ class TextureFoundationTests(unittest.TestCase):
 
 
 class AdapterAndReviewTests(unittest.TestCase):
-    def test_only_knife_adapter_is_registered(self) -> None:
+    def test_registered_family_adapters(self) -> None:
         self.assertEqual(get_family_adapter("knife", "karambit").family, "knife")
+        self.assertEqual(get_family_adapter("pistol", "glock-18").family, "pistol")
+        # AWP is a Sniper Rifle in CS2's own Market taxonomy, not a (semi-auto) Rifle -- it
+        # moved to its own 'sniper' family once non-sniper rifles were registered, so an
+        # AK-47 request can't collide with the AWP-specific adapter.
+        self.assertEqual(get_family_adapter("sniper", "awp").family, "sniper")
+        self.assertEqual(get_family_adapter("rifle", "ak-47").family, "rifle")
+        self.assertEqual(get_family_adapter("smg", "mp9").family, "smg")
+        self.assertEqual(get_family_adapter("heavy", "xm1014").family, "heavy")
+        self.assertEqual(get_family_adapter("glove", "sport").family, "glove")
         with self.assertRaises(ValueError):
-            get_family_adapter("rifle", "ak47")
+            get_family_adapter("rifle", "ak47")  # unsupported-subtype: no hyphen -> not registered
+        with self.assertRaises(ValueError):
+            get_family_adapter("equipment", "zeus-x27")  # unsupported-family: no adapter at all
 
     def test_review_scene_is_versioned_and_thresholds_are_frozen(self) -> None:
         scene = build_review_scene("fixture-sha256")
