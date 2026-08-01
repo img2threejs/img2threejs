@@ -9,6 +9,12 @@ __pycache__/
 .vscode/
 .idea/
 
+# Dedicated vision backend config — contains API keys, never committed
+backend-vision.json
+
+# Locally generated output files (reference images, assessment JSON, models)
+outputs/
+
 # Scratch / generated review artifacts (keep committed demos in assets/)
 *.tmp
 

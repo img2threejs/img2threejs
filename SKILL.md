@@ -1,6 +1,6 @@
 ---
 name: img2threejs
-description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
+description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Supports combined workflow with image-generation tools (Agnes, DALL-E) to produce reference images before 3D reconstruction. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
 license: Apache-2.0
 version: 1.4.3
 ---
@@ -20,6 +20,34 @@ browser MCP (playwright/chrome-devtools), the project preview, or a user-supplie
 The user attaches/points to an object image and wants a procedural Three.js model, a
 reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
 action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
+
+## Host Model Capability Requirement
+
+**This skill requires an AI agent with vision capability to complete the full pipeline.**
+
+The staged sculpting pipeline relies on agent vision at two critical points:
+1. **Image analysis** (step 1) — identify/classify the object, decompose structure, list identity-defining details
+2. **Render review** (step 9) — score the rendered comparison sheet against the reference
+
+Without vision, the pre-spec assessment JSON will have `primaryDomain`, `primaryType`, and
+all `complexity.scores` fields left as `"unassessed"` or `0`. The non-visual scripts
+(`probe_image.py`, `validate_sculpt_spec.py`, `new_pre_spec_assessment.py`) can still run
+and produce structured scaffolding, but the spec authoring (step 3) and review loop will stall.
+
+### Vision fallback strategies
+
+| Scenario | Workaround |
+|---|---|
+| Host is text-only (e.g. DeepSeek-V4-Free) | **Recommended: use the dedicated vision backend** (`python3 vision_query.py <image> "<prompt>"`). See [Dedicated Vision Backend](#dedicated-vision-backend) below. Alternatively, use an image-generation skill (Agnes, DALL-E, StableDiffusion) to produce the reference, then run the non-visual scripts manually. |
+| Host has limited vision | The "Divine Eye" deterministic harness (`forge/stage4_review/divine_eye.py`) can replace some VLM review passes with zero-token geometric checks (IoU, pHash, SSIM). Also use `vision_query.py` for any visual judgment the host struggles with. |
+| No browser for rendering | Use the agent's project preview, an MCP browser tool (Playwright/Chrome DevTools), or a user-supplied screenshot as the render capture. |
+
+**Known working hosts**: Claude Code (native image), Codex (project preview), Cursor,
+any agent with a browser MCP or screenshot tool.
+
+**Text-only hosts with dedicated backend**: DeepSeek-V4-Free, and any text-only model that
+has `vision_query.py` configured — the full pipeline becomes viable because vision-dependent
+steps are delegated to the dedicated backend automatically.
 
 ## Core Promise
 
@@ -56,6 +84,222 @@ hidden sides or guarantee exact geometry — say so instead of faking confidence
 - for a CS2 request, an authoritative classification record (family/subtype and evidence refs) or
   an explicit request for the user/vision provider to supply one; heuristic detection alone is not
   enough to select a geometry adapter
+
+## Reference Image Best Practices
+
+The quality of the output Three.js model depends heavily on the reference image.
+
+### Strong vs weak subjects
+
+| Subject type | img2threejs quality | Notes |
+|---|---|---|
+| **Hard-surface objects** (weapons, tools, vehicles, electronics, furniture) | ⭐⭐⭐⭐⭐ | Best results. Clear component hierarchy, defined edges, distinct materials. |
+| **Styled characters** (cartoon, game figurine) | ⭐⭐⭐ | Stylized reconstruction, not photoreal. Use `primaryDomain: character`. |
+| **Architecture / dioramas** (rooms, buildings, isometric scenes) | ⭐⭐⭐⭐ | Supported via v1.6+ roadmap. Works for boxy structures. |
+| **Organic / biological subjects** (eyes, faces, skin, animals, plants) | ⭐⭐ | The code-only, procedural approach cannot replicate subsurface scattering, soft tissue, or complex organic topology seen in a photo. Output reads as stylized/low-poly. Use `--complexity ultra-complex` and accept approximation. |
+| **Single body parts** (just an eye, just a hand without context) | ⭐ | Lacks the structural context the component tree needs. The pre-spec will show shallow hierarchy. Better to include the full face/body. |
+
+### Generating reference images with AI (combined workflow)
+
+When using an image-generation tool to produce the reference (Agnes, DALL-E, Stable Diffusion),
+optimise for img2threejs success:
+
+| Do generate | Don't generate |
+|---|---|
+| Product shots on plain background | Busy, cluttered scenes |
+| Objects with clear geometric forms | Organic blobs, smoke, liquids |
+| Side or 3/4 view showing structure | Close-up macro of one feature |
+| Matte / diffuse lighting | Heavy lens flare or volumetric fog |
+| Objects with distinct material zones | Subjects where subsurface scattering dominates |
+| Hard-surface sci-fi/cyberpunk props | Photoreal animals, faces, skin close-ups |
+
+**Practical tip**: If the only available image is organic (a person, an eye, a flower), it can still
+proceed — but set expectations upfront: the output will be a stylized/low-poly recreation, not
+photoreal. State this before the first spec is written.
+
+### Minimal image requirements
+
+- Resolution ≥ 512×512 (tested: 1152×864 works well)
+- Object occupies ≥ 40% of the frame
+- No heavy compression artifacts
+- Single subject, not a group of objects
+- Visible edges and boundaries — not blending into background
+- PNG or JPEG format (PNG preferred for lossless detail)
+
+### Reference Image Prompt Engineering
+
+When generating reference images with an AI image tool (Agnes, DALL-E, Stable Diffusion),
+the prompt directly controls how well the 3D pipeline will work. A prompt with skin context
+will produce skin in the 3D model; a prompt with isolated subject produces clean geometry.
+
+**Do use — produce clean, reconstructable subjects:**
+
+```
+A human eye, extreme close-up macro shot, ISOLATED on a solid grey background,
+product photography style, matte studio lighting, sharp focus on iris and pupil,
+no eyelashes or surrounding skin visible, the eye fills the entire frame,
+photorealistic, 3D render style, clean edges.
+
+AVOID: face, eyelid, eyebrow, skin texture, makeup, shadows on skin, background context.
+```
+
+Key phrases that improve 3D output:
+- **"isolated on solid [color] background"** — removes surrounding context
+- **"fills the entire frame"** — maximizes subject size in frame
+- **"product photography style, matte lighting"** — reduces reflections and shadows
+- **"sharp focus on [subject]"** — keeps edges crisp
+- **"no [unwanted context]"** — explicitly suppresses what you don't want
+- **"hard-surface, distinct parts, clear edges"** — for mechanical objects
+- **"avoid: [clutter, reflections, complex background]"** — negative prompt for cleaner output
+
+**Don't use — produce hard-to-reconstruct images:**
+
+| Weak prompt | Problem |
+|---|---|
+| `a human eye` | Generates eye + surrounding face, skin, eyelashes — pipeline rebuilds everything |
+| `a red apple on a wooden table` | Multiple objects, complex background, shadows — hard to isolate |
+| `cyberpunk city street` | Too complex, no single subject |
+| `close-up of a person's face` | Organic, subsurface scattering, skin — output will be stylized/low-poly |
+
+**Before/after example:**
+
+```
+❌ Bad: "A human eye close-up photo"
+    → Pipeline generates: eye, eyelids, skin, eyelashes, tear duct, brow area (9 components)
+
+✅ Good: "A human eye globe isolated on grey background, fills the frame, no skin or eyelashes visible"
+    → Pipeline generates: eye, sclera, iris, pupil, cornea (5 components, focused)
+```
+
+**Practical tip for the agent:** When asked to generate a reference image for 3D reconstruction,
+write the prompt to:
+1. Name the subject first
+2. Add "isolated on solid [color] background"
+3. Add "fills the entire frame" or "tight crop"
+4. Explicitly exclude surrounding context ("no skin", "no background", "no eyelashes")
+5. Specify "product photography style, matte lighting"
+6. End with "AVOID: [list of unwanted elements]"
+
+This is the single most impactful optimization for 3D reconstruction quality.
+
+### Pre-validation: catch bad images early
+
+```bash
+# Before running the full pipeline, check if the image is suitable
+python3 tools/pre_validate_image.py reference.png
+
+# Sample output:
+#   Subject: 49% of frame
+#   ⚠️  Subject touches frame edges — may include surrounding context
+#   ⚠️  Background corners not uniform — subject may blend into background
+```
+
+The pre-validation script checks:
+- Subject coverage (% of frame occupied by subject)
+- Edge variance (does subject touch frame boundaries?)
+- Corner entropy (is background uniform?)
+- Resolution and aspect ratio
+
+This catches the exact eye-with-surrounding-skin problem before it reaches spec generation.
+
+### Scope pruning: remove unwanted components
+
+After spec generation, use `fix_spec.py` to keep only the components you want:
+
+```bash
+# Keep only eyeball components (remove skin, eyelids, lashes)
+python3 tools/fix_spec.py spec.json --scope eye
+
+# Or specify exact IDs to keep
+python3 tools/fix_spec.py spec.json --keep eye-root,sclera,iris,pupil,cornea
+
+# Or prune by prefix
+python3 tools/fix_spec.py spec.json --prune skin-
+```
+
+## Dedicated Vision Backend
+
+When the host AI agent lacks native vision capability (e.g. DeepSeek-V4-Free, a text-only
+model), you can use the dedicated vision backend configured in `backend-vision.json` to
+perform image analysis and render review. This delegates visual judgment to a remote
+vision-capable model via `vision_query.py`.
+
+### Quick start
+
+```bash
+# Analyze a reference image
+python3 vision_query.py /path/to/reference.png "Describe this object in detail. What are its main parts, materials, and colors?"
+
+# Save analysis to a JSON file
+python3 vision_query.py /path/to/reference.png \
+  "Classify this object: hard-surface, organic, character, or hybrid. List 5+ identity-defining features." \
+  --out outputs/analysis.json
+```
+
+### Backend configuration
+
+The `backend-vision.json` file defines two backends in a primary/fallback chain:
+
+| Role | Provider | Model | Base URL | Status |
+|---|---|---|---|---|
+| **Primary** | Agnes | `agnes-2.0-flash` | `https://apihub.agnes-ai.com/v1` | ✅ Verified — vision works |
+| **Fallback** | OpenCode Zen | `deepseek-v4-flash-free` | `https://opencode.ai/zen/v1` | ⚠️ Text-only on free tier |
+
+The fallback is kept as a placeholder — upgrade to a paid OpenCode Zen key to enable
+vision on non-free models (e.g. `deepseek-v4-flash`, `qwen3.5-plus`).
+
+Both endpoints are OpenAI-compatible and receive vision requests as base64-encoded images.
+The script tries Primary first; on error or rate-limit it falls back automatically.
+
+> **Security**: `backend-vision.json` contains API keys and is excluded from git
+> (see `.gitignore`). Treat it like a credential file.
+
+### When to use
+
+Call `vision_query.py` at every point where the pipeline says "agent vision":
+
+1. **Image analysis** (pipeline step 1) — object classification, macro→meso→micro decomposition,
+   part relationships, PBR material identification. Use targeted prompts per the layered
+   observation protocol in `grimoire/intake/image_analysis.md`.
+2. **Pre-spec assessment** (step 2) — fill the visual fields (`primaryDomain`, `complexity.scores`,
+   `detailInventory`) that the deterministic scripts leave as `0` or `"unassessed"`.
+3. **Render review** (step 9) — score the comparison sheet against the reference image.
+   Prompt with the specific feature targets from the spec.
+4. **Detail inventory** (step 2b) — enumerate identity-defining small features per region.
+
+### Prompting guidelines
+
+- **Be specific**: "List the visible parts of this object and their approximate colors" rather
+  than "What do you see?"
+- **Use 3D vocabulary**: Ask for component hierarchy, topology class (box/cylinder/sphere/torus/loft),
+  material classification (metal/plastic/gemstone/paint), and surface finish (gloss/matte/brushed).
+  See `grimoire/glossary/3d_vocabulary.md`.
+- **One question at a time**: Complex multi-part questions dilute the model's focus on each aspect.
+  Split into 2-3 separate calls for macro description → material analysis → detail detection.
+- **Temperature 0.3** (already default): lower temperature gives more consistent, deterministic
+  descriptions. Raise to 0.7 only for creative brainstorming.
+- **Image size matters**: The default `imageDetail: "high"` loads full resolution. For very large
+  images (>4K), use a cropped region of interest or switch to `"auto"` to reduce token usage.
+
+### Integration with the pipeline loop
+
+When running the full staged pipeline on a text-only host:
+
+1. Run the intake scripts as normal (they are deterministic and need no vision):
+   ```bash
+   python3 forge/stage1_intake/probe_image.py <image>
+   python3 forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --out assessment.json
+   ```
+2. For each field left as `"unassessed"` or `0` by the scripts, call `vision_query.py`
+   with the relevant question, then manually fill the assessment JSON from the analysis.
+3. Author the spec from the filled assessment.
+4. Generate code with the normal build scripts.
+5. For render review (step 9), call `vision_query.py` with the comparison sheet image
+   and the feature targets as the prompt.
+6. Write the review result into the spec with `append_review.py`.
+
+This replaces the agent's built-in vision with a reproducible, scriptable pipeline
+that works on any host model — not just those with native vision.
 
 ## The Loop (scripts do enforcement; agent vision does judgment)
 
@@ -129,6 +373,12 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    per-region confidence and request more views when it matters.
 3. Author the spec from the assessment:
    `forge/stage2_spec/new_sculpt_spec.py "Name" --image <img> --assessment assessment.json --manifest cs2-intake.json --out object-sculpt-spec.json`.
+   **Note: `new_sculpt_spec.py` outputs a skeleton spec with only one root component.**
+   For a full component tree, after skeleton generation run:
+   `python3 tools/auto_tree.py assessment.json object-sculpt-spec.json --in-place`.
+   This matches the assessment's `objectClass.primaryType` to a component tree template
+   (car, eye, face, etc.) and populates components, materials, repetition systems, lighting,
+   and feature review targets automatically.
    Replace generic starter `featureReviewTargets` with the object's real identity-defining
    systems (≤5 critical, ≤3 important per pass); for characters add `anatomy-proportion`,
    `face-landmark-placement`, `pose-silhouette`, `outfit-and-palette`. Use 3D-graphics terms only
@@ -300,6 +550,141 @@ evidence caused it, what still differs, and choose exactly one next action:
   character feature targets. Suitability routing for humans: `grimoire/intake/validation_rubric.md`
   (stylized vs maximum-likeness). Stylized bust, not a face-copy; refine positions per reference.
 
+## Platform Compatibility Notes
+
+### Windows (Git Bash / PowerShell)
+
+All scripts are pure Python 3.10+ stdlib and run on Windows without modification. Verified on
+Python 3.14.6. Known considerations:
+
+| Issue | Workaround |
+|---|---|
+| **Git Bash path conversion** | Python's `pathlib` handles both `/c/Users/...` and `C:\...` paths. Use absolute paths or forward-slashed relative paths. |
+| **Temp file location** | `new_pre_spec_assessment.py --out /tmp/...` creates files in Git Bash's temp mapping. Use explicit `C:\Users\...\Temp\` paths for reliable cross-session access. |
+| **CS2 test fixtures** | 2 of 56 pipeline tests fail on Windows without CS2 map-stripped render fixtures. These are CS2-specific gates (`append_review.py --map-stripped-render`) and do not affect core object/character pipeline. Run tests with `python3 forge/tests/test_pipeline.py`; 54/56 pass. |
+| **PNG handling** | Scripts use `struct` + `zlib` for PNG I/O (no Pillow). Verified working on Windows. |
+
+### macOS / Linux
+
+Expected to work identically — all scripts use cross-platform Python stdlib only.
+
+### Python version
+
+Requires Python ≥ 3.10 (stdlib only — no pip/npm installs for the pipeline scripts).
+The generated TypeScript output requires Node.js and Three.js in the target project.
+
+## Project Structure
+
+Each reconstruction lives in its own standalone project folder under
+`~/Documents/ZCodeProjects/<project-name>/`. This keeps artifacts portable and independent
+of the skill directory.
+
+### Standard layout
+
+```
+~/Documents/ZCodeProjects/
+  <project-name>/
+    ├── index.html                     # Vite preview page
+    ├── src/main.ts                    # Viewer entry
+    ├── create<PascalName>Model.ts     # Generated Three.js factory (1k–3k lines)
+    ├── <image>.png                    # Reference image
+    ├── <project-name>-sculpt-spec.json # Validated sculpt spec
+    ├── <project-name>-vision-analysis.json  # Vision backend output
+    ├── package.json / tsconfig.json / vite.config.ts
+    ├── dist/                          # Production build
+    └── node_modules/                  # npm dependencies
+```
+
+### Quick-start from a reference image
+
+```bash
+# One-command setup (runs analysis → spec → validate → code gen → npm install)
+python3 tools/init_project.py --image /path/to/ref.png --name my-project
+
+# Then preview
+cd ~/Documents/ZCodeProjects/my-project && npx vite
+# → http://localhost:3000
+```
+
+### Template-based Component Tree (auto_tree)
+
+The pre-spec assessment JSON contains rich information about the object: its type, estimated
+component count, materials, and identity-defining details. However, `new_sculpt_spec.py`
+only produces a one-root-component skeleton regardless of this data. **`auto_tree.py`**
+bridges this gap by matching the assessment to a component tree template.
+
+```bash
+# After generating assessment + skeleton spec, enrich the spec with a full component tree:
+python3 tools/auto_tree.py outputs/my-project-pre-spec-assessment.json outputs/my-project-sculpt-spec.json
+
+# Specify output path explicitly:
+python3 tools/auto_tree.py assessment.json spec.json --out enriched-spec.json --force
+```
+
+**How it works:**
+1. Reads the assessment's `objectClass.primaryType` (e.g. "compact hatchback automobile")
+2. Scores built-in templates by keyword matching (car, eye, face, hand, etc.)
+3. Selects the best-matching template and instantiates a full component tree with parameterized dimensions
+4. Populates materials, repetition systems, lighting, and feature review targets
+5. Maps assessment `detailInventory` entries to component local features
+6. Runs validation (cross-references, topology-primitive compatibility, tier fields)
+
+**Integration in the pipeline** — `init_project.py` runs `auto_tree.py` automatically after
+skeleton generation, before validation and factory code generation. The result is a spec with
+a proper component hierarchy (10-20+ components for complex objects) instead of a single root box.
+
+**When no template matches**, `auto_tree.py` prints a note and returns the skeleton unchanged —
+it never fails on unknown object types. Templates live in `tools/auto_tree.py` as Python dicts;
+add new templates for your domain by following the existing car template pattern.
+
+### Iterative development with watch_rebuild
+
+When iterating on a sculpt spec JSON (tweaking component positions, dimensions, or materials),
+the manual loop is: edit spec → re-run factory generator → validate → restart Vite.
+**`watch_rebuild.py`** automates this:
+
+```bash
+# Watch all specs in outputs/ and auto-rebuild on changes
+python3 tools/watch_rebuild.py
+
+# Watch a specific spec file
+python3 tools/watch_rebuild.py --spec outputs/my-project-sculpt-spec.json
+
+# Watch with a custom project directory
+python3 tools/watch_rebuild.py --spec spec.json --project-dir ~/Documents/ZCodeProjects/my-project
+```
+
+The watcher polls every 2 seconds, debounces rapid edits (500ms), and on each detected change:
+1. Runs `validate_sculpt_spec.py` to check spec integrity
+2. Runs `generate_threejs_factory.py` to regenerate the TypeScript model file
+3. Prints pass/fail and debounce status
+
+After rebuilding, manually reload the Vite preview page to see the updated model. Or leave
+both `vite` and `watch_rebuild.py` running in separate terminals for a tight edit→rebuild→review loop.
+
+### Manual setup (when init_project doesn't fit)
+
+1. Collect all artifacts in `~/Documents/ZCodeProjects/<name>/`
+2. Generate factory: `python3 forge/stage3_build/generate_threejs_factory.py <spec.json> --out ~/Documents/ZCodeProjects/<name>/createModel.ts --force`
+3. Copy spec and image alongside
+4. Create `index.html` + `src/main.ts` + `package.json` (see existing projects as template)
+5. `cd` into the project folder and run `npm install && npx vite`
+
+## Known validation pitfalls (and fixes)
+
+| Error/Warning | Cause | Fix |
+|---|---|---|
+| `albedo must be an object` | Material albedo is a hex string `"#D4A574"` | Change to `{"hex": "#D4A574", "type": "sRGB"}` |
+| `colorMaterialRecipe` missing | Component has a string recipe instead of object | Replace with `{"dominantAlbedo": "rgba(r,g,b,a)", "materialClass": "skin", "materialClassConfidence": 0.95}` |
+| `detailInventory detail has unknown kind` | Detail kind not in taxonomy | Use one of: gloss, bevel, fastener, linework, contour, seam, stitch, stain, scratch, chip, decal, emissive, hole, groove, ridge |
+| `detail does not map to a component.localFeatures or material.localOverrides entry` | Detail ref doesn't match any component/material in spec | Fix `mapsTo.ref` to an existing component/material id, and add a matching entry to that component's `localFeatures` or material's `localOverrides` |
+| `ambientOcclusion must be an object` | AO is a boolean `true` | Change to `{"map": {"type": "procedural"}, "intensity": 0.5}` |
+| `referencePbr.usable must be true` | No PBR maps available | Set `referencePbr` to `null` (the check only fires when keyed by `lookDevTargets`) |
+| `surfaceFrequencyBands` missing | Wrong field name or format | Use `surfaceFrequencyBands: [{"id": "macro", "frequency": 1.0, "amplitude": 0.5}, ...]` |
+| `mesoComponents/minimumSpecDepth` below minimum | Component levels set wrong | Adjust component `level` fields (macro/meso/micro) and update `estimatedCounts` |
+| Organics generate full humanoid bust | `--character` flag was set | For single body parts, omit `--character` to get a flat component tree |
+| Viewer shows black screen | `createHumanEyeLookDevLights()` returns a `THREE.Group` not an array | Use `scene.add(createLights())` not `scene.add(...forEach)` |
+
 ## Self-Correction
 
 After every pass, decide exactly one: `continue | refine-spec | refine-code | request-input | stop`.
@@ -322,3 +707,43 @@ material recipes + hard-won failure patterns: `grimoire/build/geometry_patterns.
 - **Implementation**: the above briefly, then edit code; verify with typecheck/build + a screenshot.
 - **Not feasible**: name the blocker, ask for more views / cleaner image / accepted stylization /
   a narrower target. "This cannot reach the requested fidelity from this image" is a valid result.
+
+## Combined Workflow: Image Generation → 3D Reconstruction
+
+When the user does not have a reference image ready, you can combine an image-generation
+skill (Agnes, DALL-E, Stable Diffusion) with img2threejs in a two-step pipeline:
+
+### Step 1: Generate a suitable reference image
+
+Use a text-to-image tool to create a hard-surface object. Optimize the prompt for 3D reconstruction:
+
+```
+A [object name], product photography style, isolated on white background,
+3/4 perspective view, matte lighting, distinct geometric parts, clear edges,
+no reflections or lens flare, photorealistic.
+
+Avoid: close-up crops, organic textures, volumetric effects, multiple objects,
+busy backgrounds, extreme lighting.
+```
+
+Output size: ≥ 1024×768. Save as PNG.
+
+### Step 2: Reconstruct with img2threejs
+
+```
+/img2threejs Rebuild this object as a procedural Three.js model.
+```
+
+The pipeline runs normally from this point. The AI-generated reference may have
+inconsistent hidden geometry (the model never saw the back side) — the review loop
+will flag this; report it as an approximation.
+
+### When the generated image is unsuitable
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `technicalSuitability: conditional` | Image too small, compressed, or ambiguous | Regenerate with higher resolution and plainer background |
+| `primaryDomain: unassessed` (pre-spec) | Agent has no vision | Run `python3 vision_query.py <image> "Classify this object and identify its main parts and materials"` to fill the assessment manually. See [Dedicated Vision Backend](#dedicated-vision-backend). |
+| `complexity.scores.* = 0` (pre-spec) | Vision required | Use `vision_query.py` to get visual scores, then edit the assessment JSON to fill the fields. |
+| `detailInventory` has < `targetMinDetails` entries | Subject is organic or poorly visible | Use hard-surface subject, or accept stylized output. For organic subjects, use `vision_query.py` with a targeted "enumerate details by region" prompt. |
+| Shallow spec rejection by strict-quality | Object lacks visible component hierarchy | Choose an object with distinct, separable parts. Use `vision_query.py` to help decompose the visible structure. |
