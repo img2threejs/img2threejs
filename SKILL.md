@@ -2,15 +2,15 @@
 name: img2threejs
 description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
 license: Apache-2.0
-
 version: 1.4.4-beta.3
 ---
 
 # img2threejs — Image to procedural Three.js
 
-Rebuild the object visible in a reference image as a **code-only** procedural Three.js model,
+Rebuild the subject visible in reference image(s) as a **code-only** procedural Three.js model,
 gated by a staged sculpting pipeline and an AI-vision self-correction loop. This is
-reconstruction-by-code, **not** photogrammetry, mesh extraction, or downloaded art packs.
+reconstruction-by-code, **not** photogrammetry, mesh extraction, downloaded art packs, or a
+depth-map/image-shell trick.
 
 Agent-agnostic: works under Claude Code, Codex, or OpenCode. Wherever this doc says "agent
 vision" or "agent browser tool", use whatever the host provides — native image reading, a
@@ -24,7 +24,7 @@ action-ready props, game objects, botanical/mechanical parts, and stylized recon
 
 ## Core Promise
 
-Sculpt from a photo, in order — never one-shot a mesh:
+Sculpt from image evidence, in order — never one-shot a mesh:
 1. **Use local state first.** Initialize it once, then run
    `python3 forge/next.py --state .img2threejs/state.json [<spec>]` at every start/resume and before
    every correction iteration. Obey a hard stop; never continue from memory.
@@ -33,6 +33,17 @@ Sculpt from a photo, in order — never one-shot a mesh:
 3. **Spec** it: component hierarchy, materials, lighting, pivots, sockets, action anchors.
 4. **Build pass-by-pass** from blockout → structure → form → material → lighting → interaction → optimization.
 5. **Verify** each pass with a screenshot compared against the reference; fail a pass if an identity-defining feature is wrong even when the global score looks fine.
+
+The pipeline is subject-generic. Do not require a pre-registered adapter for a new object,
+weapon family, mechanism, prop, plant, vehicle, or character. Synthesize a subject adapter and
+spec from the evidence before code generation; never route an unfamiliar subject through a
+nearby object's component tree. The adapter is a reconstruction contract, not permission to
+invent hidden detail. Read `grimoire/intake/adaptive_adapter.md` and
+`grimoire/intake/research_evidence.md` whenever the subject has no existing domain template.
+
+Every reconstruction has an explicit artifact root and loop budget. The default artifact root is
+`.img2threejs/`; the user's explicit loop budget overrides the generic defaults. For the AWP
+reconstruction, set both `maxPerPass` and `maxTotal` to `20` and carry those values into state.
 
 State explicitly when output is approximate/stylized/low-poly. A single image cannot reveal
 hidden sides or guarantee exact geometry — say so instead of faking confidence.
@@ -48,16 +59,20 @@ Full rule + examples: `grimoire/review/self_correction.md`.
 - one image path / screenshot / URL / attached image (if missing or unreadable, ask)
 - intended use: prop, game object, hero render, playable/destructible object, animation rig
   (default: real-time browser prop with interactive performance)
-- for a CS2 request, an authoritative classification record (family/subtype and evidence refs) or
-  an explicit request for the user/vision provider to supply one; heuristic detection alone is not
-  enough to select a geometry adapter
+- for a CS2 request, an authoritative classification record (family/subtype and evidence refs) is
+  preferred for identity/metadata, but it does not replace subject-adapter synthesis
 
 ## Mandatory Local State Gate
 
 Conversation context is disposable; `.img2threejs/state.json` is the local checklist authority.
 Initialize it once per reconstruction:
 
-`python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|cs2|character>`
+`python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|cs2|character> --max-per-pass <n> --max-total <n>`
+
+Use `--max-per-pass 20 --max-total 20` for the AWP task. Never silently fall back to the
+skill's default `3/6` when the task or state explicitly declares another budget. Record the
+artifact root in `state.artifacts.root` and keep generated evidence under that root. Read
+`grimoire/intake/artifact_storage.md` before creating outputs.
 
 At every fresh start, resume, or correction loop, run
 `python3 forge/next.py --state .img2threejs/state.json [object-sculpt-spec.json]` before touching
@@ -95,7 +110,15 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
     (bilingual terms, focused `search_specs.py` retrieval, cache rules):
     `grimoire/intake/local_spec_search.md`. MUST read it before retrying an incomplete or
     domain-specific query.
-1b. **CS2 intake manifest** — for a CS2 request, create and validate `cs2-intake.json` before
+1b. **Subject-adapter synthesis** — if no adapter exactly matches the subject, create one now.
+    Classify the subject at the highest justified level (`object`, `character`, or `hybrid`),
+    enumerate macro/meso/micro components, write the parent-child/contact graph, select a
+    topology-appropriate recipe for every component, and define the review crops and viewpoints.
+    Store this as `subjectAdapter`/`adapterContract` in the spec with `mode: llm-synthesized`,
+    evidence references, research references, and per-region confidence. A new adapter is a
+    normal continuation path, not an `unsupported-family` stop. Read
+    `grimoire/intake/adaptive_adapter.md`.
+1c. **CS2 intake manifest** — for a CS2 request, create and validate `cs2-intake.json` before
     pre-spec authoring (admission, heuristic signal, classification, family/route resolution).
     MUST read `grimoire/intake/cs2_intake_contract.md` completely before creating the manifest or
     running pre-spec assessment.
@@ -114,29 +137,34 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    `forge/stage1_intake/build_detail_inventory.py <image> --mode grid-3x3 --out-dir <dir> --out di.json`.
    Each detail MUST map to a `component.localFeatures` or `material.localOverrides` entry — never
    prose only. Taxonomy + 3D-term recipes: `grimoire/intake/detail_inventory.md`.
-2c. **Projection-first fidelity (characters AND reference-matched surfaces — supported CS2 knife skins, decals,
-   painted patterns)** — when the goal is matching a specific reference's surface, put the photo's
-   own pixels on the mesh instead of approximating them procedurally. This is the single biggest
-   fidelity lever; a procedural material for a patterned surface is the #1 reconstruction failure.
+2c. **Projection-first fidelity (characters and reference-matched surfaces)** — when the goal is
+   matching a specific reference's surface, put the photo's own pixels on the authored mesh
+   instead of approximating them procedurally. This is the single biggest fidelity lever; a
+   procedural material for a patterned surface is the #1 reconstruction failure. Projection is
+   a surface/UV operation only: it must be bound to the real component mesh, survive orbit views,
+   and never create a camera-only shell or substitute for missing form. Read
+   `grimoire/review/no_cheat_geometry.md` before selecting projection or decals.
    Recipe (`grimoire/character/likeness_maximization.md` — its two levers, align-mesh+camera and
    project-the-photo, generalize past characters): solve the camera
    (`stage1_intake/solve_camera_pose.py` → `referenceCamera`), **de-light** the reference so it is
    free of baked lighting (`stage1_intake/delight_albedo.py`, hard requirement — this is what makes
    projection safe, not the flat-lit icon), then project the de-lit crop onto the mesh and bake it
-   into UVs (`stage3_build/bake_projected_texture.py --mesh-id <id>`). For a CS2 skin the mesh is the
-   procedural blade/guard/grip you author in the spec, and the projected de-lit crop IS the finish
-   (front + back from the two views) — no procedural Doppler material. For characters, first capture
+   into UVs (`stage3_build/bake_projected_texture.py --mesh-id <id>`). For a patterned object finish,
+   the projected de-lit crop IS the finish only after the real component mesh and UV binding pass.
+   For characters, first capture
    landmarks (`stage1_intake/extract_landmarks.py --out anatomy.json`), fill `preSpecAssessment.anatomy`,
    route `grimoire/character/reconstruction.md`. A single view cannot show hidden sides — report
    per-region confidence and request more views when it matters.
-3. Author the spec from the assessment:
+3. Author the spec from the assessment and synthesized adapter:
    `forge/stage2_spec/new_sculpt_spec.py "Name" --image <img> --assessment assessment.json --manifest cs2-intake.json --out object-sculpt-spec.json`.
    Replace generic starter `featureReviewTargets` with the object's real identity-defining
    systems (≤5 critical, ≤3 important per pass); for characters add `anatomy-proportion`,
    `face-landmark-placement`, `pose-silhouette`, `outfit-and-palette`. Use 3D-graphics terms only
    (`grimoire/glossary/3d_vocabulary.md`), never "nice/smooth/shiny". Classify every component's
    `topologyClass`/`topologyRationale` per `grimoire/intake/surface_topology.md` before picking a
-   `primitive` — this is what prevents a continuous organic form from being picked as a box.
+   `primitive` — this is what prevents a continuous organic form from being picked as a box. The
+   spec must also carry the adapter contract and evidence ledger; a generic starter tree is never
+   the final subject tree.
 4. When material fidelity matters and a source image exists, analyze each material's **finish** then
    extract reference PBR evidence, both per crop (crop the correct region — verify the crop is on the
    part you think it is):
@@ -151,9 +179,12 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    Confidence < 0.7 is a stop/refine-input signal, not a pass. It is inference, not inverse rendering.
 5. Validate, then strict-validate before generating code:
    `forge/stage2_spec/validate_sculpt_spec.py object-sculpt-spec.json` then `--strict-quality`.
+   Validate the synthesized adapter as well:
+   `forge/stage2_spec/adaptive_adapter.py --spec object-sculpt-spec.json`.
    Strict blocks shallow specs (a complex object with one root, no repetition systems, no
    local overrides, no micro groups is NOT implementation-ready even if JSON validates).
-6. **Locked build passes** — only touch the currently unlocked pass:
+6. **Locked build passes** — only touch the currently unlocked pass, and lock identity-defining
+   components as they pass their own crop/attachment gate before opening the next component:
    `forge/stage3_build/orchestrate_passes.py status object-sculpt-spec.json`
    `forge/stage3_build/generate_threejs_factory.py object-sculpt-spec.json --out src/createObjectModel.ts`
    (generator is pass-gated: a future `--pass-id` fails until prior passes are reviewed `continue`).
@@ -167,11 +198,14 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    `--spec object-sculpt-spec.json --pass-id <pass> --in-place`; for non-planar forms also run
    `forge/stage4_review/diagnose_render_multi_angle.py` with the fixed view and at least two
    meaningful orbit views. Then run
-   `forge/stage3_build/orchestrate_passes.py check object-sculpt-spec.json --pass-id <pass>`.
-9. Package one side-by-side sheet, then inspect it with agent vision:
-   `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out cmp.png --json`.
-10. Record the review (overall + per-layer + per-feature scores + decision):
-    `forge/stage4_review/append_review.py object-sculpt-spec.json --pass-id <pass> --fidelity <0-1> --action <continue|refine-spec|refine-code|request-input|stop> --summary "..." --render-screenshot <shot> --comparison-image cmp.png --ai-vision-score <0-1> --layer-scores-json '{...}' --feature-reviews-json <f.json> --in-place`.
+   `forge/stage3_build/orchestrate_passes.py check object-sculpt-spec.json --pass-id <pass>`. Also
+   run the no-cheat geometry/attachment checks; a passing AABB or metadata check alone does not
+   prove visual contact or true 3D form.
+9. Package one side-by-side sheet under `.img2threejs/`, then inspect it with agent vision:
+   `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out .img2threejs/reviews/<pass>/comparison.png --json`.
+10. Record the review (overall + per-layer + per-feature scores + decision) in the spec/evidence
+    under `.img2threejs/`:
+    `forge/stage4_review/append_review.py object-sculpt-spec.json --pass-id <pass> --fidelity <0-1> --action <continue|refine-spec|refine-code|request-input|stop> --summary "..." --render-screenshot .img2threejs/renders/<pass>.png --comparison-image .img2threejs/reviews/<pass>/comparison.png --ai-vision-score <0-1> --layer-scores-json '{...}' --feature-reviews-json .img2threejs/reviews/<pass>/features.json --in-place`.
    For the CS2 knife path, also attach the versioned report with
    `--cs2-review-json cs2-review.json --review-scene-json forge/tests/fixtures/knife_review_scene.json`.
    Produce that report first with
@@ -186,6 +220,27 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
     `forge/stage4_review/check_part_coverage.py --spec object-sculpt-spec.json --manifest parts.json`
     and verify the action-ready hierarchy. Mark `part-coverage` and `action-ready` only with evidence.
 
+## Artifact and loop rule
+
+Generated images and information belong in `.img2threejs/` beside `state.json`: renders, crops,
+comparison sheets, orbit audits, manifests, review JSON, research notes, confidence ledgers,
+diagnostic reports, and NotebookLM exports. Use stable subfolders such as `renders/`, `reviews/`,
+`audit/`, `research/`, and `manifests/`. Do not write generated evidence into `src/`, a demo's
+`review/` directory, or an arbitrary temporary folder. Keep source code, committed skill assets,
+and the user-provided original reference paths outside this rule; record their paths in state.
+
+The loop budget is a task contract, not a license to bypass gates. A loop may be spent only after a
+recorded review action and state sync. Do not advance a pass because the budget remains; do not stop
+early merely because the generic default is smaller than the explicit task budget.
+
+## Generic image-matched rule
+
+For every subject, target observable agreement between supplied image(s) and the rendered item:
+silhouette, proportions, edge profile, component layout, material response, local detail placement,
+and camera framing. Every decision must be traceable to direct image evidence, a cited research
+source, or an explicitly labelled inference. A single image cannot prove hidden geometry; infer a
+plausible 3D continuation with confidence rather than claiming exactness.
+
 ## CS2 image-matched rule
 
 For a CS2 item, the target is observable agreement between the supplied image and the rendered
@@ -193,9 +248,12 @@ item: silhouette, proportions, edge profile, hardware layout, coating colour, pa
 wear, roughness response, and camera framing. Every decision must be traceable to evidence or be
 labelled as an approximation.
 
-The initial CS2 family boundary is **knife only**. Pistol, rifle, SMG, sniper, heavy, glove, and
-unknown knife subtypes must stop with `unsupported-family` or `unsupported-subtype`; they must not
-receive the knife component tree as a generic fallback.
+CS2 family adapters are domain templates, not a limit on the generic pipeline. If a CS2 family or
+subtype has no registered template, synthesize a `subjectAdapter` from the image and CS2 evidence
+before authoring the spec. Do not route it through the knife, pistol, or rifle tree by analogy, and
+do not let a family registration claim geometry coverage that has not been measured. A generated
+adapter must carry its own component tree, attachment rules, critical features, review viewpoints,
+and confidence ledger.
 
 For every CS2 reconstruction, MUST read the full layer contract, intake order, and surface/review
 rule in `grimoire/intake/cs2_intake_contract.md` before intake state can advance.
@@ -211,13 +269,17 @@ track). In short:
 - `divine_eye.py` is deterministic-first; the VLM (`vlm_gate.py`) is a gated last layer, never
   consulted on a hard-gate failure.
 - A non-planar form must hold from ≥2 angles (`diagnose_render_multi_angle.py`).
-- CS2 knife builds also run `cs2_review.py` against the versioned scene fixture.
+- CS2 builds also run `cs2_review.py` against the versioned scene fixture when one exists; if the
+  family has no fixture yet, synthesize a subject-specific review fixture before `continue`.
 - Local state enforces 3 corrections per pass and 6 total by default; reaching either limit is a
   hard stop. `correction_loop.py` may stop earlier on repeated defects, oscillation, or plateau.
 - `continue` requires a render + comparison sheet + AI-vision score ≥ threshold, every critical
   feature ≥ its own threshold (`grimoire/feedback/render_capture.md`).
 - Every model ships explodable AND clickable — a structure gate, not pixels
   (`check_part_coverage.py`, `grimoire/build/geometry_patterns.md`).
+- No-cheat geometry is a hard gate: no depth-map extrusion, camera-only image shell, floating
+  decal, or texture used as a replacement for form-critical geometry. See
+  `grimoire/review/no_cheat_geometry.md`.
 - Action-ready, attachment, material/lighting, detail inventory, and character-track requirements:
   `grimoire/readiness/action_rigging.md`, `grimoire/readiness/joint_attachment.md`,
   `grimoire/feedback/shading_realism.md`, `grimoire/intake/quality_contract.md`,
@@ -236,8 +298,10 @@ record the decision, and re-run the local state gate.
 TypeScript + plain Three.js unless the project uses a wrapper. `Group` factory
 `createObjectNameModel(spec, options)`, reconstruction data kept separate from renderer objects,
 deterministic seeds for all procedural noise. Prefer primitives / `Shape` extrude / curve+tube /
-instancing / displacement / generated canvas textures before any external art. Full geometry &
-material recipes + hard-won failure patterns: `grimoire/build/geometry_patterns.md`.
+instancing / displacement / generated canvas textures before any external art. Generate a new
+adapter when the subject is novel; record the evidence/research that caused each non-observed
+decision. Full geometry & material recipes + hard-won failure patterns:
+`grimoire/build/geometry_patterns.md`.
 
 ## Output
 

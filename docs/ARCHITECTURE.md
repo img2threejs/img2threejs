@@ -12,7 +12,7 @@ The skill runs a staged sculpting pipeline. Scripts gate each stage; the agent's
 flowchart TD
     A[Reference image] --> B[Probe and suitability gate]
     B --> C[Pre-Spec Assessment: class, complexity, quality contract]
-    C --> D[Author ObjectSculptSpec: components, materials, sockets]
+    C --> D[Author ObjectSculptSpec: adapter, components, materials, sockets]
     D --> E{Validate and strict-quality}
     E -- too shallow --> D
     E -- ok --> F[Locked build passes]
@@ -73,6 +73,7 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage2_spec/new_pre_spec_assessment.py` | Classify the object, score complexity, emit a quality contract. |
 | `stage2_spec/new_sculpt_spec.py` | Author the ObjectSculptSpec from the assessment. |
 | `stage2_spec/validate_sculpt_spec.py` | Validate the spec; `--strict-quality` blocks shallow specs before codegen. |
+| `stage2_spec/adaptive_adapter.py` | Validate the LLM-synthesized subject adapter and its evidence/contact/no-cheat contract. |
 | `stage1_intake/extract_pbr_evidence.py` | Reference-derived PBR evidence per crop (inference, not inverse rendering). |
 | `stage3_build/orchestrate_passes.py` | Locked pass state: status, check, sync. |
 | `stage3_build/generate_threejs_factory.py` | Emit the Three.js `Group` factory for the current unlocked pass. |

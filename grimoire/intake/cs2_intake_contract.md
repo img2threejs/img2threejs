@@ -9,18 +9,21 @@ item: silhouette, proportions, edge profile, hardware layout, coating colour, pa
 wear, roughness response, and camera framing. Every decision must be traceable to evidence or be
 labelled as an approximation.
 
-The initial CS2 family boundary is **knife only**. Pistol, rifle, SMG, sniper, heavy, glove, and
-unknown knife subtypes must stop with `unsupported-family` or `unsupported-subtype`; they must not
-receive the knife component tree as a generic fallback.
+`cs2-intake.json` is a CS2 identity and surface-evidence manifest, not a universal geometry adapter.
+It must never force an unfamiliar family through the knife, pistol, or rifle component tree. If a
+family/subtype has no registered domain template, the reconstruction continues by synthesizing a
+subject adapter from the image and research; the manifest records `adapterStatus: synthesize` and
+the generated adapter becomes the geometry contract. Unsupported labels are an evidence warning,
+not permission to invent a family match.
 
 ## When to build `cs2-intake.json`
 
 For a CS2 request, create and validate `cs2-intake.json` before pre-spec authoring. Run admission
 and probing for every source view, record the heuristic signal as non-authoritative evidence,
-attach the classification record, resolve the supported family, and choose `route` independently
-from `exactnessTier`. Missing classification, insufficient coverage, or a contradictory
-high-confidence class is `request-input`; unsupported families do not continue into spec
-generation.
+attach the classification record when available, and choose `route` independently from
+`exactnessTier`. Missing classification, insufficient coverage, or a contradictory high-confidence
+class is `request-input`; a missing geometry template is handled by subject-adapter synthesis,
+not by deleting the evidence manifest.
 
 ## Layer contract
 
@@ -32,7 +35,7 @@ Pass these records between layers. Do not copy an informal vision description in
 | Classification | semantic identity | family, subtype, confidence, evidence refs, provider/version, timeout state | geometry or finish parameters |
 | Identity | skin/name/paint metadata | precedence, resolved values, ambiguity candidates, provenance | guessed paint index, float, or seed |
 | Surface evidence | pixels and texture sources | de-lit reference, PBR channels, map provenance, colour space, UV orientation, confidence | albedo reused as roughness/normal/AO |
-| Geometry adapter | family-specific form | component tree, topology, dimensions, edge/spine, hardware relationships, painted regions | hidden geometry without confidence notes |
+| Geometry adapter | measured form for this subject | component tree, topology, dimensions, edge/spine, hardware relationships, painted regions | hidden geometry without confidence notes |
 | Spec/route | evidence-backed implementation choice | route, exactness tier, assumptions, feature targets, camera contract | exact-texture claim without exact evidence |
 | Build/review | rendered observables | fixed view, two non-degenerate orbit views, per-region results, failed gates, next action | overriding a failed critical feature with a global score |
 
@@ -58,8 +61,9 @@ The canonical hand-off is `cs2-intake.json` (`schemaVersion: 1`). Its state is o
      stated priority.
    Exactness is `image-only`, `metadata-assisted`, or `exact-texture`; changing route must not
    silently upgrade or downgrade the evidence tier.
-6. Select the knife adapter only after family/subtype validation. Record painted regions, unpainted
-   substrate, visible hardware, hidden-region confidence, and every approximation in the spec.
+6. Select a registered domain template only as a starting point, or synthesize a new subject
+   adapter when none matches. Record painted regions, unpainted substrate, visible hardware,
+   hidden-region confidence, and every approximation in the spec.
 7. For projection, solve the camera and de-light the source first. Projected pixels provide colour
    evidence, not automatic geometry truth; geometry still comes from the adapter and silhouette
    review.
