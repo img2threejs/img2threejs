@@ -581,6 +581,42 @@ class PipelineTest(unittest.TestCase):
         spec = json.loads(self.spec.read_text())
         self.assertTrue(len(spec.get("reviewHistory", [])) >= 1)
 
+    def test_tier1_rejects_whole_frame_mask_fallback(self):
+        # build_foreground_mask inverts to whole-frame coverage below 3.5%, so two subjects
+        # sharing zero pixels compare as an exact silhouette match. Tier 1 discarded that
+        # warning and reported silhouetteIoU 1.0 / passed=true on a completely wrong render.
+        def solid(path, w, h, rect, fg):
+            raw = bytearray()
+            for y in range(h):
+                raw.append(0)
+                for x in range(w):
+                    inside = rect[0] <= x < rect[2] and rect[1] <= y < rect[3]
+                    raw += bytes(fg if inside else (255, 255, 255))
+
+            def chunk(tag, data):
+                c = struct.pack(">I", len(data)) + tag + data
+                return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+            Path(path).write_bytes(
+                b"\x89PNG\r\n\x1a\n"
+                + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
+                + chunk(b"IEND", b"")
+            )
+
+        ref = self.dir / "tiny_ref.png"
+        ren = self.dir / "tiny_render.png"
+        solid(ref, 200, 200, (10, 10, 40, 40), (220, 30, 30))
+        solid(ren, 200, 200, (160, 160, 190, 190), (30, 30, 220))
+        r = run("stage4_review/diagnose_render.py", "--reference", ref, "--render", ren, "--json")
+        result = json.loads(r.stdout)
+        self.assertFalse(result["passed"], "disjoint subjects must not pass Tier 1")
+        self.assertTrue(result["maskWarnings"], "mask warnings must reach the result")
+        self.assertTrue(
+            any("silhouette evidence is unusable" in f for f in result["failures"]),
+            f"expected an explicit unusable-evidence failure, got {result['failures']}",
+        )
+
     def test_pbr_extraction_runs(self):
         # low-detail synthetic image: either passes or refuses (non-zero) — both are valid,
         # but it must not crash and must respect the confidence gate.

@@ -41,6 +41,7 @@ from diagnose_render import (  # noqa: E402
     bbox_of,
     bilateral_symmetry_error,
     load_mask,
+    mask_is_inverted,
     proportion_delta,
     silhouette_iou,
 )
@@ -234,7 +235,9 @@ def edge_overlap(a: list[float], b: list[float], size: int) -> float:
             union += 1
             if ea[i] and eb[i]:
                 inter += 1
-    return inter / union if union else 1.0
+    # No edges anywhere in either image is an absence of evidence, not agreement;
+    # scoring it 1.0 feeds a free 1.0-weighted term into the fidelity ensemble.
+    return inter / union if union else 0.0
 
 
 def _blown_fraction(luma: list[float], hi: float = 0.95) -> float:
@@ -274,8 +277,8 @@ def tonal_parity(ref: list[float], ren: list[float], bins: int = 16) -> float:
 
 def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
     """Run all deterministic signals and combine into a verdict + routing action."""
-    ref_mask = load_mask(reference_png)
-    ren_mask = load_mask(render_png)
+    ref_mask, ref_mask_warnings = load_mask(reference_png)
+    ren_mask, ren_mask_warnings = load_mask(render_png)
     ref_luma = load_luma(reference_png, LUMA_SIZE)
     ren_luma = load_luma(render_png, LUMA_SIZE)
     ref_edge = load_luma(reference_png, EDGE_SIZE)
@@ -327,6 +330,15 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
 
     # HARD gates: a fail is an immediate reject with a specific numeric reason.
     hard_failures: list[str] = []
+    # The <3.5%-coverage fallback inverts a tiny mask to the full frame, so IoU, scale and
+    # aspect are no longer measuring the subject. Two disjoint objects both invert and score
+    # IoU 1.0, which reads as a perfect match rather than a failed capture — gate it first.
+    mask_inverted = mask_is_inverted(ref_mask_warnings) or mask_is_inverted(ren_mask_warnings)
+    if mask_inverted:
+        hard_failures.append(
+            "foreground mask fell back to whole-frame coverage; silhouette, scale and aspect "
+            "signals are not measuring the subject"
+        )
     if iou < IOU_HARD_MIN:
         hard_failures.append(f"silhouette IoU {iou:.3f} < {IOU_HARD_MIN}")
     if scale_delta > SCALE_HARD_MAX:
@@ -369,6 +381,11 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
     # hard failure is IoU AND objectness says "same object" (high, brightness/bg-invariant),
     # downgrade the confident reject to a probe rather than hard-failing a faithful build.
     # Never rescues a scale-delta failure or a genuinely different object (low objectness).
+    # Note: an inverted-mask failure cannot be rescued here, because the all()-match below
+    # requires every hard failure to be an IoU failure and the inversion message is not one.
+    # If that message is ever reworded to contain "silhouette IoU", this rescue would start
+    # firing on degenerate masks — test_disjoint_tiny_objects_are_not_a_perfect_match is the
+    # backstop for that.
     reconstruction_suspected = False
     if hard_failures and objectness is not None and objectness >= RECON_OBJ_MIN:
         if all("silhouette IoU" in f for f in hard_failures):
@@ -392,6 +409,10 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
         "fidelity": round(fidelity, 4),
         "fidelityTarget": FIDELITY_TARGET,
         "hardGateFailures": hard_failures,
+        "maskWarnings": (
+            [f"reference: {w}" for w in ref_mask_warnings]
+            + [f"render: {w}" for w in ren_mask_warnings]
+        ),
         "disagreementSpread": round(spread, 4),
         "signals": {
             "silhouetteIoU": round(iou, 4),

@@ -21,6 +21,7 @@ from divine_eye import (  # noqa: E402
     global_ssim,
     tonal_parity,
 )
+from diagnose_render import mask_is_inverted, silhouette_iou  # noqa: E402
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -136,6 +137,62 @@ class DivineEyeIntegrationTest(unittest.TestCase):
         r = evaluate(aref, aref)
         self.assertEqual(r["fidelity"], 1.0)
         self.assertEqual(r["verdict"], "pass")
+
+
+class DegenerateEvidenceTest(unittest.TestCase):
+    """Absence of evidence must never score as agreement.
+
+    build_foreground_mask falls back to whole-frame coverage when the keyed subject is
+    under 3.5% of the frame. Two unrelated small subjects therefore both invert to a full
+    frame and compare as an exact match; an empty union scored 1.0 compounded it.
+    """
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+
+    def test_silhouette_iou_empty_union_is_zero(self):
+        # two failed captures are not a perfect match
+        self.assertEqual(silhouette_iou([False] * 16, [False] * 16), 0.0)
+
+    def test_silhouette_iou_still_correct_when_populated(self):
+        self.assertEqual(silhouette_iou([True, True, False, False], [True, True, False, False]), 1.0)
+        self.assertEqual(silhouette_iou([True, False, False, False], [False, True, False, False]), 0.0)
+
+    def test_edge_overlap_no_edges_is_zero(self):
+        # a flat image pair has no edges anywhere; that is missing evidence, not agreement,
+        # and it used to feed a free 1.0 into the weighted fidelity ensemble.
+        flat = [0.5] * 64
+        self.assertEqual(edge_overlap(flat, flat, 8), 0.0)
+
+    def test_mask_is_inverted_detects_the_tiny_coverage_fallback(self):
+        self.assertTrue(mask_is_inverted(["foreground mask is tiny; material extraction is unreliable"]))
+        self.assertFalse(mask_is_inverted([]))
+        self.assertFalse(mask_is_inverted(["image is not clearly isolated from background"]))
+
+    def test_disjoint_tiny_objects_are_not_a_perfect_match(self):
+        # THE regression: 30x30 subjects at opposite corners of a 200x200 frame share zero
+        # pixels. Each is 2.25% coverage, so both masks invert to the full frame and the
+        # silhouette compares as identical. This must be a hard failure, not a pass.
+        ref = self.dir / "corner_a.png"
+        ren = self.dir / "corner_b.png"
+        write_rgb_png(ref, 200, 200, block(10, 10, 40, 40, fg=(220, 30, 30)))
+        write_rgb_png(ren, 200, 200, block(160, 160, 190, 190, fg=(30, 30, 220)))
+        r = evaluate(ref, ren)
+        self.assertTrue(r["hardGateFailures"], "disjoint subjects must trip a hard gate")
+        self.assertNotEqual(r["verdict"], "pass")
+        self.assertTrue(r["maskWarnings"], "the mask inversion must be reported, not discarded")
+
+    def test_same_shape_at_different_positions_still_fails(self):
+        # Identical 28x28 subjects at opposite corners: shape, colour and size all match, so
+        # every non-silhouette signal agrees. Only the inversion gate separates this from a
+        # genuine match, which is why it must be a hard failure rather than a soft penalty.
+        ref = self.dir / "tiny_a.png"
+        ren = self.dir / "tiny_b.png"
+        write_rgb_png(ref, 200, 200, block(20, 20, 48, 48, fg=(200, 40, 40)))
+        write_rgb_png(ren, 200, 200, block(150, 150, 178, 178, fg=(200, 40, 40)))
+        r = evaluate(ref, ren)
+        self.assertTrue(r["hardGateFailures"])
+        self.assertEqual(r["action"], "refine-code")
 
 
 if __name__ == "__main__":
