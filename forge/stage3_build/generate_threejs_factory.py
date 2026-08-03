@@ -254,6 +254,26 @@ _DEFAULT_CURVE_SWEEP = {
 }
 
 
+def resolve_base_primitive(primitive: str, component: dict[str, Any] | None = None) -> str:
+    """Resolve the primitive whose geometry is actually emitted for a component.
+
+    An instanced-cluster's *geometry* is its base shape (the instancing itself is
+    applied by the repetition-system emitter), so the generated call is the base
+    primitive's, not the cluster's. Everything else resolves to itself.
+
+    Both geometry_for() and the helper-emission gate call this, so the "which
+    primitive do we emit a call for" and "which helper functions do we define"
+    decisions can never disagree.
+    """
+    if primitive != "instanced-cluster":
+        return primitive
+    descriptor = component.get("geometryDescriptor") if isinstance(component, dict) and isinstance(component.get("geometryDescriptor"), dict) else {}
+    base = descriptor.get("baseGeometry") if isinstance(descriptor.get("baseGeometry"), str) else "box"
+    if base in ("instanced-cluster", "") or base not in VALID_PRIMITIVES:
+        base = "box"
+    return base
+
+
 def geometry_for(primitive: str, component: dict[str, Any] | None = None) -> str:
     if primitive == "box":
         return "new THREE.BoxGeometry(1, 1, 1, 12, 12, 12)"
@@ -291,13 +311,7 @@ def geometry_for(primitive: str, component: dict[str, Any] | None = None) -> str
         sweep = descriptor.get("curveSweep") if isinstance(descriptor.get("curveSweep"), dict) else _DEFAULT_CURVE_SWEEP
         return f"buildCurveSweepGeometry({json_literal(sweep)})"
     if primitive == "instanced-cluster":
-        # An instanced cluster's *geometry* is its base shape; the instancing itself is applied
-        # by the repetition-system emitter (THREE.InstancedMesh). Resolve the base primitive from
-        # the descriptor (default box); guard against self-reference so we never recurse.
-        base = descriptor.get("baseGeometry") if isinstance(descriptor.get("baseGeometry"), str) else "box"
-        if base in ("instanced-cluster", "") or base not in VALID_PRIMITIVES:
-            base = "box"
-        return geometry_for(base, component)
+        return geometry_for(resolve_base_primitive(primitive, component), component)
     raise GeometryNotImplementedError(primitive)
 
 
@@ -358,7 +372,10 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
     # projects commonly build with noUnusedLocals, and an always-emitted
     # buildLatheGeometry/buildTubeGeometry fails that build the moment a spec (or a
     # pass, since blockout only includes macro components) doesn't use them.
-    used_primitives = {str(component.get("primitive")) for component in components}
+    used_primitives = {
+        resolve_base_primitive(str(component.get("primitive")), component)
+        for component in components
+    }
     if "extrude" in used_primitives:
         lines.extend(
             [
