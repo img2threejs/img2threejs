@@ -2,15 +2,18 @@
 """Tests for analyze_texture.py — finish classification + recipe. Pure stdlib, zero token.
 Run: python3 forge/tests/test_analyze_texture.py
 """
+import io
 import struct
 import sys
 import tempfile
 import unittest
 import zlib
+from contextlib import redirect_stderr
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage1_intake"))
-from analyze_texture import RECIPES, analyze  # noqa: E402
+from analyze_texture import RECIPES, analyze, main  # noqa: E402
 
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
 
@@ -112,6 +115,55 @@ class AnalyzeTextureTest(unittest.TestCase):
                 "ior", "envMapIntensity", "anisotropy", "procedural"}
         for name, rec in RECIPES.items():
             self.assertTrue(keys <= set(rec), f"{name} missing keys")
+
+    def test_patch_target_requires_spec_and_material_id_together(self):
+        for args in (
+            ["missing.png", "--spec", "spec.json"],
+            ["missing.png", "--material-id", "frame"],
+        ):
+            with self.subTest(args=args), redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as raised:
+                    main(args)
+
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn("--spec and --material-id must be used together", stderr.getvalue())
+
+    def test_in_place_requires_patch_target(self):
+        with redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as raised:
+                main(["missing.png", "--in-place"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--in-place requires --spec and --material-id", stderr.getvalue())
+
+    def test_patch_target_uses_utf8_for_spec_io(self):
+        image = self._mk("paint3.png", lambda x, y: (230, 150, 50))
+        spec = self.d / "spec.json"
+        spec.write_text('{"materials": [{"id": "frame"}]}', encoding="utf-8")
+        read_encodings = []
+        write_encodings = []
+        original_read_text = Path.read_text
+        original_write_text = Path.write_text
+
+        def read_text(path, *args, **kwargs):
+            read_encodings.append(kwargs.get("encoding"))
+            return original_read_text(path, *args, **kwargs)
+
+        def write_text(path, data, *args, **kwargs):
+            write_encodings.append(kwargs.get("encoding"))
+            return original_write_text(path, data, *args, **kwargs)
+
+        with patch.object(Path, "read_text", autospec=True, side_effect=read_text):
+            with patch.object(Path, "write_text", autospec=True, side_effect=write_text):
+                main([
+                    str(image),
+                    "--spec", str(spec),
+                    "--material-id", "frame",
+                    "--in-place",
+                ])
+
+        self.assertEqual(read_encodings, ["utf-8"])
+        self.assertEqual(write_encodings, ["utf-8"])
 
 
 if __name__ == "__main__":
