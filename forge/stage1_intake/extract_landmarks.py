@@ -21,6 +21,9 @@ import tempfile
 import zlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+from jpeg import UnsupportedJpeg, decode_jpeg, is_jpeg  # noqa: E402
+
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -163,6 +166,14 @@ def load_image(path: Path) -> tuple[int, int, list[tuple[int, int, int, int]]]:
     try:
         return read_png(path)
     except Exception as direct_error:
+        # JPEG is decoded in-process so a reference photo works on every platform;
+        # sips below stays as the fallback for formats we do not decode (HEIC, TIFF).
+        jpeg_bytes = path.read_bytes()
+        if is_jpeg(jpeg_bytes):
+            try:
+                return decode_jpeg(jpeg_bytes)
+            except UnsupportedJpeg:
+                pass
         sips = shutil.which("sips")
         if not sips:
             raise ValueError(f"could not decode {path.name} as PNG and sips is unavailable: {direct_error}") from direct_error
