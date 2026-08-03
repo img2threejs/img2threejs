@@ -174,10 +174,15 @@ def main(argv: list[str]) -> int:
     try:
         eye = json.loads(args.eye.read_text(encoding="utf-8"))
         sampler = None
+        preloaded = None
         if args.samples:
             preloaded = json.loads(args.samples.read_text(encoding="utf-8"))
+            if not isinstance(preloaded, list) or not preloaded:
+                raise ValueError("--samples must contain a non-empty JSON list")
+            if not all(isinstance(sample, dict) for sample in preloaded):
+                raise ValueError("--samples entries must be JSON objects")
             sampler = lambda i: preloaded[i % len(preloaded)]  # noqa: E731
-        result = gate(eye, sampler, n_samples=len(json.loads(args.samples.read_text())) if args.samples else 3,
+        result = gate(eye, sampler, n_samples=len(preloaded) if preloaded else 3,
                       criteria_min=args.criteria_min, geometry_class=args.geometry_class)
     except Exception as exc:  # noqa: BLE001
         print(f"error: {exc}", file=sys.stderr)
