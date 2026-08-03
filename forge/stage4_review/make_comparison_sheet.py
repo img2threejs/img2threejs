@@ -155,24 +155,33 @@ def composite_over_checker(pixel: tuple[int, int, int, int], x: int, y: int) -> 
     )
 
 
-def resize_cover(
+def resize_contain(
     width: int,
     height: int,
     pixels: list[tuple[int, int, int, int]],
     target_w: int,
     target_h: int,
 ) -> list[tuple[int, int, int]]:
-    scale = max(target_w / width, target_h / height)
+    """Fit the full silhouette inside the panel without cropping acceptance evidence."""
+    scale = min(target_w / width, target_h / height)
     scaled_w = max(1, round(width * scale))
     scaled_h = max(1, round(height * scale))
-    offset_x = max(0, (scaled_w - target_w) // 2)
-    offset_y = max(0, (scaled_h - target_h) // 2)
-    output: list[tuple[int, int, int]] = []
-    for y in range(target_h):
-        source_y = min(height - 1, max(0, int((y + offset_y) / scale)))
-        for x in range(target_w):
-            source_x = min(width - 1, max(0, int((x + offset_x) / scale)))
-            output.append(composite_over_checker(pixels[source_y * width + source_x], x, y))
+    offset_x = (target_w - scaled_w) // 2
+    offset_y = (target_h - scaled_h) // 2
+    output = [
+        ((238, 238, 238) if ((x // 12 + y // 12) % 2 == 0) else (210, 210, 210))
+        for y in range(target_h)
+        for x in range(target_w)
+    ]
+    for y in range(scaled_h):
+        source_y = 0 if scaled_h == 1 else round(y * (height - 1) / (scaled_h - 1))
+        target_y = y + offset_y
+        for x in range(scaled_w):
+            source_x = 0 if scaled_w == 1 else round(x * (width - 1) / (scaled_w - 1))
+            target_x = x + offset_x
+            output[target_y * target_w + target_x] = composite_over_checker(
+                pixels[source_y * width + source_x], target_x, target_y
+            )
     return output
 
 
@@ -232,8 +241,8 @@ def create_sheet(
     fill_rect(canvas, canvas_w, gutter * 2 + panel_w, gutter, panel_w, header_h, (40, 45, 48))
     fill_rect(canvas, canvas_w, gutter, gutter + header_h, panel_w, panel_h, (230, 230, 230))
     fill_rect(canvas, canvas_w, gutter * 2 + panel_w, gutter + header_h, panel_w, panel_h, (230, 230, 230))
-    ref_panel = resize_cover(ref_w, ref_h, ref_pixels, panel_w, panel_h)
-    ren_panel = resize_cover(ren_w, ren_h, ren_pixels, panel_w, panel_h)
+    ref_panel = resize_contain(ref_w, ref_h, ref_pixels, panel_w, panel_h)
+    ren_panel = resize_contain(ren_w, ren_h, ren_pixels, panel_w, panel_h)
     blit(canvas, canvas_w, ref_panel, panel_w, gutter, gutter + header_h)
     blit(canvas, canvas_w, ren_panel, panel_w, gutter * 2 + panel_w, gutter + header_h)
     fill_rect(canvas, canvas_w, panel_w + gutter + gutter // 2, gutter, max(2, gutter // 5), canvas_h - gutter * 2, (170, 146, 92))
