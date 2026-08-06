@@ -1,0 +1,4 @@
+node_modules/
+viewer_server.pid
+render_blockout.png
+work/

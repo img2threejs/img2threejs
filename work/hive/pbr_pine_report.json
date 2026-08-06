@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "verdict": "pass",
+  "confidence": 0.86,
+  "estimatedFidelity": 0.86,
+  "targetThreshold": 0.5,
+  "materialId": "varnished-pine",
+  "sourceImage": "C:\\Users\\ifranjo\\scripts\\imag_3js\\refs\\langstroth_hive_gen.png",
+  "outDir": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine",
+  "palette": [
+    "#936C47",
+    "#BD8E5B",
+    "#C5A177",
+    "#D0CEC8",
+    "#573A1F"
+  ],
+  "maps": {
+    "albedo": {
+      "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_albedo.png",
+      "url": "varnished-pine_albedo.png",
+      "channel": "albedo",
+      "source": "reference-pixel-extraction"
+    },
+    "roughness": {
+      "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_roughness.png",
+      "url": "varnished-pine_roughness.png",
+      "channel": "roughness",
+      "source": "reference-pixel-extraction"
+    },
+    "height": {
+      "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_height.png",
+      "url": "varnished-pine_height.png",
+      "channel": "height",
+      "source": "reference-pixel-extraction"
+    },
+    "normal": {
+      "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_normal.png",
+      "url": "varnished-pine_normal.png",
+      "channel": "normal",
+      "source": "reference-pixel-extraction"
+    },
+    "ao": {
+      "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_ao.png",
+      "url": "varnished-pine_ao.png",
+      "channel": "ao",
+      "source": "reference-pixel-extraction"
+    }
+  },
+  "diagnostics": {
+    "sourceWidth": 1024,
+    "sourceHeight": 1024,
+    "mapSize": 1024,
+    "cropBBoxPixels": {
+      "x": 152,
+      "y": 78,
+      "width": 872,
+      "height": 898
+    },
+    "mask": {
+      "backgroundColor": "#F0F2F0",
+      "backgroundNoise": 9.695,
+      "transparentPixelFraction": 0.0,
+      "foregroundCoverage": 0.5645
+    },
+    "mapStats": {
+      "valueRange": 0.5216,
+      "heightP90Gradient": 0.05228,
+      "roughnessBase": 0.701,
+      "roughnessVariation": 0.094,
+      "normalStrength": 0.218,
+      "blurRadius": 21
+    },
+    "palette": [
+      "#936C47",
+      "#BD8E5B",
+      "#C5A177",
+      "#D0CEC8",
+      "#573A1F"
+    ]
+  },
+  "warnings": [
+    "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+  ],
+  "limitation": "single-image PBR extraction is an estimate; 70%+ extraction confidence still needs render screenshot review"
+}
