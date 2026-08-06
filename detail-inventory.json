@@ -1,0 +1,191 @@
+{
+  "sourceImage": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear.png",
+  "zonesDir": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones",
+  "detailInventory": {
+    "scanMethod": "grid-3x3",
+    "targetMinDetails": 6,
+    "details": [
+      {
+        "id": "zone-r0c0",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r0c0.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r0c1",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.3333,
+          "y": 0.0,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r0c1.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r0c2",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.6667,
+          "y": 0.0,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r0c2.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r1c0",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.0,
+          "y": 0.3333,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r1c0.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r1c1",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.3333,
+          "y": 0.3333,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r1c1.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r1c2",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.6667,
+          "y": 0.3333,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r1c2.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r2c0",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.0,
+          "y": 0.6667,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r2c0.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r2c1",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.3333,
+          "y": 0.6667,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r2c1.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "zone-r2c2",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.6667,
+          "y": 0.6667,
+          "width": 0.3333,
+          "height": 0.3333,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Users\\User\\.copilot\\repos\\copilot-worktrees\\img2threejs\\hosbi1999-expert-potato\\assets\\character-demon-bear-zones\\zone-r2c2.png",
+        "confidence": 0.0
+      }
+    ]
+  },
+  "authoringInstruction": "Open each zone crop under zonesDir and replace every detail stub's kind, description, scale, affects, mapsTo, and confidence with what is actually observed. Add more detail entries per zone if a single zone contains multiple distinct marks; do not leave stubs unfilled or unlinked (mapsTo must reference a real component.localFeatures or material.localOverrides entry)."
+}
