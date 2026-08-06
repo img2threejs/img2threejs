@@ -12,9 +12,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage4_review"))
 
 from diagnose_render import (  # noqa: E402
+    PIXEL_EVIDENCE_DELTA_E,
     bbox_of,
     bilateral_symmetry_error,
     color_is_gated,
+    per_part_color_delta,
     proportion_delta,
     silhouette_iou,
 )
@@ -107,3 +109,59 @@ class BboxOfTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SmallPartPixelEvidenceTest(unittest.TestCase):
+    """A hue-distinct small part must pass via direct pixel evidence even when
+    the luminance-seeded k-means palette gives every centroid to the dominant
+    material (the false-positive this fallback exists for)."""
+
+    def _write_png(self, path, width, height, painter):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage1_intake"))
+        from extract_pbr_evidence import write_png_rgb
+        rgb = bytearray()
+        for y in range(height):
+            for x in range(width):
+                rgb.extend(painter(x, y))
+        write_png_rgb(path, width, height, bytes(rgb))
+
+    def test_small_teal_region_passes_by_pixel_evidence(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            render = Path(tmp) / "render.png"
+            # Five warm luminance bands absorb all five k-means seeds (the
+            # luminance-quantile init); a ~1.6% teal patch then cannot win a
+            # centroid and must pass through the pixel-evidence fallback.
+            golds = [(120, 90, 30), (160, 120, 45), (200, 155, 60), (225, 185, 90), (245, 215, 130)]
+            def painter(x, y):
+                if 8 <= x < 56 and 8 <= y < 56:
+                    if 30 <= x < 36 and 30 <= y < 36:
+                        return (46, 127, 110)   # teal part
+                    return golds[min(4, (y - 8) // 10)]
+                return (16, 16, 16)             # background
+            self._write_png(render, 64, 64, painter)
+            recipes = [
+                {"componentId": f"gold-{i}", "dominantAlbedo": f"rgba({g[0]}, {g[1]}, {g[2]}, 1)"}
+                for i, g in enumerate(golds)
+            ] + [{"componentId": "teal-arc", "dominantAlbedo": "rgba(46, 127, 110, 1)"}]
+            report = per_part_color_delta(recipes, render)
+            by_id = {e["componentId"]: e for e in report["perComponent"]}
+            teal = by_id["teal-arc"]
+            self.assertGreater(teal["clusterDeltaE"], 20.0)   # the false-positive this guards
+            self.assertIn("pixelEvidenceFraction", teal)
+            self.assertGreater(teal["pixelEvidenceFraction"], 0.001)
+            self.assertLessEqual(teal["deltaE"], PIXEL_EVIDENCE_DELTA_E)
+            self.assertLessEqual(report["maxDeltaE"], 20.0)
+
+    def test_absent_color_still_fails(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            render = Path(tmp) / "render.png"
+            def painter(x, y):
+                if 8 <= x < 56 and 8 <= y < 56:
+                    return (200, 155, 60)
+                return (16, 16, 16)
+            self._write_png(render, 64, 64, painter)
+            recipes = [{"componentId": "ghost", "dominantAlbedo": "rgba(46, 127, 210, 1)"}]
+            report = per_part_color_delta(recipes, render)
+            self.assertGreater(report["maxDeltaE"], 20.0)
