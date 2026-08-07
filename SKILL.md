@@ -31,6 +31,11 @@ The user attaches/points to an object image and wants a procedural Three.js mode
 reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
 action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
 
+For a video or image-sequence reference, or any request to mirror motion, reflections, or morphing
+frame by frame, MUST read `skills/reconstruct-reference-motion/SKILL.md` before image analysis and
+validate its motion manifest before implementation. That companion adds temporal evidence; it does
+not bypass this skill's state, build-pass, or visual-review gates.
+
 ## Core Promise
 
 Sculpt from a photo, in order — never one-shot a mesh:

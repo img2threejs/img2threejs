@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://img2threejs.dev/schemas/reference-motion-manifest.v1.json",
+  "title": "Reference motion manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "source",
+    "systems",
+    "frames",
+    "intervals",
+    "comparison",
+    "evidence",
+    "preImplementationDecision",
+    "rootReviewDecision"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "sourceHashSha256",
+        "width",
+        "height",
+        "fps",
+        "frameCount",
+        "intervalSeconds",
+        "decodePolicy",
+        "requestedCoverage",
+        "analysisCoverage",
+        "bootstrapReferenceFrame",
+        "viewCount",
+        "colorSpace",
+        "transferFunction"
+      ],
+      "properties": {
+        "kind": { "enum": ["video", "image-sequence"] },
+        "sourceHashSha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "fps": { "type": "number", "exclusiveMinimum": 0 },
+        "frameCount": { "type": "integer", "minimum": 2 },
+        "intervalSeconds": {
+          "type": "array",
+          "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "decodePolicy": { "const": "original-resolution-no-resample" },
+        "requestedCoverage": { "enum": ["every-frame", "sampled-allowed"] },
+        "analysisCoverage": { "enum": ["every-frame", "sampled"] },
+        "samplingRule": { "type": "string", "minLength": 1 },
+        "bootstrapReferenceFrame": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timestampSeconds", "selectionRule", "reason"],
+          "properties": {
+            "timestampSeconds": { "type": "number" },
+            "selectionRule": {
+              "enum": ["interval-midpoint", "stable-hold-midpoint", "manual-semantic-keyframe"]
+            },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        },
+        "viewCount": { "type": "integer", "minimum": 1 },
+        "colorSpace": { "type": "string", "minLength": 1 },
+        "transferFunction": { "type": "string", "minLength": 1 },
+        "measurementRoi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "width", "height"],
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 },
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "systems": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "class", "observedFeature"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "class": { "enum": ["camera", "geometry", "material", "lighting", "overlay", "silhouette", "other"] },
+          "observedFeature": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/frame" }
+    },
+    "intervals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "classification", "startSeconds", "endSeconds"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "classification": { "enum": ["transition", "stable", "morph", "hold", "other"] },
+          "startSeconds": { "type": "number" },
+          "endSeconds": { "type": "number" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["not-run", "complete"] },
+        "referenceFeatureId": { "type": "string", "minLength": 1 },
+        "renderFeatureId": { "type": "string", "minLength": 1 },
+        "featureEquivalent": { "type": "boolean" },
+        "classification": { "enum": ["like-for-like", "proxy"] },
+        "synchronizedTimes": { "type": "boolean" },
+        "cameraMatched": { "type": "boolean" },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "value", "units"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "value": { "type": "number" },
+              "units": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "metricInterpretation": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "not-run" } },
+            "required": ["status"]
+          },
+          "then": { "maxProperties": 1 }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "complete" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": [
+              "referenceFeatureId",
+              "renderFeatureId",
+              "featureEquivalent",
+              "classification",
+              "synchronizedTimes",
+              "cameraMatched",
+              "metrics",
+              "metricInterpretation"
+            ]
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/evidenceFile" }
+    },
+    "preImplementationDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "reasons", "unresolvedAmbiguities"],
+      "properties": {
+        "action": { "enum": ["ready-for-implementation", "refine-analysis", "request-input", "stop"] },
+        "reasons": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "unresolvedAmbiguities": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "rootReviewDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["not-run", "complete"] },
+        "action": { "enum": ["continue", "refine-spec", "refine-code", "request-input", "stop"] },
+        "reasons": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "unresolvedAmbiguities": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "not-run" } },
+            "required": ["status"]
+          },
+          "then": { "maxProperties": 1 }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "complete" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["action", "reasons", "unresolvedAmbiguities"] }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "timestampSeconds", "observed", "inferred"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "timestampSeconds": { "type": "number" },
+        "observed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["features"],
+          "properties": {
+            "features": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/observedFeature" }
+            }
+          }
+        },
+        "inferred": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["properties"],
+          "properties": {
+            "properties": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/inferredProperty" }
+            }
+          }
+        }
+      }
+    },
+    "observedFeature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["systemId", "featureId", "sourcePoints", "confidence"],
+      "properties": {
+        "systemId": { "type": "string" },
+        "featureId": { "type": "string", "minLength": 1 },
+        "sourcePoints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "prefixItems": [{ "type": "number" }, { "type": "number" }],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fitResidualPx": { "type": "number", "minimum": 0 },
+        "measurements": { "type": "object" }
+      }
+    },
+    "inferredProperty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["systemId", "property", "value", "units", "confidence", "assumptions"],
+      "properties": {
+        "systemId": { "type": "string" },
+        "property": { "type": "string", "minLength": 1 },
+        "value": {},
+        "units": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "assumptions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "calibrationEvidence": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "evidenceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+      }
+    }
+  }
+}
