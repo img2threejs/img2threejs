@@ -168,10 +168,12 @@ export function createDataRefineryModel(): THREE.Group {
       transmission: 0.45,
       roughness: 0.08,
       metalness: 0.05,
+      depthWrite: false,
       side: THREE.DoubleSide,
     }),
   );
   chamberGlass.name = 'ChamberGlass';
+  chamberGlass.renderOrder = 2;
   chamberGlass.position.set(0, 2.05, 0);
   core.add(chamberGlass);
 
@@ -184,9 +186,11 @@ export function createDataRefineryModel(): THREE.Group {
       transparent: true,
       opacity: 0.38,
       roughness: 0.24,
+      depthWrite: false,
     }),
   );
   chamberGlow.name = 'ChamberPulse';
+  chamberGlow.renderOrder = 1;
   chamberGlow.position.set(0, 1.82, 0);
   core.add(chamberGlow);
 
@@ -218,9 +222,12 @@ export function createDataRefineryModel(): THREE.Group {
       transparent: true,
       opacity: 0.9,
       sizeAttenuation: true,
+      depthTest: true,
+      depthWrite: false,
     }),
   );
   coreParticles.name = 'CoreParticles';
+  coreParticles.renderOrder = 3;
   core.add(coreParticles);
 
   addTank(core, new THREE.Vector3(2.0, 1.8, -0.35), 0.66, 2.45);
