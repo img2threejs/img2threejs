@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {resolveAnimationTime} from './animationTime';
 import {createDataRefineryModel} from './createDataRefineryModel';
 import './styles.css';
 
@@ -100,8 +101,9 @@ window.addEventListener('resize', resize);
 resize();
 
 const clock = new THREE.Clock();
+const animationQuery = new URLSearchParams(window.location.search);
 renderer.setAnimationLoop(() => {
-  model.userData.tick(clock.getElapsedTime());
+  model.userData.tick(resolveAnimationTime(clock.getElapsedTime(), animationQuery));
   controls.update();
   renderer.render(scene, camera);
 });

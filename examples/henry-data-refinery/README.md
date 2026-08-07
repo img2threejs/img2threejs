@@ -38,7 +38,7 @@ npx vite preview --host 127.0.0.1 --port 4173
 npm run smoke
 ```
 
-The smoke script uses `http://127.0.0.1:4173` by default. Override a busy port with `MVP_URL=http://127.0.0.1:4174 npm run smoke`. It checks the canvas, reset control, visible limitation label, zero page errors, and produces one fixed plus two orbit screenshots under the ignored `artifacts/` directory.
+The smoke script uses `http://127.0.0.1:4173` by default. Override a busy port with `MVP_URL=http://127.0.0.1:4174 npm run smoke`. It checks the canvas, reset control, visible limitation label, zero page errors, and produces one fixed plus two orbit screenshots under the ignored `artifacts/` directory. Capture URLs pin only the procedural animation to 1.25 seconds for reproducible pixels; orbit and reset controls stay active, while ordinary browser sessions continue using live elapsed time.
 
 ## Limitations
 

@@ -2,7 +2,8 @@ import {mkdir, stat} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {chromium, expect} from '@playwright/test';
 
-const url = process.env.MVP_URL ?? 'http://127.0.0.1:4173';
+const url = new URL(process.env.MVP_URL ?? 'http://127.0.0.1:4173');
+url.searchParams.set('captureTime', '1.25');
 const artifactDirectory = fileURLToPath(new URL('../artifacts/', import.meta.url));
 const fixedCapture = fileURLToPath(new URL('../artifacts/refinery.png', import.meta.url));
 const leftCapture = fileURLToPath(new URL('../artifacts/refinery-orbit-left.png', import.meta.url));
@@ -36,7 +37,7 @@ async function orbit(deltaX) {
 }
 
 try {
-  await page.goto(url, {waitUntil: 'networkidle'});
+  await page.goto(url.href, {waitUntil: 'networkidle'});
   const canvas = page.locator('canvas');
   const reset = page.locator('[data-testid="reset-camera"]');
   await expect(canvas).toBeVisible();
@@ -64,7 +65,7 @@ try {
       throw new Error(`Empty screenshot: ${capture}`);
     }
   }
-  process.stdout.write('Smoke passed: canvas, reset, label, zero page errors, and 3 non-empty captures.\n');
+  process.stdout.write('Smoke passed at deterministic animation time 1.25s: canvas, reset, label, zero page errors, and 3 non-empty captures.\n');
 } finally {
   await browser.close();
 }

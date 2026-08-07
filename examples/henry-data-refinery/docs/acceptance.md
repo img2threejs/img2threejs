@@ -1,6 +1,6 @@
 # Data Refinery MVP acceptance
 
-Date: 2026-08-07
+Date: 2026-08-08
 Branch: `henry/mvp-20260807`
 
 ## Outcome
@@ -33,15 +33,25 @@ No source location is committed. The reference, private manifest, screenshots, a
 | Gate | Result |
 | --- | --- |
 | Upstream baseline | PASS — 673 `unittest` tests, 25 skipped. |
-| Model tests | PASS — 2 Vitest tests. The motion test proves equal elapsed time reproduces the same particle position and a different time moves it. |
+| Model tests | PASS — 4 Vitest tests across 2 files. Motion remains elapsed-time-driven in normal use, while capture mode pins repeated frames to the requested time and rejects invalid overrides. |
 | Production build | PASS — TypeScript strict no-emit check and Vite production build. Vite reports a non-blocking 529 kB Three.js bundle-size warning. |
-| Browser smoke | PASS — canvas, reset, and limitation label visible; reset clicked; zero `pageerror` events. |
-| Captures | PASS — fixed 286,454 bytes; left orbit 203,438 bytes; right orbit 214,042 bytes; each 1536 × 1024 and visually read back. |
-| Multi-angle geometry | PASS — no degenerate view; orbit silhouette ratios 0.852 and 0.608, both above the 0.15 collapse threshold. |
+| Browser smoke | PASS — two consecutive runs at animation time 1.25 seconds; canvas, reset, and limitation label visible; reset clicked; orbit exercised in both directions; zero `pageerror` events. |
+| Captures | PASS — all three PNGs are 1536 × 1024 and had byte-identical SHA-256 values across both runs. |
+| Multi-angle geometry | PASS — no degenerate view; orbit silhouette ratios 0.851 and 0.607, both above the 0.15 collapse threshold. |
 | Source integrity | PASS — source digest remained equal to the recorded SHA-256 after all work. |
 | Tracking privacy | PASS — no tracked `private`, `reference.png`, or `artifacts` path; no committed private absolute source path. |
 
 Port `4173` was already occupied by an unrelated local service during validation, so the documented `MVP_URL` interface was exercised against the preview on `http://127.0.0.1:4174`.
+
+### Deterministic capture reproduction
+
+Only smoke capture mode pins procedural animation to 1.25 seconds. The ordinary viewer still uses live elapsed time, and the smoke continues to click reset and drive OrbitControls before taking the orbit views.
+
+| Capture | Dimensions | Run 1 SHA-256 | Run 2 SHA-256 |
+| --- | --- | --- | --- |
+| `refinery.png` | 1536 × 1024 | `13fc0471b9405b4440b8c9a14622d1d32a2462ef42eea35c70ca405e3af0e2b1` | `13fc0471b9405b4440b8c9a14622d1d32a2462ef42eea35c70ca405e3af0e2b1` |
+| `refinery-orbit-left.png` | 1536 × 1024 | `690bb225141ca99d8c9e8fee74f073da47af9e9b233f07c2420e3e58f156388e` | `690bb225141ca99d8c9e8fee74f073da47af9e9b233f07c2420e3e58f156388e` |
+| `refinery-orbit-right.png` | 1536 × 1024 | `1815c5f3435c4dfd6d07ee88112687da6db3c676df72f9541758afc11ba66850` | `1815c5f3435c4dfd6d07ee88112687da6db3c676df72f9541758afc11ba66850` |
 
 ## Visual comparison evidence
 
@@ -60,8 +70,8 @@ Semantic inspection scores are heuristic 0–1 judgments from that same sheet, n
 
 Deterministic pixel/feature diagnostics were also retained rather than overruled:
 
-- `diagnose_render.py`: REJECT, exit 1 — silhouette IoU 0.3587, aspect-ratio delta 0.1597, scale delta 0.1473, bilateral-symmetry error 0.3743.
-- `divine_eye.py`: REJECT, exit 1 — fidelity 0.4043 against target 0.85; pHash 0.5938, SSIM 0.2352, edge overlap 0.4173, tonal parity 0.7139, objectness 0.6436.
+- `diagnose_render.py`: REJECT, exit 1 — silhouette IoU 0.3597, aspect-ratio delta 0.1597, scale delta 0.1473, bilateral-symmetry error 0.3734.
+- `divine_eye.py`: REJECT, exit 1 — fidelity 0.4059 against target 0.85; pHash 0.6250, SSIM 0.2336, edge overlap 0.4158, tonal parity 0.7070, objectness 0.6399.
 - These failures are expected for the intentionally scoped procedural scene versus the complete multi-panel 2D composition. They prohibit any claim of close visual reproduction; they do not invalidate the tested local interaction MVP.
 
 ## Commands
@@ -73,6 +83,9 @@ npm test
 npm run build
 npx vite preview --host 127.0.0.1 --port 4173
 MVP_URL=http://127.0.0.1:4174 npm run smoke
+shasum -a 256 artifacts/refinery.png artifacts/refinery-orbit-left.png artifacts/refinery-orbit-right.png
+MVP_URL=http://127.0.0.1:4174 npm run smoke
+shasum -a 256 artifacts/refinery.png artifacts/refinery-orbit-left.png artifacts/refinery-orbit-right.png
 ```
 
 Privacy checks from the repository root:
