@@ -55,3 +55,9 @@ docs/research/
 # session, never inputs to a build, and they carry multi-megabyte PNGs. Tuning ships with the
 # stable release, not with a beta of the scripts.
 work/
+
+# Henry local MVP private inputs and captures
+examples/**/node_modules/
+examples/**/dist/
+examples/henry-data-refinery/private/
+examples/henry-data-refinery/artifacts/
