@@ -6,6 +6,20 @@
     <title>Data Refinery · Visual Approximation</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app" aria-label="Interactive data refinery model"></div>
+    <header class="hud">
+      <div>
+        <p class="eyebrow">Embodied AI · Data Refinery</p>
+        <h1>数据炼化工厂</h1>
+        <p class="disclaimer">视觉近似，非工程模型</p>
+      </div>
+      <button type="button" data-testid="reset-camera">重置视角</button>
+    </header>
+    <aside class="controls-hint" aria-label="Interaction help">
+      <span>拖动旋转</span>
+      <span>滚轮缩放</span>
+      <span>右键平移</span>
+    </aside>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

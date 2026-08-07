@@ -261,6 +261,11 @@ export function createDataRefineryModel(): THREE.Group {
 
   const inputStream = new THREE.Group();
   inputStream.name = 'InputStream';
+  const inputParticles: Array<{
+    mesh: THREE.Mesh;
+    path: THREE.CatmullRomCurve3;
+    offset: number;
+  }> = [];
   const inputPaths = [
     new THREE.CatmullRomCurve3([
       new THREE.Vector3(-6.5, 3.7, -0.6),
@@ -303,6 +308,11 @@ export function createDataRefineryModel(): THREE.Group {
       particle.userData.pathIndex = pathIndex;
       particle.userData.offset = particleIndex / 15;
       inputStream.add(particle);
+      inputParticles.push({
+        mesh: particle,
+        path,
+        offset: particleIndex / 15,
+      });
     }
   }
   root.add(inputStream);
@@ -313,6 +323,34 @@ export function createDataRefineryModel(): THREE.Group {
   outputs.add(makePlatform(2.15, 0x45aa75, 1));
   outputs.add(makePlatform(0.15, 0x2ac7cf, 2));
   root.add(outputs);
+
+  const platformSlabs = outputs.children.map((platform, index) => {
+    return platform.getObjectByName(`PlatformSlab${index + 1}`) as THREE.Mesh<
+      THREE.BoxGeometry,
+      THREE.MeshPhysicalMaterial
+    >;
+  });
+
+  root.userData.tick = (elapsedSeconds: number): void => {
+    for (const particle of inputParticles) {
+      const progress = (particle.offset + elapsedSeconds * 0.16) % 1;
+      particle.mesh.position.copy(particle.path.getPoint(progress));
+      const sparkle = 0.72 + Math.sin((progress + particle.offset) * Math.PI * 2) * 0.2;
+      particle.mesh.scale.setScalar(sparkle);
+    }
+
+    const pulse = (Math.sin(elapsedSeconds * 2.4) + 1) / 2;
+    chamberGlow.scale.set(1 + pulse * 0.035, 1 + pulse * 0.02, 1 + pulse * 0.035);
+    const glowMaterial = chamberGlow.material as THREE.MeshStandardMaterial;
+    glowMaterial.emissiveIntensity = 1.05 + pulse * 0.65;
+    coreParticles.rotation.y = elapsedSeconds * 0.22;
+
+    for (let index = 0; index < platformSlabs.length; index += 1) {
+      const shimmer = (Math.sin(elapsedSeconds * 1.7 + index * 1.15) + 1) / 2;
+      platformSlabs[index].material.opacity = 0.34 + shimmer * 0.12;
+      platformSlabs[index].material.emissiveIntensity = 0.05 + shimmer * 0.14;
+    }
+  };
 
   return root;
 }
