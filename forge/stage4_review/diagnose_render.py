@@ -92,6 +92,63 @@ def silhouette_iou(reference_mask: list[bool], render_mask: list[bool]) -> float
     return intersection / union if union else 0.0
 
 
+def aligned_silhouette_iou(
+    reference_mask: list[bool],
+    render_mask: list[bool],
+    size: int = MASK_GRID_SIZE,
+) -> dict[str, Any]:
+    """Best silhouette IoU reachable by a PURE TRANSLATION of the render mask.
+
+    `grimoire/review/self_correction.md` already prescribes this -- "trust ... IoU only AFTER
+    scale+translation alignment" -- but nothing computed it, so the raw number was the only one a
+    reviewer saw. That gap is actively harmful, not merely missing: a render whose geometry is
+    correct but whose camera is a few pixels off reports a low raw IoU, and the obvious reading
+    of a low IoU is "the shape is wrong". Acting on that reading means editing correct geometry.
+
+    Observed on the Talon reconstruction: raw IoU 0.736 (below the 0.85 gate) against 0.965 after
+    a pure 26px translation -- the reference's subject is centred at 0.528 of frame height, not
+    0.5, so centring the model in frame left it high. Nothing about the mesh was wrong.
+
+    This is REPORT-ONLY by design and never rescues the hard gate: a genuine misplacement of a
+    part is also a translation, so auto-passing on alignment would hide real defects. What it
+    does is let the failure message say WHICH kind of error this is.
+
+    Search starts at the bbox-origin delta (the closed-form first guess) and refines within a
+    small radius. Masks are compared as coordinate sets rather than shifted grids, so cost scales
+    with foreground area, not with the 224x224 cell count.
+    """
+    ref_pts = {(i % size, i // size) for i, v in enumerate(reference_mask) if v}
+    rnd_pts = {(i % size, i // size) for i, v in enumerate(render_mask) if v}
+    if not ref_pts or not rnd_pts:
+        return {"alignedIoU": 0.0, "offsetCells": [0, 0], "offsetFraction": [0.0, 0.0],
+                "searchRadiusCells": 0, "improvement": 0.0}
+
+    raw = silhouette_iou(reference_mask, render_mask)
+    rx, ry, _rw, _rh = bbox_of(reference_mask, size)
+    dx0, dy0 = rx - bbox_of(render_mask, size)[0], ry - bbox_of(render_mask, size)[1]
+    radius = max(2, size // 64)
+
+    best_iou, best_dx, best_dy = -1.0, dx0, dy0
+    for ddy in range(-radius, radius + 1):
+        for ddx in range(-radius, radius + 1):
+            dx, dy = dx0 + ddx, dy0 + ddy
+            shifted = {(x + dx, y + dy) for x, y in rnd_pts}
+            union = len(ref_pts | shifted)
+            if not union:
+                continue
+            value = len(ref_pts & shifted) / union
+            if value > best_iou:
+                best_iou, best_dx, best_dy = value, dx, dy
+
+    return {
+        "alignedIoU": round(best_iou, 4),
+        "offsetCells": [best_dx, best_dy],
+        "offsetFraction": [round(best_dx / size, 4), round(best_dy / size, 4)],
+        "searchRadiusCells": radius,
+        "improvement": round(best_iou - raw, 4),
+    }
+
+
 def bbox_of(mask: list[bool], size: int = MASK_GRID_SIZE) -> tuple[int, int, int, int]:
     xs: list[int] = []
     ys: list[int] = []
@@ -196,8 +253,12 @@ def run_tier1(
     proportions = proportion_delta(reference_bbox, render_bbox)
     symmetry = bilateral_symmetry_error(render_mask)
 
+    alignment = aligned_silhouette_iou(reference_mask, render_mask)
+
     checks: dict[str, Any] = {
         "silhouetteIoU": round(iou, 4),
+        "alignedIoU": alignment["alignedIoU"],
+        "alignment": alignment,
         "aspectRatioDelta": proportions["aspect_ratio_delta"],
         "scaleDelta": proportions["scale_delta"],
         "bilateralSymmetryError": round(symmetry, 4),
@@ -210,7 +271,24 @@ def run_tier1(
             "measuring the subject; re-capture with the subject filling more of the frame"
         )
     if iou < SILHOUETTE_IOU_THRESHOLD:
-        failures.append(f"silhouette IoU {iou:.3f} is below threshold {SILHOUETTE_IOU_THRESHOLD}")
+        # Name WHICH kind of error this is. A raw IoU that a pure translation lifts over the
+        # threshold is a FRAMING error, and the correct fix is the camera, not the mesh -- the
+        # opposite of what a bare "IoU too low" reads as.
+        if alignment["alignedIoU"] >= SILHOUETTE_IOU_THRESHOLD:
+            fx, fy = alignment["offsetFraction"]
+            failures.append(
+                f"silhouette IoU {iou:.3f} is below threshold {SILHOUETTE_IOU_THRESHOLD}, but a "
+                f"pure translation of ({fx:+.3f}, {fy:+.3f}) of frame reaches "
+                f"{alignment['alignedIoU']:.3f} -- this is a FRAMING/camera error, not a shape "
+                f"error. Fix the review camera target or capture framing; do NOT edit geometry "
+                f"that is already correct (grimoire/review/self_correction.md)"
+            )
+        else:
+            failures.append(
+                f"silhouette IoU {iou:.3f} is below threshold {SILHOUETTE_IOU_THRESHOLD} "
+                f"(best translation-aligned IoU {alignment['alignedIoU']:.3f} is also below it, "
+                f"so this is a genuine shape/proportion mismatch, not framing)"
+            )
     if proportions["aspect_ratio_delta"] > ASPECT_RATIO_DELTA_THRESHOLD:
         failures.append(
             f"aspect-ratio delta {proportions['aspect_ratio_delta']:.3f} exceeds "

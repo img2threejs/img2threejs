@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "_shared"))
 
 from workflow_state import (  # noqa: E402
+    write_resume_snapshot,
     WorkflowStateError,
     load_state,
     mark_steps,
@@ -35,6 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--state", type=Path, default=Path(".img2threejs/state.json"))
     status.add_argument("--json", action="store_true")
 
+    compact = commands.add_parser("compact")
+    compact.add_argument("--state", type=Path, default=Path(".img2threejs/state.json"))
+    compact.add_argument("--out", type=Path, default=None)
     mark = commands.add_parser("mark")
     mark.add_argument("step", nargs="+")
     mark.add_argument("--state", type=Path, default=Path(".img2threejs/state.json"))
@@ -84,6 +88,9 @@ def main(argv: list[str]) -> int:
         state = load_state(args.state)
         if args.command == "status":
             print_status(state, as_json=args.json)
+        elif args.command == "compact":
+            output = write_resume_snapshot(args.state, state, output=args.out)
+            print(f"COMPACTION resume={output} bytes={output.stat().st_size}")
         elif args.command == "mark":
             mark_steps(state, args.step, status=args.status, evidence=args.evidence, reason=args.reason)
             save_state(args.state, state)

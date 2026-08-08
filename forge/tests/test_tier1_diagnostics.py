@@ -12,12 +12,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage4_review"))
 
 from diagnose_render import (  # noqa: E402
+    MASK_GRID_SIZE,
+    aligned_silhouette_iou,
     bbox_of,
     bilateral_symmetry_error,
     color_is_gated,
     proportion_delta,
     silhouette_iou,
 )
+
+
+def rect_mask(x0, y0, w, h, size=MASK_GRID_SIZE):
+    """Flat boolean grid with one filled rectangle -- the smallest shape that lets a
+    translation be distinguished from a deformation."""
+    mask = [False] * (size * size)
+    for y in range(y0, y0 + h):
+        for x in range(x0, x0 + w):
+            mask[y * size + x] = True
+    return mask
 
 
 class ColorGateByPassTest(unittest.TestCase):
@@ -107,3 +119,45 @@ class BboxOfTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AlignedSilhouetteIouTest(unittest.TestCase):
+    """Translation-aligned IoU: `grimoire/review/self_correction.md` says to trust IoU only
+    after scale+translation alignment, and nothing computed it. The point is not to rescue the
+    gate -- it stays report-only -- but to tell a FRAMING error apart from a SHAPE error, because
+    the two demand opposite fixes and a bare low IoU reads as 'the shape is wrong'.
+
+    Regression source: a Talon reconstruction reported raw IoU 0.736 against 0.965 after a pure
+    26px translation. The mesh was correct; the review camera was centring a subject the
+    reference had placed off-centre."""
+
+    def test_pure_translation_is_recovered_and_flagged_as_framing(self):
+        reference = rect_mask(50, 50, 60, 40)
+        render = rect_mask(50, 56, 60, 40)  # identical shape, shifted +6 in y
+        raw = silhouette_iou(reference, render)
+        result = aligned_silhouette_iou(reference, render)
+        self.assertLess(raw, 0.85, "a 6-cell shift must depress the raw IoU")
+        self.assertAlmostEqual(result["alignedIoU"], 1.0, places=4)
+        self.assertEqual(result["offsetCells"], [0, -6])
+        self.assertGreater(result["improvement"], 0.0)
+
+    def test_identical_masks_report_no_offset_and_no_improvement(self):
+        mask = rect_mask(40, 40, 50, 50)
+        result = aligned_silhouette_iou(mask, mask)
+        self.assertAlmostEqual(result["alignedIoU"], 1.0, places=4)
+        self.assertEqual(result["offsetCells"], [0, 0])
+        self.assertAlmostEqual(result["improvement"], 0.0, places=4)
+
+    def test_a_genuine_shape_mismatch_is_not_rescued(self):
+        """The whole value depends on this: if alignment flattered a real deformation, the
+        message would misdirect the fix onto the camera."""
+        reference = rect_mask(50, 50, 60, 40)
+        render = rect_mask(50, 50, 20, 110)  # same area, wrong proportions
+        result = aligned_silhouette_iou(reference, render)
+        self.assertLess(result["alignedIoU"], 0.85)
+
+    def test_empty_mask_does_not_raise(self):
+        empty = [False] * (MASK_GRID_SIZE * MASK_GRID_SIZE)
+        result = aligned_silhouette_iou(empty, rect_mask(10, 10, 5, 5))
+        self.assertEqual(result["alignedIoU"], 0.0)
+        self.assertEqual(result["offsetCells"], [0, 0])

@@ -56,11 +56,27 @@ class Cs2ManifestTests(unittest.TestCase):
             self.assertIn("heuristicSignal", manifest["warnings"])
             self.assertTrue(validate_manifest(manifest))
 
+    def test_classified_awp_can_select_registered_rifle_v2_route(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reference = Path(directory) / "awp.png"
+            write_png(reference)
+            classification = build_classification_record(
+                "rifle", "awp", 0.99, ["view:front:subject"], provider="user-explicit-metadata"
+            )
+            classification["adapterRoute"] = "cs2-rifle-v2"
+            manifest = build_manifest(reference, classification)
+            self.assertEqual(manifest["state"], "proceed")
+            self.assertEqual(manifest["componentAdapter"], "cs2-rifle-v2")
+            self.assertEqual(manifest["adapterRoute"], "cs2-rifle-v2")
+            self.assertEqual(manifest["adapterContractVersion"], "2")
+            self.assertEqual(manifest["adapterFixtureId"], "cs2-rifle-awp-v2-blockout")
+            self.assertTrue(validate_manifest(manifest))
+
     def test_unsupported_family_never_receives_knife_adapter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            reference = Path(directory) / "rifle.png"
+            reference = Path(directory) / "smg.png"
             write_png(reference)
-            classification = build_classification_record("rifle", "ak47", 0.99, ["view:front:subject"])
+            classification = build_classification_record("smg", "mp9", 0.99, ["view:front:subject"])
             manifest = build_manifest(reference, classification)
             self.assertEqual(manifest["state"], "unsupported-family")
             self.assertNotIn("componentAdapter", manifest)

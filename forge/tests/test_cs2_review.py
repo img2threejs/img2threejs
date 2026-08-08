@@ -55,6 +55,34 @@ class Cs2ReviewGateTest(unittest.TestCase):
         self.assertEqual(report["failedGates"], [])
         self.assertEqual(report["approximationNotes"], ["hidden blade side inferred from single view"])
 
+    def test_passing_versioned_rifle_review_requires_matching_fixture(self) -> None:
+        manifest = {
+            "schemaVersion": 1,
+            "state": "proceed",
+            "itemFamily": "rifle",
+            "subtype": "awp",
+            "componentAdapter": "cs2-rifle-v2",
+            "adapterRoute": "cs2-rifle-v2",
+            "adapterContractVersion": "2",
+            "adapterFixtureId": "cs2-rifle-awp-v2-blockout",
+            "route": "procedural-finish",
+            "exactnessTier": "image-only",
+            "confidence": {"overall": 0.9, "hiddenRegions": 0.25},
+        }
+        scene = {**self.scene, "fixtureId": "cs2-rifle-awp-v2-blockout"}
+        scene["identity"] = {**self.scene["identity"], "family": "rifle"}
+        report = evaluate_knife_review(manifest, self.passing_inputs(), scene)
+        self.assertEqual(report["verdict"], "pass")
+        self.assertEqual(report["failedGates"], [])
+
+        mismatched_scene = {**scene, "fixtureId": "cs2-rifle-awp-front-v1"}
+        rejected = evaluate_knife_review(manifest, self.passing_inputs(), mismatched_scene)
+        self.assertEqual(rejected["action"], "request-input")
+        self.assertIn(
+            "fixture-mismatch:cs2-rifle-awp-front-v1:cs2-rifle-awp-v2-blockout",
+            rejected["failedGates"],
+        )
+
     def test_cli_writes_report_and_returns_verdict_status(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -23,6 +23,12 @@ Please do not add code that silently downloads meshes or art packs — the core 
 reconstruction by code. If you want a projection or generative-assist path, propose it as an
 explicit, flagged, opt-in mode.
 
+## Git rules
+
+- Commit as `kokorolx <kokoro.lehoang@gmail.com>`. Check `git config user.name` / `user.email` before committing if you maintain multiple identities on this machine.
+- Never force-push.
+- Never merge anything to `main` directly — changes land via PR only.
+
 ## Development
 
 - Scripts are pure Python 3.10+ standard library. No pip dependencies.

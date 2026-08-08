@@ -16,7 +16,7 @@ from forge.stage1_intake.cs2_review_contract import (
     build_review_scene,
     validate_review_scene,
 )
-from forge.stage2_spec.cs2_adapters import get_family_adapter
+from forge.stage2_spec.cs2_adapters import get_family_adapter, registered_adapter_ids
 from forge.stage2_spec.new_pre_spec_assessment import make_payload
 from forge.stage2_spec.new_sculpt_spec import apply_cs2_manifest_evidence, apply_cs2_template, make_spec
 from forge.stage2_spec.validate_sculpt_spec import validate_cs2_contract
@@ -92,6 +92,47 @@ class AdapterAndReviewTests(unittest.TestCase):
         self.assertEqual(get_family_adapter("knife", "karambit").family, "knife")
         with self.assertRaises(ValueError):
             get_family_adapter("rifle", "ak47")
+
+    def test_versioned_rifle_adapter_is_registered_without_knife_fallback(self) -> None:
+        adapter = get_family_adapter("rifle", "awp", adapter_id="cs2-rifle-v2")
+        self.assertEqual(adapter.adapter_id, "cs2-rifle-v2")
+        self.assertEqual(adapter.contract_version, "2")
+        self.assertEqual(adapter.fixture_id, "cs2-rifle-awp-v2-blockout")
+        self.assertIn("cs2-rifle-v2", registered_adapter_ids("rifle", "awp"))
+        with self.assertRaises(ValueError):
+            get_family_adapter("knife", "karambit", adapter_id="cs2-rifle-v2")
+
+    def test_rifle_v2_validator_accepts_registered_route(self) -> None:
+        errors: list[str] = []
+        validate_cs2_contract(
+            {
+                "cs2Intake": {
+                    "itemFamily": "rifle",
+                    "subtype": "awp",
+                    "componentAdapter": "cs2-rifle-v2",
+                    "adapterRoute": "cs2-rifle-v2",
+                    "adapterContractVersion": "2",
+                    "adapterFixtureId": "cs2-rifle-awp-v2-blockout",
+                    "route": "procedural-finish",
+                    "exactnessTier": "image-only",
+                }
+            },
+            errors,
+            [],
+        )
+        self.assertEqual(errors, [])
+
+    def test_rifle_v2_template_uses_explicit_adapter(self) -> None:
+        spec = make_spec("AWP | Medusa", None)
+        apply_cs2_template(
+            spec,
+            item_family="rifle",
+            subtype="awp",
+            adapter_id="cs2-rifle-v2",
+        )
+        self.assertEqual(spec["componentAdapter"], "cs2-rifle-v2")
+        self.assertEqual(spec["adapterContractVersion"], "2")
+        self.assertEqual(spec["adapterFixtureId"], "cs2-rifle-awp-v2-blockout")
 
     def test_review_scene_is_versioned_and_thresholds_are_frozen(self) -> None:
         scene = build_review_scene("fixture-sha256")

@@ -62,6 +62,40 @@ completed step needs evidence; every skipped step needs a reason. The state file
 index, not visual evidence: renders, specs, review history, and deterministic gates remain the
 authoritative artifacts.
 
+### Compaction resume snapshot
+
+Large or versioned states must use the compact resume snapshot to resume across context
+compaction or a fresh agent. Generate or refresh it with:
+
+```sh
+python3 forge/state.py compact --state <active-state.json>
+```
+
+The state JSON remains machine authority; `compaction/resume.md` is the bounded human/LLM view.
+Read full `passHistory`, archived checklists, and review documents only for a targeted
+retrospective or active-family investigation. The forge save path refreshes the snapshot after
+every state write, so `init`/`mark` keep it current automatically.
+
+For versioned reconstructions (a rebuild, a new model version, or plateau recovery), freeze the
+prior version as immutable baseline evidence and create a separate state file (for example
+`.img2threejs/state-v2.json`). Do not reset, rewrite, or delete the prior state, spec, review
+history, renders, or source code:
+
+1. Run `forge/next.py` against the versioned state and versioned spec on every start/resume and
+   before every correction loop. Never infer progress from conversation history.
+2. Create a versioned handoff/contract file beside the state file naming the frozen baseline,
+   active version, research brief, reference paths, acceptance target, current phase, next
+   required command, non-negotiable gates, and unresolved uncertainty.
+3. Keep the new version's spec, reviews, renders, research notes, and code paths namespaced.
+   Reuse only utilities or evidence marked reusable; do not copy failed geometry profiles or
+   unvalidated transforms from the baseline.
+4. When context compaction or a fresh agent occurs, read the versioned `compaction/resume.md`
+   snapshot first, then the handoff and contract, before touching code. Load the full state
+   only when a tool or targeted investigation requires it; chat memory is never authority.
+
+This rule is generic: the version name may be `v2`, `epoch-2`, or another explicit identifier,
+but one active version must have exactly one authoritative state file.
+
 ## Transparency and Process Debugging (Critical — from Bowie Knife reconstruction)
 
 **The problem:** When the user cannot tell what was done or where something went wrong, they cannot debug the process. Over-claiming (reporting success when features still don't match) destroys trust and makes iterative improvement impossible.
@@ -311,12 +345,14 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    refused on an authored/unwrapped `uvStrategy`. For offline LOD tiers from an exported mesh,
    `forge/stage3_build/decimate.py <mesh.json> --ratio <r> --json` is the same algorithm.
 7. Render the current pass in a browser/preview, capture a screenshot at a review viewpoint.
+7pre. **Check the capture before you trust it.** `forge/stage4_review/capture_sanity.py --render <shot> [--reference <plate>]` settles whether the picture is usable evidence at all — subject fraction, a single connected foreground (a contact shadow is a second component and inflates the silhouette bbox on one axis), empty/clipped frames, and framing match. A wrong harness yields numbers that read as model defects, so this runs FIRST; exit 1 means fix the capture, not the model.
 7a. **Off-axis and placement gates — a single review viewpoint is not evidence about the model.**
    Capture a turntable, not one frame, and run all three. Each catches a defect class the older gates
    pass by construction; skipping them is how a hole through a skull, a hat at hip height and a charm
    floating below the ground plane survived eight front-only review rounds.
    `forge/stage4_review/turntable_gate.py --capture 0=front.png --capture 90=right.png --capture 180=rear.png --capture 270=left.png --json`
-   `node runtime/scripts/export_mesh_geometry.mjs --url <preview> --out meshes.json` then
+   `node runtime/scripts/export_mesh_geometry.mjs --url <preview> --out meshes.json --driver <playwright> --browser <chromium>` then
+   (the driver also resolves from `$IMG2THREEJS_PLAYWRIGHT` or an installed `playwright`; it fails closed rather than writing an empty meshes.json a gate would read as clean) then
    `forge/stage4_review/self_intersection.py meshes.json --json`
    `forge/stage4_review/attachment_anchor.py object-sculpt-spec.json --measured measured.json --json`
    All three exit `0` clean / `1` gate failure / `2` error. A failure blocks `continue` for the pass
@@ -359,6 +395,12 @@ IMG2THREEJS_SHOWCASE_ROOT=/path/to/img2threejs-showcase python3 forge/tests/test
    `forge/stage4_review/diagnose_render_multi_angle.py` with the fixed view and at least two
    meaningful orbit views. Then run
    `forge/stage3_build/orchestrate_passes.py check object-sculpt-spec.json --pass-id <pass>`.
+8b. **Sweep a look-dev parameter, do not reason about it.** When a finish is off and the
+   space is small and enumerable, render the grid and rank it:
+   `forge/stage4_review/rank_lookdev_sweep.py --reference <plate> --candidate LABEL=<shot> ...`
+   Put the variables you "already know" inside the sweep — the wrong one is
+   disproportionately the one nobody re-examined. Three correction loops were once spent
+   compensating for a tone-mapping operator that a doc comment had settled by assumption.
 9. Package one side-by-side sheet, then inspect it with agent vision:
    `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out cmp.png --json`.
 10. Record the review (overall + per-layer + per-feature scores + decision):
@@ -482,7 +524,7 @@ evidence caused it, what still differs, and choose exactly one next action:
   returned objective and optional selected raw fidelity are explicit, and each copied record has
   candidate/reference/render provenance. It lazily loads the default evaluator and returns
   normalized raw-fidelity correction-loop provenance without mutating sources.
-- **Tier 1 (legacy, still valid)**: "Tier 2 (AI-vision) never runs against a render that has not passed Tier 1." Run `forge/stage4_review/diagnose_render.py` (silhouette IoU/proportion/symmetry/per-part color) and record it (`--spec ... --in-place`) before requesting a comparison sheet; `orchestrate_passes.py check` refuses otherwise.
+- **Tier 1 (legacy, still valid)**: "Tier 2 (AI-vision) never runs against a render that has not passed Tier 1." `diagnose_render.py` also reports `alignedIoU` — the best IoU under a pure translation — so a mis-framed render is not mistaken for a wrong shape; it is report-only and never rescues the hard gate. Run `forge/stage4_review/diagnose_render.py` (silhouette IoU/proportion/symmetry/per-part color) and record it (`--spec ... --in-place`) before requesting a comparison sheet; `orchestrate_passes.py check` refuses otherwise.
 - **Pre-spec / strict-quality**: blocks code gen until the spec is deep enough for its contract.
 - **Screenshot feedback**: `continue` is allowed only with a render + comparison sheet + global
   AI-vision score ≥ threshold (default 0.7) AND every critical feature ≥ its own threshold.

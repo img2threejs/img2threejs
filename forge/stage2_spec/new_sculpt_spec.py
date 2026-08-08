@@ -13,6 +13,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 from pipeline_routing import resolve_pipeline_routing
 from status_banner import emit_status
 
+try:
+    from forge.stage2_spec.cs2_adapters import get_family_adapter
+except ModuleNotFoundError:  # direct execution from the forge checkout
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from stage2_spec.cs2_adapters import get_family_adapter
+
 
 def slugify(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9]+", "-", value.strip().lower()).strip("-")
@@ -1429,18 +1435,58 @@ CS2_KNIFE_SUBTYPES = frozenset(
     {"karambit", "butterfly", "bayonet", "m9", "flip", "gut", "falchion", "bowie", "navaja",
      "talon", "classic"}
 )
+CS2_RIFLE_SUBTYPES = frozenset({"awp"})
 
 
 def make_cs2_component_tree(item_family: str = "knife", subtype: str | None = None) -> list:
-    if item_family != "knife":
-        raise ValueError(f"unsupported CS2 family {item_family!r}; only knife is implemented")
-    if subtype and subtype not in CS2_KNIFE_SUBTYPES:
+    if item_family not in {"knife", "rifle"}:
+        raise ValueError(f"unsupported CS2 family {item_family!r}; supported families are knife and rifle")
+    if item_family == "knife" and subtype and subtype not in CS2_KNIFE_SUBTYPES:
         raise ValueError(f"unsupported CS2 knife subtype {subtype!r}")
+    if item_family == "rifle" and subtype and subtype not in CS2_RIFLE_SUBTYPES:
+        raise ValueError(f"unsupported CS2 rifle subtype {subtype!r}")
     # Root is an organizing group only: use the invisible 'hidden' material (opacity 0) exactly
     # like the character template, so the generator's per-component mesh for root never renders as
     # a stray box over the weapon -- no generic generator change needed.
     root = _cnode("root", "Weapon (root)", "box", None, (0, 0, 0), (1, 1, 1),
                   material="hidden", role="body", level="macro", importance=1.0, anim_role="root")
+    if item_family == "rifle":
+        # AWP is a separate hard-surface assembly. It must not inherit the knife component tree.
+        parts = [
+            _cs2node("receiver", "AWP receiver", "extrude", (0.35, 0.18, 0), (2.0, 0.42, 0.42), "skin-finish", "receiver", "macro", 1.0,
+                     ["long receiver flat", "top rail", "ejection-port seam", "recessed fasteners"]),
+            _cs2node("stock", "Thumbhole stock", "extrude", (-1.65, 0.02, 0), (1.65, 0.82, 0.5), "skin-finish", "stock", "macro", 1.0,
+                     ["thumbhole negative space", "raised cheek rest", "rear butt plate", "serpent/Medusa paint"]),
+            _cs2node("grip", "Pistol grip", "extrude", (-0.58, -0.45, 0), (0.44, 0.8, 0.42), "skin-finish", "grip", "meso", 0.9,
+                     ["raked grip", "lower pin", "painted lower curve"]),
+            _cs2node("trigger-guard", "Trigger guard", "torus", (-0.14, -0.18, 0), (0.26, 0.22, 0.18), "substrate", "trigger-guard", "meso", 0.85,
+                     ["through trigger opening"]),
+            _cs2node("trigger", "Trigger", "curve-sweep", (-0.14, -0.18, 0.08), (0.22, 0.34, 0.16), "substrate", "trigger", "micro", 0.6),
+            _cs2node("magazine", "Five-round magazine", "box", (0.10, -0.38, 0), (0.42, 0.52, 0.28), "substrate", "magazine", "meso", 0.82,
+                     ["magazine floorplate", "magazine seam"]),
+            _cs2node("barrel", "Heavy free-floating barrel", "cylinder", (1.92, 0.34, 0), (3.05, 0.16, 0.16), "substrate", "barrel", "macro", 1.0,
+                     ["receiver shoulder", "long cylindrical profile", "barrel highlight band"]),
+            _cs2node("muzzle", "Muzzle device", "cylinder", (3.47, 0.34, 0), (0.32, 0.22, 0.22), "substrate", "muzzle", "meso", 0.8,
+                     ["muzzle bore", "front slot"]),
+            _cs2node("rail", "Optic rail", "box", (0.25, 0.48, 0), (1.45, 0.10, 0.24), "substrate", "rail", "meso", 0.8,
+                     ["repeating rail teeth"]),
+            _cs2node("scope", "Variable-power scope", "lathe", (0.18, 0.93, 0), (1.45, 0.32, 0.32), "optic", "scope", "macro", 0.95,
+                     ["objective bell", "central turret block", "eyepiece ring", "gold crown mark"]),
+            _cs2node("scope-ring-front", "Front scope ring", "torus", (-0.25, 0.68, 0), (0.22, 0.18, 0.18), "substrate", "scope-ring", "meso", 0.7),
+            _cs2node("scope-ring-rear", "Rear scope ring", "torus", (0.63, 0.68, 0), (0.22, 0.18, 0.18), "substrate", "scope-ring", "meso", 0.7),
+            _cs2node("bolt", "Bolt body", "cylinder", (-0.28, 0.48, 0), (0.58, 0.12, 0.12), "substrate", "bolt", "meso", 0.82,
+                     ["bolt raceway", "locking lug silhouette"]),
+            _cs2node("bolt-handle", "Bolt handle", "cylinder", (-0.35, 0.22, 0.22), (0.24, 0.07, 0.07), "substrate", "bolt-handle", "meso", 0.9,
+                     ["external bolt handle", "round bolt knob"]),
+            _cs2node("bipod-left", "Folded bipod left", "cylinder", (1.0, -0.02, 0.18), (0.78, 0.045, 0.045), "substrate", "bipod", "meso", 0.65),
+            _cs2node("bipod-right", "Folded bipod right", "cylinder", (1.0, -0.02, -0.18), (0.78, 0.045, 0.045), "substrate", "bipod", "meso", 0.65),
+            _cs2node("fastener-system", "Receiver and stock fasteners", "instanced-cluster", (0, 0, 0), (1, 1, 1), "substrate", "fasteners", "micro", 0.55,
+                     ["repeating circular fastener heads"]),
+            _cs2node("medusa-projection", "Medusa projected paint", "plane-card", (-1.05, 0.18, 0.26), (2.3, 0.9, 1), "skin-finish", "projection", "micro", 0.9,
+                     ["blue/teal snakes", "Medusa face", "front/back image-matched placement"]),
+        ]
+        return [root, *parts]
+
     parts = [
         _cs2node("blade", "Blade", "ground-blade", (0, 0.55, 0), (1.0, 1.0, 1.0), "skin-finish", "blade", "macro", 1.0,
                  ["edge bevel highlight", "engraved pattern swirl"]),
@@ -1453,7 +1499,28 @@ def make_cs2_component_tree(item_family: str = "knife", subtype: str | None = No
     return [root, *parts]
 
 
-def make_cs2_feature_targets() -> list:
+def make_cs2_feature_targets(item_family: str = "knife") -> list:
+    if item_family == "rifle":
+        return [
+            {"id": "awp-silhouette", "name": "AWP silhouette and proportions", "tier": "critical",
+             "passIds": ["blockout"], "minimumScore": 0.82, "mustPass": True,
+             "componentRefs": ["root", "receiver", "stock", "barrel"], "evidenceRefs": ["front-medusa.webp", "back-medusa.webp"]},
+            {"id": "awp-thumbhole-stock", "name": "Thumbhole stock, grip and trigger relationship", "tier": "critical",
+             "passIds": ["structural-pass", "form-refinement"], "minimumScore": 0.8, "mustPass": True,
+             "componentRefs": ["stock", "grip", "trigger-guard"], "evidenceRefs": ["front-medusa.webp", "back-medusa.webp"]},
+            {"id": "awp-scope-and-bolt", "name": "Scope, rail and bolt-action hardware", "tier": "critical",
+             "passIds": ["structural-pass", "form-refinement"], "minimumScore": 0.78, "mustPass": True,
+             "componentRefs": ["scope", "rail", "bolt", "bolt-handle"], "evidenceRefs": ["front-medusa.webp"]},
+            {"id": "awp-medusa-pattern", "name": "Front/back Medusa projection placement", "tier": "critical",
+             "passIds": ["material-pass", "surface-pass"], "minimumScore": 0.78, "mustPass": True,
+             "componentRefs": ["medusa-projection", "stock", "receiver"], "evidenceRefs": ["front-medusa.webp", "back-medusa.webp"]},
+            {"id": "awp-metal-response", "name": "Bare metal and painted-shell response", "tier": "important",
+             "passIds": ["material-pass", "lighting-pass"], "minimumScore": 0.72, "mustPass": False,
+             "componentRefs": ["barrel", "scope", "receiver"], "evidenceRefs": ["front-medusa.webp", "back-medusa.webp"]},
+            {"id": "awp-wear-read", "name": "Minimal Wear edge response", "tier": "important",
+             "passIds": ["surface-pass"], "minimumScore": 0.65, "mustPass": False,
+             "componentRefs": ["receiver", "stock", "muzzle"], "evidenceRefs": ["front-medusa.webp"]},
+        ]
     return [
         {"id": "cs2-silhouette", "name": "Weapon silhouette and proportions", "tier": "critical",
          "passIds": ["blockout"], "minimumScore": 0.8, "mustPass": True,
@@ -1485,6 +1552,7 @@ def apply_cs2_template(
     environment_available: bool = True,
     item_family: str = "knife",
     subtype: str | None = None,
+    adapter_id: str | None = None,
 ) -> dict:
     """Seed a self-consistent image-first CS2 weapon-skin spec. Object geometry reuses the
     hard-surface path (primaryDomain=object); only the finish/material recipe is CS2-specific.
@@ -1498,8 +1566,50 @@ def apply_cs2_template(
         raise ValueError(f"unknown finish style {resolved_style!r}; expected one of: {', '.join(CS2_FINISH_STYLES)}")
     profile = CS2_FINISH_PROFILES[resolved_style]
     spec["componentTree"] = make_cs2_component_tree(item_family, subtype)
-    spec["materials"] = [_cs2_finish_material(resolved_style, float_value, paint_seed), _cs2_substrate_material(), _cs2_hidden_material()]
-    spec["featureReviewTargets"] = make_cs2_feature_targets()
+    if item_family == "rifle":
+        adapter = get_family_adapter(
+            "rifle",
+            subtype,
+            adapter_id=adapter_id or "cs2-rifle-v1",
+        )
+        painted = _cs2_finish_material("custom-paint-job", float_value, paint_seed)
+        painted.update({
+            "baseColor": "#0a1a34", "color": "#0a1a34",
+            "metalness": {"base": 0.38, "variation": 0.08},
+            "roughness": {"base": 0.34, "variation": 0.12},
+            "clearcoat": 0.42,
+            "notes": "Dark navy painted shell; exact Medusa pixels are projected from both supplied broadside views.",
+        })
+        painted["albedo"] = {"dominant": "#0a1a34", "secondary": ["#071228", "#123864", "#0e7183", "#2ba28a"]}
+        optic = {
+            "id": "optic", "name": "Blue-black optic metal and glass", "type": "physical",
+            "baseColor": "#1a2230", "color": "#1a2230",
+            "albedo": {"dominant": "#1a2230", "secondary": ["#303a4a"]},
+            "roughness": {"base": 0.22, "variation": 0.06},
+            "metalness": {"base": 0.88, "variation": 0.04}, "clearcoat": 0.28,
+            "normal": {"map": "procedural-optic-machining", "strength": 0.08},
+            "ambientOcclusion": {"cavityStrength": 0.28},
+            "localOverrides": [{"id": "gold-crown", "region": "scope-front", "baseColor": "#c59a1b", "roughness": 0.32}],
+        }
+        polymer = {
+            "id": "polymer", "name": "Stock polymer substrate", "type": "physical",
+            "baseColor": "#101a2a", "color": "#101a2a",
+            "albedo": {"dominant": "#101a2a", "secondary": ["#1e2a3e"]},
+            "roughness": {"base": 0.58, "variation": 0.12},
+            "metalness": {"base": 0.04, "variation": 0.01},
+            "normal": {"map": "procedural-fine-polymer", "strength": 0.12},
+            "ambientOcclusion": {"cavityStrength": 0.38},
+            "localOverrides": [{"id": "thumbhole-edge-wear", "region": "stock-thumbhole", "roughness": 0.42}],
+        }
+        spec["materials"] = [painted, _cs2_substrate_material(), optic, polymer, _cs2_hidden_material()]
+        spec["componentAdapter"] = adapter.adapter_id
+        spec["adapterRoute"] = adapter.adapter_id
+        spec["adapterContractVersion"] = adapter.contract_version
+        spec["adapterFixtureId"] = adapter.fixture_id
+        spec["fixtureId"] = adapter.fixture_id
+    else:
+        spec["materials"] = [_cs2_finish_material(resolved_style, float_value, paint_seed), _cs2_substrate_material(), _cs2_hidden_material()]
+    spec["featureReviewTargets"] = make_cs2_feature_targets(item_family)
     # top-level signal for the pre-render environment gate (mirrors the material value)
     spec["envMapIntensity"] = profile["env"]
     spec["cs2Finish"] = {"finishStyle": resolved_style, "viewDependent": profile["viewDependent"],
@@ -1515,10 +1625,13 @@ def apply_cs2_template(
     oc = pre.setdefault("objectClass", {})
     oc["primaryType"] = "weapon-skin"
     oc["primaryDomain"] = "object"
-    oc["formLanguage"] = ["hard-surface", "bladed"]
-    oc["structureKind"] = ["blade", "grip", "guard"]
-    oc["motionPotential"] = ["static", "inspect-orbit"]
-    oc["materialFamilies"] = ["metal", "anodized-coat" if profile["viewDependent"] else "painted-coat"]
+    oc["formLanguage"] = ["hard-surface", "rifle" if item_family == "rifle" else "bladed"]
+    oc["structureKind"] = (["receiver", "stock", "barrel", "optic", "bolt-action", "painted-shell"]
+                            if item_family == "rifle" else ["blade", "grip", "guard"])
+    oc["motionPotential"] = (["static", "inspect-orbit", "bolt-cycle", "trigger-pull", "magazine-insertion", "bipod-fold"]
+                              if item_family == "rifle" else ["static", "inspect-orbit"])
+    oc["materialFamilies"] = (["painted-metal", "polymer", "bare-metal", "optic-glass"]
+                               if item_family == "rifle" else ["metal", "anodized-coat" if profile["viewDependent"] else "painted-coat"])
     oc["cs2"] = True
     complexity = pre.setdefault("complexity", {})
     complexity["tier"] = "ultra-complex"
@@ -1547,6 +1660,11 @@ def apply_cs2_manifest_evidence(spec: dict, manifest: dict) -> dict:
         "state": manifest.get("state"),
         "itemFamily": manifest.get("itemFamily"),
         "subtype": manifest.get("subtype"),
+        "componentAdapter": manifest.get("componentAdapter"),
+        "adapterRoute": manifest.get("adapterRoute", manifest.get("componentAdapter")),
+        "adapterContractVersion": manifest.get("adapterContractVersion"),
+        "adapterFixtureId": manifest.get("adapterFixtureId"),
+        "adapterContract": manifest.get("adapterContract", {}),
         "route": manifest.get("route"),
         "exactnessTier": manifest.get("exactnessTier"),
         "identity": manifest.get("identity", {}),
@@ -1561,6 +1679,11 @@ def apply_cs2_manifest_evidence(spec: dict, manifest: dict) -> dict:
         "warnings": manifest.get("warnings", []),
     }
     spec["cs2Intake"] = intake
+    spec["componentAdapter"] = manifest.get("componentAdapter")
+    spec["adapterRoute"] = manifest.get("adapterRoute", manifest.get("componentAdapter"))
+    spec["adapterContractVersion"] = manifest.get("adapterContractVersion")
+    spec["adapterFixtureId"] = manifest.get("adapterFixtureId")
+    spec["fixtureId"] = manifest.get("adapterFixtureId")
     spec["exactnessTier"] = manifest.get("exactnessTier")
     if isinstance(manifest.get("camera"), dict) and manifest["camera"].get("referenceCamera"):
         spec["referenceCamera"] = manifest["camera"]["referenceCamera"]
@@ -2318,8 +2441,8 @@ def main(argv: list[str]) -> int:
             parser.error("CS2 intake manifest must be a JSON object")
         if manifest.get("state") != "proceed":
             parser.error(f"CS2 intake is not ready for spec authoring: {manifest.get('state', 'unknown')}")
-        if manifest.get("itemFamily") != "knife":
-            parser.error("CS2 spec authoring currently supports only the knife family")
+        if manifest.get("itemFamily") not in {"knife", "rifle"}:
+            parser.error("CS2 spec authoring supports only the activated knife and rifle families")
     spec = make_spec(args.target_name, args.image, assessment)
     domain = None
     cs2_marker = False
@@ -2370,6 +2493,7 @@ def main(argv: list[str]) -> int:
             environment_available=not args.no_environment,
             item_family=str(manifest.get("itemFamily", "knife")) if manifest else "knife",
             subtype=str(manifest["subtype"]) if manifest and manifest.get("subtype") else None,
+            adapter_id=str(manifest["componentAdapter"]) if manifest and manifest.get("componentAdapter") else None,
         )
         if manifest:
             apply_cs2_manifest_evidence(spec, manifest)

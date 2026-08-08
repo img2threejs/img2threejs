@@ -106,10 +106,14 @@ def completed_passes(spec: dict[str, Any], ids: list[str]) -> list[str]:
         return []
     completed: list[str] = []
     for pass_id in ids:
-        if any(
-            isinstance(entry, dict) and review_completes_pass(spec, entry, pass_id)
-            for entry in history
-        ):
+        # A later refine-code/refine-spec reopens a previously accepted pass.
+        # The latest decision for each pass is authoritative; historical
+        # `continue` entries must not keep the pipeline at `complete`.
+        pass_reviews = [
+            entry for entry in history
+            if isinstance(entry, dict) and entry.get("passId") == pass_id
+        ]
+        if pass_reviews and review_completes_pass(spec, pass_reviews[-1], pass_id):
             completed.append(pass_id)
         else:
             break
@@ -468,8 +472,16 @@ def ledger_disagreements(spec: dict[str, Any], completed: list[str]) -> list[str
     history = spec.get("reviewHistory", [])
     if not isinstance(history, list):
         return disagreements
+    # A later refine-code/refine-spec review supersedes an older continue for
+    # the same pass. Only the latest decision is authoritative here, matching
+    # completed_passes(); historical continuations must not create a ledger
+    # disagreement after the pass is deliberately reopened.
+    latest_by_pass: dict[str, dict[str, Any]] = {}
     for entry in history:
-        if not isinstance(entry, dict) or entry.get("action") != "continue":
+        if isinstance(entry, dict) and isinstance(entry.get("passId"), str):
+            latest_by_pass[entry["passId"]] = entry
+    for entry in latest_by_pass.values():
+        if entry.get("action") != "continue":
             continue
         pass_id = entry.get("passId")
         if not isinstance(pass_id, str) or pass_id in credited:

@@ -24,6 +24,11 @@ from subdivision import (
 from visual_hull import validate_visual_hull_descriptor
 from pipeline_routing import resolve_pipeline_routing, validate_pipeline_routing
 
+try:
+    from forge.stage2_spec.cs2_adapters import get_family_adapter
+except ModuleNotFoundError:  # direct execution from the forge checkout
+    from cs2_adapters import get_family_adapter
+
 
 REQUIRED_TOP_LEVEL = {
     "targetName": str,
@@ -640,8 +645,42 @@ def validate_cs2_contract(spec: dict[str, Any], errors: list[str], warnings: lis
         errors.append("cs2Intake.route must be a supported CS2 route")
     if tier not in CS2_EXACTNESS_TIERS:
         errors.append("cs2Intake.exactnessTier must be a supported exactness tier")
-    if intake.get("itemFamily") != "knife":
-        errors.append("cs2Intake requires the registered knife adapter")
+    if intake.get("itemFamily") not in {"knife", "rifle"}:
+        errors.append("cs2Intake requires an activated knife or rifle adapter")
+    adapter = intake.get("componentAdapter")
+    if intake.get("itemFamily") == "rifle":
+        if not isinstance(adapter, str):
+            errors.append("rifle cs2Intake requires a registered componentAdapter")
+        else:
+            try:
+                resolved_adapter = get_family_adapter(
+                    "rifle",
+                    intake.get("subtype"),
+                    adapter_id=adapter,
+                )
+            except (TypeError, ValueError) as exc:
+                errors.append(f"rifle cs2Intake has an invalid componentAdapter: {exc}")
+            else:
+                declared_route = intake.get("adapterRoute")
+                if declared_route is not None and declared_route != resolved_adapter.adapter_id:
+                    errors.append(
+                        "rifle cs2Intake adapterRoute does not match "
+                        f"{resolved_adapter.adapter_id}"
+                    )
+                declared_version = intake.get("adapterContractVersion")
+                if declared_version is not None and str(declared_version) != resolved_adapter.contract_version:
+                    errors.append(
+                        "rifle cs2Intake adapterContractVersion does not match "
+                        f"{resolved_adapter.adapter_id} ({resolved_adapter.contract_version})"
+                    )
+                declared_fixture = intake.get("adapterFixtureId")
+                if declared_fixture is not None and declared_fixture != resolved_adapter.fixture_id:
+                    errors.append(
+                        "rifle cs2Intake adapterFixtureId does not match "
+                        f"{resolved_adapter.adapter_id} ({resolved_adapter.fixture_id})"
+                    )
+    if intake.get("itemFamily") == "knife" and adapter not in {None, "cs2-knife-v1"}:
+        errors.append("knife cs2Intake has a mismatched componentAdapter")
     if route == "reference-projection":
         camera = spec.get("referenceCamera")
         source = intake.get("deLitAlbedo") or intake.get("sourceImage")

@@ -32,6 +32,10 @@ from jpeg import UnsupportedJpeg, decode_jpeg, is_jpeg  # noqa: E402
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
+# Cutout reference plates put the subject on near-black. Pixels at or below this luminance are
+# treated as background when choosing the normalization target.
+BACKGROUND_LUMA_FLOOR = 0.02
+
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
@@ -231,7 +235,23 @@ def delight(
     blur_radius: int,
 ) -> tuple[bytes, dict[str, Any]]:
     lumas = [srgb_luma(pixel[:3]) for pixel in pixels]
-    target = percentile(lumas, 0.5, 0.5)
+    # The target is the luminance the correction normalizes toward. Taken over EVERY pixel it
+    # is the background's luminance whenever the background outweighs the subject, and a
+    # subject-cutout plate on black drives it to exactly 0. At target 0 the per-pixel scale
+    # collapses to the constant 1-strength, so the whole image is multiplied by one number and
+    # NO lighting is removed -- mean, contrast and highlights all fall by the same factor while
+    # the report still claims a de-light was performed. Restrict the percentile to pixels that
+    # are plausibly subject: opaque, and above the near-black floor a cutout background sits on.
+    subject = [
+        luma
+        for luma, pixel in zip(lumas, pixels)
+        if pixel[3] > 16 and luma > BACKGROUND_LUMA_FLOOR
+    ]
+    target_source = "subject-pixels"
+    if len(subject) < 0.01 * len(lumas):
+        subject = lumas
+        target_source = "all-pixels-fallback"
+    target = percentile(subject, 0.5, 0.5)
     low_frequency = blur_scalar(lumas, width, height, blur_radius)
     out = bytearray()
     corrections: list[float] = []
@@ -251,13 +271,24 @@ def delight(
             )
         )
     luma_before_range = percentile(lumas, 0.95, 0.8) - percentile(lumas, 0.05, 0.2)
+    # A de-light that applies nearly the same scale everywhere is a brightness change, not a
+    # de-light: it removes no lighting and costs the reference its own contrast. Measure the
+    # spread of the applied scale over subject pixels so the caller can reject that outcome.
+    subject_corrections = [
+        scale for scale, pixel, luma in zip(corrections, pixels, lumas)
+        if pixel[3] > 16 and luma > BACKGROUND_LUMA_FLOOR
+    ] or corrections
+    scale_spread = percentile(subject_corrections, 0.95, 1.0) - percentile(subject_corrections, 0.05, 1.0)
     stats = {
         "targetLuma": round(target, 4),
+        "targetSource": target_source,
         "blurRadius": blur_radius,
         "lumaRangeBefore": round(luma_before_range, 4),
         "meanCorrectionScale": round(sum(corrections) / max(1, len(corrections)), 4),
         "maxCorrectionScale": round(max(corrections, default=1.0), 4),
         "minCorrectionScale": round(min(corrections, default=1.0), 4),
+        "subjectScaleSpread": round(scale_spread, 4),
+        "degenerateUniformScale": scale_spread < 0.05,
     }
     return bytes(out), stats
 
@@ -272,6 +303,17 @@ def estimate_confidence(stats: dict[str, Any], strength: float, warnings: list[s
     confidence = clamp01(0.55 - range_penalty * 0.25 + strength_bonus - min(0.1, len(warnings) * 0.04))
     confidence = min(0.72, confidence)  # single-image de-lighting is always capped
     notes.append("single-image de-lighting cannot separate true albedo from baked light/AO/specular; confidence is capped")
+    if stats.get("degenerateUniformScale"):
+        notes.append(
+            "the applied correction is nearly uniform across the subject "
+            f"(scale spread {stats.get('subjectScaleSpread')}): this output is a brightness change, "
+            "not a de-light, and it lowers the reference's own contrast without removing any lighting. "
+            "Do not use it as a projection albedo -- raise --blur-radius so the lighting proxy holds only "
+            "the broad gradient, or skip de-lighting for an already evenly lit studio plate."
+        )
+        confidence = 0.0
+    if stats.get("targetSource") == "all-pixels-fallback":
+        notes.append("no subject pixels cleared the background luma floor; the target fell back to all pixels")
     if luma_range > 0.5:
         notes.append("wide baked lighting range detected; expect visible residual shading after correction")
     return round(confidence, 3), notes

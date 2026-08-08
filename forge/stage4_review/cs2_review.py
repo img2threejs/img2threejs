@@ -8,6 +8,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+try:
+    from forge.stage2_spec.cs2_adapters import get_family_adapter, registered_adapter_ids
+except ModuleNotFoundError:  # direct execution from the forge checkout
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from stage2_spec.cs2_adapters import get_family_adapter, registered_adapter_ids
+
 REQUIRED_SCENE_KEYS = {
     "version",
     "fixtureId",
@@ -106,10 +112,34 @@ def evaluate_knife_review(
     thresholds = review_scene["thresholds"]
     failed: list[str] = []
     family = manifest.get("itemFamily")
-    if family != "knife":
+    scene_family = review_scene.get("identity", {}).get("family") if isinstance(review_scene.get("identity"), dict) else None
+    if family not in {"knife", "rifle"}:
         failed.append(f"unsupported-family:{family or 'missing'}")
-    if manifest.get("componentAdapter") != "cs2-knife-v1":
-        failed.append("knife-adapter-missing")
+    elif scene_family and family != scene_family:
+        failed.append(f"unsupported-family:{family or 'missing'}")
+    else:
+        adapter_id = manifest.get("componentAdapter")
+        try:
+            adapter = get_family_adapter(family, manifest.get("subtype"), adapter_id=adapter_id)
+        except (TypeError, ValueError):
+            expected = ",".join(registered_adapter_ids(family, manifest.get("subtype"))) or "registered"
+            failed.append(f"adapter-mismatch:{adapter_id or 'missing'}:{expected}")
+        else:
+            declared_route = manifest.get("adapterRoute")
+            if declared_route is not None and declared_route != adapter.adapter_id:
+                failed.append(f"adapter-route-mismatch:{declared_route}:{adapter.adapter_id}")
+            declared_version = manifest.get("adapterContractVersion")
+            if declared_version is not None and str(declared_version) != adapter.contract_version:
+                failed.append(
+                    f"adapter-contract-mismatch:{declared_version}:{adapter.contract_version}"
+                )
+            declared_fixture = manifest.get("adapterFixtureId")
+            if declared_fixture is not None and declared_fixture != adapter.fixture_id:
+                failed.append(f"fixture-mismatch:{declared_fixture}:{adapter.fixture_id}")
+            if review_scene.get("fixtureId") != adapter.fixture_id:
+                failed.append(
+                    f"fixture-mismatch:{review_scene.get('fixtureId', 'missing')}:{adapter.fixture_id}"
+                )
     if manifest.get("state") != "proceed":
         failed.append(f"manifest-state:{manifest.get('state', 'missing')}")
 
@@ -144,7 +174,10 @@ def evaluate_knife_review(
     report = {
         "verdict": "pass" if not failed else "reject",
         "action": "continue" if not failed else ("request-input" if any(
-            item.startswith(("unsupported-family", "manifest-state", "projection-evidence", "orbit-coverage"))
+            item.startswith((
+                "unsupported-family", "manifest-state", "adapter-mismatch", "adapter-route-mismatch",
+                "adapter-contract-mismatch", "fixture-mismatch", "projection-evidence", "orbit-coverage",
+            ))
             for item in failed
         ) else "refine-code"),
         "family": family,

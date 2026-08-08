@@ -156,7 +156,13 @@ def completed_passes(spec: dict[str, Any], ids: list[str]) -> list[str]:
         return []
     completed: list[str] = []
     for pass_id in ids:
-        if any(isinstance(entry, dict) and review_completes_pass(entry, pass_id) for entry in history):
+        # A later refinement reopens a pass; only its latest review decision
+        # can unlock the next pass or allow the pipeline to remain complete.
+        pass_reviews = [
+            entry for entry in history
+            if isinstance(entry, dict) and entry.get("passId") == pass_id
+        ]
+        if pass_reviews and review_completes_pass(pass_reviews[-1], pass_id):
             completed.append(pass_id)
         else:
             break

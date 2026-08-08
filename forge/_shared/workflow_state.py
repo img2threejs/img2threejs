@@ -83,6 +83,25 @@ class WorkflowStateError(ValueError):
     pass
 
 
+def _has_external_versioned_ledger(state: dict[str, Any]) -> bool:
+    """Return whether a versioned rebuild owns its loop ledger outside the generic spec history.
+
+    V1 states derive loop counts from the spec reviewHistory. A versioned rebuild can carry a
+    separate, compacted ledger (for example state-v2.json) whose review history intentionally does
+    not have the same cursor or pass semantics as the original spec. The local state remains the
+    authority in that case; next.py must validate and report it without rewriting it from V1 data.
+    """
+    active = state.get("activeVersion")
+    baseline = state.get("baselineVersion")
+    return (
+        isinstance(active, str)
+        and bool(active.strip())
+        and isinstance(baseline, str)
+        and bool(baseline.strip())
+        and active != baseline
+    )
+
+
 def _step(step_id: str, command: str, *, scope: str) -> dict[str, Any]:
     return {
         "id": step_id,
@@ -243,7 +262,7 @@ def next_entry(state: dict[str, Any]) -> dict[str, Any] | None:
             "id": "await-pass-transition",
             "scope": "pass",
             "status": "pending",
-            "command": "python3 forge/next.py --state .img2threejs/state.json {spec}",
+            "command": f"python3 forge/next.py --state {state.get('statePath') or '.img2threejs/state.json'} {{spec}}",
         }
     final_pending = _pending(_entries(state, "final"))
     return final_pending[0] if final_pending else None
@@ -328,11 +347,24 @@ def set_current_pass(state: dict[str, Any], pass_id: str) -> None:
 
 
 def sync_from_spec(state: dict[str, Any], spec: dict[str, Any], current_pass: str) -> None:
+    if _has_external_versioned_ledger(state):
+        # A versioned reconstruction may deliberately use a separate review/loop ledger and a
+        # compact resume contract. Validate/report the state, but never derive its counters or
+        # current step from the baseline spec's reviewHistory.
+        return
+    # A user-authorized loop reset starts a new correction epoch without
+    # deleting the prior review ledger. The old ledger remains authoritative
+    # evidence; only reviews at/after loopEpochStart count toward the new cap.
+    if state.get("loopEpochStart") is not None and state.get("status") == "stopped":
+        state["status"] = "active"
+        state["stopReason"] = ""
     set_current_pass(state, current_pass)
     history = spec.get("reviewHistory", [])
     if not isinstance(history, list):
         history = []
-    review_cursor = min(int(state.get("reviewCursor", 0)), len(history))
+    epoch_start = int(state.get("loopEpochStart", 0) or 0)
+    epoch_start = max(0, min(epoch_start, len(history)))
+    review_cursor = max(epoch_start, min(int(state.get("reviewCursor", 0)), len(history)))
     new_reviews = history[review_cursor:]
     refinements = [
         entry
@@ -357,7 +389,7 @@ def sync_from_spec(state: dict[str, Any], spec: dict[str, Any], current_pass: st
     state["reviewCursor"] = len(history)
     per_pass: dict[str, int] = {}
     total = 0
-    for entry in history:
+    for entry in history[epoch_start:]:
         if not isinstance(entry, dict) or entry.get("action") not in REFINE_ACTIONS:
             continue
         pass_id = str(entry.get("passId") or "unknown")
@@ -404,3 +436,172 @@ def status_payload(state: dict[str, Any]) -> dict[str, Any]:
             if entry["scope"] in visible_scopes and entry["status"] == "pending"
         ],
     }
+
+# --- compaction resume snapshot -------------------------------------------------
+# Ported from the ~/.claude and ~/.codex host copies, which carried it while this repo
+# never did: `git log -S "def cmd_compact"` returns 0 commits here, so it was developed
+# outside git rather than deliberately removed. Kept additive -- org's own
+# _has_external_versioned_ledger is absent from those copies, so neither file is a
+# superset and overwriting either direction would drop real work.
+COMPACTION_VERSION: Final = 1
+
+def resume_snapshot_path(state_path: Path, state: dict[str, Any] | None = None) -> Path:
+    """Return the small, human-facing resume snapshot for a state file.
+
+    Versioned states conventionally live at `.img2threejs/state-v2.json` and
+    therefore write to `.img2threejs/v2/compaction/resume.md`. A state may
+    override this with `compaction.resumePath`; relative overrides are
+    resolved from the current project directory, like the rest of the forge
+    command paths.
+    """
+    configured = (state or {}).get("compaction", {}).get("resumePath")
+    if isinstance(configured, str) and configured.strip():
+        configured_path = Path(configured).expanduser()
+        return configured_path if configured_path.is_absolute() else Path.cwd() / configured_path
+
+    target = state_path.expanduser().resolve()
+    stem = target.stem
+    if stem.startswith("state-") and len(stem) > len("state-"):
+        return target.parent / stem.removeprefix("state-") / "compaction" / "resume.md"
+    return target.parent / "compaction" / "resume.md"
+
+def _resume_value(value: Any, *, fallback: str = "unknown") -> str:
+    if value is None or value == "":
+        return fallback
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return str(value)
+
+def build_resume_snapshot(state_path: Path, state: dict[str, Any]) -> str:
+    """Build a bounded markdown checkpoint without embedding state history."""
+    validate_state(state)
+    payload = status_payload(state)
+    loops = payload["loop"]
+    artifacts = state.get("artifacts", {})
+    last_loop = state.get("lastCompletedLoop") or {}
+    locked = state.get("lockedFamilies") or []
+    phase_gates = state.get("phaseGates") or {}
+    foundation_epoch = state.get("foundationEpoch") or {}
+
+    lines = [
+        "# img2threejs compact resume checkpoint",
+        "",
+        "This file is generated from the authoritative state. Read it for context; use `state.py` and",
+        "`next.py` as the authority for ordering and gate decisions. Do not reconstruct progress from chat memory.",
+        "",
+        f"- state: `{state_path}`",
+        f"- compaction version: `{COMPACTION_VERSION}`",
+        f"- status: `{_resume_value(payload['status'])}`",
+        f"- current step: `{_resume_value(payload['currentStep'])}`",
+        f"- current pass: `{_resume_value(payload['currentPass'], fallback='none')}`",
+        f"- workflow version: `{_resume_value(state.get('workflowVersion'))}`",
+        f"- phase: `{_resume_value(state.get('currentPhase'))}`",
+        f"- active family: `{_resume_value(state.get('activeFamily'))}`",
+        f"- baseline pass: `{_resume_value(state.get('baselinePass'))}`",
+        f"- loop budget: `{loops['passCount']}/{loops['maxPerPass']} current, {loops['totalCount']}/{loops['maxTotal']} total`",
+        f"- locked families: `{', '.join(map(str, locked)) if locked else 'none recorded'}`",
+        "",
+        "## Next command",
+        "",
+        f"```sh\n{payload['nextCommand'] or 'No command: state is stopped or complete.'}\n```",
+        "",
+        "## Gate summary",
+        "",
+        f"- acceptance target: `{_resume_value(state.get('acceptanceTarget'))}`",
+        f"- macro gate: `{_resume_value(phase_gates.get('macroBlockout'))}`",
+        f"- assembly gate: `{_resume_value(phase_gates.get('componentAssembly'))}`",
+        f"- projection gate: `{_resume_value(phase_gates.get('projection'))}`",
+        f"- stop reason: `{_resume_value(payload.get('stopReason'), fallback='none')}`",
+        "",
+        "## Latest checkpoint",
+        "",
+        f"- decision: `{_resume_value(last_loop.get('decision'))}`",
+        f"- scope: `{_resume_value(last_loop.get('scope'))}`",
+        f"- next family: `{_resume_value(last_loop.get('nextFamily'))}`",
+        f"- evidence: `{_resume_value(last_loop.get('evidence'))}`",
+        "",
+    ]
+    if isinstance(foundation_epoch, dict) and foundation_epoch:
+        lines.extend(
+            [
+                "## Current foundation epoch",
+                "",
+                f"- id: `{_resume_value(foundation_epoch.get('id'))}`",
+                f"- status: `{_resume_value(foundation_epoch.get('status'))}`",
+                f"- baseline: `{_resume_value(foundation_epoch.get('baselinePass'))}`",
+                f"- measurement contract: `{_resume_value(foundation_epoch.get('measurementContract'))}`",
+                f"- region matrix: `{_resume_value(foundation_epoch.get('regionMatrix'))}`",
+                f"- camera packet: `{_resume_value(foundation_epoch.get('cameraRuntime'))}`",
+                f"- geometry changed: `{_resume_value(foundation_epoch.get('geometryChanged'))}`",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+        "## Read-on-demand evidence",
+        "",
+        ]
+    )
+    evidence_keys = (
+        "spec",
+        "latestReview",
+        "latestRender",
+        "latestDiagnostics",
+        "latestMultiAngle",
+        "latestRuntimeManifest",
+        "latestFeatureReview",
+        "latestReviewContract",
+        "latestCs2Review",
+        "latestPartCoverage",
+        "latestNotebookAudit",
+    )
+    for key in evidence_keys:
+        if key in artifacts:
+            lines.append(f"- {key}: `{_resume_value(artifacts[key])}`")
+    lines.extend(
+        [
+            "",
+            "## Pending mandatory steps",
+            "",
+        ]
+    )
+    pending = payload.get("pending", [])
+    if pending:
+        lines.extend(f"- `{step_id}`" for step_id in pending[:20])
+        if len(pending) > 20:
+            lines.append(f"- ... {len(pending) - 20} more; query `forge/state.py status --json` when needed")
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Resume rules",
+            "",
+            "- Load this snapshot first; do not paste the full state or pass history into context.",
+            "- Run `forge/state.py status --state <active-state.json>` and `forge/next.py --state <active-state.json> <spec>` before edits.",
+            "- Read full history only for a retrospective, regression investigation, or the active family evidence review.",
+            "- Keep the state file authoritative and regenerate this snapshot after every state save.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+def write_resume_snapshot(
+    state_path: Path,
+    state: dict[str, Any],
+    *,
+    output: Path | None = None,
+) -> Path:
+    """Write the bounded resume snapshot atomically and return its path."""
+    target = (output.expanduser() if output else resume_snapshot_path(state_path, state)).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(build_resume_snapshot(state_path, state))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return target

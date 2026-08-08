@@ -14,11 +14,12 @@ from forge.stage1_intake.cs2_foundation import enrich_manifest_with_metadata, no
 from forge.stage1_intake.cs2_review_contract import build_review_scene
 from forge.stage1_intake.detect_cs2 import detect_cs2_signals
 from forge.stage1_intake.probe_image import probe
+from forge.stage2_spec.cs2_adapters import get_family_adapter
 
 SCHEMA_VERSION: Final[int] = 1
-SUPPORTED_FAMILIES: Final[frozenset[str]] = frozenset({"knife"})
+SUPPORTED_FAMILIES: Final[frozenset[str]] = frozenset({"knife", "pistol", "rifle"})
 UNSUPPORTED_FAMILIES: Final[frozenset[str]] = frozenset(
-    {"pistol", "rifle", "smg", "sniper", "heavy", "glove"}
+    {"smg", "sniper", "heavy", "glove"}
 )
 # Knife subtypes that have a dedicated geometry adapter. A subtype absent here is
 # `unsupported-subtype`, never silently routed through another subtype's tree.
@@ -26,6 +27,8 @@ KNIFE_SUBTYPES: Final[frozenset[str]] = frozenset(
     {"karambit", "butterfly", "bayonet", "m9", "flip", "gut", "falchion", "bowie", "navaja",
      "talon", "classic"}
 )
+PISTOL_SUBTYPES: Final[frozenset[str]] = frozenset({"glock-18"})
+RIFLE_SUBTYPES: Final[frozenset[str]] = frozenset({"awp"})
 ROUTES: Final[frozenset[str]] = frozenset(
     {"reference-projection", "authored-texture", "procedural-finish"}
 )
@@ -76,6 +79,11 @@ def _classification_error(record: Any) -> str | None:
         return "classification evidenceRefs must contain at least one reference"
     if not isinstance(record.get("provider"), str) or not isinstance(record.get("version"), str):
         return "classification provider/version are required"
+    for key in ("adapterRoute", "componentAdapter"):
+        if key in record and record[key] is not None and (
+            not isinstance(record[key], str) or not record[key].strip()
+        ):
+            return f"classification {key} must be a non-empty string when supplied"
     return None
 
 
@@ -148,21 +156,46 @@ def build_manifest(
     assert isinstance(classification, dict)
     family = classification["itemFamily"]
     subtype = classification.get("subtype")
+    raw_family = family
+    # Provider taxonomies sometimes call AWP "sniper". The production contract owns
+    # it under canonical rifle; other sniper candidates remain explicitly unsupported.
+    if family == "sniper" and subtype == "awp":
+        family = "rifle"
+        manifest["warnings"].append("family-alias:sniper->rifle")
     manifest["classification"] = classification
     manifest["itemFamily"] = family
     manifest["subtype"] = subtype
+    manifest["rawItemFamily"] = raw_family
     manifest["identity"] = {"provenance": "classification-record", "confidence": classification["confidence"]}
     manifest["confidence"] = {"overall": classification["confidence"], "hiddenRegions": 0.25}
     manifest["identity"] = resolve_identity(explicit_identity, metadata, classification)
     if family not in SUPPORTED_FAMILIES:
         manifest["state"] = "unsupported-family"
-        manifest["unsupportedReason"] = f"no adapter registered for {family}"
-    elif subtype and subtype not in KNIFE_SUBTYPES:
+        manifest["unsupportedReason"] = f"no adapter registered for {raw_family}"
+    elif not subtype:
+        manifest["state"] = "unsupported-subtype"
+        manifest["unsupportedReason"] = f"a subtype is required for {family}"
+    else:
+        try:
+            # An authoritative classification may select a concrete versioned adapter. If it
+            # does not, preserve the legacy default route for existing manifests.
+            requested_adapter = classification.get("adapterRoute") or classification.get("componentAdapter")
+            if requested_adapter is not None and not isinstance(requested_adapter, str):
+                raise ValueError("unsupported-adapter: classification adapterRoute must be a string")
+            adapter = get_family_adapter(family, subtype, adapter_id=requested_adapter)
+        except ValueError as error:
+            manifest["state"] = "unsupported-subtype" if "unsupported-subtype" in str(error) else "unsupported-family"
+            manifest["unsupportedReason"] = str(error)
+        else:
+            manifest["state"] = "proceed"
+            manifest["componentAdapter"] = adapter.adapter_id
+            manifest["adapterRoute"] = adapter.adapter_id
+            manifest["adapterContractVersion"] = adapter.contract_version
+            manifest["adapterFixtureId"] = adapter.fixture_id
+            manifest["adapterContract"] = adapter.component_tree_contract()
+    if manifest["state"] != "proceed" and family == "knife" and subtype and subtype not in KNIFE_SUBTYPES:
         manifest["state"] = "unsupported-subtype"
         manifest["unsupportedReason"] = f"no knife adapter fixture for {subtype}"
-    else:
-        manifest["state"] = "proceed"
-        manifest["componentAdapter"] = "cs2-knife-v1"
     if metadata:
         manifest = enrich_manifest_with_metadata(manifest, {"status": "resolved", "identity": metadata})
         manifest["metadata"] = normalize_cs2_metadata(metadata)
@@ -180,8 +213,26 @@ def validate_manifest(manifest: dict[str, Any]) -> bool:
         return False
     if not isinstance(manifest["sourceViews"], list) or not isinstance(manifest["warnings"], list):
         return False
-    if manifest["state"] == "proceed" and manifest.get("itemFamily") != "knife":
+    if manifest["state"] == "proceed" and manifest.get("itemFamily") not in SUPPORTED_FAMILIES:
         return False
+    if manifest["state"] == "proceed":
+        adapter_id = manifest.get("componentAdapter")
+        if not isinstance(adapter_id, str):
+            return False
+        try:
+            adapter = get_family_adapter(
+                str(manifest["itemFamily"]),
+                manifest.get("subtype"),
+                adapter_id=adapter_id,
+            )
+        except (TypeError, ValueError):
+            return False
+        if manifest.get("adapterRoute", adapter_id) != adapter.adapter_id:
+            return False
+        if str(manifest.get("adapterContractVersion", "")) != adapter.contract_version:
+            return False
+        if manifest.get("adapterFixtureId") != adapter.fixture_id:
+            return False
     return True
 
 

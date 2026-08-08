@@ -5,6 +5,60 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Add `runtime/scripts/export_mesh_geometry.mjs`, the mesh dumper `SKILL.md` already instructed
+  callers to run. It did not exist and neither did `runtime/`, so `self_intersection.py` and
+  `geometry_integrity.py` had no producer in this repo and their gates were never runnable while
+  the surrounding checklist still read as complete. Emits world-space vertices (seam-overlap
+  compares mesh PAIRS), expands `InstancedMesh` to one entry per instance, synthesises indices for
+  non-indexed geometry, and fails closed rather than writing an empty `meshes.json` that every
+  downstream gate would score as clean. The browser driver is resolved via `--driver`,
+  `$IMG2THREEJS_PLAYWRIGHT`, or a bare `playwright` import — never a hardcoded absolute path.
+- Port the compaction resume snapshot (`state.py compact`, `workflow_state`'s
+  `build_resume_snapshot`/`write_resume_snapshot`/`resume_snapshot_path`) from the
+  `~/.claude/skills` and `~/.codex/skills` host copies, which carried it while this repo never
+  did — `git log -S "def cmd_compact"` returns 0 commits here, so it was developed outside git
+  rather than deliberately dropped. Those copies were plain directories, not the symlinks
+  SKILL.md prescribes, and had forked: they lacked this repo's versioned rifle adapter and this
+  repo lacked their compaction work, so neither was a superset and symlinking either direction
+  would have destroyed real work. Ported additively — `_has_external_versioned_ledger` is absent
+  from those copies and stays — leaving the merged checkout a superset of all three. The feature
+  arrived untested; `forge/tests/test_compaction_snapshot.py` is new and covers the snapshot's
+  contract: it carries the resuming facts, names the state JSON as the authority rather than
+  itself, stays bounded as history grows, and replaces rather than appends on rewrite.
+- Add `forge/stage4_review/rank_lookdev_sweep.py`, which ranks a rendered look-dev parameter
+  sweep against the reference so the choice is measured rather than reasoned. Motivation is a
+  measured failure: three consecutive correction loops moved a finish in the WRONG direction
+  (saturation error -24, -62, -79) because each reasoned about PBR physics and measured only
+  afterwards, while the real culprit — the tone-mapping operator — had been fixed by assumption
+  on a doc comment's authority and left outside the search. Enumerating 4 operators x 4 exposures
+  settled it in one run, and the winner was the operator the doc had ruled out. Ranks on value +
+  saturation delta over the subject foreground, because the failing candidates were washed out
+  rather than off-hue and a lightness-weighted distance under-punishes that. Ranking is
+  whole-foreground and reports that limitation: on the same data a ruby-region-only objective
+  preferred a different exposure while agreeing on the operator.
+- Add `forge/stage4_review/capture_sanity.py`, a pre-flight check on the CAPTURE that runs before
+  any render is compared to a reference. Every other gate asks whether the model is right; this
+  one settles whether the picture is usable evidence at all, because a wrong harness produces
+  numbers that read as model defects. Measured motivation: on one reconstruction 5 of 12
+  correction loops fixed the capture rather than the model — an oversized shadow catcher pushed
+  the auto-framed camera to z=54.87 and rendered the subject at 8% of frame width, a contact
+  shadow counted as foreground and inflated the bbox height 22% while width matched to 0.6%
+  (IoU 0.686), and a pinned near/far pair clipped the model once orbited so frames came back
+  empty and the degenerate-view gate read collapsed volume. Checks subject fraction, single
+  connected foreground, empty/fallback frames, and framing match against the reference; exits
+  0 usable / 1 capture defect / 2 error.
+- Add `alignedIoU` to `diagnose_render.py`: the best silhouette IoU reachable by a pure
+  translation, alongside the raw value. `grimoire/review/self_correction.md` already prescribed
+  trusting IoU "only after scale+translation alignment" but nothing computed it, so a correctly
+  shaped render that was merely mis-framed reported a low IoU — and a low IoU reads as "the shape
+  is wrong", sending the fix onto geometry that was already correct. Observed at 0.736 raw vs
+  0.965 after a 26px shift. Report-only by design: a genuine misplacement is also a translation,
+  so alignment never rescues the hard gate; it only lets the failure message say whether this is a
+  FRAMING error or a SHAPE error.
+
 ## [1.4.4-beta.2]
 
 ### Added

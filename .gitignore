@@ -39,7 +39,14 @@ assets/*
 # Sponsor brand marks are referenced by the README, so they ship too.
 !assets/sponsors/
 openspec/
-runtime/
+# Runtime build artifacts stay local (see the node_modules/dist/.vite rules above), but the
+# committed runtime SCRIPTS must ship: a bare `runtime/` here silently swallowed
+# runtime/scripts/export_mesh_geometry.mjs, which SKILL.md instructs callers to run — so the
+# self-intersection and seam-overlap gates had no producer and were never runnable.
+# Same trailing-`*` reason as assets/ below: git cannot re-include a file whose parent
+# directory is excluded, so `runtime/` + `!runtime/scripts/` would silently not work.
+runtime/*
+!runtime/scripts/
 
 # Run-time capture output: review renders, focus shots, comparison sheets.
 # These are produced by every capture and gate run, are large, and are never inputs to a build.
