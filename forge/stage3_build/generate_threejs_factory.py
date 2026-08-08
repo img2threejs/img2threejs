@@ -818,6 +818,28 @@ function sdfSample(descriptor: SdfDescriptor): SdfFunction {
 }
 
 function polygonizeSdf(descriptor: SdfDescriptor): THREE.BufferGeometry {
+  // Naive surface nets (dual contouring without the QEF solve).
+  //
+  // The previous implementation emitted one axis-aligned quad per voxel face wherever a solid
+  // voxel met an empty one. That is a binary occupancy mesher, not a polygoniser: it never reads
+  // the distance VALUE, only its sign, so it cannot place a vertex anywhere except on a grid
+  // corner. The output is Minecraft blocks at every resolution, and since the grid is capped at
+  // 64 cells there is no setting at which it converges. A cast-bronze figure came out of it as
+  // literal stair-steps on the torso, head, hands, boots and both cloth shells.
+  //
+  // Surface nets fixes that at the root: it places ONE vertex per sign-changing cell, positioned
+  // by linearly interpolating the zero crossing along each of the cell's twelve edges and
+  // averaging them. The vertex therefore moves continuously with the field, which is what makes
+  // the surface smooth. Chosen over marching cubes deliberately: it needs no 256-entry edge/tri
+  // tables (this whole function is emitted into generated code, so size matters), it always
+  // produces a manifold quad mesh, and its dual topology is friendlier to the smooth blobby
+  // unions this pipeline actually builds. It does round hard convex edges more than marching
+  // cubes, which is the honest trade and is why `assembled-solid` parts still route to real
+  // primitives rather than through here.
+  //
+  // Normals come from the analytic SDF gradient rather than from computeVertexNormals(), because
+  // the dual mesh's triangles are irregular and face-averaged normals show the grid through the
+  // shading even when the positions are correct.
   const resolution = Math.max(4, Math.min(64, Math.floor(descriptor.resolution)));
   const defaultBounds: { readonly min: SdfVector; readonly max: SdfVector } = { min: [-2, -2, -2], max: [2, 2, 2] };
   const bounds = descriptor.bounds ?? defaultBounds;
@@ -827,55 +849,141 @@ function polygonizeSdf(descriptor: SdfDescriptor): THREE.BufferGeometry {
     (bounds.max[1] - bounds.min[1]) / resolution,
     (bounds.max[2] - bounds.min[2]) / resolution,
   );
-  const field = new Float32Array(resolution * resolution * resolution);
   const sample = sdfSample(descriptor);
-  const indexAt = (x: number, y: number, z: number): number => (z * resolution + y) * resolution + x;
-  for (let z = 0; z < resolution; z += 1) {
-    for (let y = 0; y < resolution; y += 1) {
-      for (let x = 0; x < resolution; x += 1) {
-        field[indexAt(x, y, z)] = sample(new THREE.Vector3(
-          min.x + (x + 0.5) * step.x,
-          min.y + (y + 0.5) * step.y,
-          min.z + (z + 0.5) * step.z,
-        ));
+
+  // Corner lattice: (resolution + 1)^3 samples, so every cell has eight real corners.
+  const side = resolution + 1;
+  const field = new Float32Array(side * side * side);
+  const cornerAt = (x: number, y: number, z: number): number => (z * side + y) * side + x;
+  const probe = new THREE.Vector3();
+  for (let z = 0; z < side; z += 1) {
+    for (let y = 0; y < side; y += 1) {
+      for (let x = 0; x < side; x += 1) {
+        probe.set(min.x + x * step.x, min.y + y * step.y, min.z + z * step.z);
+        field[cornerAt(x, y, z)] = sample(probe);
       }
     }
   }
+
+  // The twelve edges of a cell, as pairs of corner offsets.
+  const CELL_EDGES: readonly (readonly [number, number, number, number, number, number])[] = [
+    [0, 0, 0, 1, 0, 0], [1, 0, 0, 1, 1, 0], [1, 1, 0, 0, 1, 0], [0, 1, 0, 0, 0, 0],
+    [0, 0, 1, 1, 0, 1], [1, 0, 1, 1, 1, 1], [1, 1, 1, 0, 1, 1], [0, 1, 1, 0, 0, 1],
+    [0, 0, 0, 0, 0, 1], [1, 0, 0, 1, 0, 1], [1, 1, 0, 1, 1, 1], [0, 1, 0, 0, 1, 1],
+  ];
+
   const positions: number[] = [];
-  const indices: number[] = [];
-  const vertices = new Map<string, number>();
-  const vertexAt = (x: number, y: number, z: number): number => {
-    const key = `${x},${y},${z}`;
-    const existing = vertices.get(key);
-    if (existing !== undefined) return existing;
-    const vertex = positions.length / 3;
-    positions.push(min.x + x * step.x, min.y + y * step.y, min.z + z * step.z);
-    vertices.set(key, vertex);
-    return vertex;
-  };
-  const addFace = (a: number, b: number, c: number, d: number): void => {
-    indices.push(a, b, c, a, c, d);
-  };
-  const inside = (x: number, y: number, z: number): boolean => (
-    x >= 0 && y >= 0 && z >= 0 && x < resolution && y < resolution && z < resolution && field[indexAt(x, y, z)] <= 0
-  );
+  const cellVertex = new Int32Array(resolution * resolution * resolution).fill(-1);
+  const cellAt = (x: number, y: number, z: number): number => (z * resolution + y) * resolution + x;
+
   for (let z = 0; z < resolution; z += 1) {
     for (let y = 0; y < resolution; y += 1) {
       for (let x = 0; x < resolution; x += 1) {
-        if (!inside(x, y, z)) continue;
-        if (!inside(x - 1, y, z)) addFace(vertexAt(x, y, z), vertexAt(x, y, z + 1), vertexAt(x, y + 1, z + 1), vertexAt(x, y + 1, z));
-        if (!inside(x + 1, y, z)) addFace(vertexAt(x + 1, y, z), vertexAt(x + 1, y + 1, z), vertexAt(x + 1, y + 1, z + 1), vertexAt(x + 1, y, z + 1));
-        if (!inside(x, y - 1, z)) addFace(vertexAt(x, y, z), vertexAt(x + 1, y, z), vertexAt(x + 1, y, z + 1), vertexAt(x, y, z + 1));
-        if (!inside(x, y + 1, z)) addFace(vertexAt(x, y + 1, z), vertexAt(x, y + 1, z + 1), vertexAt(x + 1, y + 1, z + 1), vertexAt(x + 1, y + 1, z));
-        if (!inside(x, y, z - 1)) addFace(vertexAt(x, y, z), vertexAt(x, y + 1, z), vertexAt(x + 1, y + 1, z), vertexAt(x + 1, y, z));
-        if (!inside(x, y, z + 1)) addFace(vertexAt(x, y, z + 1), vertexAt(x + 1, y, z + 1), vertexAt(x + 1, y + 1, z + 1), vertexAt(x, y + 1, z + 1));
+        let negatives = 0;
+        for (let corner = 0; corner < 8; corner += 1) {
+          const dx = corner & 1, dy = (corner >> 1) & 1, dz = (corner >> 2) & 1;
+          if (field[cornerAt(x + dx, y + dy, z + dz)] < 0) negatives += 1;
+        }
+        if (negatives === 0 || negatives === 8) continue;   // wholly outside or wholly inside
+
+        let sx = 0, sy = 0, sz = 0, crossings = 0;
+        for (const [ax, ay, az, bx, by, bz] of CELL_EDGES) {
+          const va = field[cornerAt(x + ax, y + ay, z + az)];
+          const vb = field[cornerAt(x + bx, y + by, z + bz)];
+          if ((va < 0) === (vb < 0)) continue;
+          const denom = va - vb;
+          const t = Math.abs(denom) < 1e-12 ? 0.5 : va / denom;   // the interpolation the old mesher never did
+          sx += (ax + (bx - ax) * t);
+          sy += (ay + (by - ay) * t);
+          sz += (az + (bz - az) * t);
+          crossings += 1;
+        }
+        if (crossings === 0) continue;
+        cellVertex[cellAt(x, y, z)] = positions.length / 3;
+        positions.push(
+          min.x + (x + sx / crossings) * step.x,
+          min.y + (y + sy / crossings) * step.y,
+          min.z + (z + sz / crossings) * step.z,
+        );
       }
     }
   }
+
+  // One quad per sign-changing lattice edge, joining the four cells that share it. Winding
+  // follows the sign direction so every face points out of the solid.
+  const indices: number[] = [];
+  const quad = (a: number, b: number, c: number, d: number, flip: boolean): void => {
+    if (a < 0 || b < 0 || c < 0 || d < 0) return;
+    // `here` is true when the lattice corner at the tail of the edge is INSIDE the solid, i.e.
+    // the edge runs solid -> empty, i.e. the outward direction is +axis. The quad's corners are
+    // listed anticlockwise seen from +axis, so that case is the un-flipped winding. Getting this
+    // backwards produces a mesh whose front faces are its interior -- which on a metal reads as
+    // bright chrome rather than as its own albedo, exactly the symptom that surfaced here.
+    if (flip) indices.push(a, b, c, a, c, d);
+    else indices.push(a, c, b, a, d, c);
+  };
+  for (let z = 0; z < side; z += 1) {
+    for (let y = 0; y < side; y += 1) {
+      for (let x = 0; x < side; x += 1) {
+        const here = field[cornerAt(x, y, z)] < 0;
+        if (x < resolution && y >= 1 && z >= 1 && here !== (field[cornerAt(x + 1, y, z)] < 0)) {
+          quad(cellVertex[cellAt(x, y - 1, z - 1)], cellVertex[cellAt(x, y, z - 1)],
+               cellVertex[cellAt(x, y, z)], cellVertex[cellAt(x, y - 1, z)], here);
+        }
+        if (y < resolution && x >= 1 && z >= 1 && here !== (field[cornerAt(x, y + 1, z)] < 0)) {
+          quad(cellVertex[cellAt(x - 1, y, z - 1)], cellVertex[cellAt(x - 1, y, z)],
+               cellVertex[cellAt(x, y, z)], cellVertex[cellAt(x, y, z - 1)], here);
+        }
+        if (z < resolution && x >= 1 && y >= 1 && here !== (field[cornerAt(x, y, z + 1)] < 0)) {
+          quad(cellVertex[cellAt(x - 1, y - 1, z)], cellVertex[cellAt(x, y - 1, z)],
+               cellVertex[cellAt(x, y, z)], cellVertex[cellAt(x - 1, y, z)], here);
+        }
+      }
+    }
+  }
+
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+
+  // Analytic gradient normals. h is half the smallest cell so the difference stays inside one cell.
+  const h = Math.min(step.x, step.y, step.z) * 0.5;
+  const normals = new Float32Array(positions.length);
+  const at = new THREE.Vector3();
+  const probeN = new THREE.Vector3();
+  for (let i = 0; i < positions.length; i += 3) {
+    at.set(positions[i], positions[i + 1], positions[i + 2]);
+    const gx = sample(probeN.set(at.x + h, at.y, at.z)) - sample(probeN.set(at.x - h, at.y, at.z));
+    const gy = sample(probeN.set(at.x, at.y + h, at.z)) - sample(probeN.set(at.x, at.y - h, at.z));
+    const gz = sample(probeN.set(at.x, at.y, at.z + h)) - sample(probeN.set(at.x, at.y, at.z - h));
+    const len = Math.hypot(gx, gy, gz) || 1;
+    normals[i] = gx / len; normals[i + 1] = gy / len; normals[i + 2] = gz / len;
+  }
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+
+  // UVs. Every other geometry this factory emits carries them, and a mesh without a `uv`
+  // attribute samples its base-colour map as white -- so an SDF part rendered as chrome next to
+  // its lathed neighbours in bronze. A dual-contoured surface has no natural parameterisation, so
+  // this is the standard triplanar choice: project along whichever axis the surface normal is
+  // most aligned with, in bounds-normalised space, which is exactly the
+  // `uvStrategy: generated procedural coordinates` the spec asks for.
+  const uvs = new Float32Array((positions.length / 3) * 2);
+  const spanX = (bounds.max[0] - bounds.min[0]) || 1;
+  const spanY = (bounds.max[1] - bounds.min[1]) || 1;
+  const spanZ = (bounds.max[2] - bounds.min[2]) || 1;
+  for (let i = 0, j = 0; i < positions.length; i += 3, j += 2) {
+    const px = (positions[i] - min.x) / spanX;
+    const py = (positions[i + 1] - min.y) / spanY;
+    const pz = (positions[i + 2] - min.z) / spanZ;
+    const nx = Math.abs(normals[i]), ny = Math.abs(normals[i + 1]), nz = Math.abs(normals[i + 2]);
+    if (nx >= ny && nx >= nz) { uvs[j] = pz; uvs[j + 1] = py; }
+    else if (ny >= nx && ny >= nz) { uvs[j] = px; uvs[j + 1] = pz; }
+    else { uvs[j] = px; uvs[j + 1] = py; }
+  }
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('uv1', new THREE.Float32BufferAttribute(uvs.slice(), 2));   // aoMap reads uv1
+
+  if (positions.length === 0) geometry.computeVertexNormals();
   return geometry;
 }"""
 
