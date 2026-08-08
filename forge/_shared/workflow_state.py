@@ -14,6 +14,34 @@ STEP_STATUSES: Final = {"pending", "done", "skipped"}
 REFINE_ACTIONS: Final = {"refine-spec", "refine-code"}
 
 
+# A "contract-read" step is self-certified: nothing can prove an agent read a document. What CAN
+# be enforced is that it names the right ones. Marking `review-contract-read` done with evidence
+# "object-sculpt-spec.json" is how those reads got skipped in practice -- the step passed while
+# the documents went unread, and the rules they carry ("do NOT eyeball proportions", "never report
+# a 2D-gate pass as done") were the exact rules then broken. So the evidence must include every
+# required path, which at minimum forces the agent to look up what they are.
+CONTRACT_DOCS: Final = {
+    "topology-contract-read": (
+        "grimoire/intake/surface_topology.md",
+        "grimoire/intake/detail_inventory.md",
+    ),
+    "build-contract-read": (
+        "grimoire/build/geometry_patterns.md",
+        "grimoire/feedback/shading_realism.md",
+    ),
+    "character-contract-read": (
+        "grimoire/character/reconstruction.md",
+        "grimoire/character/likeness_maximization.md",
+    ),
+    "character-pipeline-read": ("grimoire/readiness/standard_character_pipeline.md",),
+    "review-contract-read": (
+        "grimoire/review/gates_reference.md",
+        "grimoire/review/self_correction.md",
+    ),
+    "cs2-contract-read": ("grimoire/intake/cs2_intake_contract.md",),
+}
+
+
 SETUP_STEPS: Final = (
     ("image-analysis", "Read grimoire/intake/image_analysis.md and analyze {reference}"),
     (
@@ -28,6 +56,11 @@ SETUP_STEPS: Final = (
         "projection-route",
         "Record whether projection is required; if required run solve_camera_pose.py, delight_albedo.py, and bake_projected_texture.py, otherwise skip with a reason",
     ),
+    (
+        "topology-contract-read",
+        "Read grimoire/intake/surface_topology.md and grimoire/intake/detail_inventory.md completely"
+        " -- classify every component's topologyClass BEFORE choosing its primitive",
+    ),
     ("spec-authoring", "python3 forge/stage2_spec/new_sculpt_spec.py \"<name>\" --image {reference} --assessment assessment.json --out object-sculpt-spec.json"),
     (
         "material-evidence",
@@ -36,6 +69,12 @@ SETUP_STEPS: Final = (
     ),
     ("material-spec-wiring", "python3 forge/stage2_spec/apply_material_analysis.py {spec} material-analysis.json --in-place"),
     ("strict-validation", "python3 forge/stage2_spec/validate_sculpt_spec.py {spec} --strict-quality"),
+    (
+        "build-contract-read",
+        "Read grimoire/build/geometry_patterns.md and grimoire/feedback/shading_realism.md completely"
+        " -- in particular 'do NOT eyeball proportions, extract 1-to-1 from the reference', the"
+        " distinctZ slab test, and the discriminating tests for a wrong attribution",
+    ),
 )
 
 CHARACTER_STEPS: Final = (
@@ -46,6 +85,12 @@ CHARACTER_STEPS: Final = (
     (
         "character-landmarks",
         "python3 forge/stage1_intake/extract_landmarks.py {reference} --out anatomy.json --overlay landmarks.png",
+    ),
+    (
+        "character-pipeline-read",
+        "Read grimoire/readiness/standard_character_pipeline.md completely -- route selection, required"
+        " artifacts, the required capture batch, the acceptance order, and the rule that ONE correction"
+        " group changes per loop (camera, silhouette, face, clothing, accessory, materials, lighting)",
     ),
 )
 
@@ -60,6 +105,13 @@ PASS_STEPS: Final = (
     ("render-capture", "Render {pass_id} and capture the fixed review view plus meaningful orbit views"),
     ("review-contract-read", "Read grimoire/review/gates_reference.md and grimoire/review/self_correction.md completely"),
     ("tier1-diagnostics", "python3 forge/stage4_review/diagnose_render.py --reference {reference} --render <shot> --spec {spec} --pass-id {pass_id} --in-place"),
+    (
+        "divine-eye",
+        "python3 forge/stage4_review/divine_eye.py --reference {reference} --render <shot> --json"
+        " -- the harness heart, and the single authority on how close the render is. Record its"
+        " fidelity BEFORE scoring anything yourself; append_review.py will refuse a score that"
+        " sits far above it.",
+    ),
     ("multi-angle-review", "python3 forge/stage4_review/diagnose_render_multi_angle.py --reference <fixed-shot> --orbit <orbit-shot> --orbit <orbit-shot>"),
     ("pass-gate-check", "python3 forge/stage3_build/orchestrate_passes.py check {spec} --pass-id {pass_id}"),
     ("ai-review-recorded", "Create the comparison sheet, inspect it with agent vision, and append exactly one review action"),
@@ -277,6 +329,19 @@ def mark_steps(
         raise WorkflowStateError("mark status must be done, skipped, or pending")
     if status == "done" and not evidence:
         raise WorkflowStateError("completing a mandatory step requires at least one --evidence value")
+    if status == "done":
+        for step_id in step_ids:
+            required = CONTRACT_DOCS.get(step_id)
+            if not required:
+                continue
+            joined = " ".join(evidence or [])
+            missing = [doc for doc in required if doc not in joined]
+            if missing:
+                raise WorkflowStateError(
+                    f"step {step_id!r} is a contract read: its --evidence must name every required "
+                    f"document, and these are missing: {', '.join(missing)}. Read them, then mark "
+                    f"the step with each path as evidence."
+                )
     if status == "skipped" and not reason.strip():
         raise WorkflowStateError("skipping a mandatory step requires --reason")
     by_id = {entry["id"]: entry for entry in state["checklist"]}

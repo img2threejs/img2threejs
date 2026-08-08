@@ -208,6 +208,22 @@ def sync_pipeline(spec: dict) -> None:
     )
 
 
+OVER_CLAIM_MARGIN: float = 0.15
+
+
+def load_divine_eye_json(value: str, label: str):
+    """Accept either inline JSON or a path to a divine_eye.py --json report."""
+    import json as _json
+    from pathlib import Path as _Path
+    candidate = _Path(value).expanduser()
+    if candidate.exists():
+        return _json.loads(candidate.read_text(encoding="utf-8"))
+    try:
+        return _json.loads(value)
+    except _json.JSONDecodeError as exc:
+        raise ValueError(f"{label} must be inline JSON or an existing JSON file path") from exc
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("spec", type=Path)
@@ -246,6 +262,16 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="Require local screenshot paths to exist before writing the review",
     )
+    parser.add_argument(
+        "--divine-eye-json",
+        help="divine_eye.py --json output (inline JSON or a file path). Required for a visual pass: "
+        "it is the deterministic measurement your own score is checked against.",
+    )
+    parser.add_argument(
+        "--over-claim-reason",
+        help="Justification for scoring more than %.2f above the Divine Eye's measured fidelity. "
+        "Required, and recorded in the review." % OVER_CLAIM_MARGIN,
+    )
     parser.add_argument("--in-place", action="store_true", help="Write back to the input spec")
     parser.add_argument("--out", type=Path, help="Output JSON path when not using --in-place")
     args = parser.parse_args(argv)
@@ -259,6 +285,40 @@ def main(argv: list[str]) -> int:
             "visual pass cannot use action=continue without --render-screenshot; "
             "capture a browser screenshot or choose refine-code/request-input"
         )
+
+    divine = None
+    # --- over-claim guard -------------------------------------------------------------------
+    # A visual pass is scored by the agent looking at a comparison sheet, and an agent looking at
+    # its own work grades it generously: on the reconstruction that produced this guard, the
+    # recorded ai-vision-score was 0.72 while divine_eye.py measured 0.5072 on the same render,
+    # and the user's read was lower than both. self_correction.md's first section is about
+    # exactly this ("Over-claiming destroys trust and makes iterative improvement impossible"),
+    # and prose did not stop it. So the measurement is now required, and a score far above it
+    # has to be argued for in writing rather than simply asserted.
+    if args.divine_eye_json:
+        divine = load_divine_eye_json(args.divine_eye_json, "--divine-eye-json")
+    if args.pass_id in VISUAL_PASS_IDS:
+        if divine is None:
+            raise ValueError(
+                "visual pass requires --divine-eye-json: run "
+                "forge/stage4_review/divine_eye.py --reference <ref> --render <shot> --json first. "
+                "It is the harness heart and the single authority on how close the render is; a "
+                "self-reported score with nothing to check it against is not evidence."
+            )
+        measured = divine.get("fidelity")
+        if not isinstance(measured, (int, float)):
+            raise ValueError("--divine-eye-json has no numeric `fidelity`")
+        claimed = args.ai_vision_score if args.ai_vision_score is not None else args.fidelity
+        if claimed - float(measured) > OVER_CLAIM_MARGIN and not args.over_claim_reason:
+            raise ValueError(
+                f"claimed score {claimed:.3f} exceeds the Divine Eye's measured fidelity "
+                f"{float(measured):.3f} by more than {OVER_CLAIM_MARGIN:.2f}. Either lower the "
+                "score to what the render supports, or pass --over-claim-reason explaining what "
+                "the deterministic signals miss. Note that ssim/edgeOverlap are known to be "
+                "dominated by framing against a photo (see self_correction.md's Divine Eye "
+                "caveat), which is a legitimate reason -- 'it looks better to me' is not."
+            )
+
 
     spec_path = args.spec.expanduser().resolve()
     spec = load_spec(spec_path)
@@ -379,6 +439,16 @@ def main(argv: list[str]) -> int:
     }
     if args.force_out_of_order:
         entry["outOfSequence"] = True
+    if divine is not None:
+        entry["divineEye"] = {
+            "fidelity": divine.get("fidelity"),
+            "fidelityTarget": divine.get("fidelityTarget"),
+            "verdict": divine.get("verdict"),
+            "action": divine.get("action"),
+            "hardGateFailures": divine.get("hardGateFailures"),
+            "signals": divine.get("signals"),
+            "overClaimReason": args.over_claim_reason,
+        }
     if args.map_stripped_render:
         entry["mapStrippedRender"] = args.map_stripped_render
     if args.review_viewpoints_json:

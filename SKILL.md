@@ -146,6 +146,32 @@ manifest, and a machine-readable CS2 review before AI review; `character` requir
 contracts and landmark evidence. Every profile records suitability, projection applicability, and
 material-evidence applicability; conditional steps require evidence or an explicit skip reason.
 
+## What the state gate now enforces (and why)
+
+The mandatory reads and the primary evaluator used to live only in this file's prose. Prose is not
+a control: an agent can run the whole pipeline, mark every checklist step, and never open
+`geometry_patterns.md` or run `divine_eye.py`, because nothing asked. That happened, and the rules
+it skipped were the exact ones that then broke the reconstruction ("do NOT eyeball proportions",
+"never report a 2D-gate pass as done"). So they are checklist steps now:
+
+| Step | Enforces |
+| --- | --- |
+| `topology-contract-read` | `surface_topology.md` + `detail_inventory.md`, before any primitive is chosen |
+| `build-contract-read` | `geometry_patterns.md` + `shading_realism.md`, before any geometry is generated |
+| `character-pipeline-read` | `standard_character_pipeline.md` on the character profile |
+| `divine-eye` | `divine_eye.py` runs on every pass; it is the harness heart, not an optional extra |
+
+Two guards back them up:
+
+- **A contract-read step must name its documents.** `state.py mark review-contract-read --evidence
+  object-sculpt-spec.json` is refused; the evidence has to include every required path. Nothing can
+  prove a document was read, but marking the step is no longer free.
+- **`append_review.py` refuses a score it cannot check.** A visual pass requires
+  `--divine-eye-json`, and a claim more than 0.15 above the measured fidelity needs
+  `--over-claim-reason` in writing. This exists because a review was once recorded at 0.72 while
+  Divine Eye measured 0.5072 on the same render. `self_correction.md` opens with a section about
+  over-claiming; it did not stop it, because it was only prose.
+
 ## The Loop (scripts do enforcement; agent vision does judgment)
 
 Run scripts from the skill root (`forge/...`). Pure Python 3.10+ stdlib, no pip installs.

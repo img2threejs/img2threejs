@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "forge" / "_shared"))
 
 from workflow_state import (  # noqa: E402
+    CONTRACT_DOCS,
     WorkflowStateError,
     mark_steps,
     new_state,
@@ -19,6 +20,16 @@ from workflow_state import (  # noqa: E402
     status_payload,
     sync_from_spec,
 )
+
+
+def bulk_evidence(*extra: str) -> list[str]:
+    """Evidence for a bulk mark that walks past the contract-read steps.
+
+    Those steps require their own document paths by name, so a bulk walk has to carry them.
+    That is the guard working as intended, not a test inconvenience.
+    """
+    docs = [doc for paths in CONTRACT_DOCS.values() for doc in paths]
+    return list(extra) + docs
 
 
 class WorkflowStateTest(unittest.TestCase):
@@ -100,13 +111,13 @@ class WorkflowStateTest(unittest.TestCase):
     def test_new_pass_archives_and_resets_pass_checklist(self):
         state = new_state("reference.png")
         setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
-        mark_steps(state, setup_ids, status="done", evidence=["setup-evidence.json"])
+        mark_steps(state, setup_ids, status="done", evidence=bulk_evidence("setup-evidence.json"))
         set_current_pass(state, "blockout")
         mark_steps(
             state,
             ["build-current-pass", "render-capture", "review-contract-read", "tier1-diagnostics"],
             status="done",
-            evidence=["shot.png"],
+            evidence=bulk_evidence("shot.png"),
         )
         set_current_pass(state, "structural-pass")
         self.assertEqual(state["passHistory"][0]["passId"], "blockout")
@@ -122,9 +133,9 @@ class WorkflowStateTest(unittest.TestCase):
         state = new_state("reference.png")
         setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
         pass_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "pass"]
-        mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+        mark_steps(state, setup_ids, status="done", evidence=bulk_evidence("setup.json"))
         set_current_pass(state, "blockout")
-        mark_steps(state, pass_ids, status="done", evidence=["review.json"])
+        mark_steps(state, pass_ids, status="done", evidence=bulk_evidence("review.json"))
         self.assertEqual(status_payload(state)["currentStep"], "await-pass-transition")
 
         spec = {"reviewHistory": [{"passId": "blockout", "action": "refine-code"}]}
@@ -141,7 +152,7 @@ class WorkflowStateTest(unittest.TestCase):
     def test_new_pass_and_refine_spec_regenerate_with_force(self):
         state = new_state("reference.png", spec="spec.json")
         setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
-        mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+        mark_steps(state, setup_ids, status="done", evidence=bulk_evidence("setup.json"))
         set_current_pass(state, "blockout")
         self.assertNotIn("--force", status_payload(state)["nextCommand"])
         set_current_pass(state, "structural-pass")
@@ -218,7 +229,7 @@ class WorkflowStateTest(unittest.TestCase):
             spec_path = Path(directory) / "spec.json"
             state = new_state("reference.png", spec=str(spec_path))
             setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
-            mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+            mark_steps(state, setup_ids, status="done", evidence=bulk_evidence("setup.json"))
             state_path.write_text(json.dumps(state), encoding="utf-8")
             spec_path.write_text(
                 json.dumps({"buildPasses": [{"id": "blockout", "acceptance": []}], "reviewHistory": []}),
@@ -313,3 +324,55 @@ class WorkflowStateTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ContractReadGuardTest(unittest.TestCase):
+    """A contract-read step must name every document it certifies.
+
+    Nothing can prove a document was read. What can be enforced is that the step names the right
+    ones -- and the failure this guards against is concrete: `review-contract-read` was once
+    marked done with evidence "object-sculpt-spec.json", the step passed, the documents went
+    unread, and the rules they carry were the exact rules then broken.
+    """
+
+    def setUp(self) -> None:
+        self.base = new_state("reference.png", profile="character")
+
+    def _upto(self, target: str) -> dict:
+        state = json.loads(json.dumps(self.base))
+        ids = [e["id"] for e in state["checklist"]]
+        prior = ids[: ids.index(target)]
+        if prior:
+            mark_steps(state, prior, status="done", evidence=bulk_evidence("prior.json"))
+        return state
+
+    def test_wrong_evidence_is_refused(self) -> None:
+        state = self._upto("review-contract-read")
+        with self.assertRaises(WorkflowStateError) as ctx:
+            mark_steps(state, ["review-contract-read"], status="done",
+                       evidence=["object-sculpt-spec.json"])
+        self.assertIn("gates_reference.md", str(ctx.exception))
+        self.assertIn("self_correction.md", str(ctx.exception))
+
+    def test_partial_evidence_is_refused(self) -> None:
+        state = self._upto("build-contract-read")
+        with self.assertRaises(WorkflowStateError) as ctx:
+            mark_steps(state, ["build-contract-read"], status="done",
+                       evidence=["grimoire/build/geometry_patterns.md"])
+        self.assertIn("shading_realism.md", str(ctx.exception))
+
+    def test_naming_every_document_is_accepted(self) -> None:
+        state = self._upto("build-contract-read")
+        mark_steps(state, ["build-contract-read"], status="done",
+                   evidence=["grimoire/build/geometry_patterns.md",
+                             "grimoire/feedback/shading_realism.md"])
+        entry = next(s for s in state["checklist"] if s["id"] == "build-contract-read")
+        self.assertEqual(entry["status"], "done")
+
+    def test_character_profile_requires_the_pipeline_doc(self) -> None:
+        state = self._upto("build-contract-read")
+        ids = [s["id"] for s in state["checklist"]]
+        self.assertIn("character-pipeline-read", ids)
+        self.assertIn("divine-eye", ids)
+        self.assertIn("build-contract-read", ids)
+        self.assertIn("topology-contract-read", ids)

@@ -621,6 +621,32 @@ class PipelineTest(unittest.TestCase):
                           "--in-place")
         self.assertNotEqual(no_evidence.returncode, 0)
         self.assertIn("render-screenshot", no_evidence.stdout + no_evidence.stderr)
+        # GATE: a visual pass must carry the Divine Eye's own measurement. A self-reported score
+        # with nothing to check it against is not evidence -- this guard exists because a review
+        # was once recorded at 0.72 while divine_eye.py measured 0.5072 on the same render.
+        de = run("stage4_review/divine_eye.py", "--reference", self.ref, "--render", self.render, "--json")
+        divine = self.dir / "divine.json"
+        divine.write_text(de.stdout)
+        no_eye = run("stage4_review/append_review.py", self.spec, "--pass-id", "blockout",
+                     "--fidelity", "0.8", "--action", "refine-code",
+                     "--summary", "no divine eye", "--ai-vision-score", "0.8", "--in-place")
+        self.assertNotEqual(no_eye.returncode, 0)
+        self.assertIn("divine-eye-json", no_eye.stdout + no_eye.stderr)
+
+        # GATE: a score far above the measured fidelity needs an argument, not an assertion.
+        # Uses a fixed low measurement so the gate is tested directly rather than through
+        # whatever score the synthetic render happens to earn.
+        measured = json.loads(de.stdout)["fidelity"]
+        low = self.dir / "divine-low.json"
+        low.write_text(json.dumps({"fidelity": 0.20, "verdict": "reject", "action": "refine-spec",
+                                   "hardGateFailures": [], "signals": {}}))
+        over = run("stage4_review/append_review.py", self.spec, "--pass-id", "blockout",
+                   "--fidelity", "0.9", "--action", "refine-code",
+                   "--summary", "over-claimed", "--ai-vision-score", "0.9",
+                   "--divine-eye-json", low, "--in-place")
+        self.assertNotEqual(over.returncode, 0)
+        self.assertIn("exceeds the Divine Eye", over.stdout + over.stderr)
+
         # WITH evidence: the review is recorded.
         cmp = self.dir / "cmp.png"
         run("stage4_review/make_comparison_sheet.py", "--reference", self.ref,
@@ -645,10 +671,15 @@ class PipelineTest(unittest.TestCase):
                 "--map-stripped-render", self.render,
                 "--ai-vision-score", "0.8", "--layer-scores-json", layers,
                 "--feature-reviews-json", freviews,
+                "--divine-eye-json", divine,
+                "--over-claim-reason", "ssim/edgeOverlap are dominated by framing against a photo",
                 "--camera-view", "front", "--in-place")
         self.assertEqual(r.returncode, 0, r.stderr)
         spec = json.loads(self.spec.read_text())
         self.assertTrue(len(spec.get("reviewHistory", [])) >= 1)
+        # the measurement is recorded alongside the claim, so the two can never drift apart again
+        self.assertIn("divineEye", spec["reviewHistory"][-1])
+        self.assertAlmostEqual(spec["reviewHistory"][-1]["divineEye"]["fidelity"], measured, places=6)
 
     def test_pbr_extraction_runs(self):
         # low-detail synthetic image: either passes or refuses (non-zero) — both are valid,
