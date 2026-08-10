@@ -163,9 +163,17 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
                     if pass_result.get("ok") is False:
                         raise RuntimeError(str(pass_result.get("reason", "beauty pass failed")))
                     selector = str(pass_result.get("selector", "canvas"))
-                    page.locator(selector).screenshot(path=str(screenshot))
+                    page.locator(selector).screenshot(path=str(screenshot), omit_background=True)
                 else:
-                    page.screenshot(path=str(screenshot), full_page=False)
+                    # omit_background keeps the canvas's own alpha instead of compositing the
+                    # page behind it. Without it every photometric signal in divine_eye.py
+                    # measures the BACKDROP rather than the model: on the reconstruction that
+                    # found this, a white-composited capture scored ssim 0.000, blowoutParity
+                    # 0.000 and tonalParity 0.217 against an RGBA reference, and the same render
+                    # compared like-for-like scored 0.916 / 0.987 / 0.876 -- fidelity 0.5075 vs
+                    # 0.8349. The mask-based signals (IoU, scale) were unaffected, which is why
+                    # it read as a real material failure for several correction rounds.
+                    page.screenshot(path=str(screenshot), full_page=False, omit_background=True)
                 ready_value = page.evaluate("() => window.__IMG2THREEJS_READY__")
                 if mode == "reference":
                     record_reference_capture(
@@ -208,7 +216,10 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
                             if pass_result.get("ok") is False:
                                 raise RuntimeError(str(pass_result.get("reason", "diagnostic pass failed")))
                             selector = str(pass_result.get("selector", "canvas"))
-                            page.locator(selector).screenshot(path=str(pass_path))
+                            # same rule for the v2 pass captures: the alpha-silhouette pass is
+                            # meaningless composited, and per-region scoring on the others reads
+                            # cleaner masks without the page behind them
+                            page.locator(selector).screenshot(path=str(pass_path), omit_background=True)
                         record_capture_pass(
                             manifest_path_value,
                             manifest,
