@@ -12,6 +12,7 @@ from status_banner import emit_status
 from orchestrate_passes import current_pass, pass_acceptance, pass_order, completed_passes
 from workflow_state import (
     WorkflowStateError,
+    is_stale_complete,
     load_state,
     save_state,
     status_payload,
@@ -67,6 +68,13 @@ def main(argv: list[str]) -> int:
     if spec_path is None:
         if local_state is None:
             parser.error("spec is required unless --state points to an initialized pre-spec workflow")
+        if is_stale_complete(local_state):
+            print(
+                "WARNING: state.json shows 'complete' but pipeline is incomplete. "
+                "Run 'python3 forge/state.py reset --state .img2threejs/state.json --force' "
+                "to re-enter the pipeline before continuing.",
+                file=sys.stderr,
+            )
         payload = status_payload(local_state)
         emit_local_state(payload)
         return 3 if payload["status"] == "stopped" else 0
@@ -83,6 +91,13 @@ def main(argv: list[str]) -> int:
     current = current_pass(ids, completed)
 
     if local_state is not None:
+        if is_stale_complete(local_state):
+            print(
+                "WARNING: state.json shows 'complete' but pipeline is incomplete. "
+                "Run 'python3 forge/state.py reset --state .img2threejs/state.json --force' "
+                "to re-enter the pipeline before continuing.",
+                file=sys.stderr,
+            )
         sync_from_spec(local_state, spec, current)
         save_state(args.state, local_state)
         payload = status_payload(local_state)

@@ -14,6 +14,7 @@ from workflow_state import (  # noqa: E402
     load_state,
     mark_steps,
     new_state,
+    reset_for_resume,
     save_state,
     status_payload,
 )
@@ -41,6 +42,10 @@ def build_parser() -> argparse.ArgumentParser:
     mark.add_argument("--status", choices=("done", "skipped", "pending"), default="done")
     mark.add_argument("--evidence", action="append", default=[])
     mark.add_argument("--reason", default="")
+
+    reset = commands.add_parser("reset")
+    reset.add_argument("--state", type=Path, default=Path(".img2threejs/state.json"))
+    reset.add_argument("--force", action="store_true", help="Reset without confirmation prompt")
 
     return parser
 
@@ -86,6 +91,22 @@ def main(argv: list[str]) -> int:
             print_status(state, as_json=args.json)
         elif args.command == "mark":
             mark_steps(state, args.step, status=args.status, evidence=args.evidence, reason=args.reason)
+            save_state(args.state, state)
+            print_status(state)
+        elif args.command == "reset":
+            previous_status = state.get("status")
+            if previous_status == "active":
+                print("state is already active; nothing to reset", file=sys.stderr)
+                return 0
+            if not args.force:
+                print(
+                    f"WARNING: resetting state from {previous_status!r} to active. "
+                    f"This will re-enter the pipeline from current pass. "
+                    f"Use --force to confirm.",
+                    file=sys.stderr,
+                )
+                return 2
+            reset_for_resume(state)
             save_state(args.state, state)
             print_status(state)
         return 3 if state.get("status") == "stopped" else 0

@@ -13,8 +13,10 @@ sys.path.insert(0, str(ROOT / "forge" / "_shared"))
 
 from workflow_state import (  # noqa: E402
     WorkflowStateError,
+    is_stale_complete,
     mark_steps,
     new_state,
+    reset_for_resume,
     set_current_pass,
     status_payload,
     sync_from_spec,
@@ -300,6 +302,135 @@ class WorkflowStateTest(unittest.TestCase):
         self.assertIn("forge/stage4_review/diagnose_render.py", skill)
         self.assertIn("forge/stage4_review/diagnose_render_multi_angle.py", skill)
         self.assertIn("forge/stage4_review/check_part_coverage.py", skill)
+
+    def test_reset_for_resume_resets_complete_state(self):
+        state = new_state("reference.png", spec="spec.json")
+        setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
+        pass_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "pass"]
+        final_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "final"]
+        mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+        set_current_pass(state, "blockout")
+        mark_steps(state, pass_ids, status="done", evidence=["blockout.json"])
+        set_current_pass(state, "complete")
+        mark_steps(state, final_ids, status="done", evidence=["final.json"])
+        self.assertEqual(state["status"], "complete")
+        reset_for_resume(state)
+        self.assertEqual(state["status"], "active")
+        self.assertNotEqual(state["currentStep"], "complete")
+
+    def test_reset_for_resume_resets_stopped_state(self):
+        state = new_state("reference.png", max_per_pass=2, max_total=6)
+        setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
+        pass_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "pass"]
+        mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+        set_current_pass(state, "blockout")
+        mark_steps(state, pass_ids, status="done", evidence=["blockout.json"])
+        spec = {
+            "reviewHistory": [
+                {"passId": "blockout", "action": "refine-code"},
+                {"passId": "blockout", "action": "refine-spec"},
+            ]
+        }
+        sync_from_spec(state, spec, "blockout")
+        self.assertEqual(state["status"], "stopped")
+        reset_for_resume(state)
+        self.assertEqual(state["status"], "active")
+        self.assertEqual(state["stopReason"], "")
+
+    def test_reset_for_resume_is_noop_on_active(self):
+        state = new_state("reference.png")
+        self.assertEqual(state["status"], "active")
+        reset_for_resume(state)
+        self.assertEqual(state["status"], "active")
+
+    def test_is_stale_complete_returns_false_for_active(self):
+        state = new_state("reference.png")
+        self.assertFalse(is_stale_complete(state))
+
+    def test_is_stale_complete_returns_false_for_stopped(self):
+        state = new_state("reference.png", max_per_pass=1, max_total=1)
+        setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
+        mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+        set_current_pass(state, "blockout")
+        spec = {"reviewHistory": [{"passId": "blockout", "action": "refine-code"}]}
+        sync_from_spec(state, spec, "blockout")
+        self.assertEqual(state["status"], "stopped")
+        self.assertFalse(is_stale_complete(state))
+
+    def test_is_stale_complete_returns_true_when_pass_not_complete(self):
+        state = new_state("reference.png", spec="spec.json")
+        setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
+        mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+        set_current_pass(state, "blockout")
+        pass_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "pass"]
+        mark_steps(state, pass_ids, status="done", evidence=["blockout.json"])
+        # Manually set status to complete without updating currentPass
+        state["status"] = "complete"
+        state["currentStep"] = "complete"
+        self.assertTrue(is_stale_complete(state))
+
+    def test_status_payload_includes_stale_complete(self):
+        state = new_state("reference.png", spec="spec.json")
+        setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
+        mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+        set_current_pass(state, "blockout")
+        pass_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "pass"]
+        mark_steps(state, pass_ids, status="done", evidence=["blockout.json"])
+        state["status"] = "complete"
+        state["currentStep"] = "complete"
+        payload = status_payload(state)
+        self.assertTrue(payload["staleComplete"])
+
+    def test_reset_cli_refuses_without_force(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            state = new_state("reference.png")
+            state["status"] = "complete"
+            state["currentStep"] = "complete"
+            state_path.write_text(json.dumps(state), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "forge" / "state.py"), "reset", "--state", str(state_path)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("WARNING", result.stderr)
+            self.assertIn("--force", result.stderr)
+
+    def test_reset_cli_with_force_resets_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            state = new_state("reference.png")
+            state["status"] = "complete"
+            state["currentStep"] = "complete"
+            state_path.write_text(json.dumps(state), encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "forge" / "state.py"),
+                    "reset",
+                    "--state",
+                    str(state_path),
+                    "--force",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("status=active", result.stdout)
+
+    def test_reset_cli_is_noop_on_active(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            state = new_state("reference.png")
+            state_path.write_text(json.dumps(state), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "forge" / "state.py"), "reset", "--state", str(state_path)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("already active", result.stderr)
 
     def test_all_direct_router_references_exist(self):
         for relative in (

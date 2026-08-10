@@ -141,6 +141,19 @@ Mark a non-applicable step `skipped` only with `--reason`; silent omission is fo
 are derived from `reviewHistory` actions `refine-spec`/`refine-code`, not agent memory. Defaults are
 3 corrections per pass and 6 total.
 
+### State staleness detection
+
+If `forge/next.py --state` prints a WARNING about stale complete state, or if `state.json` shows
+`"status": "complete"` but work is continuing, reset before proceeding:
+
+```bash
+python3 forge/state.py reset --state .img2threejs/state.json --force
+```
+
+This resets the state to active and re-enters the pipeline from the last completed pass. Never
+trust a `"complete"` status from a previous session without verification — always run `next.py`
+first and obey its output.
+
 Profiles add mandatory gates rather than changing the core order: `cs2` requires classification,
 manifest, and a machine-readable CS2 review before AI review; `character` requires the character
 contracts and landmark evidence. Every profile records suitability, projection applicability, and

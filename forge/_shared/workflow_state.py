@@ -379,6 +379,60 @@ def sync_from_spec(state: dict[str, Any], spec: dict[str, Any], current_pass: st
         recompute(state)
 
 
+def reset_for_resume(state: dict[str, Any]) -> None:
+    """Reset a completed or stopped state back to active for continued work.
+
+    When a new session resumes work on a previously-completed reconstruction,
+    the state file may still show status='complete'. This function resets it
+    so the agent can continue iterating without losing the evidence trail.
+
+    - 'complete' states: reset status to 'active', set currentPass back to
+      the last pass (so the agent re-enters the pass loop), and reset the
+      pass checklist for re-evaluation.
+    - 'stopped' states: reset status to 'active', clear stopReason, re-enter
+      from the stopped pass.
+    - 'active' states: no-op (already active).
+    """
+    current_status = state.get("status")
+    if current_status == "active":
+        return
+    if current_status not in {"complete", "stopped"}:
+        raise WorkflowStateError(f"cannot reset state with status={current_status!r}")
+    state["status"] = "active"
+    state["stopReason"] = ""
+    if state.get("currentPass") == "complete":
+        history = state.get("passHistory", [])
+        if history:
+            last_pass = history[-1].get("passId", "")
+            state["currentPass"] = last_pass
+        else:
+            state["currentPass"] = ""
+    if state.get("currentPass") and state["currentPass"] != "complete":
+        for entry in _entries(state, "pass"):
+            entry["status"] = "pending"
+            entry["evidence"] = []
+            entry["reason"] = ""
+        state["iterationAction"] = "resume"
+    recompute(state)
+
+
+def is_stale_complete(state: dict[str, Any]) -> bool:
+    """Return True if state shows 'complete' but may be stale.
+
+    A state is considered stale-complete when status is 'complete' but the
+    agent is being asked to continue work (detected by checking if there are
+    any pending final steps or if the currentPass is not 'complete').
+    """
+    if state.get("status") != "complete":
+        return False
+    # If currentPass is not 'complete', the pipeline didn't fully finish
+    if state.get("currentPass") != "complete":
+        return True
+    # If there are pending final steps, it's incomplete
+    final_pending = _pending(_entries(state, "final"))
+    return bool(final_pending)
+
+
 def status_payload(state: dict[str, Any]) -> dict[str, Any]:
     entry = next_entry(state)
     current_pass = str(state.get("currentPass") or "")
@@ -398,6 +452,7 @@ def status_payload(state: dict[str, Any]) -> dict[str, Any]:
         },
         "nextCommand": None if state["status"] != "active" or entry is None else _format_command(state, entry),
         "stopReason": state.get("stopReason") or None,
+        "staleComplete": is_stale_complete(state),
         "pending": [
             entry["id"]
             for entry in state["checklist"]
