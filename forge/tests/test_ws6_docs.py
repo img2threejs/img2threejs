@@ -14,10 +14,10 @@ SKILL = ROOT / "SKILL.md"
 README = ROOT / "README.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 
-# Both release paths anchor the version key at column zero: `scripts/release_metadata.py` with
-# VERSION_PATTERN, and `.github/workflows/beta-release.yml` with an equivalent sed. Accept the
-# stable and the beta spellings the beta workflow round-trips between.
-SKILL_VERSION_PATTERN = re.compile(r"^version: (\d+\.\d+\.\d+(?:-beta\.\d+)?)$", re.MULTILINE)
+# Both release paths read `metadata.version`: `scripts/release_metadata.py` with VERSION_PATTERN,
+# and `.github/workflows/beta-release.yml` with an equivalent sed. Accept the stable and the beta
+# spellings the beta workflow round-trips between.
+SKILL_VERSION_PATTERN = re.compile(r"^  version: (\d+\.\d+\.\d+(?:-beta\.\d+)?)$", re.MULTILINE)
 README_BADGE_PATTERN = re.compile(r"version-(\d+\.\d+\.\d+(?:-beta\.\d+)?)-green\.svg")
 
 
@@ -41,19 +41,22 @@ class Ws6DocsTest(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
 
-    def test_skill_version_is_reachable_by_the_release_tooling(self) -> None:
+    def test_skill_version_is_codex_compatible_and_reachable_by_release_tooling(self) -> None:
         """Assert against the real SKILL.md, never a fixture.
 
-        Nesting the key under a `metadata:` parent is valid YAML and reads fine to a human, so it
-        survived review; both release paths then match nothing and abort -- the beta workflow with
-        "SKILL.md must contain one supported version field", `release_metadata.py` with
-        "must contain exactly one replaceable version". A fixture-only test cannot see that,
-        because the fixture is the shape the tooling wants rather than the shape on disk.
+        Codex rejects an unrecognized top-level `version` key, so the release version lives under
+        the supported `metadata` mapping. Both release paths must keep matching that exact shape.
+        A fixture-only test cannot catch the real SKILL.md drifting away from the release tooling.
         """
-        match = SKILL_VERSION_PATTERN.search(SKILL.read_text(encoding="utf-8"))
+        skill_text = SKILL.read_text(encoding="utf-8")
+        self.assertIsNone(
+            re.search(r"^version:", skill_text, re.MULTILINE),
+            "SKILL.md must not use the unsupported top-level `version` key",
+        )
+        match = SKILL_VERSION_PATTERN.search(skill_text)
         self.assertIsNotNone(
             match,
-            "SKILL.md needs one unindented `version:` front-matter key for the release tooling",
+            "SKILL.md needs one `metadata.version` field for the release tooling",
         )
 
     def test_readme_declares_one_version_badge_matching_the_skill(self) -> None:

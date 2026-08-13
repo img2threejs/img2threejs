@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Final
 
 
-VERSION_PATTERN: Final = re.compile(r"^version: (\d+)\.(\d+)\.(\d+)$", re.MULTILINE)
+VERSION_PATTERN: Final = re.compile(r"^  version: (\d+)\.(\d+)\.(\d+)$", re.MULTILINE)
 BADGE_PATTERN: Final = re.compile(r"version-\d+\.\d+\.\d+-green\.svg")
 HEADING_PATTERN: Final = re.compile(r"^## \[", re.MULTILINE)
 REFERENCE_PATTERN: Final = re.compile(r"^\[", re.MULTILINE)
@@ -75,7 +75,7 @@ def release_level(commits: tuple[str, ...]) -> ReleaseLevel | None:
 def parse_version(skill_text: str) -> Version:
     match = VERSION_PATTERN.search(skill_text)
     if match is None:
-        raise ValueError("SKILL.md must contain one semantic version front-matter field")
+        raise ValueError("SKILL.md must contain one semantic version metadata field")
     return Version(*(int(value) for value in match.groups()))
 
 
@@ -127,7 +127,7 @@ def apply_release(request: ReleaseRequest) -> ReleasePlan | None:
     skill_text = skill_path.read_text(encoding="utf-8")
     current = parse_version(skill_text)
     plan = ReleasePlan(current=current, next=current.bump(level), level=level, commits=request.commits)
-    updated_skill = replace_once(VERSION_PATTERN, skill_text, f"version: {plan.next}", "SKILL.md")
+    updated_skill = replace_once(VERSION_PATTERN, skill_text, f"  version: {plan.next}", "SKILL.md")
     readme_text = readme_path.read_text(encoding="utf-8")
     updated_readme = replace_once(BADGE_PATTERN, readme_text, f"version-{plan.next}-green.svg", "README.md")
     changelog_text = changelog_path.read_text(encoding="utf-8")
