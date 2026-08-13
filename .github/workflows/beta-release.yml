@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          current_version="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?)$/\1/p' SKILL.md)"
+          current_version="$(sed -nE 's/^  version: ([0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?)$/\1/p' SKILL.md)"
           if [ -z "$current_version" ]; then
             echo "SKILL.md must contain one supported version field."
             exit 1
@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
 
-          sed -i -E "s/^version: [0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$/version: $next_version/" SKILL.md
+          sed -i -E "s/^  version: [0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$/  version: $next_version/" SKILL.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add SKILL.md

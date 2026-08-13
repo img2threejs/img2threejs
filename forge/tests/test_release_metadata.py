@@ -13,7 +13,10 @@ SCRIPT = ROOT / "scripts" / "release_metadata.py"
 
 class ReleaseMetadataTests(unittest.TestCase):
     def write_project(self, directory: Path) -> tuple[Path, Path]:
-        (directory / "SKILL.md").write_text("---\nversion: 1.4.1\n---\n", encoding="utf-8")
+        (directory / "SKILL.md").write_text(
+            "---\nname: fixture\ndescription: Release fixture.\nmetadata:\n  version: 1.4.1\n---\n",
+            encoding="utf-8",
+        )
         (directory / "README.md").write_text(
             "[![Version](https://img.shields.io/badge/version-1.4.1-green.svg)](CHANGELOG.md)\n",
             encoding="utf-8",
@@ -57,7 +60,7 @@ class ReleaseMetadataTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)["version"], "1.5.0")
-            self.assertIn("version: 1.5.0", (project / "SKILL.md").read_text(encoding="utf-8"))
+            self.assertIn("  version: 1.5.0", (project / "SKILL.md").read_text(encoding="utf-8"))
             self.assertIn("version-1.5.0-green.svg", (project / "README.md").read_text(encoding="utf-8"))
             changelog = (project / "CHANGELOG.md").read_text(encoding="utf-8")
             self.assertIn("## [1.5.0] — 2026-07-26", changelog)
