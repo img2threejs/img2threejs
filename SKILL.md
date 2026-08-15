@@ -324,6 +324,30 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    grid, and neither can represent any of these defects. Read `sampledVertexCount` /
    `unmeasuredAttachments` / `missingAzimuths` before believing a clean verdict: each names the part of
    the model the gate did not actually look at.
+7b. **Adaptive hostile scene critic — escalate beyond a fixed turntable when off-axis quality is
+   important.** Read `grimoire/review/adaptive_harsh_critic.md` completely. Initialize the six-face
+   cube-map sphere with `adaptive_harsh_critic.py init`, send `nextViews` into the real browser scene
+   with `render_bridge.py schedule-adaptive`, capture them with
+   `scripts/capture_threejs_playwright.py` (the generic `render_bridge.py record` path is forbidden
+   for adaptive evidence), then run `adaptive_harsh_critic.py request`. The runtime must return the
+   nonce-bound scene digest and actual camera matrices required by `getEvidenceSnapshot`; strict
+   ready, viewport/DPR/canvas/drawing-buffer dimensions, encoded/decoded pixel hashes and distinct
+   (including non-near-identical alpha-composited visible-RGB and demeaned-luma structure)
+   pixels/matrices across directions are
+   fail-closed. Treat the
+   receipt as trusted local-runner attestation, not cryptographic proof; the generic record CLI
+   cannot mint it. Every init uses random session-scoped capture IDs/paths. `request` locks the first
+   scene build, source reference, per-view GLB reference captures, and historical evidence ledger,
+   then pins its complete canonical digest in
+   `state.pendingRequest`, and
+   `advance` rejects any changed request before consuming that pin. Create a separate critic agent
+   for that request; the contract rejects
+   `critic.id == creator.id`. Every review and every finding must bind the actual PNG SHA-256 and
+   exact unit view direction. With the default `minimumUniformLevel=1`, six clean face centres MUST
+   still expand to 24 level-1 captures, so fewer than 30 real reviewed views cannot pass. After that
+   uniform floor, any defective cell splits into four child views. A critical finding is an AND
+   failure and cannot be hidden by averages or clean sides. Repeat only until pass,
+   repeated-defect, plateau, max-views, or max-rounds.
 8. Package one side-by-side sheet, then inspect it with agent vision:
    `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out cmp.png --json`.
 9. Record the review (overall + per-layer + per-feature scores + decision):
@@ -464,6 +488,22 @@ evidence caused it, what still differs, and choose exactly one next action:
   `forge/stage4_review/diagnose_render_multi_angle.py` flags `degenerate-view` when an orbited
   silhouette collapses (a flat plane faking a volume). Orbit angles use reference-free
   self-consistency — never scored against a reference angle the photo doesn't cover.
+- **Adaptive harsh critic (independent, pixel-bound, bounded)**:
+  `forge/stage4_review/adaptive_harsh_critic.py` starts from six cube-map sides, recursively
+  first enforces 6+24 uniformly captured views by default, then subdivides directions that expose
+  defects and emits `nextViews` for the Playwright adapter to capture from the real scene. Adaptive
+  captures require a nonce-bound browser/runtime/scene/camera trusted local-runner receipt and reject
+  duplicate or near-identical alpha-composited visible-RGB/structure pixels and duplicate camera matrices across different
+  directions. The receipt is not cryptographic proof and cannot be minted by the generic record CLI.
+  Scheduling validates canonical session/view/cell/round geometry and confines every generated
+  capture/reference/pass path below the manifest evidence root. Random session-scoped IDs/paths prevent stale-name reuse; the first scene build, original reference
+  source, required per-view GLB reference captures, and historical evidence ledger remain immutable.
+  Every issued request is canonical-digest pinned in state until one successful `advance --in-place`
+  consumes it; branch-like `advance --out` is intentionally unsupported. The critic ID
+  must differ from the creator ID; every finding is bound to a
+  capture hash + view direction; one critical finding blocks the run with no averaging. Fixed
+  turntable coverage remains mandatory. Repeated defects, plateau, max views, and max rounds
+  guarantee termination. Full contract: `grimoire/review/adaptive_harsh_critic.md`.
 - **CS2 review contract**: `forge/stage4_review/cs2_review.py` consumes the manifest and
   versioned scene fixture, then blocks wrong family identity, missing projection coverage,
   painted-region mismatch, critical identity-detail failure, finish/material response failure,
@@ -603,6 +643,10 @@ riggers are offline inference whose value here is the serialized payload, not a 
 Executable entry points are `forge/stage4_review/render_bridge.py` and
 `scripts/capture_threejs_playwright.py`. Run `init → browser capture → validate → diagnose`;
 capture must operate on the real showcase/browser route and leave readable PNGs in the workspace.
+For hostile multi-view escalation, add `adaptive_harsh_critic.py init → render_bridge.py
+schedule-adaptive → browser capture → adaptive_harsh_critic.py request → independent critic agent
+→ adaptive_harsh_critic.py advance`; adaptive browser capture specifically uses
+`scripts/capture_threejs_playwright.py` and requires the runtime `getEvidenceSnapshot` contract.
 
 ## Output
 

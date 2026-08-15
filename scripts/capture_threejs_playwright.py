@@ -13,7 +13,9 @@ replacement scene in Python and fails closed when the runtime contract is absent
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import secrets
 import sys
 from pathlib import Path
 
@@ -27,8 +29,13 @@ from forge.stage4_review.render_bridge import (  # noqa: E402
     record_capture_pass,
     record_reference_capture,
     PASS_IDS,
+    ADAPTIVE_BROWSER_RECEIPT_KIND,
+    ADAPTIVE_BROWSER_RECEIPT_VERSION,
+    decoded_pixel_sha256,
+    sha256,
     write_manifest,
 )
+from forge.stage1_intake.probe_image import probe  # noqa: E402
 
 
 def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, timeout_ms: int, mode: str) -> dict:
@@ -60,20 +67,32 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
     console_errors: list[str] = []
     page_errors: list[str] = []
     browser_info: dict = {}
+    session_nonce = secrets.token_hex(16)
 
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=not headed)
-            browser_info = {"adapter": "playwright", "browser": "chromium", "headless": not headed}
+            browser_info = {
+                "adapter": "playwright",
+                "adapterVersion": ADAPTIVE_BROWSER_RECEIPT_VERSION,
+                "browser": "chromium",
+                "browserVersion": browser.version,
+                "headless": not headed,
+                "sessionNonce": session_nonce,
+            }
             context = browser.new_context(
                 viewport={"width": int(viewport[0]), "height": int(viewport[1])},
                 device_scale_factor=dpr,
+            )
+            context.add_init_script(
+                "Object.defineProperty(window, '__IMG2THREEJS_ADAPTER_SESSION__', "
+                f"{{value: '{session_nonce}', writable: false, configurable: false}});"
             )
             page = context.new_page()
             page.on("pageerror", lambda error: page_errors.append(str(error)))
             page.on("console", lambda message: console_errors.append(message.text) if message.type == "error" else None)
             page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-            page.wait_for_function("() => Boolean(window.__IMG2THREEJS_READY__)", timeout=timeout_ms)
+            page.wait_for_function("() => window.__IMG2THREEJS_READY__ === true", timeout=timeout_ms)
 
             if fidelity_v2:
                 pass_contract = page.evaluate(
@@ -104,6 +123,7 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
 
             for capture_id in selected:
                 capture_spec = find_capture(manifest, capture_id)
+                adaptive = capture_spec.get("role") == "adaptive-critic"
                 result = page.evaluate(
                     """
                     async (camera) => {
@@ -133,12 +153,67 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
                     """
                     () => {
                       const canvas = document.querySelector('canvas');
-                      return canvas ? {width: canvas.width, height: canvas.height} : null;
+                      if (!canvas) return null;
+                      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                      const rect = canvas.getBoundingClientRect();
+                      return {
+                        cssWidth: Math.round(rect.width),
+                        cssHeight: Math.round(rect.height),
+                        width: canvas.width,
+                        height: canvas.height,
+                        drawingBufferWidth: gl?.drawingBufferWidth || 0,
+                        drawingBufferHeight: gl?.drawingBufferHeight || 0,
+                        devicePixelRatio: window.devicePixelRatio,
+                        webgl: Boolean(gl),
+                      };
                     }
                     """
                 )
-                if not canvas or canvas["width"] <= 0 or canvas["height"] <= 0:
-                    raise RuntimeError("Three.js canvas has zero dimensions")
+                if (
+                    not canvas
+                    or canvas["cssWidth"] <= 0
+                    or canvas["cssHeight"] <= 0
+                    or canvas["width"] <= 0
+                    or canvas["height"] <= 0
+                    or canvas["drawingBufferWidth"] <= 0
+                    or canvas["drawingBufferHeight"] <= 0
+                    or canvas.get("webgl") is not True
+                ):
+                    raise RuntimeError("Three.js WebGL canvas is missing or has zero dimensions")
+                evidence_snapshot = None
+                # A GLB reference capture uses the same scheduled camera but
+                # does not mint procedural adaptive evidence; requiring the
+                # procedural getEvidenceSnapshot contract here would reject a
+                # valid reference-only route for data that is never consumed.
+                if adaptive and mode != "reference":
+                    evidence_snapshot = page.evaluate(
+                        """
+                        async ({captureId, sessionNonce}) => {
+                          const api = window.__IMG2THREEJS_CAPTURE__;
+                          if (!api || typeof api.setCamera !== 'function') {
+                            return {ok: false, reason: 'window.__IMG2THREEJS_CAPTURE__.setCamera is missing'};
+                          }
+                          if (typeof api.getEvidenceSnapshot !== 'function') {
+                            return {ok: false, reason: 'window.__IMG2THREEJS_CAPTURE__.getEvidenceSnapshot is missing'};
+                          }
+                          if (window.__IMG2THREEJS_READY__ !== true) {
+                            return {ok: false, reason: 'window.__IMG2THREEJS_READY__ is not strict boolean true'};
+                          }
+                          const snapshot = await api.getEvidenceSnapshot({captureId, sessionNonce});
+                          return {ok: true, snapshot};
+                        }
+                        """,
+                        {"captureId": capture_id, "sessionNonce": session_nonce},
+                    )
+                    if evidence_snapshot.get("ok") is not True:
+                        raise RuntimeError(str(evidence_snapshot.get("reason", "adaptive evidence snapshot failed")))
+                    evidence_snapshot = evidence_snapshot.get("snapshot")
+                    if not isinstance(evidence_snapshot, dict):
+                        raise RuntimeError("adaptive getEvidenceSnapshot returned no object")
+                    if evidence_snapshot.get("captureId") != capture_id:
+                        raise RuntimeError("adaptive evidence snapshot captureId mismatch")
+                    if evidence_snapshot.get("sessionNonce") != session_nonce:
+                        raise RuntimeError("adaptive evidence snapshot session nonce mismatch")
                 if mode == "reference":
                     reference_spec = capture_spec.get("reference")
                     if not isinstance(reference_spec, dict) or not reference_spec.get("path"):
@@ -147,7 +222,9 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
                 else:
                     screenshot = manifest_path(manifest_path_value, str(capture_spec["path"]))
                 screenshot.parent.mkdir(parents=True, exist_ok=True)
-                if fidelity_v2:
+                if adaptive and mode != "reference":
+                    page.locator("canvas").screenshot(path=str(screenshot))
+                elif fidelity_v2:
                     # The capture contract may return a selector when the route has a
                     # dedicated pass canvas; default to the target Three.js canvas.
                     pass_result = page.evaluate(
@@ -177,6 +254,55 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
                         console_errors=console_errors + page_errors,
                     )
                 else:
+                    browser_receipt = None
+                    if adaptive:
+                        assert isinstance(evidence_snapshot, dict)
+                        image = probe(screenshot)
+                        document_sha256 = hashlib.sha256(page.content().encode("utf-8")).hexdigest()
+                        browser_receipt = {
+                            "kind": ADAPTIVE_BROWSER_RECEIPT_KIND,
+                            "schemaVersion": ADAPTIVE_BROWSER_RECEIPT_VERSION,
+                            "adapter": {
+                                "name": "capture_threejs_playwright",
+                                "version": ADAPTIVE_BROWSER_RECEIPT_VERSION,
+                            },
+                            "sessionNonce": session_nonce,
+                            "captureId": capture_id,
+                            "runtime": {
+                                "requestedUrl": url,
+                                "documentUrl": page.url,
+                                "documentSha256": document_sha256,
+                                "readySignal": {
+                                    "expression": runtime.get("readySignal"),
+                                    "value": ready_value,
+                                    "valueType": "boolean" if isinstance(ready_value, bool) else type(ready_value).__name__,
+                                },
+                                "captureContract": {
+                                    "name": runtime.get("captureContract"),
+                                    "setCamera": True,
+                                    "getEvidenceSnapshot": True,
+                                },
+                                "snapshotEcho": {
+                                    "captureId": evidence_snapshot.get("captureId"),
+                                    "sessionNonce": evidence_snapshot.get("sessionNonce"),
+                                },
+                                "sceneBuildSha256": evidence_snapshot.get("sceneBuildSha256"),
+                                "objectCount": evidence_snapshot.get("objectCount"),
+                            },
+                            "browser": {
+                                "name": "chromium",
+                                "version": browser.version,
+                                "headless": not headed,
+                            },
+                            "camera": evidence_snapshot.get("camera"),
+                            "canvas": {"selector": "canvas", **canvas},
+                            "screenshot": {
+                                "sha256": sha256(screenshot),
+                                "pixelSha256": decoded_pixel_sha256(screenshot),
+                                "width": image.get("width"),
+                                "height": image.get("height"),
+                            },
+                        }
                     record_capture(
                         manifest_path_value,
                         manifest,
@@ -185,6 +311,7 @@ def capture(manifest_path_value: Path, capture_ids: list[str], headed: bool, tim
                         ready_signal=ready_value,
                         console_errors=console_errors + page_errors,
                         browser_snapshot={"canvas": canvas},
+                        browser_receipt=browser_receipt,
                     )
 
                 if fidelity_v2:

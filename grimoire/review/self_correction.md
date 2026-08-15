@@ -34,6 +34,15 @@ Use this reference when a model construction pass has just finished.
 
 For visual passes, `continue` requires a rendered screenshot, a comparison image, a global AI vision score at or above threshold, and every critical feature at or above its own threshold. Without them, the review is not evidence-backed enough. Pixel comparison code is never the acceptance authority.
 
+When adaptive hostile review is enabled, it is an additional AND gate. Use a fresh critic agent
+whose ID differs from the scene creator, and give it the real hash-bound captures emitted by
+`adaptive_harsh_critic.py request`. A clean hero comparison cannot override a critical finding from
+any adaptive side. Keep the scene build immutable while one adaptive session refines its sampling;
+do not edit code between that session's rounds. After it passes or blocks, apply corrections and
+start a new render manifest + critic state so the fixed baseline and every adaptive side are
+recaptured from the corrected build. Stop on repeated-defect, plateau, max-views, or max-rounds; do
+not weaken the policy to obtain `continue`. Full contract: `adaptive_harsh_critic.md`.
+
 ## Root Cause Guide
 
 Use `refine-spec` when:
