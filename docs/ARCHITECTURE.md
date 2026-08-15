@@ -21,6 +21,10 @@ flowchart TD
     F --> G[Generate Three.js factory: current pass only]
     G --> H[Render in browser and screenshot]
     H --> I[Package one side-by-side sheet]
+    H -. hostile off-axis escalation .-> H2[Adaptive cube-map captures: 6+24 minimum]
+    H2 --> H3[Independent hash-bound critic]
+    H3 -- defective direction --> H2
+    H3 -- clean or bounded stop --> I
     I --> J{Agent vision review}
     J -- score below threshold --> K[Self-correct: refine-spec or refine-code]
     K --> F
@@ -115,6 +119,7 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage4_review/material_gate.py` | Blocking material acceptance and cross-pass compatibility gate. |
 | `stage4_review/validate_render_profile.py` | Validate the shared GLB/procedural renderer, camera and six-pass profile. |
 | `stage4_review/compare_region_passes.py` | Compare paired browser diagnostic passes and block unsupported per-region claims. |
+| `stage4_review/adaptive_harsh_critic.py` | Schedule a six-face then recursively refined real-scene view sphere; pin each complete issued request by canonical digest in state, require nonce-bound Playwright/WebGL/scene/camera receipts with non-collapsed pixels, and validate an independent critic plus bounded termination without averaging critical defects. |
 | `stage4_review/cs2_review.py` | Evaluate the blocking CS2 knife review contract and versioned scene thresholds. |
 | `_shared/feature_acceptance_policy.py` | Internal helper enforcing per-feature score thresholds. |
 | `stage1_intake/build_detail_inventory.py` | Slice the reference into zones and scaffold a detail inventory. |

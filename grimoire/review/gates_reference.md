@@ -19,6 +19,18 @@ only the executable order and one-line summary; this file defines the mandatory 
   `forge/stage4_review/diagnose_render_multi_angle.py` flags `degenerate-view` when an orbited
   silhouette collapses (a flat plane faking a volume). Orbit angles use reference-free
   self-consistency — never scored against a reference angle the photo doesn't cover.
+- **Adaptive harsh critic**: after the fixed turntable baseline, optional hostile review starts from
+  six cube-map cells, then uniformly subdivides all roots once by default (6+24 real reviews) before
+  a clean pass is possible. After that it recursively subdivides every direction with a finding. New `nextViews` must
+  be scheduled through `render_bridge.py` and captured by the Playwright adapter with strict ready,
+  WebGL, runtime document, scene-build, actual-camera-matrix and encoded/decoded-pixel evidence. The
+  generic record CLI, duplicate pixels/matrices across directions, and a prose/JSON-only review are
+  invalid. Each complete critic request is canonical-digest pinned in state until successful
+  consumption. The critic ID must
+  differ from the creator ID, and every review plus every finding must bind the actual PNG hash and
+  exact direction. Any critical finding blocks the entire run with no averaging. Repeated-defect,
+  plateau, max-view, and max-round policies terminate the refinement. Full contract:
+  `grimoire/review/adaptive_harsh_critic.md`.
 - **CS2 knife review contract**: `forge/stage4_review/cs2_review.py` consumes the manifest and
   versioned scene fixture, then blocks wrong family identity, missing projection coverage,
   painted-region mismatch, critical identity-detail failure, finish/material response failure,

@@ -149,14 +149,78 @@ window.__IMG2THREEJS_CAPTURE__ = {
   async setCamera({ azimuthDegrees, elevationDegrees, target, near, far }) {
     // Apply the camera and controls to the real Three.js scene, then resolve.
   },
+  async getEvidenceSnapshot({ captureId, sessionNonce }) {
+    // Required for adaptive hard-gate captures. Read these values from the
+    // live scene/camera after setCamera has settled; do not echo the plan.
+    return {
+      captureId,
+      sessionNonce,
+      sceneBuildSha256: computeStableSceneBuildSha256(),
+      objectCount: scene.children.length,
+      camera: {
+        direction: actualCameraDirectionFromTarget(),
+        matrixWorld: camera.matrixWorld.toArray(),
+        projectionMatrix: camera.projectionMatrix.toArray(),
+      },
+    };
+  },
   async capturePass({ passId, mode }) {
     // Select beauty/diagnostic render target, settle, and return { ok: true, selector: 'canvas' }.
   },
 };
 ```
 
-If the ready signal, capture contract, canvas, screenshot, or hash check fails, the adapter stops.
+For an adaptive capture the ready value must be strict boolean `true`; the adapter injects an
+unpredictable browser-session nonce before navigation and requires `getEvidenceSnapshot` to echo it
+with the capture ID. It captures the actual WebGL `canvas`, records document/scene/camera/browser
+provenance, and hashes both PNG bytes and decoded RGBA pixels. If the ready signal, capture contract,
+canvas, screenshot, provenance, or hash check fails, the adapter stops.
+The receipt is a trusted local Playwright-runner attestation, not cryptographic or remote
+attestation. The generic `render_bridge.py record` CLI cannot mint it from a hand-written PNG.
+Viewport, browser DPR, canvas CSS/backing size, WebGL drawing buffer, and screenshot dimensions must
+form one consistent chain.
 It does not fall back to a Python/Blender image and does not claim that a render happened.
+
+## Adaptive hostile camera loop
+
+The fixed camera batch is the minimum evidence set. For models that must hold up from arbitrary
+angles, `adaptive_harsh_critic.py` adds a bounded adaptive layer without replacing that baseline:
+
+```text
+six cube-map root nextViews
+  -> render_bridge.py schedule-adaptive
+  -> browser setCamera + real scene PNG
+  -> adaptive_harsh_critic.py request (re-hash pixels + fixed turntable gate)
+  -> separate critic agent (critic.id != creator.id)
+  -> adaptive_harsh_critic.py advance
+  -> mandatory uniform split to level 1 (24 more views)
+  -> then defective cells split into four nextViews
+  -> repeat until pass or bounded stop
+```
+
+`schedule-adaptive` only creates pending capture records. The existing browser adapter can capture
+the generated IDs because they use the same `azimuthDegrees`, `elevationDegrees`, target, near and
+far camera contract as static views. For these IDs, the generic `render_bridge.py record` command is
+not an evidence path: only `scripts/capture_threejs_playwright.py` can mint the required browser
+receipt. Scheduling rejects non-canonical session/view/cell geometry and unsafe output paths; every
+capture/reference/pass path must resolve beneath the manifest evidence root, and the manifest update
+is transactional. Different directions with the same decoded pixels or camera matrix fail closed. Every
+critique and finding is bound to the resulting PNG hash, decoded-pixel hash, browser-receipt hash and
+exact direction. Never hand an agent only the state JSON and call that visual review.
+One-pixel and global/structured ±1/2/3-LSB perturbations are also rejected by alpha-composited
+low-frequency visible RGB plus demeaned-luma structure; pHash and mean visible color constrain the
+wider structural envelope. Chroma is retained so visibly
+different isoluminant colors remain admissible, while hidden RGB under alpha=0 cannot fake a new
+frame. Random session-scoped IDs and paths prevent a fresh init from reusing stale capture names.
+The first `sceneBuildSha256`, the current source reference hash, optional per-view reference hashes,
+and all prior round evidence remain in the state ledger and are revalidated before every request and
+advance. GLB adaptive views require their paired browser-rendered reference capture.
+The default clean floor is 30 captures (6 roots + 24 level-1 cells); a max-view cap below that blocks.
+All rounds in one adaptive session observe one immutable scene build. After a code correction,
+create a new manifest and critic state and recapture the fixed baseline as well as adaptive views;
+never append corrected-build pixels to the previous session's evidence.
+
+Full critic and convergence contract: `grimoire/review/adaptive_harsh_critic.md`.
 
 ## Prohibited shortcuts
 

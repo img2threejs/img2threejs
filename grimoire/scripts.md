@@ -293,6 +293,66 @@ region left unreached is enclosed by the object. A hole through a model barely c
 AREA, so the collapse check cannot see it; this can. Use `--allow-holes` for a subject that genuinely
 has a through-hole at that angle — the hole is still reported, only the verdict changes.
 
+### stage4_review/adaptive_harsh_critic.py
+
+Deterministic controller for independent, pixel-bound scene criticism. It does not call a model or
+render pixels. Round 0 starts with six cube-map cells, then default `minimumUniformLevel=1` forces
+all six roots to split and requires 24 more real captures even when their centres are clean. Only
+after that 6+24 floor does a finding selectively split its cell into four `nextViews`. Angular
+coverage can refine without a fixed side count while repeated-defect/plateau/max-round/max-view
+policies still terminate every run.
+
+```bash
+python3 forge/stage4_review/adaptive_harsh_critic.py init \
+  --manifest render-manifest.json --creator-id builder-agent \
+  --minimum-uniform-level 1 --out critic-state.json
+python3 forge/stage4_review/render_bridge.py schedule-adaptive \
+  --manifest render-manifest.json --plan critic-state.json
+# Browser-capture every new manifest ID here. The generic render_bridge.py
+# record command cannot mint adaptive evidence.
+python3 scripts/capture_threejs_playwright.py \
+  --manifest render-manifest.json --capture-id ahc-<session>-harsh-front-root
+python3 forge/stage4_review/adaptive_harsh_critic.py request \
+  --state critic-state.json --out critic-request.json
+# A separate critic agent inspects every request.views[] PNG and writes critic-response.json.
+python3 forge/stage4_review/adaptive_harsh_critic.py advance \
+  --state critic-state.json --request critic-request.json \
+  --reviews critic-response.json --in-place
+```
+
+`request` first re-runs the fixed front/right/rear/left turntable baseline. It refuses pending,
+missing, changed, provenance-free, duplicate-pixel, duplicate-camera, or direction-mismatched
+captures. It derives `requestId` from the complete canonical request and writes the digest to
+`state.pendingRequest`; therefore the command intentionally updates the state as well as creating
+the request. A second request is refused until `advance` successfully consumes the first. `advance`
+recomputes that digest and rejects any request mutation before reading the review. It also requires
+`critic.id != creator.id`,
+one response per requested view, and the actual capture SHA-256 + exact direction on both the view
+review and every finding. There is no aggregate pass score: one critical finding blocks the run.
+If max rounds/views cannot complete the required uniform level, the state blocks rather than
+granting a partial-coverage pass.
+Schema and full host-agent contract: `docs/specs/adaptive-harsh-critic.v1.schema.json` and
+`grimoire/review/adaptive_harsh_critic.md`.
+
+`render_bridge.py schedule-adaptive --manifest M --plan STATE [--output-dir DIR]` appends the
+state's `nextViews` as pending `adaptive-critic` captures. Re-importing an identical plan is
+idempotent; reusing a view ID with another direction/session fails. The command validates the full
+state plus canonical session/view/cell/round geometry. `DIR` must be canonical and relative, and all
+capture/reference/pass paths are resolved beneath `M`'s evidence root before a transactional manifest
+update; traversal, absolute, drive-qualified, backslash, and dot-component paths fail closed.
+Adaptive records require the
+Playwright receipt (`strict ready → exact runtime document → WebGL canvas → scene build digest →
+actual camera matrices → encoded and decoded-pixel hashes`). `render_bridge.py record` rejects them,
+including a caller-supplied ready-signal string.
+The receipt is trusted local-runner attestation, not cryptographic proof; the generic record CLI
+cannot mint it. Each init gets a random session-scoped view/path namespace. Exact and near-identical
+pixels (alpha-composited visible RGB + demeaned-luma structure, with pHash/mean-color guards) collapse fail closed without
+mistaking isoluminant but visibly different colors for the same frame. The first scene build digest,
+source reference hash, per-view GLB references, and every round's evidence ledger stay pinned and are
+re-opened. Keep the scene build immutable through one adaptive state. A correction starts a new
+render manifest and critic state so the fixed turntable and all adaptive captures are from the
+corrected build. `advance` only accepts `--in-place`; it has no branch-like `--out` mode.
+
 ### stage4_review/attachment_anchor.py
 `stage4_review/attachment_anchor.py spec.json [--measured measured.json] [--json]`
 Relates a worn or held item to the thing it is worn on or held by. `ANCHOR_DECLARED`,

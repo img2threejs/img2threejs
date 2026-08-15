@@ -1,0 +1,481 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://img2threejs.local/specs/adaptive-harsh-critic.v1.schema.json",
+  "title": "img2threejs adaptive harsh critic v1 artifacts",
+  "description": "State, pixel-bound independent-critic request, and critic response contracts. Runtime validation is implemented by forge/stage4_review/adaptive_harsh_critic.py with no external dependencies.",
+  "oneOf": [
+    { "$ref": "#/$defs/state" },
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/response" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "direction": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "minimum": -1, "maximum": 1 },
+        { "type": "number", "minimum": -1, "maximum": 1 },
+        { "type": "number", "minimum": -1, "maximum": 1 }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "cell": {
+      "type": "object",
+      "required": ["projection", "face", "uMin", "uMax", "vMin", "vMax", "level", "path"],
+      "properties": {
+        "projection": { "const": "cube-map" },
+        "face": { "enum": ["front", "right", "rear", "left", "top", "bottom"] },
+        "uMin": { "type": "number", "minimum": -1, "maximum": 1 },
+        "uMax": { "type": "number", "minimum": -1, "maximum": 1 },
+        "vMin": { "type": "number", "minimum": -1, "maximum": 1 },
+        "vMax": { "type": "number", "minimum": -1, "maximum": 1 },
+        "level": { "type": "integer", "minimum": 0 },
+        "path": { "type": "string", "pattern": "^[0-3]*$" }
+      },
+      "additionalProperties": false
+    },
+    "viewPlan": {
+      "type": "object",
+      "required": ["id", "round", "parentId", "direction", "azimuthDegrees", "elevationDegrees", "angularRadiusDegrees", "cell"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ahc-[a-f0-9]{20}-harsh-(front|right|rear|left|top|bottom)-(root|[0-3]+)$" },
+        "round": { "type": "integer", "minimum": 0 },
+        "parentId": { "type": ["string", "null"] },
+        "direction": { "$ref": "#/$defs/direction" },
+        "azimuthDegrees": { "type": "number", "minimum": -180, "maximum": 180 },
+        "elevationDegrees": { "type": "number", "minimum": -90, "maximum": 90 },
+        "angularRadiusDegrees": { "type": "number", "exclusiveMinimum": 0, "maximum": 90 },
+        "cell": { "$ref": "#/$defs/cell" }
+      },
+      "additionalProperties": false
+    },
+    "pendingRequest": {
+      "type": "object",
+      "required": ["requestId", "canonicalSha256", "round", "manifestSha256", "viewIds"],
+      "properties": {
+        "requestId": { "type": "string", "pattern": "^ahcr-[a-f0-9]{24}$" },
+        "canonicalSha256": { "$ref": "#/$defs/sha256" },
+        "round": { "type": "integer", "minimum": 0 },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "viewIds": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    },
+    "evidenceLedgerEntry": {
+      "type": "object",
+      "required": ["viewId", "round", "capturePath", "captureSha256", "capturePixelSha256", "browserEvidenceSha256", "sceneBuildSha256", "direction"],
+      "properties": {
+        "viewId": { "type": "string", "pattern": "^ahc-[a-f0-9]{20}-harsh-" },
+        "round": { "type": "integer", "minimum": 0 },
+        "capturePath": { "type": "string", "minLength": 1 },
+        "captureSha256": { "$ref": "#/$defs/sha256" },
+        "capturePixelSha256": { "$ref": "#/$defs/sha256" },
+        "browserEvidenceSha256": { "$ref": "#/$defs/sha256" },
+        "sceneBuildSha256": { "$ref": "#/$defs/sha256" },
+        "direction": { "$ref": "#/$defs/direction" },
+        "referenceCapturePath": { "type": "string", "minLength": 1 },
+        "referenceCaptureSha256": { "$ref": "#/$defs/sha256" }
+      },
+      "dependentRequired": {
+        "referenceCapturePath": ["referenceCaptureSha256"],
+        "referenceCaptureSha256": ["referenceCapturePath"]
+      },
+      "additionalProperties": false
+    },
+    "browserEvidence": {
+      "type": "object",
+      "required": ["kind", "schemaVersion", "adapter", "sessionNonce", "captureId", "runtime", "browser", "camera", "canvas", "screenshot"],
+      "properties": {
+        "kind": { "const": "img2threejs.playwright-capture-receipt" },
+        "schemaVersion": { "const": 1 },
+        "adapter": {
+          "type": "object",
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "const": "capture_threejs_playwright" },
+            "version": { "const": 1 }
+          },
+          "additionalProperties": false
+        },
+        "sessionNonce": { "type": "string", "pattern": "^[a-f0-9]{32,64}$" },
+        "captureId": { "type": "string", "minLength": 1 },
+        "runtime": {
+          "type": "object",
+          "required": ["requestedUrl", "documentUrl", "documentSha256", "readySignal", "captureContract", "snapshotEcho", "sceneBuildSha256", "objectCount"],
+          "properties": {
+            "requestedUrl": { "type": "string", "minLength": 1 },
+            "documentUrl": { "type": "string", "minLength": 1 },
+            "documentSha256": { "$ref": "#/$defs/sha256" },
+            "readySignal": {
+              "type": "object",
+              "required": ["expression", "value", "valueType"],
+              "properties": {
+                "expression": { "const": "window.__IMG2THREEJS_READY__" },
+                "value": { "const": true },
+                "valueType": { "const": "boolean" }
+              },
+              "additionalProperties": false
+            },
+            "captureContract": {
+              "type": "object",
+              "required": ["name", "setCamera", "getEvidenceSnapshot"],
+              "properties": {
+                "name": { "const": "window.__IMG2THREEJS_CAPTURE__" },
+                "setCamera": { "const": true },
+                "getEvidenceSnapshot": { "const": true }
+              },
+              "additionalProperties": false
+            },
+            "snapshotEcho": {
+              "type": "object",
+              "required": ["captureId", "sessionNonce"],
+              "properties": {
+                "captureId": { "type": "string", "minLength": 1 },
+                "sessionNonce": { "type": "string", "pattern": "^[a-f0-9]{32,64}$" }
+              },
+              "additionalProperties": false
+            },
+            "sceneBuildSha256": { "$ref": "#/$defs/sha256" },
+            "objectCount": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "browser": {
+          "type": "object",
+          "required": ["name", "version", "headless"],
+          "properties": {
+            "name": { "const": "chromium" },
+            "version": { "type": "string", "minLength": 1 },
+            "headless": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "camera": {
+          "type": "object",
+          "required": ["direction", "matrixWorld", "projectionMatrix"],
+          "properties": {
+            "direction": { "$ref": "#/$defs/direction" },
+            "matrixWorld": { "type": "array", "minItems": 16, "maxItems": 16, "items": { "type": "number" } },
+            "projectionMatrix": { "type": "array", "minItems": 16, "maxItems": 16, "items": { "type": "number" } }
+          },
+          "additionalProperties": false
+        },
+        "canvas": {
+          "type": "object",
+          "required": ["selector", "cssWidth", "cssHeight", "width", "height", "drawingBufferWidth", "drawingBufferHeight", "devicePixelRatio", "webgl"],
+          "properties": {
+            "selector": { "const": "canvas" },
+            "cssWidth": { "type": "integer", "minimum": 1 },
+            "cssHeight": { "type": "integer", "minimum": 1 },
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 },
+            "drawingBufferWidth": { "type": "integer", "minimum": 1 },
+            "drawingBufferHeight": { "type": "integer", "minimum": 1 },
+            "devicePixelRatio": { "type": "number", "minimum": 0.25, "maximum": 8 },
+            "webgl": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "screenshot": {
+          "type": "object",
+          "required": ["sha256", "pixelSha256", "width", "height"],
+          "properties": {
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "pixelSha256": { "$ref": "#/$defs/sha256" },
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "required": ["defectKey", "severity", "category", "description", "viewId", "captureSha256", "direction"],
+      "properties": {
+        "defectKey": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["minor", "major", "critical"] },
+        "category": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "viewId": { "type": "string", "minLength": 1 },
+        "captureSha256": { "$ref": "#/$defs/sha256" },
+        "direction": { "$ref": "#/$defs/direction" }
+      },
+      "additionalProperties": false
+    },
+    "review": {
+      "type": "object",
+      "required": ["viewId", "captureSha256", "direction", "verdict", "findings"],
+      "properties": {
+        "viewId": { "type": "string", "minLength": 1 },
+        "captureSha256": { "$ref": "#/$defs/sha256" },
+        "direction": { "$ref": "#/$defs/direction" },
+        "verdict": { "enum": ["pass", "defect", "unreviewable"] },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "verdict": { "const": "pass" } }, "required": ["verdict"] },
+          "then": { "properties": { "findings": { "maxItems": 0 } } }
+        },
+        {
+          "if": { "properties": { "verdict": { "const": "defect" } }, "required": ["verdict"] },
+          "then": { "properties": { "findings": { "minItems": 1 } } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "required": ["kind", "schemaVersion", "sessionId", "creator", "scene", "policy", "currentRound", "rounds", "nextViews", "scheduledViewCount", "status", "action", "pendingRequest", "evidenceLedger"],
+      "properties": {
+        "kind": { "const": "img2threejs.adaptive-harsh-critic-state" },
+        "schemaVersion": { "const": 1 },
+        "sessionId": { "type": "string", "pattern": "^ahc-[a-f0-9]{20}$" },
+        "creator": {
+          "type": "object",
+          "required": ["id", "role"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "role": { "const": "scene-creator" }
+          },
+          "additionalProperties": false
+        },
+        "scene": {
+          "type": "object",
+          "required": ["manifestPath", "manifestSha256AtInit", "runtimeUrl", "referenceKind", "referencePath", "referenceSha256", "sceneBuildSha256"],
+          "properties": {
+            "manifestPath": { "type": "string", "minLength": 1 },
+            "manifestSha256AtInit": { "$ref": "#/$defs/sha256" },
+            "runtimeUrl": { "type": "string", "minLength": 1 },
+            "referenceKind": { "enum": ["image", "glb"] },
+            "referencePath": { "type": "string", "minLength": 1 },
+            "referenceSha256": { "$ref": "#/$defs/sha256" },
+            "sceneBuildSha256": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/sha256" }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "policy": {
+          "type": "object",
+          "required": ["baseCoverage", "subdivision", "criticalRule", "maxRounds", "maxViews", "repeatedDefectRounds", "plateauRounds", "minDefectReduction", "minimumUniformLevel", "allowHoles"],
+          "properties": {
+            "baseCoverage": { "const": "cube-map-6" },
+            "subdivision": { "const": "defect-cell-quadtree" },
+            "criticalRule": { "const": "logical-and-no-averaging" },
+            "maxRounds": { "type": "integer", "minimum": 1 },
+            "maxViews": { "type": "integer", "minimum": 6 },
+            "repeatedDefectRounds": { "type": "integer", "minimum": 2 },
+            "plateauRounds": { "type": "integer", "minimum": 1 },
+            "minDefectReduction": { "type": "integer", "minimum": 1 },
+            "minimumUniformLevel": { "type": "integer", "minimum": 0, "default": 1 },
+            "allowHoles": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "currentRound": { "type": "integer", "minimum": 0 },
+        "rounds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["round", "views", "evidence"],
+            "properties": {
+              "round": { "type": "integer", "minimum": 0 },
+              "views": { "type": "array", "items": { "$ref": "#/$defs/viewPlan" } },
+              "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceLedgerEntry" } }
+            },
+            "additionalProperties": true
+          }
+        },
+        "nextViews": { "type": "array", "items": { "$ref": "#/$defs/viewPlan" } },
+        "evidenceLedger": { "type": "array", "items": { "$ref": "#/$defs/evidenceLedgerEntry" } },
+        "pendingRequest": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/pendingRequest" }
+          ]
+        },
+        "scheduledViewCount": { "type": "integer", "minimum": 6 },
+        "status": { "enum": ["needs-render", "passed", "blocked"] },
+        "action": { "enum": ["capture-next-views", "continue", "refine-code", "request-input"] },
+        "stopReason": { "type": ["string", "null"] },
+        "blockingDefects": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "plateauStreak": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string" },
+        "refinementMode": { "enum": ["minimum-uniform-coverage", "defect-directed"] },
+        "repeatedDefects": { "type": "array", "items": { "type": "string" } },
+        "unscheduledNextViewCount": { "type": "integer", "minimum": 0 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "needs-render" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "action": { "const": "capture-next-views" },
+              "nextViews": { "minItems": 1 },
+              "stopReason": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "passed" } }, "required": ["status"] },
+          "then": {
+            "required": ["stopReason"],
+            "properties": {
+              "action": { "const": "continue" },
+              "nextViews": { "maxItems": 0 },
+              "pendingRequest": { "type": "null" },
+              "stopReason": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "blocked" } }, "required": ["status"] },
+          "then": {
+            "required": ["stopReason"],
+            "properties": {
+              "action": { "enum": ["refine-code", "request-input"] },
+              "nextViews": { "maxItems": 0 },
+              "pendingRequest": { "type": "null" },
+              "stopReason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "captureEvidence": {
+      "type": "object",
+      "required": ["viewId", "capturePath", "captureSha256", "capturePixelSha256", "browserEvidenceSha256", "browserEvidence", "direction", "azimuthDegrees", "elevationDegrees", "angularRadiusDegrees", "cell"],
+      "properties": {
+        "viewId": { "type": "string", "minLength": 1 },
+        "capturePath": { "type": "string", "minLength": 1 },
+        "captureSha256": { "$ref": "#/$defs/sha256" },
+        "capturePixelSha256": { "$ref": "#/$defs/sha256" },
+        "browserEvidenceSha256": { "$ref": "#/$defs/sha256" },
+        "browserEvidence": { "$ref": "#/$defs/browserEvidence" },
+        "direction": { "$ref": "#/$defs/direction" },
+        "azimuthDegrees": { "type": "number" },
+        "elevationDegrees": { "type": "number" },
+        "angularRadiusDegrees": { "type": "number", "exclusiveMinimum": 0 },
+        "cell": { "$ref": "#/$defs/cell" },
+        "referenceCapturePath": { "type": "string", "minLength": 1 },
+        "referenceCaptureSha256": { "$ref": "#/$defs/sha256" }
+      },
+      "dependentRequired": {
+        "referenceCapturePath": ["referenceCaptureSha256"],
+        "referenceCaptureSha256": ["referenceCapturePath"]
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "required": ["kind", "schemaVersion", "requestId", "requestDigest", "sessionId", "round", "creator", "scene", "fixedTurntableBaseline", "captureSetIntegrity", "views", "criticContract"],
+      "properties": {
+        "kind": { "const": "img2threejs.adaptive-harsh-critic-request" },
+        "schemaVersion": { "const": 1 },
+        "requestId": { "type": "string", "pattern": "^ahcr-[a-f0-9]{24}$" },
+        "requestDigest": { "$ref": "#/$defs/sha256" },
+        "sessionId": { "type": "string" },
+        "round": { "type": "integer", "minimum": 0 },
+        "creator": {
+          "type": "object",
+          "required": ["id", "role"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "role": { "const": "scene-creator" }
+          },
+          "additionalProperties": false
+        },
+        "scene": {
+          "type": "object",
+          "required": ["manifestPath", "manifestSha256", "runtimeUrl", "referenceKind", "referencePath", "referenceSha256", "sceneBuildSha256"],
+          "properties": {
+            "manifestPath": { "type": "string", "minLength": 1 },
+            "manifestSha256": { "$ref": "#/$defs/sha256" },
+            "runtimeUrl": { "type": "string", "minLength": 1 },
+            "referenceKind": { "enum": ["image", "glb"] },
+            "referencePath": { "type": "string", "minLength": 1 },
+            "referenceSha256": { "$ref": "#/$defs/sha256" },
+            "sceneBuildSha256": { "$ref": "#/$defs/sha256" }
+          },
+          "additionalProperties": false
+        },
+        "fixedTurntableBaseline": {
+          "type": "object",
+          "required": ["passed"],
+          "properties": { "passed": { "const": true } },
+          "additionalProperties": true
+        },
+        "captureSetIntegrity": {
+          "type": "object",
+          "required": ["recordedCaptureCount", "uniquePixelCount", "uniqueCameraMatrixCount", "sceneBuildSha256"],
+          "properties": {
+            "recordedCaptureCount": { "type": "integer", "minimum": 1 },
+            "uniquePixelCount": { "type": "integer", "minimum": 1 },
+            "uniqueCameraMatrixCount": { "type": "integer", "minimum": 1 },
+            "sceneBuildSha256": { "$ref": "#/$defs/sha256" }
+          },
+          "additionalProperties": false
+        },
+        "views": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/captureEvidence" } },
+        "criticContract": {
+          "type": "object",
+          "required": ["requiredRole", "identityRule", "pixelRule", "stance", "criticalRule", "requiredAcknowledgements", "minimumUniformLevel", "responseKind", "schema"],
+          "properties": {
+            "requiredRole": { "const": "independent-harsh-critic" },
+            "identityRule": { "type": "string", "minLength": 1 },
+            "pixelRule": { "type": "string", "minLength": 1 },
+            "stance": { "type": "string", "minLength": 1 },
+            "criticalRule": { "type": "string", "minLength": 1 },
+            "requiredAcknowledgements": { "type": "array", "items": { "type": "string" } },
+            "minimumUniformLevel": { "type": "integer", "minimum": 0 },
+            "responseKind": { "const": "img2threejs.adaptive-harsh-critic-response" },
+            "schema": { "const": "docs/specs/adaptive-harsh-critic.v1.schema.json" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": ["kind", "schemaVersion", "requestId", "critic", "views"],
+      "properties": {
+        "kind": { "const": "img2threejs.adaptive-harsh-critic-response" },
+        "schemaVersion": { "const": 1 },
+        "requestId": { "type": "string", "pattern": "^ahcr-[a-f0-9]{24}$" },
+        "critic": {
+          "type": "object",
+          "required": ["id", "role", "acknowledgements"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "role": { "const": "independent-harsh-critic" },
+            "acknowledgements": {
+              "type": "object",
+              "required": ["inspectedPixels", "noScoreAveraging", "criticalDefectsAreBlocking"],
+              "properties": {
+                "inspectedPixels": { "const": true },
+                "noScoreAveraging": { "const": true },
+                "criticalDefectsAreBlocking": { "const": true }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "views": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/review" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}
