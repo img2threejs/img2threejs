@@ -152,7 +152,8 @@ def vanishing_point(segments: Sequence[Segment], *, trim: float = TRIM_FRACTION
     return point, mean_res, len(lines)
 
 
-def vertical_vp(segments: Sequence[Segment], diag: float) -> dict[str, Any]:
+def vertical_vp(segments: Sequence[Segment], diag: float,
+                centre: Vec2 = (0.0, 0.0)) -> dict[str, Any]:
     """Do the verticals converge, or are they parallel *within their own noise*?
 
     This is a judgement the arithmetic can make and the eye cannot. Two nearly
@@ -186,7 +187,7 @@ def vertical_vp(segments: Sequence[Segment], diag: float) -> dict[str, Any]:
                 continue
             d = math.hypot(q[0] - centre[0], q[1] - centre[1])
             inv.append(1.0 / d if d > 1e-9 else float("inf"))
-    base = math.hypot(point[0], point[1])
+    base = math.hypot(point[0] - centre[0], point[1] - centre[1])
     base_inv = 1.0 / base if base > 1e-9 else float("inf")
     if len(inv) >= 2 and base_inv > 0:
         mean = sum(inv) / len(inv)
@@ -255,10 +256,19 @@ class SceneCamera:
         return (self.p[0] + self.f * c[0] / c[2], self.p[1] + self.f * c[1] / c[2])
 
     def horizon_y(self, x: float) -> float:
-        v1, v2 = self.meta["vp1"], self.meta["vp2"]
-        if abs(v2[0] - v1[0]) < 1e-9:
-            return v1[1]
-        return v1[1] + (v2[1] - v1[1]) * (x - v1[0]) / (v2[0] - v1[0])
+        """Image y of the floor plane's vanishing line at column x.
+
+        Derived from K and R, not from stored vanishing points: a ray (u, v) lies
+        on the horizon iff its world direction has no vertical component, i.e.
+        R[0][1]*(u-px)/f + R[1][1]*(v-py)/f + R[2][1] = 0  (the middle column of
+        R is the world up-axis in camera coordinates). Works on any SceneCamera,
+        including hand-built fixtures with no meta.
+        """
+        a = self.R[0][1] * (x - self.p[0]) / self.f + self.R[2][1]
+        b = self.R[1][1] / self.f
+        if abs(b) < 1e-12:
+            raise ValueError("degenerate orientation: horizon is not a function of x")
+        return self.p[1] - a / b
 
     def depth_sensitivity(self, u: float, v: float) -> float:
         """Floor units of depth error per pixel of reading error, at this pixel.
@@ -274,7 +284,22 @@ class SceneCamera:
 
     def to_dict(self) -> dict[str, Any]:
         w, hgt = self.image
+        # Off-axis frustum for Three.js. A plain PerspectiveCamera cannot express
+        # an off-centre principal point (traps.md #1), so hand over the numbers
+        # for camera.setViewOffset(fullW, fullH, offX, offY, w, h) directly:
+        # a virtual frame centred ON the principal point, with the real frame
+        # cut out of it.
+        full_w = 2 * max(self.p[0], w - self.p[0])
+        full_h = 2 * max(self.p[1], hgt - self.p[1])
+        three = {
+            "fovFullDeg": round(math.degrees(2 * math.atan(full_h / 2 / self.f)), 3),
+            "fullWidth": round(full_w, 2), "fullHeight": round(full_h, 2),
+            "offsetX": round(full_w / 2 - self.p[0], 2),
+            "offsetY": round(full_h / 2 - self.p[1], 2),
+            "width": w, "height": hgt,
+        }
         return {
+            "threejsViewOffset": three,
             "focalPx": round(self.f, 2),
             "principalPoint": [round(self.p[0], 2), round(self.p[1], 2)],
             "principalPointOffsetFromCentrePx": [round(self.p[0] - w / 2, 2),
@@ -309,10 +334,22 @@ def _pitch_from_families(cam: SceneCamera, families: Sequence[Sequence[Segment]]
                          rows: Vec2) -> list[dict[str, Any]]:
     """Spacing of each floor family, measured on the floor plane itself.
 
-    Every line of one family becomes a single number — its signed offset along the
-    family normal — so the spacing shows up as clusters, and the gap between
+    Every line of one family becomes a single number — its signed offset along
+    the family normal — so the spacing shows up as clusters, and the gap between
     cluster centres is the repeat. Squares mean both families must agree; when
     they do not, that disagreement IS the scale uncertainty and is reported.
+
+    Two robustness points, both learned the hard way:
+    - A line is sampled along its DOMINANT image axis. Parametrising by y alone
+      throws away every near-horizontal line, which is the entire second family
+      of a one-point-perspective floor.
+    - The clustering threshold is scale-free. The gap distribution is BIMODAL:
+      several detected segments per physical grout give tiny gaps, neighbouring
+      grouts give repeat-sized ones. So the split point is the largest
+      multiplicative jump in the sorted gaps — not the median (dragged into the
+      duplicate mode) and not a fixed absolute value (merges everything when
+      the camera is high and the repeat is small in camera-height units; both
+      were tried and both failed on real or synthetic data).
     """
     out: list[dict[str, Any]] = []
     y0, y1 = rows
@@ -320,26 +357,38 @@ def _pitch_from_families(cam: SceneCamera, families: Sequence[Sequence[Segment]]
         offsets: list[float] = []
         for seg in fam:
             a, b, c = line_of(seg)
-            pts = []
-            for y in (y0, y1):
+            if abs(a) >= abs(b):                       # steep in the image: sample two rows
                 if abs(a) < 1e-9:
-                    pts = []
-                    break
-                pts.append(cam.floor(-(b * y + c) / a, y))
-            if len(pts) != 2 or pts[0] is None or pts[1] is None:
+                    continue
+                px_pts = [(-(b * y + c) / a, y) for y in (y0, y1)]
+            else:                                      # shallow: sample two columns
+                x0, x1 = seg[0], seg[2]
+                if abs(x1 - x0) < 1e-6:
+                    x0, x1 = x0 - 40.0, x0 + 40.0
+                px_pts = [(x, -(a * x + c) / b) for x in (x0, x1)]
+            pts = [cam.floor(u, v) for u, v in px_pts]
+            if any(p_ is None for p_ in pts):
                 continue
             p0, p1 = pts
             d = _unit((p1[0] - p0[0], p1[1] - p0[1]))
             offsets.append(-d[1] * p0[0] + d[0] * p0[1])
         offsets.sort()
+        gaps_all = sorted(g for g in (b2 - a2 for a2, b2 in zip(offsets, offsets[1:]))
+                          if g > 1e-9)
+        merge_below = 0.0
+        if len(gaps_all) >= 2:
+            jumps = [(gaps_all[i + 1] / gaps_all[i], i) for i in range(len(gaps_all) - 1)]
+            ratio, at = max(jumps)
+            if ratio >= 3.0:                     # clear duplicate/repeat separation
+                merge_below = math.sqrt(gaps_all[at] * gaps_all[at + 1])
         clusters: list[list[float]] = []
         for o in offsets:
-            if clusters and o - clusters[-1][-1] < 0.30:
+            if clusters and o - clusters[-1][-1] < merge_below:
                 clusters[-1].append(o)
             else:
                 clusters.append([o])
         centres = [sum(c) / len(c) for c in clusters]
-        gaps = [b - a for a, b in zip(centres, centres[1:])]
+        gaps = [b2 - a2 for a2, b2 in zip(centres, centres[1:])]
         pitch = sorted(gaps)[len(gaps) // 2] if gaps else None
         out.append({"lines": len(offsets), "clusters": len(centres),
                     "pitch": round(pitch, 4) if pitch else None})
@@ -358,7 +407,7 @@ def solve(measurements: dict[str, Any]) -> SceneCamera:
     v1, r1, n1 = vanishing_point(segs[0])
     v2, r2, n2 = vanishing_point(segs[1])
     vert = vertical_vp([tuple(map(float, s)) for s in measurements.get("verticalSegments", [])],
-                       diag)
+                       diag, centre=(w / 2, h / 2))
 
     notes: list[str] = []
     p = None

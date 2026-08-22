@@ -147,22 +147,53 @@ class ThreeVanishingPointRoute(unittest.TestCase):
 
 
 class PitchAgreementGate(unittest.TestCase):
-    def test_disagreeing_families_downgrade_the_verdict(self):
-        ct = camera_looking(38, 0.0)
-        m = synthetic_measurements(ct)
-        # stretch one family's spacing by 25%: squares no longer agree
-        fam = m["floorFamilies"][0]["segments"]
-        m["floorFamilies"][0]["segments"] = fam[::2] + fam[1::2][:2]
-        cam = sc.solve(synthetic_measurements(ct))
+    def test_square_grid_agrees(self):
+        cam = sc.solve(synthetic_measurements(camera_looking(38, 0.0)))
         base = cam.to_dict()["calibration"]["pitchDisagreement"]
         self.assertIsNotNone(base)
         self.assertLess(base, sc.PITCH_DISAGREEMENT_WARN)
+
+    def test_disagreeing_families_fail_the_verdict(self):
+        # Keep only every second line of one family: its measured repeat doubles,
+        # so the two families disagree by ~2x and the verdict must be "fail".
+        # (The first version of this test built the modified measurements and
+        # then solved the CLEAN ones — a dead assertion. Kept as a reminder that
+        # a gate without a failing-input test is not known to fire.)
+        m = synthetic_measurements(camera_looking(38, 0.0))
+        m["floorFamilies"][0]["segments"] = m["floorFamilies"][0]["segments"][::2]
+        cam = sc.solve(m)
+        cal = cam.to_dict()["calibration"]
+        self.assertGreater(cal["pitchDisagreement"], sc.PITCH_DISAGREEMENT_FAIL)
+        self.assertEqual(cal["verdict"], "fail")
+
+    def test_shallow_family_still_measured(self):
+        # Near-one-point perspective: at 8 deg of yaw one family is almost
+        # horizontal in the image. Sampling lines only by image row used to drop
+        # that entire family (pitch None -> unit silently degraded).
+        cam = sc.solve(synthetic_measurements(camera_looking(8, 0.0)))
+        fams = cam.to_dict()["calibration"]["floorPitchPerFamily"]
+        self.assertTrue(all(f["pitch"] is not None for f in fams), fams)
 
 
 class BackprojectionGates(unittest.TestCase):
     def setUp(self):
         self.ct = camera_looking(38, 0.0)
         self.cam = sc.solve(synthetic_measurements(self.ct))
+
+    def test_horizon_y_matches_ground_truth_camera(self):
+        # horizon_y is derived from K and R, so it must work on the hand-built
+        # fixture too, and agree with where floor() stops returning points.
+        y_h = self.ct.horizon_y(W / 2)
+        self.assertIsNone(self.ct.floor(W / 2, y_h - 2))
+        self.assertIsNotNone(self.ct.floor(W / 2, y_h + 8))
+
+    def test_threejs_view_offset_recentres_principal_point(self):
+        d = sc.solve(synthetic_measurements(camera_looking(38, -3.0))).to_dict()
+        t = d["threejsViewOffset"]
+        # cutting (offsetX, offsetY, w, h) out of the full frame puts the
+        # principal point back at the stored pixel position
+        self.assertAlmostEqual(t["fullWidth"] / 2 - t["offsetX"], d["principalPoint"][0], places=1)
+        self.assertAlmostEqual(t["fullHeight"] / 2 - t["offsetY"], d["principalPoint"][1], places=1)
 
     def test_depth_sensitivity_grows_toward_horizon(self):
         low = self.cam.depth_sensitivity(W / 2, H - 20)
