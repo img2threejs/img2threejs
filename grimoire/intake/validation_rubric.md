@@ -22,7 +22,7 @@ Use this reference when the suitability decision is unclear.
 ## Reject
 
 - target object is ambiguous
-- photo is a scene, not an object reference
+- photo is a scene, not an object reference — **route to the `scene` profile instead of rejecting** (`grimoire/scene/reconstruction.md`): interiors and built spaces carry their own calibration (orthogonal architectural lines + a repeated floor pattern), so they get a solved camera and reprojection gates rather than the object track
 - important shape is hidden, cropped, blurred, or transparent
 - request demands exact mesh extraction or manufacturing-grade dimensions
 - object relies primarily on smoke, liquid, glass caustics, or lace (no reconstruction path exists for these)

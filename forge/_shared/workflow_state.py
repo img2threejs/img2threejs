@@ -49,6 +49,29 @@ CHARACTER_STEPS: Final = (
     ),
 )
 
+SCENE_STEPS: Final = (
+    (
+        "scene-contract-read",
+        "Read grimoire/scene/reconstruction.md and grimoire/scene/traps.md completely",
+    ),
+    (
+        "scene-line-harvest",
+        "Collect two orthogonal floor line families (and vertical edges if any) as pixel segments into scene-lines.json",
+    ),
+    (
+        "scene-camera-solve",
+        "python3 forge/stage1_intake/scene_camera.py scene-lines.json --out scene-camera.json (verdict must not be fail)",
+    ),
+    (
+        "scene-backprojection",
+        "python3 forge/stage1_intake/scene_backproject.py scene-camera.json scene-landmarks.json --out scene-plan.json",
+    ),
+    (
+        "scene-unit-sanity",
+        "python3 forge/stage1_intake/scene_unit_gate.py scene-heights.json --unit <metres-per-repeat> (>= 3 banded samples in-band)",
+    ),
+)
+
 CS2_STEPS: Final = (
     ("cs2-contract-read", "Read grimoire/intake/cs2_intake_contract.md completely"),
     ("cs2-authoritative-classification", "Obtain an authoritative CS2 family/subtype classification record"),
@@ -102,8 +125,8 @@ def new_state(
     max_per_pass: int = 3,
     max_total: int = 6,
 ) -> dict[str, Any]:
-    if profile not in {"generic", "cs2", "character"}:
-        raise WorkflowStateError("profile must be generic, cs2, or character")
+    if profile not in {"generic", "cs2", "character", "scene"}:
+        raise WorkflowStateError("profile must be generic, cs2, character, or scene")
     if max_per_pass < 1 or max_total < 1 or max_per_pass > max_total:
         raise WorkflowStateError("loop limits require 1 <= max-per-pass <= max-total")
     setup = [_step(*item, scope="setup") for item in SETUP_STEPS]
@@ -112,6 +135,8 @@ def new_state(
         setup[insertion:insertion] = [_step(*item, scope="setup") for item in CS2_STEPS]
     elif profile == "character":
         setup[insertion:insertion] = [_step(*item, scope="setup") for item in CHARACTER_STEPS]
+    elif profile == "scene":
+        setup[insertion:insertion] = [_step(*item, scope="setup") for item in SCENE_STEPS]
     pass_steps = list(PASS_STEPS)
     if profile == "cs2":
         review_index = next(index for index, item in enumerate(pass_steps) if item[0] == "ai-review-recorded")
@@ -146,7 +171,7 @@ def validate_state(state: Any) -> dict[str, Any]:
         raise WorkflowStateError("state must be a JSON object")
     if state.get("schemaVersion") != SCHEMA_VERSION:
         raise WorkflowStateError(f"unsupported state schemaVersion: {state.get('schemaVersion')!r}")
-    if state.get("profile") not in {"generic", "cs2", "character"}:
+    if state.get("profile") not in {"generic", "cs2", "character", "scene"}:
         raise WorkflowStateError("state profile is invalid")
     checklist = state.get("checklist")
     if not isinstance(checklist, list) or not checklist:

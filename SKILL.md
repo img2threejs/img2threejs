@@ -31,6 +31,15 @@ The user attaches/points to an object image and wants a procedural Three.js mode
 reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
 action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
 
+For a photo of an INTERIOR OR BUILT SPACE (a room, a street, a stage set), use the `scene`
+profile (img2threejsScene): `python3 forge/state.py init --profile scene ...`. Scenes fail the
+object rubric on purpose and are routed, not rejected — a built space carries its own camera
+calibration (orthogonal architectural lines + a repeated floor pattern), so the scene track
+solves the camera (`forge/stage1_intake/scene_camera.py`), back-projects every prop's floor
+contact with a confidence tier (`scene_backproject.py`), gates absolute scale against
+architectural bands (`scene_unit_gate.py`), and verifies by reprojection instead of by eye.
+Contracts: `grimoire/scene/reconstruction.md`; failure catalogue: `grimoire/scene/traps.md`.
+
 ## Core Promise
 
 Sculpt from a photo, in order — never one-shot a mesh:

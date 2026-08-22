@@ -5,6 +5,22 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **img2threejsScene** — a `scene` profile for interiors and built spaces, which the object
+  rubric rejects by design. A scene is its own calibration target: `scene_camera.py` solves
+  focal length, principal point, orientation and height from two orthogonal floor line
+  families (2-VP horizon route, with a 3-VP route that is gated on leave-one-out stability of
+  the derived focal length — sub-pixel noise at shallow pitch can otherwise collapse f by 3x);
+  `scene_backproject.py` places props from floor-contact pixels with per-landmark depth
+  sensitivity and decomposes reprojection error into a uniform (camera) component and local
+  (placement) residuals; `scene_unit_gate.py` tests a proposed metres-per-repeat against
+  architectural height bands conjunctively. Contracts in `grimoire/scene/reconstruction.md`,
+  failure catalogue in `grimoire/scene/traps.md`, profile steps in `forge/state.py --profile
+  scene`. Motivated by a film-still interior reconstruction (median landmark reprojection
+  4-6px; floor contacts 0.5px).
+
 ## [1.4.4-beta.2]
 
 ### Added
