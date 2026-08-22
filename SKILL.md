@@ -40,6 +40,12 @@ contact with a confidence tier (`scene_backproject.py`), gates absolute scale ag
 architectural bands (`scene_unit_gate.py`), and verifies by reprojection instead of by eye.
 Contracts: `grimoire/scene/reconstruction.md`; failure catalogue: `grimoire/scene/traps.md`.
 
+The same mathematics spills over to BOX-DOMINANT OBJECTS (tank hulls, cabinets, containers,
+buildings): their own edges provide the orthogonal line families a lone object normally lacks,
+so before eyeballing width/height/depth into a spec, run
+`forge/stage1_intake/box_calibration.py` and copy its measured dimension ratios instead.
+Guide: `grimoire/intake/box_calibration.md`.
+
 ## Core Promise
 
 Sculpt from a photo, in order — never one-shot a mesh:

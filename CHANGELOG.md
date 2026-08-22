@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Box-object self-calibration** (`forge/stage1_intake/box_calibration.py`) — the scene
+  mathematics applied to box-dominant objects (tanks, cabinets, containers, buildings), whose
+  own edges provide the orthogonal families a lone object lacks. Solves f (+ principal point
+  with 3 families, gated on pairwise-f agreement), fits the box to tagged corner pixels by
+  Gauss-Newton (stdlib), and returns MEASURED dimension ratios with per-corner residuals and
+  the uniform-vs-local diagnosis — so ObjectSculptSpec proportions can be measured instead of
+  eyeballed. Refuses single-family subjects with routing advice. Guide:
+  `grimoire/intake/box_calibration.md`.
 - **img2threejsScene** — a `scene` profile for interiors and built spaces, which the object
   rubric rejects by design. A scene is its own calibration target: `scene_camera.py` solves
   focal length, principal point, orientation and height from two orthogonal floor line
