@@ -12,8 +12,13 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage3_build"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from chirality import CHARACTER_LEFT_SIGN, check_pair, find_pairs  # noqa: E402
 from feature_acceptance_policy import feature_gate_failures, feature_review_policy
+from hair_profile import REJECTED_HAIR_PRIMITIVES, validate_hair_profile
+from material_physics import check_material_physics, check_open_boundary_sides
 from sdf_primitives import validate_sdf_descriptor
+from vertex_paint import VertexPaintError, normalize_vertex_paint
 from subdivision import (
     ATTACHMENT_CYLINDER_SUBDIVISION_SOURCE_FACES,
     MAX_SUBDIVISION_ITERATIONS,
@@ -48,10 +53,15 @@ VALID_PRIMITIVES = {
     "extrude",
     "ground-blade",
     "curve-sweep",
+    "tapered-sweep",
     "plane-card",
     "instanced-cluster",
 }
 VALID_COMPONENT_LEVELS = {"macro", "meso", "micro"}
+# Roles that are expected to declare `standProud`. Hair is the only one so far, and it earned the
+# place: it is the one subsystem that carried the requirement as prose while the garment beside it
+# carried the same requirement as a measurement.
+STAND_PROUD_EXPECTED_ROLES = {"hair"}
 VALID_COMPLEXITY_TIERS = {"unassessed", "simple", "moderate", "complex", "ultra-complex"}
 TERMINOLOGY_LIST_FIELDS = {"geometryTerms", "materialTerms", "lightingTerms"}
 VALID_REVIEW_ACTIONS = {"continue", "refine-spec", "refine-code", "request-input", "stop"}
@@ -287,6 +297,213 @@ def _bbox_diagonal(points: list) -> float:
     if not xs or not ys:
         return 0.0
     return ((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2) ** 0.5
+
+
+TAPER_RATIO_MAX = 0.55   # tip/root radius above this ⇒ it is not tapering, it is a tube
+
+
+def taper_risk(component_id: str, component: dict[str, Any]) -> tuple[str, str]:
+    """Warn when a `tapered-sweep`'s stations do not actually taper.
+
+    Measured from a recovered build: eleven hair locks each ended at radius 0.0327 -- identical to
+    four decimals across every lock -- for tip/root ratios of 0.58 to 0.79. The machinery was
+    correct and the authored stations were not, so the locks came out blunt and read as noodles.
+    Nothing caught it, because a sweep that refuses to taper is still a valid sweep. The reference
+    those locks were built against measures 0.087.
+    """
+    descriptor = component.get("geometryDescriptor")
+    if not isinstance(descriptor, dict):
+        return ("OK", "")
+    sweep = descriptor.get("taperedSweep")
+    if not isinstance(sweep, dict):
+        return ("OK", "")
+    stations = sweep.get("stations")
+    if not isinstance(stations, list) or len(stations) < 2:
+        return ("OK", "")
+    radii = [
+        max(
+            float(station.get("rx", 0.0)) if is_number(station.get("rx")) else 0.0,
+            float(station.get("rz", 0.0)) if is_number(station.get("rz")) else 0.0,
+        )
+        for station in stations
+        if isinstance(station, dict)
+    ]
+    if len(radii) < 2:
+        return ("OK", "")
+    root, tip = max(radii), min(radii)
+    if root <= 0:
+        return ("OK", "")
+    # Narrowest station over widest, across ALL stations -- not first over last.
+    #
+    # Two things break an end-to-end reading. First, station order is not free: a sweep's stations
+    # run along its path, and reversing them reverses the triangle winding with them, so a limb
+    # authored tip-first renders as an open shell seen from the inside. A part may therefore
+    # legitimately be authored root-last, and reading station[0] as "the root" reported a real
+    # 0.53 taper as 1.89. Second, plenty of real forms are widest in the MIDDLE -- a barrel torso,
+    # a spindle, a lemon -- and their two ends are near-identical however hard they taper; the
+    # end-to-end reading called a torso that runs 0.055 to 0.213 and back a constant-radius noodle.
+    #
+    # The question this check is actually asking is whether the radii vary at all, and that has
+    # neither a direction nor a preferred pair of stations.
+    ratio = tip / root
+    if ratio > TAPER_RATIO_MAX:
+        return (
+            "HIGH",
+            f"quality: component {component_id!r} declares primitive 'tapered-sweep' but its "
+            f"stations barely taper (narrow/wide={ratio:.2f} > {TAPER_RATIO_MAX}); it will read as "
+            f"a constant-radius noodle. Either taper one end toward the fraction the reference "
+            f"measures, or use 'tube' and say so.",
+        )
+    return ("OK", "")
+
+
+def validate_chirality(spec: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
+    """Every `-l`/`-r` pair must be a sagittal MIRROR of each other, not a rotated copy.
+
+    WHY THIS IS A HARD GATE. Two chirality defects shipped in one figure and no gate saw either,
+    because both produce geometry that is internally tidy and only wrong against a convention that
+    lived in a comment.
+
+    The one this catches: a limb pair built by negating x AND z. That is a 180-degree rotation about
+    the vertical axis, and a rotation PRESERVES handedness, so both limbs come out the same hand.
+    Measured on the humanoid's thumb, whose tip sat at z +0.288 on one side and -0.288 on the other
+    where a mirror leaves z alone. Fixing it moved the hand region 46% closer to the reference in
+    the front view.
+
+    The one it CANNOT catch, stated here so nobody trusts a green result too far: a pair that is
+    wrong the SAME way on both sides is still a perfect mirror of itself. The humanoid's feet were
+    exactly that -- both had the big toe on the outer edge -- and this test passes them. That needs
+    `chirality.medial_lateral_bias` against a reference, which lives in the stage 4 gate.
+    """
+    components = spec.get("componentTree")
+    if not isinstance(components, list):
+        return
+
+    positions: dict[str, list[float]] = {}
+    for component in components:
+        if not isinstance(component, dict) or not component.get("id"):
+            continue
+        transform = component.get("transform")
+        offset = transform.get("position") if isinstance(transform, dict) else None
+        if isinstance(offset, list) and len(offset) == 3 and all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in offset
+        ):
+            positions[str(component["id"])] = [float(v) for v in offset]
+
+    for right_id, left_id in find_pairs(positions):
+        ok, message = check_pair(right_id.rsplit("-", 1)[0], positions[right_id], positions[left_id])
+        if not ok:
+            errors.append(f"chirality: {message}")
+
+    # A component whose id says left but whose position says right. Separate from the pair test
+    # because it fires even when only one half of the pair exists.
+    #
+    # Measured on WORLD x, not on the component's own transform. `transform.position` is relative
+    # to the parent, so a nested pair member -- a toe inside a left paw, a claw inside that toe --
+    # legitimately carries a negative local x while sitting on the character's left. Reading the
+    # local value flagged every inboard toe of a correctly mirrored pair, and the only way to
+    # silence it would have been to stop mirroring them, which is the defect this whole function
+    # exists to catch. The pair test above deliberately stays on LOCAL coordinates, where a
+    # mirrored pair under mirrored parents is exactly a sign flip.
+    parents = {
+        str(component["id"]): component.get("parent")
+        for component in components
+        if isinstance(component, dict) and component.get("id")
+    }
+
+    def world_x(component_id: str) -> float:
+        total = 0.0
+        seen: set[str] = set()
+        current = component_id
+        while isinstance(current, str) and current in positions and current not in seen:
+            seen.add(current)
+            total += positions[current][0]
+            current = parents.get(current)
+        return total
+
+    for component_id, _offset in sorted(positions.items()):
+        side = component_id.rsplit("-", 1)[-1] if "-" in component_id else ""
+        accumulated = world_x(component_id)
+        if side not in ("l", "r") or abs(accumulated) < 1e-9:
+            continue
+        expected = CHARACTER_LEFT_SIGN if side == "l" else -CHARACTER_LEFT_SIGN
+        if (accumulated > 0) != (expected > 0):
+            warnings.append(
+                f"quality: component {component_id!r} is named for the character's "
+                f"{'left' if side == 'l' else 'right'} but sits at world x {accumulated:+.4f}. With "
+                f"forward +Z and a right-handed frame the character's left is +X, so a pose or "
+                f"animation addressed by anatomical joint name would drive the wrong side."
+            )
+
+
+def validate_stand_proud(
+    component_id: str,
+    component: dict[str, Any],
+    errors: list[str],
+    warnings: list[str],
+    proud_refs: list[tuple[str, str]],
+) -> None:
+    """A component may declare that it must stay OUTSIDE another component's surface.
+
+    WHY THIS IS A SCHEMA PROPERTY AND NOT AUTHORING DISCIPLINE. The humanoid demo holds the same
+    requirement twice, in two different ways, with two different outcomes. The garment holds it as a
+    measurement -- `sectionedLoft`'s `hug` marches every vertex outward along its own spoke until a
+    signed distance field reads at least `clearance` -- and it works. The hair holds it as a comment:
+
+        EVERY piece must stand proud of the skull at its own height. Where the skull is proud of the
+        hair, the head renders bald there.
+
+    Widening the hair side masses by hand broke that comment and nothing objected. Closure went
+    42.2% to 40.9%, worse on all six views, and dark coverage went DOWN because the widened mass had
+    slid off the skull. Measured on the archived captures, crown scalp exposure rose on every view,
+    by 14.9 points on the worst one.
+
+    `clearance` is how far outside the target surface the component must sit. `maxPush` caps how far
+    a vertex may travel to get there, and is required rather than optional: an uncapped march walks
+    inner vertices straight through the target and out the far side, closing the very gap the
+    component exists to leave.
+    """
+    proud = component.get("standProud")
+    if proud is None:
+        if str(component.get("role") or "").lower() in STAND_PROUD_EXPECTED_ROLES:
+            warnings.append(
+                f"quality: component {component_id!r} has role 'hair' but declares no standProud; "
+                f"nothing will stop it sinking into the head, which renders as a bald patch. "
+                f"Declare standProud against the head component, or say why it cannot sink."
+            )
+        return
+
+    if not isinstance(proud, dict):
+        errors.append(f"component {component_id!r} standProud must be an object")
+        return
+
+    against = proud.get("againstComponentId")
+    if not isinstance(against, str) or not against.strip():
+        errors.append(f"component {component_id!r} standProud.againstComponentId is required")
+    elif against == component_id:
+        errors.append(f"component {component_id!r} standProud references itself")
+    else:
+        proud_refs.append((component_id, against))
+
+    clearance = proud.get("clearance")
+    max_push = proud.get("maxPush")
+    if not is_number(clearance) or float(clearance) <= 0.0:
+        errors.append(
+            f"component {component_id!r} standProud.clearance must be a positive number "
+            f"(got {clearance!r}); a clearance of zero permits the surfaces to touch and z-fight"
+        )
+        return
+    if not is_number(max_push) or float(max_push) <= 0.0:
+        errors.append(
+            f"component {component_id!r} standProud.maxPush must be a positive number "
+            f"(got {max_push!r}); an uncapped march walks vertices through the target"
+        )
+        return
+    if float(max_push) < float(clearance):
+        errors.append(
+            f"component {component_id!r} standProud.maxPush ({max_push}) is below its clearance "
+            f"({clearance}); the march would stop before reaching the clearance it asks for"
+        )
 
 
 def flatness_risk(component_id: str, component: dict[str, Any]) -> tuple[str, str]:
@@ -695,6 +912,13 @@ def validate_materials(spec: dict[str, Any], errors: list[str], warnings: list[s
         if material_id in material_ids:
             errors.append(f"duplicate material id {material_id!r}")
         material_ids.add(material_id)
+        # What three.js will ACTUALLY do with these numbers -- gated features, clamps, values folded
+        # into one uniform, and the base-darkening sheen applies to itself. A value the engine ignores
+        # is worse than a missing one: it reads as authored evidence and renders as nothing.
+        # Derivation with every file:line: grimoire/build/threejs_skin_and_cloth_materials.md
+        physics_errors, physics_warnings = check_material_physics(material_id, material)
+        errors.extend(physics_errors)
+        warnings.extend(physics_warnings)
         color = material.get("baseColor", material.get("color"))
         if color is not None and not (isinstance(color, str) and color.startswith("#") and len(color) in {4, 7}):
             errors.append(f"material {material_id!r} baseColor/color should be #RGB or #RRGGBB")
@@ -775,6 +999,7 @@ def validate_materials(spec: dict[str, Any], errors: list[str], warnings: list[s
         shader_notes = material.get("shaderNotes")
         if shader_notes is not None:
             validate_string_array(shader_notes, f"material {material_id!r} shaderNotes", errors)
+        validate_textureless(material_id, material, errors)
         validate_reference_pbr(material_id, material.get("referencePbr"), errors, warnings)
     if not material_ids:
         errors.append("at least one material is required")
@@ -1214,6 +1439,7 @@ def validate_components(
     }
     ids: set[str] = set()
     parent_refs: list[tuple[str, str]] = []
+    proud_refs: list[tuple[str, str]] = []
     for index, component in enumerate(components):
         if not isinstance(component, dict):
             errors.append(f"componentTree[{index}] must be an object")
@@ -1273,6 +1499,9 @@ def validate_components(
                     severity, message = flatness_risk(component_id, component)
                     if severity == "HIGH":
                         warnings.append(message)
+                taper_severity, taper_message = taper_risk(component_id, component)
+                if taper_severity == "HIGH":
+                    warnings.append(taper_message)
                 if topology_class == "implicit":
                     descriptor = component.get("geometryDescriptor")
                     if not isinstance(descriptor, dict) or "sdf" not in descriptor:
@@ -1296,6 +1525,20 @@ def validate_components(
         if material and material not in material_ids:
             errors.append(f"component {component_id!r} references unknown material {material!r}")
         validate_geometry_descriptor(component_id, component.get("geometryDescriptor"), errors)
+        validate_stand_proud(component_id, component, errors, warnings, proud_refs)
+        # three's Material.side defaults to FrontSide, which culls backfaces, so a garment opening
+        # renders as a HOLE rather than as the inside of the sleeve -- indistinguishable at a glance
+        # from a garment that is simply too short, and the two want opposite fixes.
+        errors.extend(check_open_boundary_sides(component_id, component))
+        # The decision left open in docs/UPGRADE_PLAN.md since v1.2 -- "hair cards vs
+        # tube-along-curve per lock" -- closed here by what this pipeline can actually emit.
+        if str(component.get("role") or "").lower() == "hair":
+            reason = REJECTED_HAIR_PRIMITIVES.get(str(primitive))
+            if reason:
+                errors.append(
+                    f"component {component_id!r} has role 'hair' and may not use primitive "
+                    f"{primitive!r}: {reason}"
+                )
         validate_subdivision_budget(
             component_id,
             primitive,
@@ -1334,6 +1577,21 @@ def validate_components(
             value = component.get(field)
             if value is not None and not isinstance(value, list):
                 errors.append(f"component {component_id!r} {field} must be an array")
+        paint = component.get("vertexPaint")
+        if paint is not None:
+            try:
+                normalize_vertex_paint(paint, f"component {component_id!r} vertexPaint")
+            except VertexPaintError as error:
+                errors.append(str(error))
+            # Both write the geometry's `color` attribute, and the second one to run wins. A spec
+            # declaring both is asking for two different colours on the same vertex and would get
+            # whichever the emission order happens to apply last -- an ordering dependency no gate
+            # can see, so it is refused at spec time instead.
+            if component.get("rootTipGradient") is not None:
+                errors.append(
+                    f"component {component_id!r} declares both vertexPaint and rootTipGradient; "
+                    "both write the vertex colour attribute, so only one may be used"
+                )
         surface = component.get("surfaceDetail")
         if surface is not None:
             if not isinstance(surface, dict):
@@ -1352,6 +1610,13 @@ def validate_components(
     for component_id, parent in parent_refs:
         if parent not in ids:
             errors.append(f"component {component_id!r} references missing parent {parent!r}")
+    # Resolved after the loop, like parents: a component may legitimately stand proud of one that
+    # appears later in the tree, and a forward reference is not a defect.
+    for component_id, against in proud_refs:
+        if against not in ids:
+            errors.append(
+                f"component {component_id!r} standProud references missing component {against!r}"
+            )
     if not ids:
         errors.append("at least one component is required")
     if len(ids) == 1:
@@ -1994,6 +2259,68 @@ def reference_pbr_usable(material: dict[str, Any], threshold: float) -> tuple[bo
     return True, ""
 
 
+TEXTURE_AUTHORING_FIELDS = (
+    "normal",
+    "bump",
+    "displacement",
+    "surfaceFrequencyBands",
+    "textureProjection",
+    "textureResolution",
+    "referencePbr",
+)
+
+
+def is_textureless(material: dict[str, Any]) -> bool:
+    declaration = material.get("textureless")
+    return isinstance(declaration, dict) and declaration.get("declared") is True
+
+
+def validate_textureless(material_id: str, material: dict[str, Any], errors: list[str]) -> None:
+    """A material may declare that its subject carries NO texture detail — with evidence.
+
+    WHY THIS EXISTS. The quality-first material bar below requires independent albedo, roughness,
+    height, normal and AO channels at >= 1024, because the subjects it was written for are
+    photographic and their identity lives in surface detail. Some subjects genuinely have none:
+    a flat-shaded designer-toy render carries no grain, no print and no pores, and its identity is
+    entirely silhouette, proportion and the boundaries between flat colour regions.
+
+    Without this declaration the only ways past that bar are to fabricate a texture resolution and
+    frequency bands the renderer will never read, or to mislabel a hero material `qualityTier:
+    "utility"`. Both put numbers in the spec that describe nothing — which is worse than a missing
+    value, because they read as authored evidence.
+
+    So the escape is explicit, evidence-bearing, and closed on both sides: a textureless material
+    must say what measurement supports the claim, and must NOT then carry any texture-authoring
+    field, since a material cannot both have no texture and specify one.
+    """
+    declaration = material.get("textureless")
+    if declaration is None:
+        return
+    if not isinstance(declaration, dict):
+        errors.append(f"material {material_id!r} textureless must be an object")
+        return
+    if declaration.get("declared") is not True:
+        errors.append(
+            f"material {material_id!r} textureless.declared must be true; remove the block instead "
+            "of declaring it false"
+        )
+        return
+    evidence = declaration.get("evidence")
+    if not isinstance(evidence, list) or not [
+        item for item in evidence if isinstance(item, str) and item.strip()
+    ]:
+        errors.append(
+            f"material {material_id!r} textureless.evidence must name at least one measurement or "
+            "reference view supporting the claim that the subject carries no texture detail"
+        )
+    for field in TEXTURE_AUTHORING_FIELDS:
+        if material.get(field) is not None:
+            errors.append(
+                f"material {material_id!r} declares textureless but also carries {field!r}; a "
+                "material cannot both have no texture and specify one"
+            )
+
+
 def validate_look_dev_targets(spec: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
     targets = spec.get("lookDevTargets")
     if targets is None:
@@ -2078,6 +2405,12 @@ def validate_look_dev_targets(spec: dict[str, Any], errors: list[str], warnings:
                 )
             for material in materials:
                 if material.get("qualityTier") == "utility":
+                    continue
+                # A material that declares -- with evidence -- that its subject carries no texture
+                # detail is not held to the texture-channel bar. See validate_textureless: the
+                # declaration is hard-validated, so this skip cannot be taken without the evidence
+                # and cannot coexist with any texture-authoring field.
+                if is_textureless(material):
                     continue
                 material_id = str(material.get("id") or "(unnamed)")
                 resolution = material.get("textureResolution")
@@ -2458,6 +2791,8 @@ def validate_spec(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     validate_action_readiness(spec, errors, warnings)
     validate_self_correct_loop(spec, errors, warnings)
     validate_feature_review_targets(spec, errors, warnings)
+    validate_chirality(spec, errors, warnings)
+    validate_hair_profile(spec.get("hairProfile"), errors, warnings)
     validate_review_history(spec, errors, warnings)
     validate_visual_evidence_history(spec, errors)
     build_pass_ids = validate_build_passes(spec, errors, warnings)

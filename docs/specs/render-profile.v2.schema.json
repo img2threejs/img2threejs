@@ -3,7 +3,7 @@
   "$id": "https://img2threejs.local/specs/render-profile.v2.schema.json",
   "title": "img2threejs shared Three.js render profile v2",
   "type": "object",
-  "required": ["schemaVersion", "kind", "authority", "renderer", "environment", "camera", "background", "passes", "regions", "feedbackGroups"],
+  "required": ["schemaVersion", "kind", "authority", "renderer", "environment", "camera", "background", "passes", "regions", "feedbackGroups", "extensions"],
   "properties": {
     "schemaVersion": { "const": "render-profile.v2" },
     "kind": { "const": "threejs-render-profile" },
@@ -48,7 +48,8 @@
     },
     "background": { "type": "object", "required": ["kind"], "properties": { "kind": { "enum": ["solid", "transparent", "scene"] } }, "additionalProperties": true },
     "passes": { "type": "array", "minItems": 6, "items": { "type": "object", "required": ["id", "required"], "properties": { "id": { "type": "string" }, "required": { "type": "boolean" } }, "additionalProperties": true } },
-    "regions": { "type": "array", "items": { "type": "object", "required": ["id", "criticality"], "properties": { "id": { "type": "string" }, "criticality": { "enum": ["critical", "high", "important", "detail"] }, "idColor": { "type": "array", "prefixItems": [{ "type": "integer", "minimum": 0, "maximum": 255 }, { "type": "integer", "minimum": 0, "maximum": 255 }, { "type": "integer", "minimum": 0, "maximum": 255 }], "minItems": 3, "maxItems": 3 } }, "additionalProperties": true } },
+    "regions": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["id", "criticality"], "properties": { "id": { "type": "string", "minLength": 1 }, "criticality": { "enum": ["critical", "high", "important", "detail"] }, "idColor": { "type": "array", "prefixItems": [{ "type": "integer", "minimum": 0, "maximum": 255 }, { "type": "integer", "minimum": 0, "maximum": 255 }, { "type": "integer", "minimum": 0, "maximum": 255 }], "minItems": 3, "maxItems": 3 } }, "additionalProperties": true } },
+    "extensions": { "type": "object", "properties": { "requiredSemanticRegions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } } }, "additionalProperties": true },
     "feedbackGroups": { "type": "array", "minItems": 7, "items": { "type": "object", "required": ["id", "order"], "properties": { "id": { "type": "string" }, "order": { "type": "integer", "minimum": 1 } }, "additionalProperties": true } }
   },
   "additionalProperties": true

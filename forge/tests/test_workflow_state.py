@@ -212,6 +212,76 @@ class WorkflowStateTest(unittest.TestCase):
             self.assertIn("LOCAL_STATE status=active step=image-analysis", result.stdout)
             self.assertIn("pending mandatory steps", result.stdout)
 
+    def test_next_cli_reads_state_when_init_recorded_a_spec_path_that_is_not_written_yet(self):
+        """`state.py init --spec` records where the spec WILL land.
+
+        SKILL.md's documented opening pair is `state.py init ... --spec object-sculpt-spec.json`
+        followed immediately by `next.py --state ...`, so the recorded path is absent for the
+        whole pre-spec phase. The mandatory gate must still report the checklist there instead of
+        failing, otherwise the pipeline cannot be entered by its own instructions.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            spec_path = Path(directory) / "object-sculpt-spec.json"
+            init = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "forge" / "state.py"),
+                    "init",
+                    "--state",
+                    str(state_path),
+                    "--reference",
+                    "reference.png",
+                    "--spec",
+                    str(spec_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(init.returncode, 0, init.stderr)
+            self.assertFalse(spec_path.exists())
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "forge" / "next.py"), "--state", str(state_path)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("LOCAL_STATE status=active step=image-analysis", result.stdout)
+            self.assertNotIn("spec error", result.stderr)
+
+    def test_next_cli_still_fails_on_an_unreadable_spec_without_state(self):
+        """The pre-spec fallback is scoped to --state; a bare missing spec is still an error."""
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "object-sculpt-spec.json"
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "forge" / "next.py"), str(missing)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("spec error", result.stderr)
+
+    def test_next_cli_reads_a_spec_that_exists_rather_than_the_pre_spec_checklist(self):
+        """Negative control for the fallback: once the spec is on disk it must be parsed."""
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            spec_path = Path(directory) / "object-sculpt-spec.json"
+            state = new_state("reference.png", spec=str(spec_path))
+            setup_ids = [entry["id"] for entry in state["checklist"] if entry["scope"] == "setup"]
+            mark_steps(state, setup_ids, status="done", evidence=["setup.json"])
+            state_path.write_text(json.dumps(state), encoding="utf-8")
+            spec_path.write_text(
+                json.dumps({"buildPasses": [{"id": "blockout", "acceptance": []}], "reviewHistory": []}),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "forge" / "next.py"), "--state", str(state_path)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("pass=blockout", result.stdout)
+
     def test_next_cli_emits_only_state_ordered_build_command(self):
         with tempfile.TemporaryDirectory() as directory:
             state_path = Path(directory) / "state.json"

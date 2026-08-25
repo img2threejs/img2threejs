@@ -80,6 +80,31 @@ future `--pass-id` fails until earlier passes are reviewed `continue`. Output ex
 `root.userData.sculptRuntime` (nodes/meshes/sockets/colliders/destructionGroups) — hand-refine it.
 `--allow-nonstrict` is reserved for legacy test fixtures and must not be used for production output.
 
+### Executed geometry gates before browser capture
+
+After generation, execute the factory without a renderer and inspect
+`root.userData.sculptRuntime`; do this before opening the browser. For multipart characters, the
+pre-browser report must cover every named spec component and measure, where applicable:
+
+- left/right reflection from world-space bounds, plus thumb/index chirality for hands;
+- ordered garment-shell intervals so a waist layer cannot sink into the layer beneath it;
+- every `geometry.userData.standProud.unresolved` count (zero is the exact pass condition);
+- engine-visible `material.userData.referenceMaterialId`, not an ignored authoring field;
+- garment boundary positions against the relevant articulation joints, not all unrelated bones.
+
+Global width/height/depth ratios may be recorded against a GLB baseline, but remain diagnostic and
+must declare themselves uncalibrated until paired multi-angle silhouette controls establish an
+acceptance threshold. Do not turn an arbitrary ratio tolerance into a gate. Every exact gate added
+for a showcase needs a passing fixture and a mutation that makes it fail (missing mesh, same-side
+reflection, sunk layer, swapped thumb, unresolved proud vertex, missing material ID, or boundary
+moved onto its joint). A clean TypeScript build is not executed-geometry evidence.
+
+Ordinary primitives stay on their authored geometry path: generated factories do not invent an
+attachment variable for them, and the shared endpoint branches retain the declared
+`AttachmentEndpoint | null` helper return type rather than a literal null that strict TypeScript
+narrows to `never`. Verify that negative-control path with a spec containing no attachment-derived
+primitives before accepting the showcase build.
+
 ## Forge subdivision runtime validation
 Runtime subdivision tests compile generated TypeScript against `img2threejs-showcase`. Set
 `IMG2THREEJS_SHOWCASE_ROOT` to that checkout. Without it, runtime-only cases skip locally with an
@@ -183,7 +208,9 @@ materialSurface, lightingCamera`. Records one self-correction entry into `review
 
 `stage4_review/validate_render_profile.py docs/specs/render-profile.v2.example.json`
 validates the shared browser renderer/camera/environment contract. Use it when initializing
-the GLB-mediated route:
+the GLB-mediated route. `regions` must name the actual subject regions; list the mandatory subset
+under `extensions.requiredSemanticRegions`. The validator rejects missing declared regions and does
+not impose the example subject's names on another reconstruction:
 
 `stage4_review/render_bridge.py init --reference-glb GLB --render-profile PROFILE --runtime-url URL --out render-manifest.json`
 
@@ -311,7 +338,106 @@ local geometry is fine, and local space would hide exactly that. Normals go thro
 inverse-transpose. Every mesh it declines to emit — instanced, over the triangle cap, filtered out —
 is listed with its reason, so a short mesh list cannot be mistaken for a clean one.
 
+### stage4_review/vertex_region_gate.py
+`stage4_review/vertex_region_gate.py --geometry meshes.json --palette palette.json [--expect expect.json] [--azimuth 0] [--color-tolerance T] [--max-unclassified N] [--out report.json] [--json]`
+Gates colour-region BOUNDARIES on executed geometry, before any browser render. When a subject's
+identity is carried by flat colour regions with hard edges — a tuxedo cat's blaze, bib and socks; a
+livery stripe; a painted marking — the position of those boundaries is an identity feature, so it is
+measured rather than eyeballed. `--palette` is `{regionId: '#rrggbb'}` for every region to measure;
+without `--expect` the gate only reports measurements instead of passing or failing. Read
+`--max-unclassified`: vertices matching no palette entry are named, so a clean verdict over a mostly
+unclassified mesh cannot be mistaken for agreement. The shape predicates it shares with the
+validator and the emitted TypeScript live in `_shared/vertex_paint.py` (no CLI).
+
+### stage4_review/swept_arc_gate.py
+`stage4_review/swept_arc_gate.py --geometry meshes.json --component ID [--expect expect.json] [--out report.json] [--json]`
+Gates a swept component's SHAPE — bend radius, angular span and taper — on executed geometry.
+"Curled upward into a hook; a curved spine, not a straight cone" is a claim about a curve, and no
+other gate can hold it: a silhouette IoU passes a straight cone that happens to occupy roughly the
+right cells, and `self_intersection.py` asks whether a mesh crosses itself rather than what shape it
+is. `--component` takes a mesh id or name.
+
 ## Reference comparison and baselines
+
+### stage4_review/interior_difference.py
+`stage4_review/interior_difference.py BASELINE.png RENDER.png [--from 0] [--to 0.19] [--json]`
+Appearance difference **inside** the silhouette, banded by height. Required evidence on every visual
+pass, because silhouette IoU is computed from roughly 11% of figure cells — the ones on the outline —
+and is blind to the other 89%. The measured proof: a model with its face deleted scored 0.8803
+against the finished face's 0.8803, identical to four decimals, and adding an entire mouth moved
+that metric −0.0002. Both renders are aligned by foreground bounding box, the same normalisation the
+IoU scorer uses, and only cells that are figure in **both** are compared so outline agreement cannot
+leak back in. Refuses to score when either foreground mask fell back to whole-frame coverage — the
+same hard gate `divine_eye` makes, for the same reason. Reports `cellsCompared`, so a difference
+measured over a handful of cells cannot pass as evidence. On a standing figure the head is roughly
+`--from 0 --to 0.19`.
+
+## Hair
+
+Full contract, every measurement behind it, and every stated non-goal: `docs/HAIR_PIPELINE.md`.
+Run these only when the subject has hair — `orchestrate_passes.py` demands them via
+`spec_has_hair()`, which reads a `hairProfile` block or any component whose role is `hair`, so a
+chair and a knife are never asked for hair evidence.
+
+### stage1_intake/extract_hair_evidence.py
+`stage1_intake/extract_hair_evidence.py front=ref.front.png rear=ref.rear.png [--out evidence.json]`
+Measures what the reference actually says about its hair: the hair/skin split, banded dark coverage
+across crown/mid/jaw, the hairline (writing the `faceLandmarks.hairline` slot that existed unfilled
+since v1.2), the specular band position, and the root-to-tip luminance delta. Views not supplied are
+reported as `notObserved`, so nothing downstream authors a nape as if it had been seen. The split is
+Otsu's between-class variance, not a percentile: a fixed percentile makes the reported hair fraction
+true by construction and read 0.380 / 0.384 / 0.382 across three different views of one subject,
+which looks like agreement and is arithmetic. The same three views now read 0.387 / 0.592 / 0.747.
+
+### stage4_review/scalp_exposure.py — HARD
+`stage4_review/scalp_exposure.py --rings skull.json --hair-points hair.json [--v-low 0] [--v-high 1] [--hard-max 0.05] [--out report.json]`
+Finds bald patches geometrically, on points, before anything is rendered — so it needs no browser, no
+GPU and no capture, and works on any hair representation. It counts only hair **outside** the skull:
+a nearest-neighbour test passes the failing build, because those vertices were still nearby, merely
+sunk below the surface. Exposure above `--hard-max` is a hard failure, never a soft signal.
+`--hard-max` is deliberately loose and uncalibrated, and the report says so.
+
+### stage4_review/hair_gate.py — soft
+`stage4_review/hair_gate.py --reference front=ref.png --render front=out.png [--scalp-exposure report.json] [--out gate.json]`
+Compares banded coverage, hairline offset and highlight-band position against the reference, and
+classifies each difference by kind. Pass `--scalp-exposure` and its verdict dominates: a bald patch
+is always wrong, while a coverage shortfall is often the best available compromise at a given
+triangle budget. Conflating the two produced four wrong fixes in one session — a shortfall was read
+as "add more hair", the masses were widened, and the widening pushed them off the skull, taking
+closure from 42.2% to 40.9%, worse on all six views, with crown exposure up 14.9 points on the worst.
+**A coverage shortfall never authorises widening the masses on its own.**
+
+### Hair libraries (no CLI)
+- `_shared/scalp_field.py` — signed distance to a skull built as a stack of ellipse rings, derived
+  from the head component so it is never authored twice. Sign is exact; magnitude is the first-order
+  estimate `f / |grad f|`, so treat the sign as authoritative and the magnitude as approximate.
+- `stage2_spec/hair_profile.py` — the hairstyle schema and its validation rules. Roots are `(u, v)`
+  on the scalp; an absolute root is a hard error. `plane-card`, `tube` and `box` are rejected for
+  hair. Default representation tier is `shell`. **This module validates a profile; it does not
+  compile one into components** — no profile-to-`componentTree` compiler exists yet.
+
+## Left and right
+
+### _shared/chirality.py (no CLI)
+Two chirality defects can ship in one figure and need **different** tests, which is why both exist:
+- `check_pair()` — enforced at spec time by `validate_sculpt_spec.py`. A pair built by negating x
+  *and* z is a 180° rotation, and rotation preserves handedness, so both limbs come out the same
+  hand. It names the relation (`rotation` / `translation` / `unrelated`) rather than saying
+  "mismatch", because the two are trivially confused and agree exactly on a symmetric part.
+  Measured on the humanoid: the thumb tip sat at z ±0.288 across the pair where a mirror leaves z
+  alone; fixing it moved the hand region **46% closer** to the reference in front view.
+- `medial_lateral_bias()` + `compare_bias()` — needs a reference. Catches what a pair test
+  structurally cannot: a pair wrong the *same* way on both sides is still a perfect mirror of
+  itself. Only the **sign** of the bias is judged; a magnitude difference is a proportion issue that
+  other gates own. Measured on the humanoid: toes ordered little-to-big across a strip whose index 0
+  is medial put the big toe outboard on *both* feet — toe-band mass reference 529 medial / 488
+  lateral, ours 350 / 443 — and a foot with its big toe outside is the other foot. Below `MIN_REFERENCE_BIAS` (0.025) the reference is treated as too symmetric to
+  judge handedness from.
+
+`CHARACTER_LEFT_SIGN` is the convention as code: with `forward: +Z`, Y up and a right-handed frame,
+the character's own left is `+X`. Reflecting also inverts triangle winding — flip it back on the
+mirrored side, or `flatShading` derives every normal from the reversed winding and the limb lights as
+though lit from behind.
 
 ### stage4_review/mesh_reference_compare.py
 `stage4_review/mesh_reference_compare.py REFERENCE.glb CANDIDATE.glb [--bands N] [--json]`

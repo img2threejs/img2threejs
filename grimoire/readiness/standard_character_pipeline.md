@@ -95,17 +95,26 @@ The capture adapter waits for readiness, rejects fatal console errors and zero-s
 sets the camera, waits for settled frames, saves PNGs inside the workspace, reopens them with an
 image-capable reader, and records hashes in the manifest. Python never renders a replacement scene.
 
+For paired GLB/model batches, each capture record owns one complete camera specification shared by
+both routes: azimuth, elevation, target, distance, FOV, near and far. Do not auto-frame the GLB and
+procedural model separately. If the GLB loads asynchronously, enumerate its multipart meshes and
+build diagnostic ID materials after readiness, then compare the executed count to the intake probe.
+
 ## Required character capture batch
 
 ```text
 hero/reference-match
 orbit +35°
 orbit -35°
-profile ~78°
+profile 90°
+rear three-quarter 135°
 rear 180°
 head hero
 head three-quarter
 ```
+
+This is six full-body angles plus two head controls. A head crop cannot substitute for a missing
+full-body azimuth when the reconstruction contract requires six whole-character views.
 
 Only the fixed view is pixel/feature aligned to the supplied reference. Orbit views are judged
 for volume, attachment, rear coverage, hair continuity, deformation and non-degenerate form.

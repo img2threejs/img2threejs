@@ -68,6 +68,47 @@ def mask_is_inverted(warnings: list[str]) -> bool:
     return any("tiny" in str(warning).lower() for warning in warnings)
 
 
+def largest_component(mask: list[bool], size: int) -> tuple[list[bool], float]:
+    """Keep the largest 4-connected blob; return it and the fraction of cells discarded.
+
+    WHY. `bbox_of` is an EXTREMAL statistic: one stray foreground cell in a corner moves the
+    bounding box to the frame edge, and every proportion derived from it with it. Measured on a
+    real review plate, a subject filling 24% of the grid reported a bbox of the entire 224x224
+    grid, so `aspectRatioDelta` and `scaleDelta` were describing the render's background gradient
+    and did not move at all when the camera did.
+
+    The discarded fraction is returned rather than swallowed: a subject with genuinely separated
+    parts in projection -- a floating accessory, a detached prop -- would lose them here, and that
+    has to be visible instead of quietly improving the numbers.
+    """
+    seen = [False] * len(mask)
+    best: list[int] = []
+    total = sum(1 for value in mask if value)
+    for start in range(len(mask)):
+        if not mask[start] or seen[start]:
+            continue
+        stack = [start]
+        seen[start] = True
+        blob = []
+        while stack:
+            index = stack.pop()
+            blob.append(index)
+            y, x = divmod(index, size)
+            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if 0 <= nx < size and 0 <= ny < size:
+                    neighbour = ny * size + nx
+                    if mask[neighbour] and not seen[neighbour]:
+                        seen[neighbour] = True
+                        stack.append(neighbour)
+        if len(blob) > len(best):
+            best = blob
+    filtered = [False] * len(mask)
+    for index in best:
+        filtered[index] = True
+    discarded = (total - len(best)) / total if total else 0.0
+    return filtered, discarded
+
+
 def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], list[str]]:
     """Return the resized foreground mask and extraction warnings."""
     width, height, pixels, _warnings = load_image(png_path)
@@ -78,7 +119,14 @@ def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], l
         for x in range(size):
             sx = min(width - 1, int(x * width / size))
             resized.append(mask[sy * width + sx])
-    return resized, mask_warnings
+    filtered, discarded = largest_component(resized, size)
+    if discarded > 0.02:
+        mask_warnings = list(mask_warnings) + [
+            f"{discarded:.1%} of foreground cells lie outside the largest connected blob and were "
+            "excluded from the bounding box; if the subject really has separated parts in this "
+            "projection, they are not being measured"
+        ]
+    return filtered, mask_warnings
 
 
 def silhouette_iou(reference_mask: list[bool], render_mask: list[bool]) -> float:

@@ -306,7 +306,15 @@ Modified files:
 ## 12. Open questions
 
 - Default `targetMinDetails` per tier - tune after the first detailed run.
-- Hair strategy default: hair cards vs tube-along-curve per lock (perf vs look).
+- ~~Hair strategy default: hair cards vs tube-along-curve per lock (perf vs look).~~ **RESOLVED.**
+  Neither, as originally framed. See `docs/HAIR_PIPELINE.md`. Cards are rejected outright — a card
+  needs an alpha texture to read as hair and this skill emits code with no textures, so it renders
+  as an opaque rectangle. Swept volume (`tapered-sweep`) carries silhouette. But the measurement
+  that decided it also reframed the question: on the reference GLB the hair surface roughness is
+  0.00338 against a torso control of 0.00312, meaning its hair is a **smooth shell** whose entire
+  strand appearance lives in the diffuse and normal textures. Since those are unavailable, the
+  strand impression has to come from faceting and material response, and the default representation
+  tier is `shell`, not locks. Enforced in `forge/stage2_spec/hair_profile.py`.
 - Whether to ship a small parametric humanoid template file or generate it inline in the factory.
 - How far to build camera-solve and de-lighting in pure stdlib vs documenting an optional external step; both may need a pragmatic approximation first.
 - Whether `generativeAssist` should call an external API at all, or only accept a user-supplied base mesh (keeps the skill offline and asset-free by default).

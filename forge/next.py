@@ -64,6 +64,13 @@ def main(argv: list[str]) -> int:
             else:
                 local_state["artifacts"]["spec"] = str(spec_path)
 
+    if spec_path is not None and local_state is not None and not spec_path.expanduser().is_file():
+        # `state.py init --spec <path>` records where the spec WILL be written, so between init
+        # and spec-authoring that path does not exist yet. That is the normal pre-spec state, not
+        # an error: fall back to the local checklist report so the mandatory gate stays runnable
+        # for the whole pre-spec phase instead of hard-failing on its own documented first step.
+        spec_path = None
+
     if spec_path is None:
         if local_state is None:
             parser.error("spec is required unless --state points to an initialized pre-spec workflow")

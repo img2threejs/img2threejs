@@ -39,7 +39,12 @@
     "policy": "Direct Three.js and glTF facts define property contracts. Per-material numbers are bounded starting priors and must be fitted against admitted image evidence and controlled renders."
   },
   "textureContract": {
-    "colorMaps": ["map", "emissiveMap", "sheenColorMap", "specularColorMap"],
+    "colorMaps": [
+      "map",
+      "emissiveMap",
+      "sheenColorMap",
+      "specularColorMap"
+    ],
     "colorMapColorSpace": "SRGBColorSpace",
     "dataMaps": [
       "roughnessMap",
@@ -77,17 +82,50 @@
     }
   },
   "legalRanges": {
-    "metalness": [0.0, 1.0],
-    "roughness": [0.0, 1.0],
-    "clearcoat": [0.0, 1.0],
-    "clearcoatRoughness": [0.0, 1.0],
-    "sheen": [0.0, 1.0],
-    "sheenRoughness": [0.0, 1.0],
-    "transmission": [0.0, 1.0],
-    "ior": [1.0, 2.333],
-    "anisotropy": [0.0, 1.0],
-    "iridescence": [0.0, 1.0],
-    "dispersion": [0.0, 1.0]
+    "metalness": [
+      0.0,
+      1.0
+    ],
+    "roughness": [
+      0.0,
+      1.0
+    ],
+    "clearcoat": [
+      0.0,
+      1.0
+    ],
+    "clearcoatRoughness": [
+      0.0,
+      1.0
+    ],
+    "sheen": [
+      0.0,
+      1.0
+    ],
+    "sheenRoughness": [
+      0.0,
+      1.0
+    ],
+    "transmission": [
+      0.0,
+      1.0
+    ],
+    "ior": [
+      1.0,
+      2.333
+    ],
+    "anisotropy": [
+      0.0,
+      1.0
+    ],
+    "iridescence": [
+      0.0,
+      1.0
+    ],
+    "dispersion": [
+      0.0,
+      1.0
+    ]
   },
   "sources": [
     {
@@ -227,525 +265,2060 @@
   "materials": [
     {
       "id": "skin.human",
-      "aliases": ["skin", "human skin"],
+      "aliases": [
+        "skin",
+        "human skin"
+      ],
       "family": "skin",
       "subtype": "human",
       "finish": "natural",
       "model": "dielectric-approximation",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.52, "range": [0.35, 0.7]},
-        "clearcoat": {"default": 0.12, "range": [0.0, 0.25]},
-        "clearcoatRoughness": {"default": 0.35, "range": [0.2, 0.6]},
-        "ior": {"default": 1.4, "range": [1.33, 1.5]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.52,
+          "range": [
+            0.35,
+            0.7
+          ]
+        },
+        "clearcoat": {
+          "default": 0.12,
+          "range": [
+            0.0,
+            0.25
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.35,
+          "range": [
+            0.2,
+            0.6
+          ]
+        },
+        "ior": {
+          "default": 1.4,
+          "range": [
+            1.33,
+            1.5
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["aoMap"],
-      "visualCues": ["warm dielectric diffuse response", "broad soft highlights", "pores and wrinkles at micro scale"],
-      "confusableWith": ["plastic.matte", "rubber.matte", "coating.paint-matte"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing", "reference-beauty"],
-      "limitations": ["MeshPhysicalMaterial has no true multilayer skin subsurface scattering"],
-      "sourceRefs": ["three.mesh-physical", "three.mesh-standard", "nvidia.faceworks", "activision.separable-sss", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "aoMap"
+      ],
+      "visualCues": [
+        "warm dielectric diffuse response",
+        "broad soft highlights",
+        "pores and wrinkles at micro scale"
+      ],
+      "confusableWith": [
+        "plastic.matte",
+        "rubber.matte",
+        "coating.paint-matte"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "MeshPhysicalMaterial has no true multilayer skin subsurface scattering"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.mesh-standard",
+        "nvidia.faceworks",
+        "activision.separable-sss",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "hair.human",
-      "aliases": ["hair", "human hair"],
+      "aliases": [
+        "hair",
+        "human hair"
+      ],
       "family": "hair",
       "subtype": "human",
       "finish": "strand-directional",
       "model": "anisotropic-dielectric-approximation",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.45, "range": [0.3, 0.7]},
-        "anisotropy": {"default": 0.65, "range": [0.4, 1.0]},
-        "ior": {"default": 1.5, "range": [1.4, 1.6]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.45,
+          "range": [
+            0.3,
+            0.7
+          ]
+        },
+        "anisotropy": {
+          "default": 0.65,
+          "range": [
+            0.4,
+            1.0
+          ]
+        },
+        "sheen": {
+          "default": 0.45,
+          "range": [
+            0.2,
+            0.8
+          ]
+        },
+        "sheenRoughness": {
+          "default": 0.35,
+          "range": [
+            0.2,
+            0.6
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.4,
+            1.6
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap", "anisotropyMap"],
-      "optionalMaps": ["aoMap"],
-      "visualCues": ["elongated highlights follow strand or clump direction", "silhouette breakup", "dark masses retain directional specular"],
-      "confusableWith": ["fabric.velvet", "plastic.glossy", "rubber.matte"],
-      "validationViews": ["neutral-studio", "grazing", "environment-reflection", "reference-beauty"],
-      "limitations": ["Use geometry clumps or cards for silhouette; a normal map cannot replace hair volume"],
-      "sourceRefs": ["three.mesh-physical", "pbrt.hair", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap",
+        "anisotropyMap"
+      ],
+      "optionalMaps": [
+        "aoMap"
+      ],
+      "visualCues": [
+        "elongated highlights follow strand or clump direction",
+        "silhouette breakup",
+        "dark masses retain directional specular"
+      ],
+      "confusableWith": [
+        "fabric.velvet",
+        "plastic.glossy",
+        "rubber.matte"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "environment-reflection",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Use geometry clumps or cards for silhouette; a normal map cannot replace hair volume"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "pbrt.hair",
+        "mit.material-recognition"
+      ]
+    },
+    {
+      "id": "hair.human.code-only",
+      "aliases": [
+        "hair code only",
+        "procedural hair",
+        "untextured hair"
+      ],
+      "family": "hair",
+      "subtype": "human-code-only",
+      "finish": "strand-directional",
+      "model": "anisotropic-dielectric-approximation",
+      "recipeBasis": "inferred-starting-prior",
+      "renderPrior": {
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.38,
+          "range": [
+            0.25,
+            0.6
+          ]
+        },
+        "anisotropy": {
+          "default": 0.8,
+          "range": [
+            0.5,
+            1.0
+          ]
+        },
+        "sheen": {
+          "default": 0.6,
+          "range": [
+            0.35,
+            0.9
+          ]
+        },
+        "sheenRoughness": {
+          "default": 0.3,
+          "range": [
+            0.15,
+            0.5
+          ]
+        },
+        "ior": {
+          "default": 1.55,
+          "range": [
+            1.45,
+            1.6
+          ]
+        }
+      },
+      "requiredMaps": [],
+      "optionalMaps": [],
+      "visualCues": [
+        "one broad highlight band running across the mass, not per-strand speculars",
+        "root darker than tip",
+        "facet edges read as clump boundaries"
+      ],
+      "confusableWith": [
+        "hair.human",
+        "fabric.velvet",
+        "plastic.glossy"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "No maps by construction: this pipeline emits code, so anisotropyMap and normalMap are unavailable and every value here has to carry the whole strand impression on its own.",
+        "Priors are pushed above hair.human deliberately: on the reference scan the hair surface is smooth (radial roughness 0.00338 against a torso control of 0.00312) and its entire strand appearance lives in the diffuse and normal textures. Without those textures, sheen and anisotropy are the only remaining carriers.",
+        "Not calibrated against a reference render. No multipart GLB with separated hair geometry exists to fit these against, so they are a documented starting point and not a measurement."
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "pbrt.hair"
+      ],
+      "colorPrior": {
+        "sheenColor": {
+          "default": "#fff6e8",
+          "note": "REQUIRED whenever sheen > 0: three's default sheenColor is 0x000000 and the sheen term is a multiply by that colour, so sheen alone contributes exactly zero (WebGLMaterials.js:408). Warm off-white because a hair highlight carries the light's tint, not the hair's."
+        }
+      }
+    },
+    {
+      "id": "skin.human.code-only",
+      "aliases": [
+        "skin code only",
+        "procedural skin",
+        "untextured skin"
+      ],
+      "family": "skin",
+      "subtype": "human-code-only",
+      "finish": "natural",
+      "model": "clearcoat-over-warm-dielectric",
+      "recipeBasis": "inferred-starting-prior",
+      "renderPrior": {
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.55,
+          "range": [
+            0.4,
+            0.75
+          ]
+        },
+        "clearcoat": {
+          "default": 0.18,
+          "range": [
+            0.08,
+            0.32
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.38,
+          "range": [
+            0.0525,
+            0.6
+          ],
+          "note": "The low bound is three's own floor: max(clearcoatRoughness, 0.0525) at lights_physical_fragment.glsl.js:72. A smaller number renders as exactly 0.0525."
+        },
+        "ior": {
+          "default": 1.4,
+          "range": [
+            1.33,
+            1.5
+          ]
+        }
+      },
+      "requiredMaps": [],
+      "optionalMaps": [],
+      "forbiddenProperties": [
+        "transmission",
+        "thickness",
+        "attenuationDistance"
+      ],
+      "visualCues": [
+        "broad soft highlight that moves with the light, not a tight specular dot",
+        "warm diffuse base",
+        "tone varies by region: forehead lighter, cheek warmer, jaw cooler"
+      ],
+      "confusableWith": [
+        "plastic.matte",
+        "rubber.matte",
+        "skin.human"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "No maps by construction: this pipeline emits code, so map/roughnessMap/normalMap are unavailable and the whole skin impression rests on base colour, clearcoat and per-region tone.",
+        "MeshPhysicalMaterial has no true multilayer subsurface scattering, and transmission is NOT a substitute -- it is a screen-space refraction (glass) model that on a closed body mesh renders a glassy figure and costs an extra render target. transmission/thickness are therefore forbidden on this family.",
+        "clearcoatRoughness has geometryRoughness ADDED at shade time (lights_physical_fragment.glsl.js:73), so a value tuned on smooth geometry reads blurrier flat-shaded. Author it on the final tessellation.",
+        "Not calibrated against a reference render. These are a documented starting point, not a measurement."
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "nvidia.faceworks"
+      ]
+    },
+    {
+      "id": "fabric.woven-matte.code-only",
+      "aliases": [
+        "fabric code only",
+        "procedural cloth",
+        "untextured cloth"
+      ],
+      "family": "fabric",
+      "subtype": "woven-code-only",
+      "finish": "matte",
+      "model": "sheen-dielectric",
+      "recipeBasis": "inferred-starting-prior",
+      "renderPrior": {
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.9,
+          "range": [
+            0.75,
+            1.0
+          ]
+        },
+        "sheen": {
+          "default": 0.7,
+          "range": [
+            0.4,
+            1.0
+          ]
+        },
+        "sheenRoughness": {
+          "default": 0.85,
+          "range": [
+            0.6,
+            1.0
+          ],
+          "note": "High for cotton/linen/wool: a broad soft rim. Drop toward 0.2 only for a visible satin rim, and never on sparse geometry where a tight rim lands on a few facets and reads as plastic."
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.45,
+            1.55
+          ]
+        }
+      },
+      "requiredMaps": [],
+      "optionalMaps": [],
+      "visualCues": [
+        "diffuse body with a grazing-angle rim",
+        "soft broad highlights",
+        "folds and hems read as geometry, never as texture"
+      ],
+      "confusableWith": [
+        "leather.matte",
+        "rubber.matte",
+        "plastic.matte",
+        "fabric.woven-matte"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "No maps by construction, so sheen is the entire woven cue available.",
+        "Enabling sheen DARKENS this material's own diffuse base by 0.157 x effective sheen strength (sheenEnergyComp, meshphysical.glsl.js:205). Author the base colour brighter by 1/(1-darkening) or the render lands darker than the reference at every non-grazing angle.",
+        "Large folds and hems belong in geometry, per fabric.woven-matte. A code-only profile cannot fake them with a normal map.",
+        "A garment shell with an open hem, cuff or collar must set side to DoubleSide; three defaults to FrontSide and culls the backfaces, so the opening renders as a hole.",
+        "Not calibrated against a reference render."
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "khronos.sheen"
+      ],
+      "colorPrior": {
+        "sheenColor": {
+          "default": "#f2ece2",
+          "note": "REQUIRED whenever sheen > 0. sheen and sheenColor are multiplied into ONE uniform before upload (WebGLMaterials.js:408), so they are a single degree of freedom -- extract the tint, keep sheen as an authored strength."
+        }
+      }
     },
     {
       "id": "fur.stylized",
-      "aliases": ["fur", "animal fur"],
+      "aliases": [
+        "fur",
+        "animal fur"
+      ],
       "family": "fur",
       "subtype": "stylized",
       "finish": "fibre-matte",
       "model": "sheen-dielectric-approximation",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.78, "range": [0.55, 1.0]},
-        "sheen": {"default": 0.45, "range": [0.2, 0.8]},
-        "sheenRoughness": {"default": 0.75, "range": [0.5, 1.0]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.78,
+          "range": [
+            0.55,
+            1.0
+          ]
+        },
+        "sheen": {
+          "default": 0.45,
+          "range": [
+            0.2,
+            0.8
+          ]
+        },
+        "sheenRoughness": {
+          "default": 0.75,
+          "range": [
+            0.5,
+            1.0
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["sheenColorMap", "sheenRoughnessMap", "aoMap"],
-      "visualCues": ["soft grazing response", "directional fibres", "broken outer silhouette"],
-      "confusableWith": ["fabric.velvet", "hair.human"],
-      "validationViews": ["neutral-studio", "grazing", "reference-beauty"],
-      "limitations": ["Geometry shells, tufts or cards are required for identity-scale fur"],
-      "sourceRefs": ["three.mesh-physical", "pbrt.hair", "khronos.sheen"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "sheenColorMap",
+        "sheenRoughnessMap",
+        "aoMap"
+      ],
+      "visualCues": [
+        "soft grazing response",
+        "directional fibres",
+        "broken outer silhouette"
+      ],
+      "confusableWith": [
+        "fabric.velvet",
+        "hair.human"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Geometry shells, tufts or cards are required for identity-scale fur"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "pbrt.hair",
+        "khronos.sheen"
+      ]
     },
     {
       "id": "fabric.woven-matte",
-      "aliases": ["fabric", "cloth", "cotton", "linen"],
+      "aliases": [
+        "fabric",
+        "cloth",
+        "cotton",
+        "linen"
+      ],
       "family": "fabric",
       "subtype": "woven",
       "finish": "matte",
       "model": "sheen-dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.85, "range": [0.7, 1.0]},
-        "sheen": {"default": 0.65, "range": [0.3, 1.0]},
-        "sheenRoughness": {"default": 0.75, "range": [0.5, 1.0]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.85,
+          "range": [
+            0.7,
+            1.0
+          ]
+        },
+        "sheen": {
+          "default": 0.65,
+          "range": [
+            0.3,
+            1.0
+          ]
+        },
+        "sheenRoughness": {
+          "default": 0.75,
+          "range": [
+            0.5,
+            1.0
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["sheenColorMap", "sheenRoughnessMap", "aoMap"],
-      "visualCues": ["diffuse body with grazing-angle sheen", "woven directional microstructure", "soft broad highlights"],
-      "confusableWith": ["leather.matte", "rubber.matte", "plastic.matte"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing", "reference-beauty"],
-      "limitations": ["Large folds and hems belong in geometry"],
-      "sourceRefs": ["three.mesh-physical", "three.texture", "khronos.sheen", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "sheenColorMap",
+        "sheenRoughnessMap",
+        "aoMap"
+      ],
+      "visualCues": [
+        "diffuse body with grazing-angle sheen",
+        "woven directional microstructure",
+        "soft broad highlights"
+      ],
+      "confusableWith": [
+        "leather.matte",
+        "rubber.matte",
+        "plastic.matte"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Large folds and hems belong in geometry"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.texture",
+        "khronos.sheen",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "fabric.silk-satin",
-      "aliases": ["silk", "satin"],
+      "aliases": [
+        "silk",
+        "satin"
+      ],
       "family": "fabric",
       "subtype": "silk-satin",
       "finish": "smooth-directional",
       "model": "sheen-anisotropic-dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.32, "range": [0.18, 0.55]},
-        "sheen": {"default": 0.85, "range": [0.5, 1.0]},
-        "sheenRoughness": {"default": 0.4, "range": [0.2, 0.65]},
-        "anisotropy": {"default": 0.45, "range": [0.2, 0.8]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.32,
+          "range": [
+            0.18,
+            0.55
+          ]
+        },
+        "sheen": {
+          "default": 0.85,
+          "range": [
+            0.5,
+            1.0
+          ]
+        },
+        "sheenRoughness": {
+          "default": 0.4,
+          "range": [
+            0.2,
+            0.65
+          ]
+        },
+        "anisotropy": {
+          "default": 0.45,
+          "range": [
+            0.2,
+            0.8
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap", "anisotropyMap"],
-      "optionalMaps": ["sheenColorMap", "sheenRoughnessMap"],
-      "visualCues": ["bright moving grazing highlight", "directional weave response", "smooth drape"],
-      "confusableWith": ["plastic.glossy", "coating.paint-gloss", "fabric.woven-matte"],
-      "validationViews": ["neutral-studio", "grazing", "environment-reflection", "reference-beauty"],
-      "limitations": ["Highlight direction must follow the authored fibre tangent"],
-      "sourceRefs": ["three.mesh-physical", "khronos.sheen", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap",
+        "anisotropyMap"
+      ],
+      "optionalMaps": [
+        "sheenColorMap",
+        "sheenRoughnessMap"
+      ],
+      "visualCues": [
+        "bright moving grazing highlight",
+        "directional weave response",
+        "smooth drape"
+      ],
+      "confusableWith": [
+        "plastic.glossy",
+        "coating.paint-gloss",
+        "fabric.woven-matte"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "environment-reflection",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Highlight direction must follow the authored fibre tangent"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "khronos.sheen",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "fabric.velvet",
-      "aliases": ["velvet", "nhung"],
+      "aliases": [
+        "velvet",
+        "nhung"
+      ],
       "family": "fabric",
       "subtype": "velvet",
       "finish": "pile-sheen",
       "model": "sheen-dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.72, "range": [0.55, 0.95]},
-        "sheen": {"default": 1.0, "range": [0.75, 1.0]},
-        "sheenRoughness": {"default": 0.65, "range": [0.4, 0.9]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.72,
+          "range": [
+            0.55,
+            0.95
+          ]
+        },
+        "sheen": {
+          "default": 1.0,
+          "range": [
+            0.75,
+            1.0
+          ]
+        },
+        "sheenRoughness": {
+          "default": 0.65,
+          "range": [
+            0.4,
+            0.9
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap", "sheenColorMap"],
-      "optionalMaps": ["sheenRoughnessMap", "aoMap"],
-      "visualCues": ["dark frontal body", "strong soft rim or grazing sheen", "pile direction changes tone"],
-      "confusableWith": ["fur.stylized", "hair.human", "fabric.woven-matte"],
-      "validationViews": ["neutral-studio", "grazing", "reference-beauty"],
-      "limitations": ["Short pile is an approximation without a fibre shader"],
-      "sourceRefs": ["three.mesh-physical", "khronos.sheen", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap",
+        "sheenColorMap"
+      ],
+      "optionalMaps": [
+        "sheenRoughnessMap",
+        "aoMap"
+      ],
+      "visualCues": [
+        "dark frontal body",
+        "strong soft rim or grazing sheen",
+        "pile direction changes tone"
+      ],
+      "confusableWith": [
+        "fur.stylized",
+        "hair.human",
+        "fabric.woven-matte"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Short pile is an approximation without a fibre shader"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "khronos.sheen",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "leather.matte",
-      "aliases": ["leather", "matte leather"],
+      "aliases": [
+        "leather",
+        "matte leather"
+      ],
       "family": "leather",
       "subtype": "natural-or-synthetic",
       "finish": "matte-worn",
       "model": "dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.62, "range": [0.35, 0.85]},
-        "clearcoat": {"default": 0.08, "range": [0.0, 0.3]},
-        "clearcoatRoughness": {"default": 0.45, "range": [0.2, 0.8]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.62,
+          "range": [
+            0.35,
+            0.85
+          ]
+        },
+        "clearcoat": {
+          "default": 0.08,
+          "range": [
+            0.0,
+            0.3
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.45,
+          "range": [
+            0.2,
+            0.8
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["aoMap", "clearcoatMap"],
-      "visualCues": ["irregular grain", "worn edges become smoother", "creases darken without becoming metallic"],
-      "confusableWith": ["fabric.woven-matte", "rubber.matte", "plastic.matte"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing", "reference-beauty"],
-      "limitations": ["Single images rarely prove natural versus synthetic leather"],
-      "sourceRefs": ["three.mesh-physical", "three.mesh-standard", "adobe.pbr-guide-2", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "aoMap",
+        "clearcoatMap"
+      ],
+      "visualCues": [
+        "irregular grain",
+        "worn edges become smoother",
+        "creases darken without becoming metallic"
+      ],
+      "confusableWith": [
+        "fabric.woven-matte",
+        "rubber.matte",
+        "plastic.matte"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Single images rarely prove natural versus synthetic leather"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.mesh-standard",
+        "adobe.pbr-guide-2",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "metal.steel-polished",
-      "aliases": ["polished steel", "chrome", "stainless steel"],
+      "aliases": [
+        "polished steel",
+        "chrome",
+        "stainless steel"
+      ],
       "family": "metal",
       "subtype": "steel",
       "finish": "polished",
       "model": "conductor",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 1.0, "range": [1.0, 1.0]},
-        "roughness": {"default": 0.12, "range": [0.03, 0.25]},
-        "anisotropy": {"default": 0.0, "range": [0.0, 0.15]}
+        "metalness": {
+          "default": 1.0,
+          "range": [
+            1.0,
+            1.0
+          ]
+        },
+        "roughness": {
+          "default": 0.12,
+          "range": [
+            0.03,
+            0.25
+          ]
+        },
+        "anisotropy": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.15
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "metalnessMap"],
-      "visualCues": ["neutral tinted environment reflection", "sharp high-contrast highlights", "little diffuse body colour"],
-      "confusableWith": ["metal.aluminum", "coating.metallic-paint", "plastic.glossy"],
-      "validationViews": ["neutral-studio", "environment-reflection", "grazing", "reference-beauty"],
-      "limitations": ["A meaningful environment map is mandatory; flat lighting cannot validate polished metal"],
-      "sourceRefs": ["three.mesh-standard", "three.pmrem", "gltf.2", "khronos.gltf-pbr", "adobe.pbr-guide-2", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "metalnessMap"
+      ],
+      "visualCues": [
+        "neutral tinted environment reflection",
+        "sharp high-contrast highlights",
+        "little diffuse body colour"
+      ],
+      "confusableWith": [
+        "metal.aluminum",
+        "coating.metallic-paint",
+        "plastic.glossy"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "environment-reflection",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "A meaningful environment map is mandatory; flat lighting cannot validate polished metal"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "three.pmrem",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-2",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "metal.steel-brushed",
-      "aliases": ["brushed steel", "machined steel"],
+      "aliases": [
+        "brushed steel",
+        "machined steel"
+      ],
       "family": "metal",
       "subtype": "steel",
       "finish": "brushed",
       "model": "anisotropic-conductor",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 1.0, "range": [1.0, 1.0]},
-        "roughness": {"default": 0.35, "range": [0.2, 0.55]},
-        "anisotropy": {"default": 0.85, "range": [0.5, 1.0]}
+        "metalness": {
+          "default": 1.0,
+          "range": [
+            1.0,
+            1.0
+          ]
+        },
+        "roughness": {
+          "default": 0.35,
+          "range": [
+            0.2,
+            0.55
+          ]
+        },
+        "anisotropy": {
+          "default": 0.85,
+          "range": [
+            0.5,
+            1.0
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap", "anisotropyMap"],
-      "optionalMaps": ["metalnessMap"],
-      "visualCues": ["elongated highlight aligned to brushing", "neutral conductor reflection", "parallel micro-scratches"],
-      "confusableWith": ["metal.aluminum", "plastic.glossy"],
-      "validationViews": ["neutral-studio", "grazing", "environment-reflection", "reference-beauty"],
-      "limitations": ["Anisotropy direction must agree with geometry tangent and visible brushing"],
-      "sourceRefs": ["three.mesh-physical", "three.pmrem", "gltf.2", "khronos.gltf-pbr", "adobe.pbr-guide-2", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap",
+        "anisotropyMap"
+      ],
+      "optionalMaps": [
+        "metalnessMap"
+      ],
+      "visualCues": [
+        "elongated highlight aligned to brushing",
+        "neutral conductor reflection",
+        "parallel micro-scratches"
+      ],
+      "confusableWith": [
+        "metal.aluminum",
+        "plastic.glossy"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "environment-reflection",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Anisotropy direction must agree with geometry tangent and visible brushing"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.pmrem",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-2",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "metal.aluminum",
-      "aliases": ["aluminum", "aluminium"],
+      "aliases": [
+        "aluminum",
+        "aluminium"
+      ],
       "family": "metal",
       "subtype": "aluminum",
       "finish": "satin",
       "model": "conductor",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 1.0, "range": [1.0, 1.0]},
-        "roughness": {"default": 0.3, "range": [0.15, 0.55]},
-        "anisotropy": {"default": 0.2, "range": [0.0, 0.8]}
+        "metalness": {
+          "default": 1.0,
+          "range": [
+            1.0,
+            1.0
+          ]
+        },
+        "roughness": {
+          "default": 0.3,
+          "range": [
+            0.15,
+            0.55
+          ]
+        },
+        "anisotropy": {
+          "default": 0.2,
+          "range": [
+            0.0,
+            0.8
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "anisotropyMap"],
-      "visualCues": ["bright neutral conductor", "soft satin highlight unless polished", "often fine machining direction"],
-      "confusableWith": ["metal.steel-polished", "coating.metallic-paint"],
-      "validationViews": ["neutral-studio", "environment-reflection", "grazing"],
-      "limitations": ["Steel versus aluminium may require context or metadata"],
-      "sourceRefs": ["three.mesh-standard", "three.pmrem", "gltf.2", "khronos.gltf-pbr", "adobe.pbr-guide-2", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "anisotropyMap"
+      ],
+      "visualCues": [
+        "bright neutral conductor",
+        "soft satin highlight unless polished",
+        "often fine machining direction"
+      ],
+      "confusableWith": [
+        "metal.steel-polished",
+        "coating.metallic-paint"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "environment-reflection",
+        "grazing"
+      ],
+      "limitations": [
+        "Steel versus aluminium may require context or metadata"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "three.pmrem",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-2",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "metal.copper",
-      "aliases": ["copper"],
+      "aliases": [
+        "copper"
+      ],
       "family": "metal",
       "subtype": "copper",
       "finish": "polished-or-aged",
       "model": "coloured-conductor",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 1.0, "range": [1.0, 1.0]},
-        "roughness": {"default": 0.28, "range": [0.08, 0.65]}
+        "metalness": {
+          "default": 1.0,
+          "range": [
+            1.0,
+            1.0
+          ]
+        },
+        "roughness": {
+          "default": 0.28,
+          "range": [
+            0.08,
+            0.65
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "metalnessMap", "aoMap"],
-      "visualCues": ["warm red-orange conductor reflection", "patina may create rough dielectric corrosion regions"],
-      "confusableWith": ["metal.brass", "coating.metallic-paint"],
-      "validationViews": ["albedo-unlit", "environment-reflection", "grazing", "reference-beauty"],
-      "limitations": ["Patina and oxidation require region masks rather than one uniform metal recipe"],
-      "sourceRefs": ["three.mesh-standard", "gltf.2", "khronos.gltf-pbr", "adobe.pbr-guide-2", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "metalnessMap",
+        "aoMap"
+      ],
+      "visualCues": [
+        "warm red-orange conductor reflection",
+        "patina may create rough dielectric corrosion regions"
+      ],
+      "confusableWith": [
+        "metal.brass",
+        "coating.metallic-paint"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "environment-reflection",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Patina and oxidation require region masks rather than one uniform metal recipe"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-2",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "metal.brass",
-      "aliases": ["brass", "bronze"],
+      "aliases": [
+        "brass",
+        "bronze"
+      ],
       "family": "metal",
       "subtype": "brass-bronze",
       "finish": "polished-or-aged",
       "model": "coloured-conductor",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 1.0, "range": [1.0, 1.0]},
-        "roughness": {"default": 0.3, "range": [0.1, 0.65]}
+        "metalness": {
+          "default": 1.0,
+          "range": [
+            1.0,
+            1.0
+          ]
+        },
+        "roughness": {
+          "default": 0.3,
+          "range": [
+            0.1,
+            0.65
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "aoMap", "metalnessMap"],
-      "visualCues": ["warm yellow-to-brown conductor reflection", "aged recesses darken and roughen"],
-      "confusableWith": ["metal.gold", "metal.copper", "coating.metallic-paint"],
-      "validationViews": ["albedo-unlit", "environment-reflection", "grazing", "reference-beauty"],
-      "limitations": ["Brass versus bronze versus gold may require context or metadata"],
-      "sourceRefs": ["three.mesh-standard", "gltf.2", "khronos.gltf-pbr", "adobe.pbr-guide-2", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "aoMap",
+        "metalnessMap"
+      ],
+      "visualCues": [
+        "warm yellow-to-brown conductor reflection",
+        "aged recesses darken and roughen"
+      ],
+      "confusableWith": [
+        "metal.gold",
+        "metal.copper",
+        "coating.metallic-paint"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "environment-reflection",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Brass versus bronze versus gold may require context or metadata"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-2",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "metal.gold",
-      "aliases": ["gold"],
+      "aliases": [
+        "gold"
+      ],
       "family": "metal",
       "subtype": "gold",
       "finish": "polished",
       "model": "coloured-conductor",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 1.0, "range": [1.0, 1.0]},
-        "roughness": {"default": 0.22, "range": [0.08, 0.45]}
+        "metalness": {
+          "default": 1.0,
+          "range": [
+            1.0,
+            1.0
+          ]
+        },
+        "roughness": {
+          "default": 0.22,
+          "range": [
+            0.08,
+            0.45
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "metalnessMap"],
-      "visualCues": ["yellow conductor reflection rather than yellow diffuse paint", "strong environment-dependent highlight"],
-      "confusableWith": ["metal.brass", "coating.metallic-paint"],
-      "validationViews": ["albedo-unlit", "environment-reflection", "grazing", "reference-beauty"],
-      "limitations": ["Gold identity should not be inferred from yellow albedo alone"],
-      "sourceRefs": ["three.mesh-standard", "three.pmrem", "gltf.2", "khronos.gltf-pbr", "adobe.pbr-guide-2", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "metalnessMap"
+      ],
+      "visualCues": [
+        "yellow conductor reflection rather than yellow diffuse paint",
+        "strong environment-dependent highlight"
+      ],
+      "confusableWith": [
+        "metal.brass",
+        "coating.metallic-paint"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "environment-reflection",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Gold identity should not be inferred from yellow albedo alone"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "three.pmrem",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-2",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "coating.painted-metal",
-      "aliases": ["painted metal", "coated metal"],
+      "aliases": [
+        "painted metal",
+        "coated metal"
+      ],
       "family": "coating",
       "subtype": "paint-over-metal",
       "finish": "gloss-or-satin",
       "model": "coated-dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.1]},
-        "roughness": {"default": 0.45, "range": [0.2, 0.7]},
-        "clearcoat": {"default": 0.75, "range": [0.0, 1.0]},
-        "clearcoatRoughness": {"default": 0.12, "range": [0.02, 0.35]},
-        "ior": {"default": 1.5, "range": [1.35, 1.65]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.1
+          ]
+        },
+        "roughness": {
+          "default": 0.45,
+          "range": [
+            0.2,
+            0.7
+          ]
+        },
+        "clearcoat": {
+          "default": 0.75,
+          "range": [
+            0.0,
+            1.0
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.12,
+          "range": [
+            0.02,
+            0.35
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.35,
+            1.65
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "clearcoatMap", "clearcoatRoughnessMap", "metalnessMap"],
-      "visualCues": ["diffuse paint colour under a separate glossy coat", "chips may expose metallic substrate"],
-      "confusableWith": ["plastic.glossy", "metal.gold", "metal.steel-polished"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing", "environment-reflection", "reference-beauty"],
-      "limitations": ["Intact paint is dielectric; exposed substrate needs a separate region or mask"],
-      "sourceRefs": ["three.mesh-physical", "gltf.2", "khronos.gltf-pbr", "adobe.pbr-guide-1", "adobe.pbr-guide-2"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "clearcoatMap",
+        "clearcoatRoughnessMap",
+        "metalnessMap"
+      ],
+      "visualCues": [
+        "diffuse paint colour under a separate glossy coat",
+        "chips may expose metallic substrate"
+      ],
+      "confusableWith": [
+        "plastic.glossy",
+        "metal.gold",
+        "metal.steel-polished"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "environment-reflection",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Intact paint is dielectric; exposed substrate needs a separate region or mask"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-1",
+        "adobe.pbr-guide-2"
+      ]
     },
     {
       "id": "plastic.glossy",
-      "aliases": ["glossy plastic", "acrylic"],
+      "aliases": [
+        "glossy plastic",
+        "acrylic"
+      ],
       "family": "plastic",
       "subtype": "generic-polymer",
       "finish": "glossy",
       "model": "dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.28, "range": [0.12, 0.5]},
-        "clearcoat": {"default": 0.2, "range": [0.0, 0.6]},
-        "clearcoatRoughness": {"default": 0.18, "range": [0.05, 0.4]},
-        "ior": {"default": 1.5, "range": [1.4, 1.65]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.28,
+          "range": [
+            0.12,
+            0.5
+          ]
+        },
+        "clearcoat": {
+          "default": 0.2,
+          "range": [
+            0.0,
+            0.6
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.18,
+          "range": [
+            0.05,
+            0.4
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.4,
+            1.65
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "clearcoatMap"],
-      "visualCues": ["untinted or light-coloured specular over coloured diffuse body", "smooth molded surface"],
-      "confusableWith": ["coating.painted-metal", "ceramic.glazed", "metal.steel-polished"],
-      "validationViews": ["neutral-studio", "grazing", "environment-reflection", "reference-beauty"],
-      "limitations": ["Do not set metalness from highlight sharpness alone"],
-      "sourceRefs": ["three.mesh-physical", "three.mesh-standard", "adobe.pbr-guide-1", "google.filament-pbr", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "clearcoatMap"
+      ],
+      "visualCues": [
+        "untinted or light-coloured specular over coloured diffuse body",
+        "smooth molded surface"
+      ],
+      "confusableWith": [
+        "coating.painted-metal",
+        "ceramic.glazed",
+        "metal.steel-polished"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "environment-reflection",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Do not set metalness from highlight sharpness alone"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.mesh-standard",
+        "adobe.pbr-guide-1",
+        "google.filament-pbr",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "plastic.matte",
-      "aliases": ["matte plastic", "polymer"],
+      "aliases": [
+        "matte plastic",
+        "polymer"
+      ],
       "family": "plastic",
       "subtype": "generic-polymer",
       "finish": "matte",
       "model": "dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.68, "range": [0.48, 0.88]},
-        "ior": {"default": 1.5, "range": [1.4, 1.65]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.68,
+          "range": [
+            0.48,
+            0.88
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.4,
+            1.65
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "aoMap"],
-      "visualCues": ["coloured diffuse body", "broad neutral highlight", "mold seams or fine stipple"],
-      "confusableWith": ["rubber.matte", "leather.matte", "skin.human"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing"],
-      "limitations": ["Context and texture frequency often distinguish matte plastics from rubber"],
-      "sourceRefs": ["three.mesh-standard", "adobe.pbr-guide-1", "google.filament-pbr", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "aoMap"
+      ],
+      "visualCues": [
+        "coloured diffuse body",
+        "broad neutral highlight",
+        "mold seams or fine stipple"
+      ],
+      "confusableWith": [
+        "rubber.matte",
+        "leather.matte",
+        "skin.human"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing"
+      ],
+      "limitations": [
+        "Context and texture frequency often distinguish matte plastics from rubber"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "adobe.pbr-guide-1",
+        "google.filament-pbr",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "rubber.matte",
-      "aliases": ["rubber", "matte rubber", "cao su"],
+      "aliases": [
+        "rubber",
+        "matte rubber",
+        "cao su"
+      ],
       "family": "rubber",
       "subtype": "generic-elastomer",
       "finish": "matte",
       "model": "dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.88, "range": [0.68, 1.0]},
-        "ior": {"default": 1.48, "range": [1.4, 1.55]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.88,
+          "range": [
+            0.68,
+            1.0
+          ]
+        },
+        "ior": {
+          "default": 1.48,
+          "range": [
+            1.4,
+            1.55
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["aoMap"],
-      "visualCues": ["dark diffuse body", "weak broad highlight", "molded or grippy microtexture"],
-      "confusableWith": ["plastic.matte", "leather.matte", "fabric.woven-matte"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing", "reference-beauty"],
-      "limitations": ["Wet or polished rubber needs a separate finish record"],
-      "sourceRefs": ["three.mesh-standard", "adobe.pbr-guide-1", "google.filament-pbr", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "aoMap"
+      ],
+      "visualCues": [
+        "dark diffuse body",
+        "weak broad highlight",
+        "molded or grippy microtexture"
+      ],
+      "confusableWith": [
+        "plastic.matte",
+        "leather.matte",
+        "fabric.woven-matte"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Wet or polished rubber needs a separate finish record"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "adobe.pbr-guide-1",
+        "google.filament-pbr",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "wood.unfinished",
-      "aliases": ["wood", "raw wood"],
+      "aliases": [
+        "wood",
+        "raw wood"
+      ],
       "family": "wood",
       "subtype": "generic",
       "finish": "unfinished",
       "model": "directional-dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.72, "range": [0.5, 0.95]},
-        "anisotropy": {"default": 0.12, "range": [0.0, 0.4]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.72,
+          "range": [
+            0.5,
+            0.95
+          ]
+        },
+        "anisotropy": {
+          "default": 0.12,
+          "range": [
+            0.0,
+            0.4
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["aoMap", "anisotropyMap"],
-      "visualCues": ["directional grain", "pores and growth rings", "roughness follows grain and wear"],
-      "confusableWith": ["plastic.matte", "leather.matte"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing"],
-      "limitations": ["Species identity cannot usually be established from a small crop"],
-      "sourceRefs": ["three.mesh-standard", "three.texture", "adobe.pbr-guide-1", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "aoMap",
+        "anisotropyMap"
+      ],
+      "visualCues": [
+        "directional grain",
+        "pores and growth rings",
+        "roughness follows grain and wear"
+      ],
+      "confusableWith": [
+        "plastic.matte",
+        "leather.matte"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing"
+      ],
+      "limitations": [
+        "Species identity cannot usually be established from a small crop"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "three.texture",
+        "adobe.pbr-guide-1",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "wood.varnished",
-      "aliases": ["varnished wood", "lacquered wood"],
+      "aliases": [
+        "varnished wood",
+        "lacquered wood"
+      ],
       "family": "wood",
       "subtype": "generic",
       "finish": "varnished",
       "model": "coated-dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.42, "range": [0.25, 0.65]},
-        "clearcoat": {"default": 0.75, "range": [0.35, 1.0]},
-        "clearcoatRoughness": {"default": 0.16, "range": [0.04, 0.35]},
-        "ior": {"default": 1.5, "range": [1.4, 1.6]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.42,
+          "range": [
+            0.25,
+            0.65
+          ]
+        },
+        "clearcoat": {
+          "default": 0.75,
+          "range": [
+            0.35,
+            1.0
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.16,
+          "range": [
+            0.04,
+            0.35
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.4,
+            1.6
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["clearcoatMap", "clearcoatRoughnessMap", "aoMap"],
-      "visualCues": ["wood grain under a separate glossy layer", "coating scratches differ from grain"],
-      "confusableWith": ["plastic.glossy", "coating.painted-metal"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing", "environment-reflection"],
-      "limitations": ["Do not bake the coating highlight into the grain albedo"],
-      "sourceRefs": ["three.mesh-physical", "three.texture", "adobe.pbr-guide-1", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "clearcoatMap",
+        "clearcoatRoughnessMap",
+        "aoMap"
+      ],
+      "visualCues": [
+        "wood grain under a separate glossy layer",
+        "coating scratches differ from grain"
+      ],
+      "confusableWith": [
+        "plastic.glossy",
+        "coating.painted-metal"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "environment-reflection"
+      ],
+      "limitations": [
+        "Do not bake the coating highlight into the grain albedo"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.texture",
+        "adobe.pbr-guide-1",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "stone.natural",
-      "aliases": ["stone", "rock", "granite", "marble"],
+      "aliases": [
+        "stone",
+        "rock",
+        "granite",
+        "marble"
+      ],
       "family": "stone",
       "subtype": "natural",
       "finish": "rough-or-polished",
       "model": "dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.78, "range": [0.25, 1.0]},
-        "clearcoat": {"default": 0.0, "range": [0.0, 0.35]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.78,
+          "range": [
+            0.25,
+            1.0
+          ]
+        },
+        "clearcoat": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.35
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap", "normalMap"],
-      "optionalMaps": ["aoMap", "displacementMap", "clearcoatMap"],
-      "visualCues": ["multi-scale mineral pattern", "fracture or pore relief", "polished stone retains dielectric reflection"],
-      "confusableWith": ["ceramic.glazed", "plastic.matte", "coating.paint-matte"],
-      "validationViews": ["albedo-unlit", "neutral-studio", "grazing", "reference-beauty"],
-      "limitations": ["Marble and polished stone may need transmission or subsurface approximation beyond this base record"],
-      "sourceRefs": ["three.mesh-standard", "three.mesh-physical", "adobe.pbr-guide-1", "mit.material-recognition"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "aoMap",
+        "displacementMap",
+        "clearcoatMap"
+      ],
+      "visualCues": [
+        "multi-scale mineral pattern",
+        "fracture or pore relief",
+        "polished stone retains dielectric reflection"
+      ],
+      "confusableWith": [
+        "ceramic.glazed",
+        "plastic.matte",
+        "coating.paint-matte"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Marble and polished stone may need transmission or subsurface approximation beyond this base record"
+      ],
+      "sourceRefs": [
+        "three.mesh-standard",
+        "three.mesh-physical",
+        "adobe.pbr-guide-1",
+        "mit.material-recognition"
+      ]
     },
     {
       "id": "ceramic.glazed",
-      "aliases": ["ceramic", "porcelain", "glazed ceramic"],
+      "aliases": [
+        "ceramic",
+        "porcelain",
+        "glazed ceramic"
+      ],
       "family": "ceramic",
       "subtype": "glazed",
       "finish": "glossy",
       "model": "coated-dielectric",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.26, "range": [0.1, 0.5]},
-        "clearcoat": {"default": 0.7, "range": [0.4, 1.0]},
-        "clearcoatRoughness": {"default": 0.12, "range": [0.02, 0.3]},
-        "ior": {"default": 1.5, "range": [1.4, 1.65]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.26,
+          "range": [
+            0.1,
+            0.5
+          ]
+        },
+        "clearcoat": {
+          "default": 0.7,
+          "range": [
+            0.4,
+            1.0
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.12,
+          "range": [
+            0.02,
+            0.3
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.4,
+            1.65
+          ]
+        }
       },
-      "requiredMaps": ["map", "roughnessMap"],
-      "optionalMaps": ["normalMap", "clearcoatMap", "clearcoatRoughnessMap"],
-      "visualCues": ["hard dielectric body", "smooth glaze reflection", "small chips reveal matte body"],
-      "confusableWith": ["plastic.glossy", "stone.natural", "coating.painted-metal"],
-      "validationViews": ["neutral-studio", "grazing", "environment-reflection", "reference-beauty"],
-      "limitations": ["Unglazed ceramic needs a separate matte finish"],
-      "sourceRefs": ["three.mesh-physical", "adobe.pbr-guide-1", "google.filament-pbr"]
+      "requiredMaps": [
+        "map",
+        "roughnessMap"
+      ],
+      "optionalMaps": [
+        "normalMap",
+        "clearcoatMap",
+        "clearcoatRoughnessMap"
+      ],
+      "visualCues": [
+        "hard dielectric body",
+        "smooth glaze reflection",
+        "small chips reveal matte body"
+      ],
+      "confusableWith": [
+        "plastic.glossy",
+        "stone.natural",
+        "coating.painted-metal"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "environment-reflection",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Unglazed ceramic needs a separate matte finish"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "adobe.pbr-guide-1",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "glass.clear",
-      "aliases": ["glass", "clear glass"],
+      "aliases": [
+        "glass",
+        "clear glass"
+      ],
       "family": "glass",
       "subtype": "clear",
       "finish": "polished",
       "model": "transmissive-dielectric-volume",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.05, "range": [0.0, 0.18]},
-        "transmission": {"default": 1.0, "range": [0.85, 1.0]},
-        "ior": {"default": 1.5, "range": [1.45, 1.55]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.05,
+          "range": [
+            0.0,
+            0.18
+          ]
+        },
+        "transmission": {
+          "default": 1.0,
+          "range": [
+            0.85,
+            1.0
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.45,
+            1.55
+          ]
+        }
       },
-      "requiredMaps": ["roughnessMap", "thicknessMap"],
-      "optionalMaps": ["map", "normalMap", "transmissionMap"],
-      "visualCues": ["background distortion", "bright interface reflection", "visible thickness or absorption"],
-      "confusableWith": ["plastic.glossy", "gemstone.quartz", "alpha-transparent material"],
-      "validationViews": ["neutral-studio", "environment-reflection", "backlight-transmission", "reference-beauty"],
-      "limitations": ["Use opacity 1 with transmission; thickness must be derived from geometry scale"],
-      "sourceRefs": ["three.mesh-physical", "three.pmrem", "gltf.2", "khronos.transmission", "khronos.volume", "google.filament-pbr"]
+      "requiredMaps": [
+        "roughnessMap",
+        "thicknessMap"
+      ],
+      "optionalMaps": [
+        "map",
+        "normalMap",
+        "transmissionMap"
+      ],
+      "visualCues": [
+        "background distortion",
+        "bright interface reflection",
+        "visible thickness or absorption"
+      ],
+      "confusableWith": [
+        "plastic.glossy",
+        "gemstone.quartz",
+        "alpha-transparent material"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "environment-reflection",
+        "backlight-transmission",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Use opacity 1 with transmission; thickness must be derived from geometry scale"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.pmrem",
+        "gltf.2",
+        "khronos.transmission",
+        "khronos.volume",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "glass.frosted",
-      "aliases": ["frosted glass", "etched glass"],
+      "aliases": [
+        "frosted glass",
+        "etched glass"
+      ],
       "family": "glass",
       "subtype": "frosted",
       "finish": "rough-transmissive",
       "model": "transmissive-dielectric-volume",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.52, "range": [0.3, 0.8]},
-        "transmission": {"default": 0.85, "range": [0.6, 1.0]},
-        "ior": {"default": 1.5, "range": [1.45, 1.55]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.52,
+          "range": [
+            0.3,
+            0.8
+          ]
+        },
+        "transmission": {
+          "default": 0.85,
+          "range": [
+            0.6,
+            1.0
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.45,
+            1.55
+          ]
+        }
       },
-      "requiredMaps": ["roughnessMap", "normalMap", "thicknessMap"],
-      "optionalMaps": ["transmissionMap", "map"],
-      "visualCues": ["blurred transmitted background", "broad interface highlight", "fine etched normal structure"],
-      "confusableWith": ["plastic.matte", "glass.clear"],
-      "validationViews": ["neutral-studio", "grazing", "backlight-transmission", "reference-beauty"],
-      "limitations": ["Transmission quality and cost depend on renderer and scene configuration"],
-      "sourceRefs": ["three.mesh-physical", "three.pmrem", "khronos.transmission", "khronos.volume", "google.filament-pbr"]
+      "requiredMaps": [
+        "roughnessMap",
+        "normalMap",
+        "thicknessMap"
+      ],
+      "optionalMaps": [
+        "transmissionMap",
+        "map"
+      ],
+      "visualCues": [
+        "blurred transmitted background",
+        "broad interface highlight",
+        "fine etched normal structure"
+      ],
+      "confusableWith": [
+        "plastic.matte",
+        "glass.clear"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "grazing",
+        "backlight-transmission",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Transmission quality and cost depend on renderer and scene configuration"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.pmrem",
+        "khronos.transmission",
+        "khronos.volume",
+        "google.filament-pbr"
+      ]
     },
     {
       "id": "gemstone.quartz",
-      "aliases": ["quartz", "crystal", "gemstone"],
+      "aliases": [
+        "quartz",
+        "crystal",
+        "gemstone"
+      ],
       "family": "gemstone",
       "subtype": "quartz-like",
       "finish": "polished",
       "model": "transmissive-dielectric-volume",
       "recipeBasis": "inferred-starting-prior",
       "renderPrior": {
-        "metalness": {"default": 0.0, "range": [0.0, 0.0]},
-        "roughness": {"default": 0.06, "range": [0.01, 0.2]},
-        "transmission": {"default": 0.9, "range": [0.5, 1.0]},
-        "ior": {"default": 1.54, "range": [1.45, 1.7]},
-        "dispersion": {"default": 0.0, "range": [0.0, 0.3]}
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.06,
+          "range": [
+            0.01,
+            0.2
+          ]
+        },
+        "transmission": {
+          "default": 0.9,
+          "range": [
+            0.5,
+            1.0
+          ]
+        },
+        "ior": {
+          "default": 1.54,
+          "range": [
+            1.45,
+            1.7
+          ]
+        },
+        "dispersion": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.3
+          ]
+        }
       },
-      "requiredMaps": ["roughnessMap", "thicknessMap"],
-      "optionalMaps": ["map", "normalMap", "transmissionMap"],
-      "visualCues": ["faceted interface reflections", "transmitted or internally varied colour", "thickness-dependent appearance"],
-      "confusableWith": ["glass.clear", "plastic.glossy", "coating.candy"],
-      "validationViews": ["neutral-studio", "environment-reflection", "backlight-transmission", "reference-beauty"],
-      "limitations": ["A painted opaque gem-like surface is not a transmissive gemstone and needs a coating record"],
-      "sourceRefs": ["three.mesh-physical", "three.pmrem", "gltf.2", "khronos.transmission", "khronos.volume", "google.filament-pbr"]
+      "requiredMaps": [
+        "roughnessMap",
+        "thicknessMap"
+      ],
+      "optionalMaps": [
+        "map",
+        "normalMap",
+        "transmissionMap"
+      ],
+      "visualCues": [
+        "faceted interface reflections",
+        "transmitted or internally varied colour",
+        "thickness-dependent appearance"
+      ],
+      "confusableWith": [
+        "glass.clear",
+        "plastic.glossy",
+        "coating.candy"
+      ],
+      "validationViews": [
+        "neutral-studio",
+        "environment-reflection",
+        "backlight-transmission",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "A painted opaque gem-like surface is not a transmissive gemstone and needs a coating record"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.pmrem",
+        "gltf.2",
+        "khronos.transmission",
+        "khronos.volume",
+        "google.filament-pbr"
+      ]
     }
   ]
 }

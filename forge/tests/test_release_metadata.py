@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,7 +29,10 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def run_release(self, directory: Path, commits: Path, dry_run: bool = False) -> subprocess.CompletedProcess[str]:
         command = [
-                "python3",
+                # `sys.executable`, not "python3": the release script uses `match`, so it needs
+                # 3.10+, and on macOS the system `python3` is still 3.9. Hardcoding the name tested
+                # whichever interpreter happened to be on PATH instead of the one running the suite.
+                sys.executable,
                 str(SCRIPT),
                 "--root",
                 str(directory),

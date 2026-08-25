@@ -1,0 +1,81 @@
+{
+  "targetName": "StandProudHead",
+  "schemaVersion": "2.1",
+  "suitability": "pass",
+  "coordinateFrame": {"up": "y", "forward": "z", "handedness": "right"},
+  "silhouette": {"summary": "A head with hair masses held clear of the skull."},
+  "proceduralStrategy": ["skull as a ring stack", "hair as masses that must stand proud of it"],
+  "materials": [
+    {"id": "skin", "color": "#c9a08a"},
+    {"id": "hair", "color": "#2b2118"}
+  ],
+  "componentTree": [
+    {
+      "id": "head",
+      "name": "Head",
+      "primitive": "lathe",
+      "material": "skin",
+      "role": "head",
+      "level": "macro",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "a closed skull volume the hair sits on",
+      "dimensions": {"width": 0.4, "height": 0.5, "depth": 0.42},
+      "geometryDescriptor": {
+        "ringStack": {
+          "_note": "A lathe is a REVOLVE, so it is circular before geometry.scale: rx must equal rz here, and the ellipticity comes from dimensions (width 0.4, depth 0.42). Authoring rx != rz double-counts it -- the first version of this fixture had rz 10-33% wider than the geometry it claimed to describe.",
+          "rings": [
+            [-0.25, 0.12, 0.12],
+            [-0.10, 0.19, 0.19],
+            [0.00, 0.20, 0.20],
+            [0.12, 0.19, 0.19],
+            [0.25, 0.15, 0.15]
+          ],
+          "zOffsets": [0.01, 0.03, 0.02, 0.00, -0.02]
+        },
+        "latheProfile": {
+          "points": [[0.12, -0.25], [0.19, -0.10], [0.20, 0.0], [0.19, 0.12], [0.15, 0.25]],
+          "segments": 16
+        }
+      }
+    },
+    {
+      "id": "hair-crown",
+      "name": "Hair crown",
+      "primitive": "tapered-sweep",
+      "material": "hair",
+      "role": "hair",
+      "parent": "head",
+      "level": "meso",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "a solid mass of hair over the top of the skull",
+      "dimensions": {"width": 0.42, "height": 0.22, "depth": 0.44},
+      "standProud": {"againstComponentId": "head", "clearance": 0.012, "maxPush": 0.04},
+      "rootTipGradient": {"rootColor": "#1a1310", "tipColor": "#4a3a2c", "axis": "y"},
+      "geometryDescriptor": {
+        "taperedSweep": {
+          "stations": [
+            {"position": [0.0, -0.18, -0.16], "rx": 0.16, "rz": 0.12},
+            {"position": [0.0, 0.02, -0.02], "rx": 0.19, "rz": 0.15},
+            {"position": [0.0, 0.16, 0.14], "rx": 0.10, "rz": 0.08},
+            {"position": [0.0, 0.22, 0.24], "rx": 0.0, "rz": 0.0}
+          ],
+          "radialSegments": 10
+        }
+      }
+    },
+    {
+      "id": "hair-temple-l",
+      "name": "Hair temple L",
+      "primitive": "ellipsoid",
+      "material": "hair",
+      "role": "hair",
+      "parent": "head",
+      "level": "meso",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "a side mass that must not sink into the skull",
+      "dimensions": {"width": 0.10, "height": 0.20, "depth": 0.22},
+      "transform": {"position": [0.17, 0.0, 0.0]},
+      "standProud": {"againstComponentId": "head", "clearance": 0.010, "maxPush": 0.035}
+    }
+  ]
+}

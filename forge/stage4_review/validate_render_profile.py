@@ -22,7 +22,6 @@ PASS_IDS = (
     "normal",
     "roughness-material-id",
 )
-REGION_IDS = ("face", "kasa", "scarf", "tunic", "staff", "tail", "feet", "materials")
 FEEDBACK_GROUPS = ("camera", "silhouette", "face", "clothing", "accessory", "materials", "lighting")
 TONE_MAPPINGS = {"NoToneMapping", "ACESFilmicToneMapping", "AgXToneMapping", "NeutralToneMapping"}
 
@@ -124,9 +123,27 @@ def validate_profile(profile: dict[str, Any]) -> dict[str, Any]:
 
     regions = profile.get("regions")
     region_ids = [item.get("id") for item in regions] if isinstance(regions, list) and all(isinstance(item, dict) for item in regions) else []
-    missing_regions = [region for region in REGION_IDS if region not in region_ids]
+    if not region_ids:
+        errors.append("regions must contain at least one subject-specific semantic region")
+    if any(not isinstance(region_id, str) or not region_id.strip() for region_id in region_ids):
+        errors.append("every region.id must be a non-empty string")
+    if len(set(region_ids)) != len(region_ids):
+        errors.append("region IDs must be unique")
+
+    extensions = profile.get("extensions")
+    required_regions = extensions.get("requiredSemanticRegions") if isinstance(extensions, dict) else None
+    if (
+        not isinstance(required_regions, list)
+        or not required_regions
+        or any(not isinstance(region_id, str) or not region_id.strip() for region_id in required_regions)
+    ):
+        errors.append("extensions.requiredSemanticRegions must be a non-empty array of non-empty strings")
+        required_regions = []
+    elif len(set(required_regions)) != len(required_regions):
+        errors.append("extensions.requiredSemanticRegions must contain unique IDs")
+    missing_regions = [region for region in required_regions if region not in region_ids]
     if missing_regions:
-        errors.append(f"regions missing required IDs: {', '.join(missing_regions)}")
+        errors.append(f"regions missing declared required IDs: {', '.join(missing_regions)}")
 
     feedback = profile.get("feedbackGroups")
     feedback_ids = [item.get("id") for item in feedback] if isinstance(feedback, list) and all(isinstance(item, dict) for item in feedback) else []

@@ -9,7 +9,7 @@
 Quality-gated, animation-ready, and deliberately token-efficient — reconstruction-by-code, not photogrammetry, mesh extraction, or downloaded art packs.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.4.4-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.5.1-green.svg)](CHANGELOG.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Runtime](https://img.shields.io/badge/runtime-Three.js-000000.svg)](https://threejs.org)
 [![Tooling](https://img.shields.io/badge/tooling-Python%203.10%2B%20stdlib-3776ab.svg)](forge)
@@ -39,7 +39,7 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 
 *Reference images reconstructed in code as animation-ready Three.js models, running live in the browser.*
 
-### [→ Open the Live Demo Gallery](https://img2threejs.github.io/img2threejs-showcase/)
+### [→ Open the Live Demo Gallery](https://img2threejs.io/)
 
 Every model in the gallery is generated code, running in your browser. No mesh files, no downloads.
 
@@ -49,18 +49,28 @@ Every model in the gallery is generated code, running in your browser. No mesh f
 
 Reconstructions built entirely from primitives, procedural shaders, and generated geometry. Open any model to orbit it, inspect its reference, and read the generated source.
 
-| Demo | Subject | View | Source |
-| --- | --- | --- | --- |
-| Glock-18 · Ghost Protocol (Well-Worn) | CS2 weapon | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/glock-ghost-protocol) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/glock-ghost-protocol/createGlockGhostProtocolModel.ts) |
-| Classic Knife · Fade (Minimal Wear) | CS2 weapon | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/classic-fade) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/classic-fade/createClassicFadeModel.ts) |
-| BMX Endurance Bike | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/bmx-endurance) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/bmx-endurance/createBmxEnduranceBikeModel.ts) |
-| M9 Bayonet · Doppler Phase 2 | CS2 weapon | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/m9-doppler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/m9-doppler/createM9DopplerModel.ts) |
-| Sony WF-1000XM3 Earbuds + Case | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/sony-wf1000xm3) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/sony-wf1000xm3/createSonyWf1000xm3Model.ts) |
-| ISSACA 12 Gauge Shotgun | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/issaca-shotgun) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/issaca-shotgun/createIssacaShotgunModel.ts) |
-| Gerber Paracord Knife | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/gerber-knife) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/gerber-knife/createGerberKnifeModel.ts) |
-| Doraemon House (isometric diorama) | diorama | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/doraemon-house) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/doraemon-house/createDoraemonHouseModel.ts) |
-| War-Hauler "SECTOR 07" | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/warhauler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/warhauler/createWarHaulerModel.ts) |
-| Crowned Loot Chest | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/crown-chest) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/crown-chest/createCrownChestModel.ts) |
+| Demo | Subject | Built with | View | Source |
+| --- | --- | --- | --- | --- |
+| Dual-Sword Warrior — TypeScript procedural surfaces ⚠︎ | character | `v1.5.1` | [Live](https://img2threejs.io/#/demo/girl-character) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/girl-character/createGirlCharacterModel.ts) |
+| Low-Poly Humanoid — Rigged Character ⚠︎ | character | `v1.5.0` | [Live](https://img2threejs.io/#/demo/low-poly-humanoid) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/low-poly-humanoid/createLowPolyHumanoidModel.ts) |
+| ★ Talon Knife \| Doppler Ruby (Factory New) | object | `v1.4.4` | [Live](https://img2threejs.io/#/demo/talon-doppler-ruby) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/talon-doppler-ruby/createTalonDopplerRubyModel.ts) |
+| AWP \| Medusa (Minimal Wear) · V2 rebuild | object | `V2` | [Live](https://img2threejs.io/#/demo/awp-medusa-v2) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/awp-medusa-v2/createAwpMedusaModelV2.ts) |
+| Pikachu 10K Star Celebration ⚠︎ | character | `v1.5-beta` | [Live](https://img2threejs.io/#/demo/electric-mouse-mascot) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/electric-mouse-mascot/createElectricMouseMascotModel.ts) |
+| Glock-18 \| Ghost Protocol (Well-Worn) | object | `v1.4.1` | [Live](https://img2threejs.io/#/demo/glock-ghost-protocol) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/glock-ghost-protocol/createGlockGhostProtocolModel.ts) |
+| Classic Knife \| Fade (Minimal Wear) | object | `v1.3` | [Live](https://img2threejs.io/#/demo/classic-fade) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/classic-fade/createClassicFadeModel.ts) |
+| BMX Endurance Bike | object | `v1.3` | [Live](https://img2threejs.io/#/demo/bmx-endurance) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/bmx-endurance/createBmxEnduranceBikeModel.ts) |
+| M9 Bayonet \| Doppler Phase 2 | object | `v1.3` | [Live](https://img2threejs.io/#/demo/m9-doppler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/m9-doppler/createM9DopplerModel.ts) |
+| Sony WF-1000XM3 Earbuds + Case | object | `v1.2` | [Live](https://img2threejs.io/#/demo/sony-wf1000xm3) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/sony-wf1000xm3/createSonyWf1000xm3Model.ts) |
+| ISSACA 12 Gauge Shotgun | object | `v1.2` | [Live](https://img2threejs.io/#/demo/issaca-shotgun) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/issaca-shotgun/createIssacaShotgunModel.ts) |
+| Gerber Paracord Knife | object | `v1.2` | [Live](https://img2threejs.io/#/demo/gerber-knife) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/gerber-knife/createGerberKnifeModel.ts) |
+| Doraemon House (isometric diorama) | object | `v1.2` | [Live](https://img2threejs.io/#/demo/doraemon-house) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/doraemon-house/createDoraemonHouseModel.ts) |
+| War-Hauler "SECTOR 07" | object | `v1.2` | [Live](https://img2threejs.io/#/demo/warhauler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/warhauler/createWarHaulerModel.ts) |
+| Crowned Loot Chest ⚠︎ | object | `v1.2` | [Live](https://img2threejs.io/#/demo/crown-chest) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/crown-chest/createCrownChestModel.ts) |
+
+⚠︎ marks a demo whose registry `status` is still `placeholder` rather than `final` — it renders, but it
+is not finished work. The **Built with** column is the version each demo's own registry entry records in
+`generatedWith`, not an inference from dates; `awp-medusa-v2` records `V2`, which is that demo's rebuild
+pass rather than a release number. Rows are ordered newest first by the commit that added the demo.
 
 The gallery source lives in [img2threejs/img2threejs-showcase](https://github.com/img2threejs/img2threejs-showcase). If this project is useful, a star on this repo helps others find it.
 
@@ -169,6 +179,30 @@ The factory generator repeats the strict-quality gate and is fail-closed: on fai
 `BLOCKED` with the spec artifact, failure metrics, causes, and next action, and does not write a
 factory. `--allow-nonstrict` is only for explicit legacy test fixtures, never production output.
 
+### Copy-paste prompts for the GLB-reference route
+
+Rebuilding a character from a **GLB reference** rather than a photo is a different route with its own
+gates — the GLB is a measurement instrument and never ships. Three prompts cover it, each in its own
+copy block:
+
+| Prompt | Use it when | Do not use it when |
+|---|---|---|
+| [Build](docs/GLB_CHARACTER_PROMPT.md) | you have a GLB and no built surfaces yet | there is no GLB, or the build already completed and merely looks wrong |
+| [Polish](docs/GLB_CHARACTER_POLISH_PROMPT.md) | the build completed and the result does not look like the GLB | the surfaces were never built — that is a build re-run, not a polish |
+| [Animation](docs/GLB_CHARACTER_ANIMATION_PROMPT.md) | the figure looks right standing still and has passed the build gates | the surface is ungated, or `joint_loops.py` fails — that is a surface finding no weight tuning reaches |
+
+They force every parameter the GLB genuinely carries — size, proportions, per-band widths and
+centroids, base colour, roughness and metalness — to the measured value, with the check that proves
+it landed. Three things are **not** 1:1 and each prompt says so: rigging and animation are usually
+absent from the asset (`skinCount: 0`, `animationCount: 0`), texture images and normal maps are
+deliberately not copied per this skill's code-only contract, and nothing finer than the node's cell
+size can be carried at all.
+
+**These are reference material, not a guarantee.** They are written to be general, so the measured
+figures in them came from one character and are there to show what to measure — not values to copy.
+Run the one that matches your situation rather than all three in sequence; each notes the cost of
+being used out of turn.
+
 For the script-by-script reference, the full scripts table, and expected artifacts, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
@@ -215,7 +249,17 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage1_intake/delight_albedo.py` | Approximate a neutral albedo from the photo before texture projection. |
 | `stage3_build/bake_projected_texture.py` | Emit a projection/UV-bake descriptor for photo-texture projection. |
 
-The `grimoire/` folder holds the detailed rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
+| `stage5_rig/rig_spec.py` | Derive and validate a skeleton from the component tree, so bones cannot drift from the geometry. |
+| `stage5_rig/geodesic_skinning.py` | Vertex weights from distance measured through the solid; keeps rigid roles out of smooth skinning. |
+| `stage5_rig/validate_rig_payload.py` | Blocking payload-integrity gate before a `THREE.Skeleton` is bound. |
+| `stage1_intake/extract_hair_evidence.py` | Hair/skin split, banded coverage, hairline, highlight band, root-to-tip delta. |
+| `stage4_review/scalp_exposure.py` | HARD gate: finds bald patches on geometry, before any render. |
+| `stage4_review/hair_gate.py` | Soft gate: hair coverage, hairline and highlight offsets against the reference. |
+| `stage4_review/interior_difference.py` | Appearance difference inside the silhouette, banded by height. Required per visual pass. |
+| `_shared/chirality.py` | Left/right as an importable convention, with the two gates the two chirality defects need. |
+| `_shared/pipeline_routing.py` | Fail-closed weapon/character routing; low confidence resolves to `request-input`. |
+
+This is a curated selection — `forge/` holds around ninety modules. The executable reference with every flag is [`grimoire/scripts.md`](grimoire/scripts.md), and the gate-by-gate contract is [`grimoire/review/gates_reference.md`](grimoire/review/gates_reference.md). The rest of `grimoire/` holds the rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
 
 ### Optional reference-fidelity tooling
 
@@ -226,12 +270,26 @@ version-aware Context7 retrieval. These tools never approve a pass or silently p
 Install, routing, provenance rules and exact commands:
 [`docs/integrations/reference_fidelity_tooling.md`](docs/integrations/reference_fidelity_tooling.md).
 
+### Optional GLB-baseline character pipeline
+
+[`integrations/glb_character_pipeline`](integrations/glb_character_pipeline) reconstructs a character
+from a **multipart GLB used as a measurement instrument plus its diffuse image**, and emits the
+procedural TypeScript the demo actually ships — no `.glb` or `.bin` is fetched at runtime. It carries
+its own `pyproject.toml`/`uv.lock` so the stdlib-only `forge` core stays dependency-free, and operates
+on a companion showcase checkout via `IMG2THREEJS_SHOWCASE_ROOT`.
+
+It applies **only** when a build has a GLB to measure — skip it entirely otherwise, and use the core
+image-driven pipeline instead. Reproduces `girl-character`'s shipped `crossSections.ts` exactly (748
+rings, 86,240 ring points). Method and per-stage rationale:
+[`PIPELINE.md`](integrations/glb_character_pipeline/PIPELINE.md).
+
 ---
 
 ## What you get
 
 - An `ObjectSculptSpec` JSON: the full component tree, materials, repetition systems, sockets, and a recorded review history for every pass.
 - A TypeScript `createObjectNameModel(spec, options)` factory returning a `THREE.Group`, with `root.userData.sculptRuntime` exposing nodes, sockets, colliders, and destruction groups.
+- For character builds, `root.userData.rig`: bones, one shared `Skeleton`, bone order and index map, and a `bound` flag computed from whether every skinned mesh actually bound.
 - A render plus comparison sheets documenting the fidelity at each pass.
 For the script-by-script reference and the full list of output artifacts, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -248,10 +306,9 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v1.4 — The Weapon Update** — CS2 image-matched reconstruction: provenance-aware intake, projection-first finishes, family-specific weapon adapters, and structural review gates.
 - **v1.4.1** — CS2 hardening: explicit component coverage, a dedicated Glock-18 assembly contract, map-stripped blockout evidence, and stricter geometry-integrity checks.
 - **creature generator** — 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft geometry, ΔE00 colour gates.
+- **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
 
 **Next — one theme per release:**
-
-- **v1.5 — The Character Update** *(in progress)*: character reconstruction, facial features, rigging-ready topology, blendshape preparation, hair and clothing.
 - **v1.6 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
 - **v1.7 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
 - **v1.8 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
@@ -290,8 +347,7 @@ img2threejs is free and open source. If it saved you time or found its way into 
 
 <a href="https://www.buymeacoffee.com/hoainhowors" target="_blank" rel="noopener noreferrer"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
-VietQR / MoMo / PayPal also work — see the [donate page](https://hoainho.github.io/img2threejs-showcase/donate.html).
-VietQR / MoMo / PayPal also work — see the [donate page](https://img2threejs.github.io/img2threejs-showcase/donate.html).
+VietQR / MoMo / PayPal also work — see the [donate page](https://img2threejs.io/donate.html).
 
 ---
 

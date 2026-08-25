@@ -44,6 +44,27 @@ MAX_INFLUENCES = 4
 DEFAULT_FALLOFF_POWER = 3.0
 UNREACHABLE = float("inf")
 
+# Roles that must be rigidly parented to a joint rather than smooth-skinned to the skeleton.
+#
+# WHY HAIR IS FIRST ON THIS LIST. The geodesic field measures distance THROUGH THE SOLID, which is
+# exactly right for a limb and exactly wrong for hair. Hair sits ON the skull, so the path from the
+# neck joint to a crown vertex runs up through the head and arrives short -- the crown then takes a
+# real share of neck weight, and turning the neck DEFORMS the hair, shearing it against the very
+# skull it is supposed to sit on.
+#
+# The deformation also voids the one guarantee the hair pipeline has. `standProud` and the
+# `scalpExposure` gate are build-time geometric checks against the bind pose; smooth-skin the hair
+# and every other pose is unverified, so the model can go bald when the head turns with no gate able
+# to see it. Rigid parenting keeps hair and skull on a single shared transform, which makes the
+# relation between them invariant under every pose.
+#
+# It is also simply more correct. Short hair on a skull genuinely does move rigidly with it; smooth
+# skinning would introduce a deformation that does not exist in the subject.
+#
+# Long hair that crosses a joint is the real exception, and it is served by a short chain of bones
+# with one mesh segment rigidly parented per bone -- still no blended vertex weights.
+RIGID_ROLES = frozenset({"hair", "detail", "decal", "panel"})
+
 # 26-connectivity with true step lengths: a face step is 1 voxel, an edge step sqrt(2), a corner
 # sqrt(3). Using 6-connectivity instead makes every distance a Manhattan distance, which biases
 # weights along the grid axes and shows up as boxy falloff on a diagonal limb.
@@ -193,12 +214,84 @@ def geodesic_field(grid: VoxelGrid, sources: set[tuple[int, int, int]]) -> dict[
     return distance
 
 
+def partition_for_binding(
+    components: list[dict[str, Any]],
+    rigid_roles: frozenset[str] = RIGID_ROLES,
+) -> dict[str, Any]:
+    """Split a component tree into what may be smooth-skinned and what must be rigidly parented.
+
+    `bind()` weights every vertex of whatever mesh it is handed, with no notion of role. That is the
+    correct contract for a distance solver and the wrong default for a character: hand it a merged
+    mesh containing hair and it will skin the hair, because nothing told it not to. This is the
+    thing that tells it not to.
+
+    Rigid components are REPORTED, never silently dropped. Each carries the joint it rides, resolved
+    by walking up the parent chain to the first ancestor that is itself skinned -- a lock parented to
+    a hair mass parented to the head rides the head, not the mass.
+    """
+    by_id = {
+        str(component.get("id")): component
+        for component in components
+        if isinstance(component, dict) and component.get("id")
+    }
+
+    def is_rigid(component: dict[str, Any]) -> bool:
+        return str(component.get("role") or "").lower() in rigid_roles
+
+    def ride(component: dict[str, Any]) -> str | None:
+        """First ancestor that is skinned, so the rigid piece has a joint to hang from."""
+        seen: set[str] = set()
+        parent_id = component.get("parent")
+        while isinstance(parent_id, str) and parent_id in by_id and parent_id not in seen:
+            seen.add(parent_id)
+            parent = by_id[parent_id]
+            if not is_rigid(parent):
+                return parent_id
+            parent_id = parent.get("parent")
+        return None
+
+    skinned: list[str] = []
+    rigid: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for component in components:
+        if not isinstance(component, dict) or not component.get("id"):
+            continue
+        component_id = str(component["id"])
+        if not is_rigid(component):
+            skinned.append(component_id)
+            continue
+        joint = ride(component)
+        if joint is None:
+            warnings.append(
+                f"component {component_id!r} has rigid role "
+                f"{str(component.get('role') or '')!r} but no skinned ancestor to parent to; "
+                f"it would be left unattached to the skeleton"
+            )
+        rigid.append({"id": component_id, "role": component.get("role"), "parentJoint": joint})
+
+    return {
+        "schemaVersion": 1,
+        "kind": "binding-partition",
+        "skinned": skinned,
+        "rigidlyParented": rigid,
+        "rigidRoles": sorted(rigid_roles),
+        "warnings": warnings,
+        "note": (
+            "Rigid components are parented to a joint and inherit its transform exactly. They are "
+            "excluded from geodesic binding because the field measures distance through the solid, "
+            "so a crown vertex would take neck weight through the skull and shear against it."
+        ),
+    }
+
+
 def bind(
     mesh: dict[str, Any],
     bones: list[dict[str, Any]],
     resolution: int = DEFAULT_RESOLUTION,
     falloff_power: float = DEFAULT_FALLOFF_POWER,
     max_influences: int = MAX_INFLUENCES,
+    components: list[dict[str, Any]] | None = None,
+    rigid_roles: frozenset[str] = RIGID_ROLES,
 ) -> dict[str, Any]:
     """Compute skin indices and weights for every vertex.
 
@@ -206,6 +299,14 @@ def bind(
     distance, the top `max_influences` are kept and normalised, and a vertex no bone can reach through
     the solid is reported rather than quietly pinned to the nearest bone in space -- being unreachable
     usually means the mesh has a hole or a detached island, and that is worth knowing.
+
+    Pass `components` -- the component tree the mesh was built from -- and the result carries a
+    `bindingPartition` naming everything that must be rigidly parented instead of skinned, plus a
+    warning if any of it looks like it reached the mesh anyway. Without it the caller gets weights
+    for every vertex handed in and no signal at all that some of them should not have been, which is
+    the failure mode this whole rule exists to prevent: the geodesic path from the neck to a crown
+    vertex runs UP THROUGH THE SKULL, so hair takes real neck weight (8.1% on the test fixture) and
+    shears against the skull it sits on.
     """
     vertices = mesh.get("vertices")
     indices = mesh.get("indices")
@@ -261,9 +362,55 @@ def bind(
         skin_indices.append(row_indices)
         skin_weights.append(row_weights)
 
+    partition = partition_for_binding(components, rigid_roles) if components is not None else None
+    partition_warnings: list[str] = []
+    rigid_pinned = 0
+    if partition and partition["rigidlyParented"]:
+        partition_warnings.append(
+            f"{len(partition['rigidlyParented'])} component(s) carry a rigid role "
+            f"({', '.join(sorted(rigid_roles))}) and are parented to a joint rather than skinned."
+        )
+
+        # EXCLUSION, not just a note. Reporting the partition and then handing back geodesic weights
+        # for those vertices anyway leaves the caller holding exactly the wrong numbers -- and the
+        # obvious thing to do with a returned weight array is to use it. A rigidly parented vertex
+        # gets weight 1.0 on the single joint it rides and nothing else, which IS rigid parenting
+        # written in the only language a skinned mesh speaks.
+        #
+        # This needs to know which vertex belongs to which component, so the mesh must carry
+        # `vertexComponents`, a component id per vertex. Without it the exclusion cannot be applied
+        # and that is said out loud rather than silently skipped.
+        rides = {entry["id"]: entry["parentJoint"] for entry in partition["rigidlyParented"]}
+        owners = mesh.get("vertexComponents")
+        if not isinstance(owners, list) or len(owners) != len(vertices):
+            partition_warnings.append(
+                "mesh has no `vertexComponents` (one component id per vertex), so the rigid "
+                "components above could NOT be excluded from these weights. Supply it, or bind "
+                "only the skinned components' geometry."
+            )
+        else:
+            bone_slot = {str(bone.get("id")): index for index, bone in enumerate(bones)}
+            for index, owner in enumerate(owners):
+                joint = rides.get(str(owner))
+                if joint is None:
+                    continue
+                slot = bone_slot.get(str(joint))
+                if slot is None:
+                    partition_warnings.append(
+                        f"component {owner!r} rides joint {joint!r}, which is not among the bones "
+                        f"supplied; its vertices keep their geodesic weights"
+                    )
+                    continue
+                skin_indices[index] = [slot] + [0] * (max_influences - 1)
+                skin_weights[index] = [1.0] + [0.0] * (max_influences - 1)
+                rigid_pinned += 1
+
     return {
         "skinIndices": skin_indices,
         "skinWeights": skin_weights,
+        "bindingPartition": partition,
+        "partitionWarnings": partition_warnings + (partition["warnings"] if partition else []),
+        "rigidPinnedVertexCount": rigid_pinned,
         "boneOrder": [str(bone.get("id")) for bone in bones],
         "resolution": resolution,
         "voxelStep": grid.step,

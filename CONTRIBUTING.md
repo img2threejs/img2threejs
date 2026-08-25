@@ -21,11 +21,17 @@ quality-gated Three.js model. Contributions that keep that identity sharp are ve
 
 Please do not add code that silently downloads meshes or art packs — the core promise is
 reconstruction by code. If you want a projection or generative-assist path, propose it as an
-explicit, flagged, opt-in mode.
+explicit, flagged, opt-in mode. `integrations/glb_character_pipeline/` is one such mode: a GLB-baseline
+character reconstruction pipeline (SDF point-cloud splat + Surface Nets) that runs against a companion
+showcase checkout via `IMG2THREEJS_SHOWCASE_ROOT`, isolated behind its own `pyproject.toml`/`uv.lock`
+and `node/package.json` so the `forge` core stays dependency-free. It only applies when a character
+build actually has a GLB reference to measure — skip it entirely otherwise. See its `README.md`.
 
 ## Development
 
-- Scripts are pure Python 3.10+ standard library. No pip dependencies.
+- Scripts under `forge/` are pure Python 3.10+ standard library. No pip dependencies there. Optional
+  integrations under `integrations/<name>/` may declare their own pip/npm dependencies in their own
+  `pyproject.toml`/`package.json`, isolated from the core.
 - Run the test suite from the skill root: `python3 -m unittest discover -s forge/tests -p 'test_*.py'`.
   Set `IMG2THREEJS_SHOWCASE_ROOT` to a showcase checkout to include the TypeScript typecheck gates;
   without it they skip, so a green run has not proven the emitted Three.js compiles.

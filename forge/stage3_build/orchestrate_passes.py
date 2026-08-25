@@ -122,6 +122,24 @@ def current_pass(ids: list[str], completed: list[str]) -> str:
     return ids[len(completed)]
 
 
+def spec_has_hair(spec: dict[str, Any]) -> bool:
+    """Does this subject have hair the review path has to reason about?
+
+    Two signals, because either can occur alone: a `hairProfile` block, and any component whose role
+    is hair. A subject with neither gets no hair evidence demanded of it, which keeps the requirement
+    off every chair and knife the pipeline builds.
+    """
+    if isinstance(spec.get("hairProfile"), dict):
+        return True
+    components = spec.get("componentTree")
+    if not isinstance(components, list):
+        return False
+    return any(
+        isinstance(component, dict) and str(component.get("role") or "").lower() == "hair"
+        for component in components
+    )
+
+
 def next_required_evidence(spec: dict[str, Any], pass_id: str) -> list[str]:
     if pass_id == "complete":
         return []
@@ -130,6 +148,30 @@ def next_required_evidence(spec: dict[str, Any], pass_id: str) -> list[str]:
     if pass_id in VISUAL_PASS_IDS:
         evidence.append("browser render screenshot from your agent's browser/screenshot tool")
         evidence.append("side-by-side reference/render comparison sheet for AI vision review")
+        # Silhouette IoU is computed from the ~11% of figure cells on the outline. A model with its
+        # face deleted scored 0.8803 against the finished face's 0.8803 -- so an outline score is
+        # not evidence about anything inside the outline, and a loop optimising it will spend its
+        # whole budget without moving the interior. Read this per region, not as one number.
+        evidence.append(
+            "banded interior difference vs the reference baseline "
+            "(forge/stage4_review/interior_difference.py --from/--to per region)"
+        )
+        # Hair has its own failure mode that none of the signals above can see. A bald patch is
+        # interior, so silhouette IoU is blind to it; it is a luminance change, so interior
+        # difference cannot separate it from a colour shift; and it only appears in the render,
+        # which is after the loop has already spent a pass. `scalp_exposure.py` finds it
+        # geometrically, before anything is drawn. The failure is recorded: widening the hair masses
+        # took closure from 42.2% to 40.9%, worse on all six views, and the cause -- masses sliding
+        # off the skull -- was invisible to every gate that existed at the time.
+        if spec_has_hair(spec):
+            evidence.append(
+                "scalp exposure below the hard maximum, measured on geometry before rendering "
+                "(forge/stage4_review/scalp_exposure.py)"
+            )
+            evidence.append(
+                "hair gate comparing banded coverage, hairline offset and highlight-band position "
+                "against the reference (forge/stage4_review/hair_gate.py)"
+            )
         evidence.append("AI vision score at or above the visual acceptance threshold")
         evidence.append("all critical semantic feature scores from the shared image pair at or above their thresholds")
         evidence.append("self-correction review appended with action=continue before the next pass")

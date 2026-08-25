@@ -38,6 +38,43 @@ class RenderProfileTest(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertTrue(any("passes must contain exactly" in error for error in result["errors"]))
 
+    def test_profile_accepts_subject_specific_regions(self) -> None:
+        profile = json.loads(PROFILE.read_text(encoding="utf-8"))
+        profile["regions"] = [
+            {"id": "skin", "criticality": "critical", "idColor": [255, 128, 0]},
+            {"id": "clothing", "criticality": "critical", "idColor": [0, 255, 0]},
+            {"id": "hair", "criticality": "critical", "idColor": [0, 0, 255]},
+            {"id": "face", "criticality": "critical", "idColor": [255, 0, 0]},
+        ]
+        profile["extensions"] = {
+            "requiredSemanticRegions": ["skin", "clothing", "hair", "face"],
+        }
+        result = validate_profile(profile)
+        self.assertTrue(result["passed"], result)
+
+    def test_profile_rejects_missing_declared_subject_region(self) -> None:
+        profile = json.loads(PROFILE.read_text(encoding="utf-8"))
+        profile["extensions"] = {
+            "requiredSemanticRegions": ["face", "missing-garment"],
+        }
+        result = validate_profile(profile)
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("missing declared required IDs" in error for error in result["errors"]))
+
+    def test_profile_rejects_duplicate_region_id(self) -> None:
+        profile = json.loads(PROFILE.read_text(encoding="utf-8"))
+        profile["regions"].append(dict(profile["regions"][0]))
+        result = validate_profile(profile)
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("region IDs must be unique" in error for error in result["errors"]))
+
+    def test_profile_rejects_empty_required_region_contract(self) -> None:
+        profile = json.loads(PROFILE.read_text(encoding="utf-8"))
+        profile["extensions"]["requiredSemanticRegions"] = []
+        result = validate_profile(profile)
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("must be a non-empty array" in error for error in result["errors"]))
+
 
 if __name__ == "__main__":
     unittest.main()

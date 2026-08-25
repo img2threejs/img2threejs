@@ -56,5 +56,8 @@
     { "id": "accessory", "order": 5 },
     { "id": "materials", "order": 6 },
     { "id": "lighting", "order": 7 }
-  ]
+  ],
+  "extensions": {
+    "requiredSemanticRegions": ["face", "kasa", "scarf", "tunic", "staff", "tail", "feet", "materials"]
+  }
 }

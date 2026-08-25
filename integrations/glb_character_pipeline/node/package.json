@@ -1,0 +1,11 @@
+{
+  "name": "img2threejs-glb-character-pipeline-node",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Node-side Surface Nets encode/verify/capture scripts for the GLB character pipeline integration",
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "playwright": "1.57.0"
+  }
+}

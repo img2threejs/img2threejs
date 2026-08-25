@@ -55,3 +55,17 @@ docs/research/
 # session, never inputs to a build, and they carry multi-megabyte PNGs. Tuning ships with the
 # stable release, not with a beta of the scripts.
 work/
+
+# Per-subject authoring prompts. Same class as work/ -- one subject's brief, never an input to a
+# build, and no script reads them.
+docs/prompts/
+
+# Session postmortems. Provenance for a decision, kept locally like docs/research/; the operational
+# rule each one produced already lives in grimoire/ or docs/.
+.sisyphus/
+
+# Handover and distillation notes. Same rule as docs/PLAN_*.md above: feature work is committed,
+# planning and review-of-other-branches notes are not. These also carry absolute local paths and
+# session ids, which must never reach the public skill.
+docs/WS_*_HANDOVER_*.md
+docs/PR_DISTILLED.md

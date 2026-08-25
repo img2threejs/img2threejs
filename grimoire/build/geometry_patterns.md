@@ -10,9 +10,17 @@ Use this reference only when implementing a model.
 - torus: rings, tires, loops, trim, cable coils
 - shape extrude: logos, flat ornamental plates, blades, keys, leaves
 - lathe: vases, bottles, bowls, lamps, wheels
-- tube along curve: cables, roots, branches, straps, hoses
+- tube along curve: cables, roots, branches, straps, hoses — constant radius, so never for anything
+  that must come to a point
+- tapered-sweep: hair locks, horns, tails, claws, blade tips — anything with a curved spine that
+  narrows to a real point. `rx`/`rz` vary per station and framing uses parallel transport, because
+  `extrudePath`'s Frenet frames flip 180° at an inflection. Prefer this over `tube` whenever the
+  cross-section changes: a lock that does not taper reads as a noodle, and the validator warns when
+  authored stations do not actually taper.
 - instanced mesh: screws, rivets, leaves, needles, scales, pebbles, repeated ornaments
-- plane cards: thin leaves, feathers, labels, cloth strips, decals
+- plane cards: thin leaves, feathers, labels, cloth strips, decals — needs an alpha texture to read
+  as anything but an opaque rectangle, and this pipeline emits no textures. Rejected outright for
+  hair.
 
 ## Material Recipes
 

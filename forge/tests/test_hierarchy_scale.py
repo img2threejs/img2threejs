@@ -191,6 +191,19 @@ class HierarchyScaleTest(unittest.TestCase):
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"FAIL CLOSED: result was not parseable JSON: {exc}\nstdout: {runtime.stdout!r}") from exc
 
+    def test_non_attachment_primitives_keep_strict_endpoint_types(self) -> None:
+        """Ordinary primitives must compile without invented attachment variables.
+
+        A literal-null endpoint narrows the shared guarded branches to `never` under strict
+        TypeScript. The pure helper keeps the same runtime null while preserving its declared
+        `AttachmentEndpoint | null` return type.
+        """
+        generated = generate(NESTED_SCALE_SPEC, "blockout")
+        self.assertIn("const endpoint_torso_0 = makeAttachmentEndpoint(null);", generated)
+        self.assertIn("const endpoint_head_1 = makeAttachmentEndpoint(null);", generated)
+        self.assertNotIn("const attachment_torso_0", generated)
+        self.assertNotIn("const attachment_head_1", generated)
+
     @classmethod
     def tearDownClass(cls) -> None:
         cls._tempdir_ctx.cleanup()

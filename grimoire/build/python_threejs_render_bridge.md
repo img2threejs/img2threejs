@@ -71,8 +71,15 @@ reference hash + reference kind + runtime URL + viewport/DPR + camera transform 
 ```
 
 Before accepting a render, reopen the saved screenshot with an image-capable tool. Reject
-background-only, clipped, stale, unreadable, or incorrectly sized files. Capture fixed,
-`±35°`, profile, rear, and head close-up views for a character.
+background-only, clipped, stale, unreadable, or incorrectly sized files. When a subject contract
+requires six full-body angles, head close-ups do not count toward the six: capture fixed, `±35°`,
+profile, rear three-quarter and rear full-body views, then capture head views separately.
+
+The default manifest stores orbit cameras as `azimuthDegrees`, `elevationDegrees` and `target`.
+For paired GLB/model evidence, also author an explicit shared `distance` and `fovDegrees`; deriving
+distance independently from each subject's auto-frame produces different cameras even when the
+azimuths match. Treat `near` and `far` as shared camera fields too. A reference-only camera override
+is forbidden: the one capture record is the authority for both routes.
 
 ## GLB-mediated v2 passes
 
@@ -99,6 +106,10 @@ python3 forge/stage4_review/compare_region_passes.py \
 
 The comparison blocks per-region claims when the semantic-ID pass or region colors are absent.
 It is a deterministic diagnostic, not an AI likeness score.
+
+See also: `integrations/glb_character_pipeline/` for an opt-in, GLB-baseline reconstruction pipeline
+(SDF point-cloud splat + Surface Nets) that produces the procedural TypeScript/three.js character this
+bridge captures passes from — distinct from this doc's own manifest/pass-recording contract.
 
 ## Failure routing
 
@@ -146,7 +157,7 @@ route must expose this small browser-side contract:
 ```js
 window.__IMG2THREEJS_READY__ = true;
 window.__IMG2THREEJS_CAPTURE__ = {
-  async setCamera({ azimuthDegrees, elevationDegrees, target, near, far }) {
+  async setCamera({ azimuthDegrees, elevationDegrees, target, distance, fovDegrees, near, far }) {
     // Apply the camera and controls to the real Three.js scene, then resolve.
   },
   async capturePass({ passId, mode }) {
@@ -157,6 +168,13 @@ window.__IMG2THREEJS_CAPTURE__ = {
 
 If the ready signal, capture contract, canvas, screenshot, or hash check fails, the adapter stops.
 It does not fall back to a Python/Blender image and does not claim that a render happened.
+
+For an asynchronously loaded multipart GLB, install the capture API immediately but enumerate its
+meshes and allocate anonymous ID materials only after the route's `ready` promise resolves. Capture
+must fail if the post-ready mesh count differs from the probed contract. Enumerating an empty group
+at bridge installation time can otherwise yield a plausible beauty image and empty semantic-ID
+passes. Anonymous object IDs prove physical boundaries only; generic `model.*` names never become
+garment or anatomy labels.
 
 ## Prohibited shortcuts
 

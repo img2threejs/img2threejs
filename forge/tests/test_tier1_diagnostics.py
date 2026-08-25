@@ -126,5 +126,58 @@ class BboxOfTest(unittest.TestCase):
         self.assertEqual((x0, y0, w, h), (4, 2, 6, 6))
 
 
+
+class MaskIsRobustToStrayForeground(unittest.TestCase):
+    """A bounding box is an extremal statistic, so one stray cell ruins it.
+
+    Measured on a real review plate: a subject filling 24% of the grid reported a bbox of the whole
+    224x224 grid, because the viewer's background gradient registered as foreground. Every
+    proportion derived from that bbox was describing the background, and none of them moved when
+    the camera did.
+    """
+
+    SIZE = 8
+
+    def _mask(self, cells):
+        mask = [False] * (self.SIZE * self.SIZE)
+        for x, y in cells:
+            mask[y * self.SIZE + x] = True
+        return mask
+
+    def test_a_stray_cell_is_dropped_from_the_bounding_box(self):
+        from diagnose_render import bbox_of, largest_component
+
+        blob = [(x, y) for x in range(2, 5) for y in range(2, 5)]
+        with_stray = self._mask(blob + [(7, 7)])
+        self.assertEqual(bbox_of(with_stray, self.SIZE), (2, 2, 6, 6))
+        filtered, discarded = largest_component(with_stray, self.SIZE)
+        self.assertEqual(bbox_of(filtered, self.SIZE), (2, 2, 3, 3))
+        self.assertAlmostEqual(discarded, 1 / 10, places=6)
+
+    def test_a_clean_mask_is_returned_unchanged(self):
+        """Negative control: the filter must not alter a subject that is already one blob."""
+        from diagnose_render import largest_component
+
+        blob = self._mask([(x, y) for x in range(2, 5) for y in range(2, 5)])
+        filtered, discarded = largest_component(blob, self.SIZE)
+        self.assertEqual(filtered, blob)
+        self.assertEqual(discarded, 0.0)
+
+    def test_discarded_geometry_is_reported_rather_than_swallowed(self):
+        from diagnose_render import largest_component
+
+        big = [(x, y) for x in range(0, 4) for y in range(0, 4)]
+        small = [(x, y) for x in range(6, 8) for y in range(6, 8)]
+        _filtered, discarded = largest_component(self._mask(big + small), self.SIZE)
+        self.assertAlmostEqual(discarded, 4 / 20, places=6)
+
+    def test_an_empty_mask_does_not_divide_by_zero(self):
+        from diagnose_render import largest_component
+
+        filtered, discarded = largest_component([False] * (self.SIZE * self.SIZE), self.SIZE)
+        self.assertEqual(sum(filtered), 0)
+        self.assertEqual(discarded, 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -98,8 +98,23 @@ PRIMITIVES = sorted(VALID_PRIMITIVES)
 # after a position-only weld -- box/cylinder/sphere/ellipsoid/torus/instanced-cluster
 # via their normal, benign UV-seam duplication, capsule via true construction (RAW,
 # no weld needed).
-EXPECTED_WELDED_WATERTIGHT = {"box", "cylinder", "sphere", "ellipsoid", "torus", "instanced-cluster", "extrude", "curve-sweep", "capsule", "cone", "ground-blade"}
-# capsule needs no weld at all: built closed by construction.
+# tapered-sweep caps both ends by default (capEnds), so it is a closed solid; its ring seam
+# duplicates one column of vertices exactly like the UV seam on a cylinder, and welds away.
+# ground-blade is closed via longitudinal strips + heel/tip caps (dao weapon path).
+EXPECTED_WELDED_WATERTIGHT = {
+    "box",
+    "cylinder",
+    "sphere",
+    "ellipsoid",
+    "torus",
+    "instanced-cluster",
+    "extrude",
+    "curve-sweep",
+    "capsule",
+    "cone",
+    "tapered-sweep",
+    "ground-blade",
+}# capsule needs no weld at all: built closed by construction.
 EXPECTED_WATERTIGHT_EVEN_RAW = {"capsule"}
 # Inherently open shapes by design (a real edge is CORRECT, not a defect): a flat
 # card, a tube with no end caps (closed: false, the generator's default), and the
