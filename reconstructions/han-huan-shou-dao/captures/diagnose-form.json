@@ -1,0 +1,132 @@
+{
+  "passed": true,
+  "checks": {
+    "silhouetteIoU": 0.8905,
+    "aspectRatioDelta": 0.0,
+    "scaleDelta": 0.0,
+    "bilateralSymmetryError": 0.0309,
+    "colorDelta": {
+      "checked": 28,
+      "maxDeltaE": 35.07,
+      "perComponent": [
+        {
+          "componentId": null,
+          "deltaE": 4.54
+        },
+        {
+          "componentId": null,
+          "deltaE": 4.54
+        },
+        {
+          "componentId": null,
+          "deltaE": 3.74
+        },
+        {
+          "componentId": null,
+          "deltaE": 3.74
+        },
+        {
+          "componentId": null,
+          "deltaE": 3.74
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 24.41
+        },
+        {
+          "componentId": null,
+          "deltaE": 35.07
+        },
+        {
+          "componentId": null,
+          "deltaE": 35.07
+        },
+        {
+          "componentId": null,
+          "deltaE": 33.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 33.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 33.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 33.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 33.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 33.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 32.96
+        },
+        {
+          "componentId": null,
+          "deltaE": 11.49
+        },
+        {
+          "componentId": null,
+          "deltaE": 11.49
+        },
+        {
+          "componentId": null,
+          "deltaE": 11.49
+        }
+      ],
+      "gated": false
+    }
+  },
+  "failures": [],
+  "maskWarnings": [],
+  "renderHash": "791357174f6fa1dd",
+  "passId": "form-refinement"
+}

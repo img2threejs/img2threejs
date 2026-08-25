@@ -134,6 +134,26 @@ def bilateral_symmetry_error(mask: list[bool], size: int = MASK_GRID_SIZE) -> fl
     return mismatches / total if total else 0.0
 
 
+def color_cluster_count(recipes: list[dict[str, Any]], sample_count: int) -> int:
+    """Keep minority materials represented without turning clustering into per-pixel matching."""
+    dominant_colors = {
+        str(recipe.get("dominantAlbedo")).strip().lower()
+        for recipe in recipes
+        if isinstance(recipe.get("dominantAlbedo"), str) and str(recipe["dominantAlbedo"]).strip()
+    }
+    requested = max(5, len(dominant_colors) * 2)
+    return max(1, min(12, sample_count, requested))
+
+
+def component_color_recipes(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    recipes: list[dict[str, Any]] = []
+    for component in spec.get("componentTree", []):
+        if not isinstance(component, dict) or not isinstance(component.get("colorMaterialRecipe"), dict):
+            continue
+        recipes.append({"componentId": component.get("id"), **component["colorMaterialRecipe"]})
+    return recipes
+
+
 def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> dict[str, Any]:
     """Compares each component's colorMaterialRecipe against the render's overall
     dominant Lab-space color clusters (see module docstring for the per-component-
@@ -143,7 +163,7 @@ def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> di
     width, height, pixels, _warnings = load_image(render_path)
     mask, _diag, _warn = build_foreground_mask(width, height, pixels)
     foreground_lab = [srgb_to_lab((r, g, b)) for (r, g, b, _a), keep in zip(pixels, mask) if keep]
-    clusters = lab_kmeans_palette(foreground_lab, k=min(5, max(1, len(recipes))))
+    clusters = lab_kmeans_palette(foreground_lab, k=color_cluster_count(recipes, len(foreground_lab)))
     results = []
     for recipe in recipes:
         dominant = recipe.get("dominantAlbedo")
@@ -221,11 +241,7 @@ def run_tier1(
 
     if spec_path is not None:
         spec = load_spec(spec_path)
-        recipes = [
-            component["colorMaterialRecipe"]
-            for component in spec.get("componentTree", [])
-            if isinstance(component, dict) and isinstance(component.get("colorMaterialRecipe"), dict)
-        ]
+        recipes = component_color_recipes(spec)
         color_report = per_part_color_delta(recipes, render_path)
         gated = color_is_gated(pass_id)
         color_report["gated"] = gated

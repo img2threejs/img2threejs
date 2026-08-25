@@ -1,0 +1,9 @@
+{
+  "comparisonImage": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/comparison-hero.png",
+  "referenceImage": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/reference-face-clean.png",
+  "renderScreenshot": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/hero.png",
+  "layout": "left=reference,right=render",
+  "panelWidth": 1680,
+  "panelHeight": 360,
+  "note": "Send this image to AI vision for global, layer, and semantic feature scores; this script does not score."
+}

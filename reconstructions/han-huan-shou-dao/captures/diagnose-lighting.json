@@ -1,0 +1,48 @@
+{
+  "passed": true,
+  "checks": {
+    "silhouetteIoU": 0.8893,
+    "aspectRatioDelta": 0.0,
+    "scaleDelta": 0.0,
+    "bilateralSymmetryError": 0.0305,
+    "colorDelta": {
+      "checked": 28,
+      "maxDeltaE": 16.92,
+      "perComponent": [
+        {"componentId": "root", "deltaE": 2.67},
+        {"componentId": "blade", "deltaE": 2.67},
+        {"componentId": "hamon-1", "deltaE": 2.09},
+        {"componentId": "hamon-2", "deltaE": 2.09},
+        {"componentId": "hamon-3", "deltaE": 2.09},
+        {"componentId": "guard", "deltaE": 16.92},
+        {"componentId": "collar", "deltaE": 16.92},
+        {"componentId": "handle", "deltaE": 6.87},
+        {"componentId": "wrap-seam-1", "deltaE": 15.55},
+        {"componentId": "wrap-seam-2", "deltaE": 15.55},
+        {"componentId": "stud-seat-a", "deltaE": 14.23},
+        {"componentId": "stud-seat-b", "deltaE": 14.23},
+        {"componentId": "stud-seat-c", "deltaE": 14.23},
+        {"componentId": "stud-seat-d", "deltaE": 14.23},
+        {"componentId": "stud-seat-e", "deltaE": 14.23},
+        {"componentId": "stud-seat-f", "deltaE": 14.23},
+        {"componentId": "stud-a", "deltaE": 16.92},
+        {"componentId": "stud-b", "deltaE": 16.92},
+        {"componentId": "stud-c", "deltaE": 16.92},
+        {"componentId": "stud-d", "deltaE": 16.92},
+        {"componentId": "stud-e", "deltaE": 16.92},
+        {"componentId": "stud-f", "deltaE": 16.92},
+        {"componentId": "ferrule", "deltaE": 16.92},
+        {"componentId": "ring-neck", "deltaE": 16.92},
+        {"componentId": "ring", "deltaE": 16.92},
+        {"componentId": "ring-engraving-outer", "deltaE": 15.24},
+        {"componentId": "ring-engraving-middle", "deltaE": 15.24},
+        {"componentId": "ring-engraving-inner", "deltaE": 15.24}
+      ],
+      "gated": true
+    }
+  },
+  "failures": [],
+  "maskWarnings": [],
+  "renderHash": "c2c52c2120de1c1c",
+  "passId": "lighting-pass"
+}

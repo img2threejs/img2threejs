@@ -1,0 +1,666 @@
+{
+  "schemaVersion": 1,
+  "kind": "img2threejs.material-view-plan",
+  "componentId": "root",
+  "regionId": "dao-surface",
+  "environment": {
+    "required": true,
+    "prefilter": "PMREMGenerator",
+    "workingColorSpace": "LinearSRGBColorSpace",
+    "displayColorSpace": "SRGBColorSpace",
+    "toneMapping": "ACESFilmicToneMapping",
+    "exposure": 1.0,
+    "stableHash": "img2threejs-material-neutral-studio-v1"
+  },
+  "views": [
+    {
+      "id": "dao-surface-neutral-studio-000",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 0.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-neutral-studio-045",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 45.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-neutral-studio-090",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 90.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-neutral-studio-135",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 135.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-neutral-studio-180",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 180.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-neutral-studio-225",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 225.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-neutral-studio-270",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 270.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-neutral-studio-315",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "neutral-studio",
+      "camera": {
+        "azimuthDegrees": 315.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-grazing-000",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 0.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-grazing-045",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 45.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-grazing-090",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 90.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-grazing-135",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 135.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-grazing-180",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 180.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-grazing-225",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 225.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-grazing-270",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 270.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-grazing-315",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "grazing",
+      "camera": {
+        "azimuthDegrees": 315.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": true
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-000",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 0.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-045",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 45.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-090",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 90.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-135",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 135.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-180",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 180.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-225",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 225.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-270",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 270.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    },
+    {
+      "id": "dao-surface-reference-beauty-315",
+      "componentId": "root",
+      "regionId": "dao-surface",
+      "view": "reference-beauty",
+      "camera": {
+        "azimuthDegrees": 315.0,
+        "elevationDegrees": 8.0,
+        "rollDegrees": 0.0,
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zoom": 2.5
+      },
+      "cropPolicy": {
+        "mode": "visible-footprint",
+        "paddingFraction": 0.12,
+        "minCoverage": 0.03,
+        "maxCoverage": 0.92,
+        "microscope": false
+      }
+    }
+  ],
+  "captureRequirements": [
+    "save PNG/JPEG to workspace",
+    "read the saved image back before scoring",
+    "record renderer version, environment hash and camera transform",
+    "compare the full visible component footprint, not an isolated hidden surface"
+  ],
+  "captureValidation": [
+    {
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-neutral.png",
+      "readable": true,
+      "width": 1680,
+      "height": 360,
+      "foregroundCoverage": 0.1694,
+      "diagnostics": {
+        "backgroundColor": "#FFFFFF",
+        "backgroundNoise": 0.0,
+        "transparentPixelFraction": 0.0,
+        "foregroundCoverage": 0.1694
+      },
+      "warnings": [],
+      "passed": true,
+      "failures": []
+    },
+    {
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-reference.png",
+      "readable": true,
+      "width": 1680,
+      "height": 360,
+      "foregroundCoverage": 0.1695,
+      "diagnostics": {
+        "backgroundColor": "#FFFFFF",
+        "backgroundNoise": 0.0,
+        "transparentPixelFraction": 0.0,
+        "foregroundCoverage": 0.1695
+      },
+      "warnings": [],
+      "passed": true,
+      "failures": []
+    },
+    {
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-grazing-blade.png",
+      "readable": true,
+      "width": 1680,
+      "height": 360,
+      "foregroundCoverage": 0.2253,
+      "diagnostics": {
+        "backgroundColor": "#FFFFFF",
+        "backgroundNoise": 0.0,
+        "transparentPixelFraction": 0.0,
+        "foregroundCoverage": 0.2253
+      },
+      "warnings": [],
+      "passed": true,
+      "failures": []
+    },
+    {
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-grazing-handle.png",
+      "readable": true,
+      "width": 1680,
+      "height": 360,
+      "foregroundCoverage": 0.4554,
+      "diagnostics": {
+        "backgroundColor": "#FFFFFF",
+        "backgroundNoise": 0.0,
+        "transparentPixelFraction": 0.0,
+        "foregroundCoverage": 0.4554
+      },
+      "warnings": [],
+      "passed": true,
+      "failures": []
+    }
+  ],
+  "capturePassed": true
+}

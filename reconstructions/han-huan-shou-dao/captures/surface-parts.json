@@ -1,0 +1,200 @@
+{
+  "model": "han-huan-shou-dao",
+  "parts": [
+    {
+      "name": "root",
+      "kind": "part",
+      "module": "root",
+      "triangles": 1728
+    },
+    {
+      "name": "blade",
+      "kind": "part",
+      "module": "blade",
+      "triangles": 336
+    },
+    {
+      "name": "hamon-1",
+      "kind": "integral",
+      "module": "blade",
+      "triangles": 864
+    },
+    {
+      "name": "hamon-2",
+      "kind": "integral",
+      "module": "blade",
+      "triangles": 864
+    },
+    {
+      "name": "hamon-3",
+      "kind": "integral",
+      "module": "blade",
+      "triangles": 864
+    },
+    {
+      "name": "guard",
+      "kind": "part",
+      "module": "guard",
+      "triangles": 1632
+    },
+    {
+      "name": "collar",
+      "kind": "part",
+      "module": "collar",
+      "triangles": 1632
+    },
+    {
+      "name": "handle",
+      "kind": "part",
+      "module": "handle",
+      "triangles": 1632
+    },
+    {
+      "name": "wrap-seam-1",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 6984
+    },
+    {
+      "name": "wrap-seam-2",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 6984
+    },
+    {
+      "name": "stud-seat-a",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-seat-b",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-seat-c",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-seat-d",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-seat-e",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-seat-f",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-a",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-b",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-c",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-d",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-e",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "stud-f",
+      "kind": "integral",
+      "module": "handle",
+      "triangles": 1728
+    },
+    {
+      "name": "ferrule",
+      "kind": "part",
+      "module": "ferrule",
+      "triangles": 1632
+    },
+    {
+      "name": "ring-neck",
+      "kind": "integral",
+      "module": "ring",
+      "triangles": 1632
+    },
+    {
+      "name": "ring",
+      "kind": "part",
+      "module": "ring",
+      "triangles": 144
+    },
+    {
+      "name": "ring-engraving-outer",
+      "kind": "integral",
+      "module": "ring",
+      "triangles": 864
+    },
+    {
+      "name": "ring-engraving-middle",
+      "kind": "integral",
+      "module": "ring",
+      "triangles": 3456
+    },
+    {
+      "name": "ring-engraving-inner",
+      "kind": "integral",
+      "module": "ring",
+      "triangles": 3456
+    }
+  ],
+  "modules": [
+    "blade",
+    "guard",
+    "collar",
+    "handle",
+    "ferrule",
+    "ring"
+  ],
+  "sockets": [
+    "root:blade-heel",
+    "root:guard-back",
+    "root:front-ferrule-back",
+    "root:handle-back",
+    "root:rear-ferrule-back",
+    "root:pommel-anchor"
+  ],
+  "colliders": [
+    "root",
+    "blade",
+    "guard",
+    "collar",
+    "handle",
+    "ferrule",
+    "ring"
+  ],
+  "unnamedMeshes": 0,
+  "integralMeshes": 21
+}

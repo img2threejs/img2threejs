@@ -1,0 +1,448 @@
+{
+  "url": "http://127.0.0.1:4173/reconstructions/han-huan-shou-dao/preview/index.html",
+  "viewport": {
+    "width": 1680,
+    "height": 360
+  },
+  "consoleErrors": [],
+  "assembly": {
+    "factor": 1,
+    "modules": [
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "movedModules": 6,
+    "maxDisplacement": 0.3
+  },
+  "materialAudit": {
+    "requiredChannels": [
+      "albedo",
+      "roughness",
+      "height",
+      "normal",
+      "ao"
+    ],
+    "requiredBands": [
+      "macro",
+      "meso",
+      "micro"
+    ],
+    "materials": [
+      {
+        "id": "polished-steel",
+        "components": [
+          "root",
+          "blade"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "ba7d4d16-afe8-4f68-a879-4f1ed8d1d0c9",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "b177c8f0-12cb-4393-a101-1d6f51d71f31",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "8823e6e8-126f-4c1f-a302-8b2559d698f4",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "b0979892-1ea3-4f4c-a52d-00c64a151ca4",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "58785152-6717-4a34-812b-9ec083ac9eca",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.08,
+        "normalStrength": 0.14,
+        "bumpScale": 0.002,
+        "aoIntensity": 0.18,
+        "dirtAmount": 0.04,
+        "edgeWear": 0.16,
+        "localOverrideCount": 2
+      },
+      {
+        "id": "hamon-steel",
+        "components": [
+          "hamon-1",
+          "hamon-2",
+          "hamon-3"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "1ce61d39-864c-4d0e-a0bb-820339383fcd",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "212508b0-6cb2-44cd-b49f-9fdd844df0c8",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "684c60c6-59fb-4dff-85fc-b936e4b656c5",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "9f6fb307-6492-4793-968a-68b6588f9566",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "9085ffa7-92ec-4eb2-8024-b0e9dfb17c27",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.05,
+        "normalStrength": 0.14,
+        "bumpScale": 0.002,
+        "aoIntensity": 0.18,
+        "dirtAmount": 0.04,
+        "edgeWear": 0.16,
+        "localOverrideCount": 2
+      },
+      {
+        "id": "gilt-bronze",
+        "components": [
+          "guard",
+          "collar",
+          "stud-a",
+          "stud-b",
+          "stud-c",
+          "stud-d",
+          "stud-e",
+          "stud-f",
+          "ferrule",
+          "ring-neck",
+          "ring"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "5a0963c8-a033-416f-af5d-2f9f1c91fede",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "d14ffb40-2d80-4e07-8c7b-cf10cf60ed80",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "b8d6da45-24f0-4f69-8843-a0408f1c900f",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "366ddab7-309b-4d5b-812b-106bc67642ab",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "f83aedbd-107a-44c2-9a88-e0f1b671005c",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.18,
+        "bumpScale": 0.005,
+        "aoIntensity": 0.28,
+        "dirtAmount": 0.08,
+        "edgeWear": 0.18,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "cord-wrap",
+        "components": [
+          "handle"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "d17c892b-0230-40aa-a94b-6764d005b9df",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "27d71169-e224-4e06-b543-f3d8c5664131",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "057f3100-b5e7-47be-ae9a-dda689a17cab",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "124e4a83-9cee-48f8-a35b-8fc2a5b08df9",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "021e35ba-1cde-4a99-a814-ebc3bb0e4484",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.35,
+        "bumpScale": 0.012,
+        "aoIntensity": 0.4,
+        "dirtAmount": 0.12,
+        "edgeWear": 0.08,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "wrap-seam",
+        "components": [
+          "wrap-seam-1",
+          "wrap-seam-2",
+          "stud-seat-a",
+          "stud-seat-b",
+          "stud-seat-c",
+          "stud-seat-d",
+          "stud-seat-e",
+          "stud-seat-f"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "27cd1592-891d-49fa-8b03-0bce457da64e",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "d1ea4ae5-bf37-471f-b8d3-6f1dc1cca15e",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "1c33622c-287e-4174-9cb1-14f9cf2c102d",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "4dd7c081-eff3-4a2b-aa1d-2e9b4baa2512",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "cee8bd22-d6f9-42fa-861c-f5a343ff013f",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.35,
+        "bumpScale": 0.012,
+        "aoIntensity": 0.4,
+        "dirtAmount": 0.12,
+        "edgeWear": 0.08,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "gilt-engraving",
+        "components": [
+          "ring-engraving-outer",
+          "ring-engraving-middle",
+          "ring-engraving-inner"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "9aea29ed-62d6-46d2-8cb8-e6ed889e0bd3",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "bb909186-9114-4a6f-af75-445108a7fd79",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "8364561f-83c4-4368-a0c9-7e181476a2b3",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "df52b134-939f-4aca-b26d-709f40b978f6",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "447b9278-64c9-422a-a530-371d69d07689",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.08,
+        "normalStrength": 0.18,
+        "bumpScale": 0.005,
+        "aoIntensity": 0.28,
+        "dirtAmount": 0.08,
+        "edgeWear": 0.18,
+        "localOverrideCount": 1
+      }
+    ],
+    "failures": []
+  },
+  "results": [
+    {
+      "id": "hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-hero.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-plus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-orbit-plus35.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-minus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-orbit-minus35.png",
+      "ok": true
+    },
+    {
+      "id": "profile",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-profile.png",
+      "ok": true
+    },
+    {
+      "id": "rear",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-rear.png",
+      "ok": true
+    },
+    {
+      "id": "head-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-head-hero.png",
+      "ok": true
+    },
+    {
+      "id": "head-threequarter",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-head-threequarter.png",
+      "ok": true
+    },
+    {
+      "id": "topdown",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-topdown.png",
+      "ok": true
+    },
+    {
+      "id": "material-neutral",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-neutral.png",
+      "ok": true,
+      "lighting": "neutral"
+    },
+    {
+      "id": "material-reference",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-reference.png",
+      "ok": true,
+      "lighting": "reference"
+    },
+    {
+      "id": "material-grazing-blade",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-grazing-blade.png",
+      "ok": true,
+      "lighting": "grazing"
+    },
+    {
+      "id": "material-grazing-handle",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-material-grazing-handle.png",
+      "ok": true,
+      "lighting": "grazing"
+    },
+    {
+      "id": "assembly-exploded",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-assembly-exploded.png",
+      "ok": true
+    },
+    {
+      "id": "map-stripped-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/surface-map-stripped-hero.png",
+      "ok": true
+    }
+  ]
+}

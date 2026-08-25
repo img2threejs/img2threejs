@@ -1,0 +1,19 @@
+{
+  "exploded": {
+    "factor": 1,
+    "modules": [
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "movedModules": 6,
+    "maxDisplacement": 0.3
+  },
+  "selected": {
+    "componentId": "handle",
+    "moduleId": "handle"
+  }
+}

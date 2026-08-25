@@ -1,0 +1,14 @@
+{
+  "admitted": true,
+  "reasons": [],
+  "provenance": {
+    "viewpoint": "reference",
+    "sourcePath": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/reference-face-clean.png",
+    "width": 1680,
+    "height": 360,
+    "foregroundCoverage": 0.1595,
+    "largestComponentFraction": 1.0,
+    "pHash": 14952179052455190432,
+    "duplicateOfHash": null
+  }
+}

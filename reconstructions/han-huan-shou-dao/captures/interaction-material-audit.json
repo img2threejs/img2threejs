@@ -1,0 +1,351 @@
+{
+  "requiredChannels": [
+    "albedo",
+    "roughness",
+    "height",
+    "normal",
+    "ao"
+  ],
+  "requiredBands": [
+    "macro",
+    "meso",
+    "micro"
+  ],
+  "materials": [
+    {
+      "id": "polished-steel",
+      "components": [
+        "root",
+        "blade"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "fed0e1a9-711c-4c5f-ba8c-5df71ffb4628",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "b179305d-79da-4ce2-aad6-023cf207f55f",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "316aee48-8ebc-4574-ba04-6caa2e26115d",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "d96ac726-0a0d-4283-9ae5-50d0fa2e70cf",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "625c9931-27d8-4309-8dc1-fa54d546d3d5",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.08,
+      "normalStrength": 0.14,
+      "bumpScale": 0.002,
+      "aoIntensity": 0.18,
+      "dirtAmount": 0.04,
+      "edgeWear": 0.16,
+      "localOverrideCount": 2
+    },
+    {
+      "id": "hamon-steel",
+      "components": [
+        "hamon-1",
+        "hamon-2",
+        "hamon-3"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "715642d9-9a2d-4292-85ab-8c37fe916fa4",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "0b44f08e-0704-479a-9bc7-4479c9b7e243",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "47319e7b-5d87-4b2b-8f09-cb77fae28ace",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "ce61cca6-4241-44e7-90b3-f698025c389f",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "db12ea7f-5a54-4a9a-b885-8f25093d2a08",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.05,
+      "normalStrength": 0.14,
+      "bumpScale": 0.002,
+      "aoIntensity": 0.18,
+      "dirtAmount": 0.04,
+      "edgeWear": 0.16,
+      "localOverrideCount": 2
+    },
+    {
+      "id": "gilt-bronze",
+      "components": [
+        "guard",
+        "collar",
+        "stud-a",
+        "stud-b",
+        "stud-c",
+        "stud-d",
+        "stud-e",
+        "stud-f",
+        "ferrule",
+        "ring-neck",
+        "ring"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "c8122d96-c41c-445b-b6f2-9691d7ce5faa",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "b43e1e55-86a8-440a-ae4b-97fd76eef5b6",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "f304d9e8-95a2-4fd1-bde6-df29957a28cd",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "1144d01c-ba1b-45d3-823e-685d453bdd2e",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "d3c40ab8-7141-4961-9d44-7c16913bc1ba",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.1,
+      "normalStrength": 0.18,
+      "bumpScale": 0.005,
+      "aoIntensity": 0.28,
+      "dirtAmount": 0.08,
+      "edgeWear": 0.18,
+      "localOverrideCount": 1
+    },
+    {
+      "id": "cord-wrap",
+      "components": [
+        "handle"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "a2bd46ee-fb76-4a25-95c8-c168d2ff4b2d",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "1d0f6b1f-7caf-4c59-bbeb-3b3cc02f5489",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "1c58ba4a-c00f-4ec3-854f-f7ddf62d8913",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "04704cbc-7ee4-4838-973c-0c6841ce8550",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "df83ac23-ab7e-4274-96e9-b7e4fc5e8bef",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.1,
+      "normalStrength": 0.35,
+      "bumpScale": 0.012,
+      "aoIntensity": 0.4,
+      "dirtAmount": 0.12,
+      "edgeWear": 0.08,
+      "localOverrideCount": 1
+    },
+    {
+      "id": "wrap-seam",
+      "components": [
+        "wrap-seam-1",
+        "wrap-seam-2",
+        "stud-seat-a",
+        "stud-seat-b",
+        "stud-seat-c",
+        "stud-seat-d",
+        "stud-seat-e",
+        "stud-seat-f"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "a485bccc-7995-4691-a122-f4445cdcf402",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "70467ed5-afe5-480c-bcba-85f61a010b77",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "910321a9-8340-4c8c-903e-72aa50d002c7",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "b305b114-af59-46a5-aecb-e1373db96e33",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "8b3cb357-8c3d-42a2-80d0-4b4a4d672361",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.1,
+      "normalStrength": 0.35,
+      "bumpScale": 0.012,
+      "aoIntensity": 0.4,
+      "dirtAmount": 0.12,
+      "edgeWear": 0.08,
+      "localOverrideCount": 1
+    },
+    {
+      "id": "gilt-engraving",
+      "components": [
+        "ring-engraving-outer",
+        "ring-engraving-middle",
+        "ring-engraving-inner"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "be9fce21-fce7-4885-926b-07d657547384",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "53cd2135-0721-428b-9819-61a15f179be4",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "c73e4276-afcd-4ead-9a7c-500625304975",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "dd1d97ea-73f7-495e-a83f-9320f5be3848",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "61955027-24c8-48e0-bad3-31fbe36b520b",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.08,
+      "normalStrength": 0.18,
+      "bumpScale": 0.005,
+      "aoIntensity": 0.28,
+      "dirtAmount": 0.08,
+      "edgeWear": 0.18,
+      "localOverrideCount": 1
+    }
+  ],
+  "failures": []
+}

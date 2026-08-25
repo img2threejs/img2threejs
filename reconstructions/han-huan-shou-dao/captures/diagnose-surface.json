@@ -1,0 +1,132 @@
+{
+  "passed": true,
+  "checks": {
+    "silhouetteIoU": 0.8898,
+    "aspectRatioDelta": 0.0,
+    "scaleDelta": 0.0,
+    "bilateralSymmetryError": 0.0306,
+    "colorDelta": {
+      "checked": 28,
+      "maxDeltaE": 17.73,
+      "perComponent": [
+        {
+          "componentId": "root",
+          "deltaE": 1.45
+        },
+        {
+          "componentId": "blade",
+          "deltaE": 1.45
+        },
+        {
+          "componentId": "hamon-1",
+          "deltaE": 2.02
+        },
+        {
+          "componentId": "hamon-2",
+          "deltaE": 2.02
+        },
+        {
+          "componentId": "hamon-3",
+          "deltaE": 2.02
+        },
+        {
+          "componentId": "guard",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "collar",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "handle",
+          "deltaE": 5.55
+        },
+        {
+          "componentId": "wrap-seam-1",
+          "deltaE": 11.01
+        },
+        {
+          "componentId": "wrap-seam-2",
+          "deltaE": 11.01
+        },
+        {
+          "componentId": "stud-seat-a",
+          "deltaE": 9.74
+        },
+        {
+          "componentId": "stud-seat-b",
+          "deltaE": 9.74
+        },
+        {
+          "componentId": "stud-seat-c",
+          "deltaE": 9.74
+        },
+        {
+          "componentId": "stud-seat-d",
+          "deltaE": 9.74
+        },
+        {
+          "componentId": "stud-seat-e",
+          "deltaE": 9.74
+        },
+        {
+          "componentId": "stud-seat-f",
+          "deltaE": 9.74
+        },
+        {
+          "componentId": "stud-a",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "stud-b",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "stud-c",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "stud-d",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "stud-e",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "stud-f",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "ferrule",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "ring-neck",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "ring",
+          "deltaE": 14.76
+        },
+        {
+          "componentId": "ring-engraving-outer",
+          "deltaE": 17.73
+        },
+        {
+          "componentId": "ring-engraving-middle",
+          "deltaE": 17.73
+        },
+        {
+          "componentId": "ring-engraving-inner",
+          "deltaE": 17.73
+        }
+      ],
+      "gated": true
+    }
+  },
+  "failures": [],
+  "maskWarnings": [],
+  "renderHash": "24464ab305e0c08b",
+  "passId": "surface-pass"
+}

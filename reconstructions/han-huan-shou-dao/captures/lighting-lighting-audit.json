@@ -1,0 +1,60 @@
+{
+  "requiredNotes": [
+    "key",
+    "fill",
+    "rim",
+    "exposure",
+    "tone mapping",
+    "background",
+    "contact shadow"
+  ],
+  "notes": [
+    "Key: even orthographic plate lighting, slightly above-front, no hard indoor bounce.",
+    "Fill: white page surround, high value, keeps steel from falling to mid-grey.",
+    "Rim / environment: weak studio rim so the disk guard and ring read as volumes.",
+    "Exposure: 1.0; protect steel highlights with ACES filmic tone mapping.",
+    "Background: pure white plate field with no gradient or floor plane.",
+    "Contact shadow: optional; the plate is on white, so review shots may omit the floor."
+  ],
+  "renderer": {
+    "toneMapping": 4,
+    "exposure": 1,
+    "outputColorSpace": "srgb",
+    "shadowsEnabled": true
+  },
+  "background": "#ffffff",
+  "environmentPresent": true,
+  "modes": [
+    {
+      "mode": "neutral",
+      "lightCount": 4,
+      "hemisphereCount": 1,
+      "directionalCount": 3,
+      "keyIntensity": 2.15,
+      "fillIntensity": 0.42,
+      "rimIntensity": 0.85,
+      "keyCastsShadow": true
+    },
+    {
+      "mode": "grazing",
+      "lightCount": 4,
+      "hemisphereCount": 1,
+      "directionalCount": 3,
+      "keyIntensity": 4.2,
+      "fillIntensity": 0.12,
+      "rimIntensity": 0.28,
+      "keyCastsShadow": true
+    },
+    {
+      "mode": "reference",
+      "lightCount": 4,
+      "hemisphereCount": 1,
+      "directionalCount": 3,
+      "keyIntensity": 2.6,
+      "fillIntensity": 0.42,
+      "rimIntensity": 0.85,
+      "keyCastsShadow": true
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,508 @@
+{
+  "url": "http://127.0.0.1:4173/reconstructions/han-huan-shou-dao/preview/index.html",
+  "viewport": {
+    "width": 1680,
+    "height": 360
+  },
+  "consoleErrors": [],
+  "assembly": {
+    "factor": 1,
+    "modules": [
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "movedModules": 6,
+    "maxDisplacement": 0.3
+  },
+  "materialAudit": {
+    "requiredChannels": [
+      "albedo",
+      "roughness",
+      "height",
+      "normal",
+      "ao"
+    ],
+    "requiredBands": [
+      "macro",
+      "meso",
+      "micro"
+    ],
+    "materials": [
+      {
+        "id": "polished-steel",
+        "components": [
+          "root",
+          "blade"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "fb9cfe03-66ba-41a0-955d-6ab1edd5a7f8",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "1756f0db-34b9-4b2f-978f-d747f5b4cb8c",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "9a947b5e-4514-45f2-8a82-9d9d5a8f37f9",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "559e5ae2-6ff0-40f7-a660-41a0c5586b03",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "140b8301-635b-428e-9068-8a251be6c8ec",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.08,
+        "normalStrength": 0.14,
+        "bumpScale": 0.002,
+        "aoIntensity": 0.18,
+        "dirtAmount": 0.04,
+        "edgeWear": 0.16,
+        "localOverrideCount": 2
+      },
+      {
+        "id": "hamon-steel",
+        "components": [
+          "hamon-1",
+          "hamon-2",
+          "hamon-3"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "c7774855-4317-4251-8a2c-0e98566afaea",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "06b4eb1b-3b72-4cce-9cc6-f04425696951",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "82f1721e-365d-4ca4-9782-6d1267fa7821",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "456fd456-db22-459c-85a3-4ac4b9387e44",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "1d289530-792c-4671-8800-83dcccd7c1d0",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.05,
+        "normalStrength": 0.14,
+        "bumpScale": 0.002,
+        "aoIntensity": 0.18,
+        "dirtAmount": 0.04,
+        "edgeWear": 0.16,
+        "localOverrideCount": 2
+      },
+      {
+        "id": "gilt-bronze",
+        "components": [
+          "guard",
+          "collar",
+          "stud-a",
+          "stud-b",
+          "stud-c",
+          "stud-d",
+          "stud-e",
+          "stud-f",
+          "ferrule",
+          "ring-neck",
+          "ring"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "71e6a963-1daf-4fc7-be5f-85632519fa4e",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "5f7b6af2-b57a-4c63-9989-e21c0b20b7b0",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "f6b4c26e-95fc-4971-be79-50a2388c035d",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "fd4ac2df-d83f-4b3e-b2ce-d2c89803753c",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "c5f0fef6-3ed8-4e42-92eb-4624ec5b50dc",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.18,
+        "bumpScale": 0.005,
+        "aoIntensity": 0.28,
+        "dirtAmount": 0.08,
+        "edgeWear": 0.18,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "cord-wrap",
+        "components": [
+          "handle"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "166e16ee-81cc-4167-8fe0-ab01cfeb9eb4",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "f8689974-7aef-4779-9cd7-c232b551c36f",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "54f534ac-4a04-4fa4-8946-cddafc5c18b5",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "c97f6695-0002-47b0-9ec1-63cb5b952295",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "e2446690-f8ce-4379-a13e-adc5451880a1",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.35,
+        "bumpScale": 0.012,
+        "aoIntensity": 0.4,
+        "dirtAmount": 0.12,
+        "edgeWear": 0.08,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "wrap-seam",
+        "components": [
+          "wrap-seam-1",
+          "wrap-seam-2",
+          "stud-seat-a",
+          "stud-seat-b",
+          "stud-seat-c",
+          "stud-seat-d",
+          "stud-seat-e",
+          "stud-seat-f"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "e3b2b334-4ddf-4263-8804-a89288db3f92",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "b1e2acc3-8bfb-48f3-bf9d-e0cff60556e0",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "753bad4f-7b01-4459-9148-243ed74e8750",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "7164d5e0-ed9d-46ed-97f1-73395907d8bc",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "5e567093-0607-473b-af68-070096d173f8",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.35,
+        "bumpScale": 0.012,
+        "aoIntensity": 0.4,
+        "dirtAmount": 0.12,
+        "edgeWear": 0.08,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "gilt-engraving",
+        "components": [
+          "ring-engraving-outer",
+          "ring-engraving-middle",
+          "ring-engraving-inner"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "736af0b6-98f6-47a9-9058-d23ac323ee33",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "d044d1d9-f986-4783-ae30-6c81cf5ca595",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "e4699167-db11-4e44-b190-271434f10165",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "6621d35e-7d9a-4f16-8bc1-a95d1d535db8",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "077a71ef-26d7-4f86-8888-227e1b856466",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.08,
+        "normalStrength": 0.18,
+        "bumpScale": 0.005,
+        "aoIntensity": 0.28,
+        "dirtAmount": 0.08,
+        "edgeWear": 0.18,
+        "localOverrideCount": 1
+      }
+    ],
+    "failures": []
+  },
+  "lightingAudit": {
+    "requiredNotes": [
+      "key",
+      "fill",
+      "rim",
+      "exposure",
+      "tone mapping",
+      "background",
+      "contact shadow"
+    ],
+    "notes": [
+      "Key: even orthographic plate lighting, slightly above-front, no hard indoor bounce.",
+      "Fill: white page surround, high value, keeps steel from falling to mid-grey.",
+      "Rim / environment: weak studio rim so the disk guard and ring read as volumes.",
+      "Exposure: 1.0; protect steel highlights with ACES filmic tone mapping.",
+      "Background: pure white plate field with no gradient or floor plane.",
+      "Contact shadow: optional; the plate is on white, so review shots may omit the floor."
+    ],
+    "renderer": {
+      "toneMapping": 4,
+      "exposure": 1,
+      "outputColorSpace": "srgb",
+      "shadowsEnabled": true
+    },
+    "background": "#ffffff",
+    "environmentPresent": true,
+    "modes": [
+      {
+        "mode": "neutral",
+        "lightCount": 4,
+        "hemisphereCount": 1,
+        "directionalCount": 3,
+        "keyIntensity": 2.15,
+        "fillIntensity": 0.42,
+        "rimIntensity": 0.85,
+        "keyCastsShadow": true
+      },
+      {
+        "mode": "grazing",
+        "lightCount": 4,
+        "hemisphereCount": 1,
+        "directionalCount": 3,
+        "keyIntensity": 4.2,
+        "fillIntensity": 0.12,
+        "rimIntensity": 0.28,
+        "keyCastsShadow": true
+      },
+      {
+        "mode": "reference",
+        "lightCount": 4,
+        "hemisphereCount": 1,
+        "directionalCount": 3,
+        "keyIntensity": 2.6,
+        "fillIntensity": 0.42,
+        "rimIntensity": 0.85,
+        "keyCastsShadow": true
+      }
+    ],
+    "failures": []
+  },
+  "results": [
+    {
+      "id": "hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-hero.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-plus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-orbit-plus35.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-minus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-orbit-minus35.png",
+      "ok": true
+    },
+    {
+      "id": "profile",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-profile.png",
+      "ok": true
+    },
+    {
+      "id": "rear",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-rear.png",
+      "ok": true
+    },
+    {
+      "id": "head-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-head-hero.png",
+      "ok": true
+    },
+    {
+      "id": "head-threequarter",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-head-threequarter.png",
+      "ok": true
+    },
+    {
+      "id": "topdown",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-topdown.png",
+      "ok": true
+    },
+    {
+      "id": "material-neutral",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-material-neutral.png",
+      "ok": true,
+      "lighting": "neutral"
+    },
+    {
+      "id": "material-reference",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-material-reference.png",
+      "ok": true,
+      "lighting": "reference"
+    },
+    {
+      "id": "material-grazing-blade",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-material-grazing-blade.png",
+      "ok": true,
+      "lighting": "grazing"
+    },
+    {
+      "id": "material-grazing-handle",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-material-grazing-handle.png",
+      "ok": true,
+      "lighting": "grazing"
+    },
+    {
+      "id": "assembly-exploded",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-assembly-exploded.png",
+      "ok": true
+    },
+    {
+      "id": "map-stripped-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-map-stripped-hero.png",
+      "ok": true
+    }
+  ]
+}

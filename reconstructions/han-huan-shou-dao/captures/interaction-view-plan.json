@@ -1,0 +1,25 @@
+{
+  "passId": "interaction-pass",
+  "scoredRender": "interaction-hero.png",
+  "comparisonImage": "comparison-interaction.png",
+  "actionChecks": [
+    "interaction-assembly-exploded.png",
+    "interaction-selection-handle-integral.png",
+    "interaction-selection-ring-integral.png",
+    "interaction-interaction-audit.json",
+    "interaction-assembly-check.json"
+  ],
+  "volumeChecks": [
+    "interaction-orbit-plus35.png",
+    "interaction-orbit-minus35.png",
+    "interaction-profile.png",
+    "interaction-rear.png",
+    "interaction-topdown.png"
+  ],
+  "runtimeAudits": [
+    "interaction-interaction-audit.json",
+    "interaction-lighting-audit.json",
+    "interaction-material-audit.json",
+    "interaction-part-coverage.json"
+  ]
+}

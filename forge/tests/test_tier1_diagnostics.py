@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage4_review"))
 from diagnose_render import (  # noqa: E402
     bbox_of,
     bilateral_symmetry_error,
+    color_cluster_count,
     color_is_gated,
+    component_color_recipes,
     proportion_delta,
     silhouette_iou,
 )
@@ -37,6 +39,25 @@ class ColorGateByPassTest(unittest.TestCase):
     def test_unknown_or_missing_pass_is_not_gated(self):
         self.assertFalse(color_is_gated(None))
         self.assertFalse(color_is_gated("not-a-real-pass"))
+
+    def test_color_cluster_count_preserves_small_material_families(self):
+        recipes = [
+            {"dominantAlbedo": color}
+            for color in ("#aaaaaa", "#bbbbbb", "#cccccc", "#8a7040", "#3a2418", "#21140e")
+        ]
+        self.assertEqual(color_cluster_count(recipes * 5, sample_count=5000), 12)
+        self.assertEqual(color_cluster_count(recipes, sample_count=8), 8)
+
+    def test_component_color_recipes_preserves_component_identity(self):
+        spec = {
+            "componentTree": [
+                {"id": "blade", "colorMaterialRecipe": {"dominantAlbedo": "#aeb4ba"}},
+                {"id": "guard", "colorMaterialRecipe": {"dominantAlbedo": "#c4a46a"}},
+                {"id": "ignored"},
+            ]
+        }
+        recipes = component_color_recipes(spec)
+        self.assertEqual([recipe["componentId"] for recipe in recipes], ["blade", "guard"])
 
 
 def make_mask(size: int, foreground_fn) -> list[bool]:

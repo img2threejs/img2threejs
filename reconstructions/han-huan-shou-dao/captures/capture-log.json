@@ -1,0 +1,73 @@
+{
+  "url": "http://127.0.0.1:4173/reconstructions/han-huan-shou-dao/preview/index.html",
+  "viewport": {
+    "width": 1680,
+    "height": 360
+  },
+  "consoleErrors": [],
+  "assembly": {
+    "factor": 1,
+    "modules": [
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "movedModules": 6,
+    "maxDisplacement": 0.3
+  },
+  "results": [
+    {
+      "id": "hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/hero.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-plus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/orbit-plus35.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-minus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/orbit-minus35.png",
+      "ok": true
+    },
+    {
+      "id": "profile",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/profile.png",
+      "ok": true
+    },
+    {
+      "id": "rear",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/rear.png",
+      "ok": true
+    },
+    {
+      "id": "head-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/head-hero.png",
+      "ok": true
+    },
+    {
+      "id": "head-threequarter",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/head-threequarter.png",
+      "ok": true
+    },
+    {
+      "id": "topdown",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/topdown.png",
+      "ok": true
+    },
+    {
+      "id": "assembly-exploded",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/assembly-exploded.png",
+      "ok": true
+    },
+    {
+      "id": "map-stripped-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/map-stripped-hero.png",
+      "ok": true
+    }
+  ]
+}

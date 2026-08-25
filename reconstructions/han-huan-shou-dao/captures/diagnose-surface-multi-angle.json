@@ -1,0 +1,38 @@
+{
+  "referenceAreaFraction": 0.1694378306878307,
+  "angles": [
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/surface-orbit-plus35.png",
+      "areaFraction": 0.1902364417989418,
+      "ratio": 1.122750692845154,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/surface-orbit-minus35.png",
+      "areaFraction": 0.17915343915343915,
+      "ratio": 1.0573402552792848,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/surface-profile.png",
+      "areaFraction": 0.09159391534391534,
+      "ratio": 0.5405753542292829,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/surface-rear.png",
+      "areaFraction": 0.16456349206349205,
+      "ratio": 0.9712322885358522,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/surface-topdown.png",
+      "areaFraction": 0.09078373015873016,
+      "ratio": 0.5357937468285257,
+      "degenerate": false
+    }
+  ],
+  "degenerate": false,
+  "collapseRatio": 0.15,
+  "note": "deterministic; zero token; a flat-plane-faking-a-volume collapses in silhouette area when orbited"
+}

@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "checks": {
+    "silhouetteIoU": 0.8898,
+    "aspectRatioDelta": 0.0,
+    "scaleDelta": 0.0,
+    "bilateralSymmetryError": 0.0306,
+    "colorDelta": {
+      "checked": 28,
+      "maxDeltaE": 17.73,
+      "gated": true
+    }
+  },
+  "failures": [],
+  "maskWarnings": [],
+  "renderHash": "24464ab305e0c08b",
+  "passId": "optimization-pass"
+}

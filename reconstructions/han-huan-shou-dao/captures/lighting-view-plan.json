@@ -1,0 +1,22 @@
+{
+  "passId": "lighting-pass",
+  "scoredRender": "lighting-material-reference.png",
+  "comparisonImage": "comparison-lighting.png",
+  "materialChecks": [
+    "lighting-material-neutral.png",
+    "lighting-material-grazing-blade.png",
+    "lighting-material-grazing-handle.png"
+  ],
+  "volumeChecks": [
+    "lighting-orbit-plus35.png",
+    "lighting-orbit-minus35.png",
+    "lighting-profile.png",
+    "lighting-rear.png",
+    "lighting-topdown.png"
+  ],
+  "runtimeAudits": [
+    "lighting-lighting-audit.json",
+    "lighting-material-audit.json",
+    "lighting-part-coverage.json"
+  ]
+}

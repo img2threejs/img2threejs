@@ -1,0 +1,26 @@
+{
+  "referenceAreaFraction": 0.16953042328042328,
+  "angles": [
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/lighting-orbit-plus35.png",
+      "areaFraction": 0.1902364417989418,
+      "ratio": 1.1221374790309366,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/lighting-orbit-minus35.png",
+      "areaFraction": 0.17915343915343915,
+      "ratio": 1.0567627667459916,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/lighting-profile.png",
+      "areaFraction": 0.09159391534391534,
+      "ratio": 0.5402801076737018,
+      "degenerate": false
+    }
+  ],
+  "degenerate": false,
+  "collapseRatio": 0.15,
+  "note": "deterministic; zero token; a flat plane would collapse in silhouette area when orbited"
+}

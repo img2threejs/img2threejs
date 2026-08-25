@@ -1,0 +1,21 @@
+{
+  "passId": "optimization-pass",
+  "scoredRender": "optimization-hero.png",
+  "comparisonImage": "comparison-optimization.png",
+  "performanceEvidence": [
+    "optimization-performance-audit.json",
+    "optimization-capture-log.json"
+  ],
+  "regressionChecks": [
+    "optimization-interaction-audit.json",
+    "optimization-lighting-audit.json",
+    "optimization-material-audit.json",
+    "optimization-assembly-exploded.png",
+    "optimization-selection-handle-integral.png",
+    "optimization-selection-ring-integral.png",
+    "optimization-orbit-plus35.png",
+    "optimization-orbit-minus35.png",
+    "optimization-profile.png"
+  ],
+  "benchmarkLimitation": "Headless Chrome uses SwiftShader; its measured FPS is retained as report-only and is not represented as a hardware benchmark."
+}

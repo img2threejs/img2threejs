@@ -1,0 +1,8 @@
+[
+  {
+    "id": "optimization-budget",
+    "score": 0.9,
+    "visible": true,
+    "notes": "The runtime stays at 55,440 triangles and 28 draw calls against budgets of 250,000 and 160. Static 4096px shadow-map caching improves the software-renderer measurement without changing the accepted image; the remaining SwiftShader FPS warning is explicitly report-only, while hardware WebGL retains the authored 30 FPS gate."
+  }
+]

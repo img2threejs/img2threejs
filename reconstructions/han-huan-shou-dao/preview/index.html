@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Han Huan-Shou Dao — structural pass</title>
+    <style>
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #f4f1ea;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      #stage {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #hud {
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        color: #3a322c;
+        background: rgba(232, 228, 218, 0.86);
+        border: 1px solid rgba(74, 48, 36, 0.18);
+        padding: 8px 10px;
+        font-size: 12px;
+        letter-spacing: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="hud">汉代环首刀 · structural-pass</div>
+    <script type="module" src="./dist/preview.js"></script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "steel-material",
+    "score": 0.82,
+    "notes": "The blade reads as polished steel with restrained longitudinal variation and stable highlights under neutral and grazing light; it remains darker than the pale reference illustration."
+  },
+  {
+    "id": "gilt-material",
+    "score": 0.8,
+    "notes": "Guard, ferrules, inlays, and ring share a coherent yellow-metal response with cast variation and darker engraved recesses."
+  },
+  {
+    "id": "wrapped-handle",
+    "score": 0.84,
+    "notes": "The dark dielectric grip retains crossed seam relief, fiber-scale breakup, and inset gilt accents without metallic or flat-plastic response."
+  }
+]

@@ -48,15 +48,10 @@ or trusting a single measurement tool):
     edges are EXPECTED and correct -- these are not closed solids by design (a flat
     card, an open-ended pipe, and a lathed profile that never touches the axis at
     either end all have a real physical edge).
-  - ground-blade: CONFIRMED, UNFIXED topology defect, found while building this
-    measurement (a fully custom-built BufferGeometry, not a three.js primitive) --
-    measures 6 real boundary edges under true topology (an actual open/unclosed
-    region; a 7th "non-manifold" edge from an earlier, mergeVertices-based
-    measurement was the same degenerate-triangle counting artifact as the capsule's
-    -- one harmless zero-area sliver triangle, correctly excluded here). Off the
-    humanoid character's component path (no ground-blade components), small,
-    reported to team-lead and left as-is by direction; pinned here as an
-    exact-count tripwire so it cannot silently get worse.
+  - ground-blade: 0/0 once welded. Its longitudinal strips duplicate vertices at
+    intentional hard creases, while explicit heel and tip caps close the underlying
+    topology. A collapsed point station may still create harmless zero-area cap
+    triangles, which the true-topology method correctly excludes.
 
 Pure Python 3.10+ stdlib on this side. No pip installs.
 """
@@ -103,7 +98,7 @@ PRIMITIVES = sorted(VALID_PRIMITIVES)
 # after a position-only weld -- box/cylinder/sphere/ellipsoid/torus/instanced-cluster
 # via their normal, benign UV-seam duplication, capsule via true construction (RAW,
 # no weld needed).
-EXPECTED_WELDED_WATERTIGHT = {"box", "cylinder", "sphere", "ellipsoid", "torus", "instanced-cluster", "extrude", "curve-sweep", "capsule", "cone"}
+EXPECTED_WELDED_WATERTIGHT = {"box", "cylinder", "sphere", "ellipsoid", "torus", "instanced-cluster", "extrude", "curve-sweep", "capsule", "cone", "ground-blade"}
 # capsule needs no weld at all: built closed by construction.
 EXPECTED_WATERTIGHT_EVEN_RAW = {"capsule"}
 # Inherently open shapes by design (a real edge is CORRECT, not a defect): a flat
@@ -111,16 +106,7 @@ EXPECTED_WATERTIGHT_EVEN_RAW = {"capsule"}
 # generator's default lathe profile (points [[0.3,-0.5],[0.15,0],[0.3,0.5]]) which
 # never touches the lathe axis at either end, i.e. an open vessel with no caps.
 EXPECTED_OPEN_BY_DESIGN = {"plane-card", "tube", "lathe"}
-# Confirmed, unfixed defects (see module docstring) -- pinned to their measured
-# values as a regression tripwire, not silently ignored. If a future fix changes
-# these numbers, update this dict together with the fix, do not just relax it.
-KNOWN_DEFECT_WELDED_COUNTS = {
-    # 6 real boundary edges (an actual open/unclosed region in this custom-built
-    # BufferGeometry) plus one harmless degenerate (zero-area) triangle, which the
-    # true-topology method correctly excludes rather than double-counting it into a
-    # false non-manifold reading (see module docstring).
-    "ground-blade": {"boundary": 6, "nonManifold": 0},
-}
+KNOWN_DEFECT_WELDED_COUNTS: dict[str, dict[str, int]] = {}
 
 assert set(PRIMITIVES) == (
     EXPECTED_WELDED_WATERTIGHT | EXPECTED_OPEN_BY_DESIGN | set(KNOWN_DEFECT_WELDED_COUNTS)
@@ -260,11 +246,16 @@ function trueTopologyStats(geometry) {
   const index = geometry.index;
   const count = index ? index.count : position.count;
   const byKey = new Map();
+  const points = [];
   const remap = new Int32Array(position.count);
   for (let i = 0; i < position.count; i += 1) {
     const key = Math.round(position.getX(i) * 1e6) + ',' + Math.round(position.getY(i) * 1e6) + ',' + Math.round(position.getZ(i) * 1e6);
     let id = byKey.get(key);
-    if (id === undefined) { id = byKey.size; byKey.set(key, id); }
+    if (id === undefined) {
+      id = byKey.size;
+      byKey.set(key, id);
+      points.push([position.getX(i), position.getY(i), position.getZ(i)]);
+    }
     remap[i] = id;
   }
   const triangles = [];
@@ -280,19 +271,32 @@ function trueTopologyStats(geometry) {
     else degenerateFiltered += 1;
   }
   const edgeCounts = new Map();
+  const edgeBalance = new Map();
+  let signedVolume = 0;
   for (const [a, b, c] of triangles) {
     for (const [u, v] of [[a, b], [b, c], [c, a]]) {
       const key = u < v ? u + ':' + v : v + ':' + u;
       edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
+      edgeBalance.set(key, (edgeBalance.get(key) ?? 0) + (u < v ? 1 : -1));
     }
+    const pa = points[a], pb = points[b], pc = points[c];
+    signedVolume += (
+      pa[0] * (pb[1] * pc[2] - pb[2] * pc[1])
+      + pa[1] * (pb[2] * pc[0] - pb[0] * pc[2])
+      + pa[2] * (pb[0] * pc[1] - pb[1] * pc[0])
+    ) / 6;
   }
   let boundary = 0;
   let nonManifold = 0;
+  let inconsistentWinding = 0;
   for (const c of edgeCounts.values()) {
     if (c === 1) boundary += 1;
     else if (c > 2) nonManifold += 1;
   }
-  return { boundary, nonManifold, degenerateFiltered };
+  for (const [key, balance] of edgeBalance) {
+    if (edgeCounts.get(key) === 2 && balance !== 0) inconsistentWinding += 1;
+  }
+  return { boundary, nonManifold, inconsistentWinding, degenerateFiltered, signedVolume, enclosedVolume: Math.abs(signedVolume) };
 }
 
 const rows = {};
@@ -301,7 +305,7 @@ for (const prim of primitives) {
   if (!mesh) { rows[prim] = { error: 'mesh not found' }; continue; }
   const raw = rawEdgeStats(mesh.geometry);
   const welded = trueTopologyStats(mesh.geometry);
-  rows[prim] = { raw, welded };
+  rows[prim] = { raw, welded, solidVolume: mesh.geometry.userData.solidVolume ?? null };
 }
 console.log(JSON.stringify(rows));
 """
@@ -352,6 +356,16 @@ class PrimitiveWatertightnessTest(unittest.TestCase):
                 self.assertEqual(welded["boundary"], 0, f"{primitive}: {welded['boundary']} boundary edges under true topology")
                 self.assertEqual(welded["nonManifold"], 0, f"{primitive}: {welded['nonManifold']} non-manifold edges under true topology")
 
+    def test_ground_blade_is_a_consistently_wound_nonzero_volume(self) -> None:
+        blade = self.result["ground-blade"]
+        welded = blade["welded"]
+        self.assertEqual(welded["inconsistentWinding"], 0, welded)
+        self.assertGreater(welded["signedVolume"], 1e-6, welded)
+        self.assertEqual(
+            blade["solidVolume"],
+            {"kind": "closed-surface-volume", "watertightIntent": True, "cappedEnds": True},
+        )
+
     def test_capsule_is_watertight_even_without_welding(self) -> None:
         # The whole point of buildWatertightCapsule: closed BY CONSTRUCTION, not by
         # a tolerance-dependent weld pass applied afterward.
@@ -372,19 +386,6 @@ class PrimitiveWatertightnessTest(unittest.TestCase):
                     self.result[primitive]["welded"]["boundary"], 0,
                     f"{primitive}: expected a real open boundary (it is not a closed solid by design)",
                 )
-
-    def test_known_unfixed_defects_are_pinned_not_worse(self) -> None:
-        # ground-blade is a CONFIRMED, UNFIXED topology defect (see module
-        # docstring) -- reported to team-lead, left as-is by direction (off the
-        # humanoid character's component path). Pinned to its exact measured counts
-        # so it cannot silently regress further, and so a real fix is forced to
-        # touch this test rather than leave it stale.
-        for primitive, expected in sorted(KNOWN_DEFECT_WELDED_COUNTS.items()):
-            with self.subTest(primitive=primitive):
-                welded = self.result[primitive]["welded"]
-                self.assertEqual(welded["boundary"], expected["boundary"], f"{primitive}: boundary edge count changed -- update this test together with whatever changed it")
-                self.assertEqual(welded["nonManifold"], expected["nonManifold"], f"{primitive}: non-manifold edge count changed -- update this test together with whatever changed it")
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

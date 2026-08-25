@@ -1,0 +1,105 @@
+{
+  "passed": true,
+  "checks": {
+    "silhouetteIoU": 0.8905,
+    "aspectRatioDelta": 0.0,
+    "scaleDelta": 0.0,
+    "bilateralSymmetryError": 0.0309,
+    "colorDelta": {
+      "checked": 21,
+      "maxDeltaE": 36.4,
+      "perComponent": [
+        {
+          "componentId": null,
+          "deltaE": 4.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 4.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 4.02
+        },
+        {
+          "componentId": null,
+          "deltaE": 4.02
+        },
+        {
+          "componentId": null,
+          "deltaE": 4.02
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 25.73
+        },
+        {
+          "componentId": null,
+          "deltaE": 36.4
+        },
+        {
+          "componentId": null,
+          "deltaE": 36.4
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 31.55
+        },
+        {
+          "componentId": null,
+          "deltaE": 10.89
+        },
+        {
+          "componentId": null,
+          "deltaE": 10.89
+        }
+      ],
+      "gated": false
+    }
+  },
+  "failures": [],
+  "maskWarnings": [],
+  "renderHash": "79b05c4d0e351117",
+  "passId": "blockout",
+  "mapStrippedRender": "reconstructions/han-huan-shou-dao/captures/map-stripped-hero.png"
+}

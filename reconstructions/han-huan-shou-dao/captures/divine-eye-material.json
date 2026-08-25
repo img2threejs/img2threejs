@@ -1,0 +1,49 @@
+{
+  "verdict": "pass",
+  "action": "continue",
+  "fidelity": 0.8594,
+  "fidelityTarget": 0.85,
+  "hardGateFailures": [],
+  "maskWarnings": [],
+  "disagreementSpread": 0.2909,
+  "signals": {
+    "silhouetteIoU": 0.8905,
+    "scaleDelta": 0.0,
+    "aspectRatioDelta": 0.0,
+    "symmetryParity": 0.8812,
+    "phashSimilarity": 0.75,
+    "ssim": 0.8614,
+    "edgeOverlap": 0.7091,
+    "blowoutParity": 0.9951,
+    "flatRegionScore": 0.9084,
+    "tonalParity": 0.9675,
+    "objectness": 0.7587,
+    "hueZoneParity": 0.0
+  },
+  "specularWash": {
+    "satRatio": 1.478,
+    "hueDriftDeg": 6.4,
+    "towardCyan": true,
+    "flagged": false,
+    "advice": null
+  },
+  "reportOnlySignals": [
+    "hueZoneParity",
+    "specularWash"
+  ],
+  "reconstructionModeSuspected": false,
+  "weights": {
+    "proportion": 1.0,
+    "symmetry": 0.5,
+    "phash": 1.0,
+    "ssim": 1.5,
+    "edgeOverlap": 1.0,
+    "blowoutParity": 0.8,
+    "flatRegion": 0.8,
+    "tonalParity": 1.0,
+    "objectness": 1.5
+  },
+  "reference": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/reference-face-clean.png",
+  "render": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/material-hero.png",
+  "note": "deterministic ensemble; zero VLM/token. hueZoneParity is REPORT-ONLY (colour-aware, CIEDE2000) — not yet in the weighted fidelity; promote after corpus calibration. VLM layer (§3.4) runs only if this passes."
+}

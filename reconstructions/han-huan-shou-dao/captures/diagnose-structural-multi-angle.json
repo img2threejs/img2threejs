@@ -1,0 +1,26 @@
+{
+  "referenceAreaFraction": 0.16936011904761905,
+  "angles": [
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/structural-orbit-plus35.png",
+      "areaFraction": 0.19022982804232805,
+      "ratio": 1.1232268205293423,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/structural-orbit-minus35.png",
+      "areaFraction": 0.17915343915343915,
+      "ratio": 1.0578254205352,
+      "degenerate": false
+    },
+    {
+      "path": "reconstructions/han-huan-shou-dao/captures/structural-profile.png",
+      "areaFraction": 0.09159391534391534,
+      "ratio": 0.5408233996231535,
+      "degenerate": false
+    }
+  ],
+  "degenerate": false,
+  "collapseRatio": 0.15,
+  "note": "deterministic; zero token; a flat-plane-faking-a-volume collapses in silhouette area when orbited"
+}

@@ -1,0 +1,16 @@
+{
+  "model": "han-huan-shou-dao",
+  "specifiedComponents": 27,
+  "builtParts": 28,
+  "errors": 0,
+  "warnings": 0,
+  "result": "pass",
+  "findings": [
+    {
+      "check": "part-not-specified",
+      "severity": "info",
+      "subject": "root",
+      "detail": "built part has no matching component in the spec (fine for detail groups; a sign of spec drift for anything larger)"
+    }
+  ]
+}

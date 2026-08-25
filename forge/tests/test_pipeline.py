@@ -272,6 +272,17 @@ class PipelineTest(unittest.TestCase):
                      "--pass-id", "lighting-pass")
         self.assertNotEqual(locked.returncode, 0)
 
+    def test_generate_factory_emits_integral_part_ownership(self):
+        run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
+        spec = json.loads(self.spec.read_text())
+        spec["componentTree"][0]["explodeWithParent"] = "trunk"
+        self.spec.write_text(json.dumps(spec))
+        out = self.dir / "createObjectModel.ts"
+        result = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        emitted = out.read_text()
+        self.assertIn('userData.explodeWithParent = "trunk"', emitted)
+
     def test_generate_factory_blocks_strict_quality_before_writing_output(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
         out = self.dir / "blocked-production-factory.ts"
@@ -325,6 +336,13 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("import { RoomEnvironment }", ts)
         self.assertIn("PMREMGenerator", ts)
         self.assertIn("Environment(renderer: THREE.WebGLRenderer)", ts)
+        self.assertIn("key.name = 'lookdev-key'", ts)
+        self.assertIn("fill.name = 'lookdev-fill'", ts)
+        self.assertIn("rim.name = 'lookdev-rim'", ts)
+        self.assertIn("renderer.toneMappingExposure = 1.0", ts)
+        self.assertIn("root.userData.performanceBudget", ts)
+        self.assertIn("root.userData.lodPlan", ts)
+        self.assertIn("root.userData.optimizationPlan", ts)
 
     def test_generate_factory_emits_ws5_pbr_constraints_and_dense_maps(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
@@ -334,7 +352,8 @@ class PipelineTest(unittest.TestCase):
         ts = out.read_text()
         for marker in ("clampAlbedoChannel", "clampPbrF0", "clampPbrIor", "clampPbrMetalness",
                         "binaryMetalness", "material.displacementMap = textures.height",
-                        "material.normalMap = textures.normal"):
+                        "material.normalMap = textures.normal", "const dirtMix = dirtAmount",
+                        "const wearMix = edgeWear"):
             self.assertIn(marker, ts, f"missing WS5 generator rule: {marker}")
         self.assertIn("clampAlbedoChannel(Number(match[1]))", ts)
         self.assertIn("iridescenceIOR: clampPbrIor", ts)
@@ -535,7 +554,12 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         ts = out.read_text()
         self.assertIn("yMin = Math.min(yMin, s[2])", ts)   # bounds from actual stations
-        self.assertIn("(pos[t + 1] - yMin) / yH", ts)      # v spans real height
+        self.assertIn("(p[1] - yMin) / yH", ts)            # v spans real height
+        self.assertIn("g.setIndex(idx)", ts)                # longitudinal strips share vertices
+        self.assertIn("g.setAttribute('color'", ts)         # cutting-edge tone follows blade height
+        self.assertIn("vertexToneFinal", ts)                 # metal reflections can honor the tone
+        self.assertIn("cap(rings[0], true)", ts)            # heel is explicitly closed
+        self.assertIn("cap(rings[rings.length - 1], false)", ts)  # tip is explicitly closed
         self.assertNotIn("+ 0.12) / 0.24", ts)             # old hardcoded formula gone
 
     def test_extrude_supports_oval_hole_via_shape_holes(self):

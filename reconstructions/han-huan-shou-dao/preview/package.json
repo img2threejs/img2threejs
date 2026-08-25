@@ -1,0 +1,9 @@
+{
+  "name": "han-huan-shou-dao-preview",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "playwright-core": "^1.62.1",
+    "three": "^0.170.0"
+  }
+}

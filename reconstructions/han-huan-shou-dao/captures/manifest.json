@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-08-22T06:13:56.398592Z",
+  "runtime": {
+    "url": "http://127.0.0.1:4173/index.html",
+    "route": "http://127.0.0.1:4173/index.html",
+    "viewport": [
+      1400,
+      800
+    ],
+    "devicePixelRatio": 1.0,
+    "renderer": "WebGLRenderer",
+    "threeVersion": "project-pinned",
+    "readySignal": "window.__IMG2THREEJS_READY__",
+    "captureContract": "window.__IMG2THREEJS_CAPTURE__"
+  },
+  "reference": {
+    "kind": "image",
+    "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/reference.png",
+    "sha256": "6b0cb4dcf1915a5802d2f1d46a8c74224cb00d346e469ec0e570831eed09e3ba",
+    "image": {
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/reference.png",
+      "type": "png",
+      "bytes": 173063,
+      "width": 590,
+      "height": 439,
+      "aspectRatio": 1.3439635535307517,
+      "technicalSuitability": "conditional",
+      "warnings": [
+        "low resolution; small geometry/material details may be unreliable"
+      ],
+      "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+    },
+    "comparisonBasis": "source-image",
+    "renderRequired": false
+  },
+  "captures": [
+    {
+      "id": "hero",
+      "role": "reference-match",
+      "azimuthDegrees": 0,
+      "elevationDegrees": 0,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "near": 0.01,
+      "far": 100,
+      "path": "hero.png",
+      "status": "recorded",
+      "passes": {
+        "beauty": {
+          "path": "./hero/beauty.png",
+          "status": "pending"
+        },
+        "alpha-silhouette": {
+          "path": "./hero/alpha-silhouette.png",
+          "status": "pending"
+        },
+        "semantic-id": {
+          "path": "./hero/semantic-id.png",
+          "status": "pending"
+        },
+        "depth": {
+          "path": "./hero/depth.png",
+          "status": "pending"
+        },
+        "normal": {
+          "path": "./hero/normal.png",
+          "status": "pending"
+        },
+        "roughness-material-id": {
+          "path": "./hero/roughness-material-id.png",
+          "status": "pending"
+        }
+      },
+      "recordedAt": "2026-08-22T06:13:56.472357Z",
+      "readySignal": "true",
+      "screenshotSha256": "0b3e389471220e9501820883e5c14e760e91fcd46487ef95055605cc23f4d13e",
+      "image": {
+        "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/hero.png",
+        "type": "png",
+        "bytes": 33363,
+        "width": 1400,
+        "height": 800,
+        "aspectRatio": 1.75,
+        "technicalSuitability": "pass",
+        "warnings": [],
+        "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+      },
+      "consoleErrors": []
+    },
+    {
+      "id": "orbit-plus35",
+      "role": "orbit",
+      "azimuthDegrees": 35,
+      "elevationDegrees": 0,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "near": 0.01,
+      "far": 100,
+      "path": "orbit-plus35.png",
+      "status": "recorded",
+      "passes": {
+        "beauty": {
+          "path": "./orbit-plus35/beauty.png",
+          "status": "pending"
+        },
+        "alpha-silhouette": {
+          "path": "./orbit-plus35/alpha-silhouette.png",
+          "status": "pending"
+        },
+        "semantic-id": {
+          "path": "./orbit-plus35/semantic-id.png",
+          "status": "pending"
+        },
+        "depth": {
+          "path": "./orbit-plus35/depth.png",
+          "status": "pending"
+        },
+        "normal": {
+          "path": "./orbit-plus35/normal.png",
+          "status": "pending"
+        },
+        "roughness-material-id": {
+          "path": "./orbit-plus35/roughness-material-id.png",
+          "status": "pending"
+        }
+      },
+      "recordedAt": "2026-08-22T06:13:56.522509Z",
+      "readySignal": "true",
+      "screenshotSha256": "fa7f57d9d507bb0dd14eef169c04dfd074ebf288bce29662b1ebe0cc42cfa8bd",
+      "image": {
+        "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/orbit-plus35.png",
+        "type": "png",
+        "bytes": 36025,
+        "width": 1400,
+        "height": 800,
+        "aspectRatio": 1.75,
+        "technicalSuitability": "pass",
+        "warnings": [],
+        "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+      },
+      "consoleErrors": []
+    },
+    {
+      "id": "orbit-minus35",
+      "role": "orbit",
+      "azimuthDegrees": -35,
+      "elevationDegrees": 0,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "near": 0.01,
+      "far": 100,
+      "path": "orbit-minus35.png",
+      "status": "recorded",
+      "passes": {
+        "beauty": {
+          "path": "./orbit-minus35/beauty.png",
+          "status": "pending"
+        },
+        "alpha-silhouette": {
+          "path": "./orbit-minus35/alpha-silhouette.png",
+          "status": "pending"
+        },
+        "semantic-id": {
+          "path": "./orbit-minus35/semantic-id.png",
+          "status": "pending"
+        },
+        "depth": {
+          "path": "./orbit-minus35/depth.png",
+          "status": "pending"
+        },
+        "normal": {
+          "path": "./orbit-minus35/normal.png",
+          "status": "pending"
+        },
+        "roughness-material-id": {
+          "path": "./orbit-minus35/roughness-material-id.png",
+          "status": "pending"
+        }
+      },
+      "recordedAt": "2026-08-22T06:13:56.571631Z",
+      "readySignal": "true",
+      "screenshotSha256": "b6504ed02d03a9c7b7bf3124c6adda4c3ce49c0f50ec805fe80b64a867249207",
+      "image": {
+        "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/orbit-minus35.png",
+        "type": "png",
+        "bytes": 31409,
+        "width": 1400,
+        "height": 800,
+        "aspectRatio": 1.75,
+        "technicalSuitability": "pass",
+        "warnings": [],
+        "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+      },
+      "consoleErrors": []
+    },
+    {
+      "id": "profile",
+      "role": "orbit",
+      "azimuthDegrees": 78,
+      "elevationDegrees": 0,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "near": 0.01,
+      "far": 100,
+      "path": "profile.png",
+      "status": "recorded",
+      "passes": {
+        "beauty": {
+          "path": "./profile/beauty.png",
+          "status": "pending"
+        },
+        "alpha-silhouette": {
+          "path": "./profile/alpha-silhouette.png",
+          "status": "pending"
+        },
+        "semantic-id": {
+          "path": "./profile/semantic-id.png",
+          "status": "pending"
+        },
+        "depth": {
+          "path": "./profile/depth.png",
+          "status": "pending"
+        },
+        "normal": {
+          "path": "./profile/normal.png",
+          "status": "pending"
+        },
+        "roughness-material-id": {
+          "path": "./profile/roughness-material-id.png",
+          "status": "pending"
+        }
+      },
+      "recordedAt": "2026-08-22T06:13:56.619491Z",
+      "readySignal": "true",
+      "screenshotSha256": "dc7c1bf9e411f5830855c746938d85d4f6d948896545528e2b288720e82e2f19",
+      "image": {
+        "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/profile.png",
+        "type": "png",
+        "bytes": 16871,
+        "width": 1400,
+        "height": 800,
+        "aspectRatio": 1.75,
+        "technicalSuitability": "pass",
+        "warnings": [],
+        "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+      },
+      "consoleErrors": []
+    },
+    {
+      "id": "rear",
+      "role": "orbit",
+      "azimuthDegrees": 180,
+      "elevationDegrees": 0,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "near": 0.01,
+      "far": 100,
+      "path": "rear.png",
+      "status": "recorded",
+      "passes": {
+        "beauty": {
+          "path": "./rear/beauty.png",
+          "status": "pending"
+        },
+        "alpha-silhouette": {
+          "path": "./rear/alpha-silhouette.png",
+          "status": "pending"
+        },
+        "semantic-id": {
+          "path": "./rear/semantic-id.png",
+          "status": "pending"
+        },
+        "depth": {
+          "path": "./rear/depth.png",
+          "status": "pending"
+        },
+        "normal": {
+          "path": "./rear/normal.png",
+          "status": "pending"
+        },
+        "roughness-material-id": {
+          "path": "./rear/roughness-material-id.png",
+          "status": "pending"
+        }
+      },
+      "recordedAt": "2026-08-22T06:13:56.668921Z",
+      "readySignal": "true",
+      "screenshotSha256": "cdf1e9579877eb9c1b16a5617ec6dfe8450877c020b0264a820157731e40abd5",
+      "image": {
+        "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/rear.png",
+        "type": "png",
+        "bytes": 30243,
+        "width": 1400,
+        "height": 800,
+        "aspectRatio": 1.75,
+        "technicalSuitability": "pass",
+        "warnings": [],
+        "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+      },
+      "consoleErrors": []
+    },
+    {
+      "id": "head-hero",
+      "role": "head-closeup",
+      "azimuthDegrees": 0,
+      "elevationDegrees": 0,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "near": 0.01,
+      "far": 100,
+      "path": "head-hero.png",
+      "status": "recorded",
+      "passes": {
+        "beauty": {
+          "path": "./head-hero/beauty.png",
+          "status": "pending"
+        },
+        "alpha-silhouette": {
+          "path": "./head-hero/alpha-silhouette.png",
+          "status": "pending"
+        },
+        "semantic-id": {
+          "path": "./head-hero/semantic-id.png",
+          "status": "pending"
+        },
+        "depth": {
+          "path": "./head-hero/depth.png",
+          "status": "pending"
+        },
+        "normal": {
+          "path": "./head-hero/normal.png",
+          "status": "pending"
+        },
+        "roughness-material-id": {
+          "path": "./head-hero/roughness-material-id.png",
+          "status": "pending"
+        }
+      },
+      "recordedAt": "2026-08-22T06:13:56.717444Z",
+      "readySignal": "true",
+      "screenshotSha256": "40dd745e0fc8bc89f0840aeb28223c916af6dda668506c4d9fb556ce540633ac",
+      "image": {
+        "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/head-hero.png",
+        "type": "png",
+        "bytes": 261053,
+        "width": 1400,
+        "height": 800,
+        "aspectRatio": 1.75,
+        "technicalSuitability": "pass",
+        "warnings": [],
+        "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+      },
+      "consoleErrors": []
+    },
+    {
+      "id": "head-threequarter",
+      "role": "head-closeup",
+      "azimuthDegrees": 35,
+      "elevationDegrees": 0,
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "near": 0.01,
+      "far": 100,
+      "path": "head-threequarter.png",
+      "status": "recorded",
+      "passes": {
+        "beauty": {
+          "path": "./head-threequarter/beauty.png",
+          "status": "pending"
+        },
+        "alpha-silhouette": {
+          "path": "./head-threequarter/alpha-silhouette.png",
+          "status": "pending"
+        },
+        "semantic-id": {
+          "path": "./head-threequarter/semantic-id.png",
+          "status": "pending"
+        },
+        "depth": {
+          "path": "./head-threequarter/depth.png",
+          "status": "pending"
+        },
+        "normal": {
+          "path": "./head-threequarter/normal.png",
+          "status": "pending"
+        },
+        "roughness-material-id": {
+          "path": "./head-threequarter/roughness-material-id.png",
+          "status": "pending"
+        }
+      },
+      "recordedAt": "2026-08-22T06:13:56.768353Z",
+      "readySignal": "true",
+      "screenshotSha256": "3912172fead428291baec510031aca5d9dbce539fa65f12fc788943c2d273785",
+      "image": {
+        "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/head-threequarter.png",
+        "type": "png",
+        "bytes": 253376,
+        "width": 1400,
+        "height": 800,
+        "aspectRatio": 1.75,
+        "technicalSuitability": "pass",
+        "warnings": [],
+        "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+      },
+      "consoleErrors": []
+    }
+  ],
+  "evidence": {
+    "browser": null,
+    "diagnostics": [],
+    "comparisonSheet": null
+  }
+}

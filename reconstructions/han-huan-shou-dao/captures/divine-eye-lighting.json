@@ -1,0 +1,46 @@
+{
+  "verdict": "pass",
+  "action": "continue",
+  "fidelity": 0.8565,
+  "fidelityTarget": 0.85,
+  "hardGateFailures": [],
+  "maskWarnings": [],
+  "disagreementSpread": 0.3021,
+  "signals": {
+    "silhouetteIoU": 0.8893,
+    "scaleDelta": 0.0,
+    "aspectRatioDelta": 0.0,
+    "symmetryParity": 0.8768,
+    "phashSimilarity": 0.75,
+    "ssim": 0.8626,
+    "edgeOverlap": 0.6979,
+    "blowoutParity": 0.9971,
+    "flatRegionScore": 0.897,
+    "tonalParity": 0.9663,
+    "objectness": 0.7548,
+    "hueZoneParity": 0.0
+  },
+  "specularWash": {
+    "satRatio": 1.502,
+    "hueDriftDeg": 6.5,
+    "towardCyan": true,
+    "flagged": false,
+    "advice": null
+  },
+  "reportOnlySignals": ["hueZoneParity", "specularWash"],
+  "reconstructionModeSuspected": false,
+  "weights": {
+    "proportion": 1.0,
+    "symmetry": 0.5,
+    "phash": 1.0,
+    "ssim": 1.5,
+    "edgeOverlap": 1.0,
+    "blowoutParity": 0.8,
+    "flatRegion": 0.8,
+    "tonalParity": 1.0,
+    "objectness": 1.5
+  },
+  "reference": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/reference-face-clean.png",
+  "render": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/lighting-material-reference.png",
+  "note": "deterministic ensemble; zero VLM/token. hueZoneParity is report-only pending corpus calibration."
+}
