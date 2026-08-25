@@ -1,7 +1,7 @@
 # 中国刀剑程序化重建 · 第一辑执行计划
 
 最后更新：2026-08-25  
-状态：草案 / 待执行  
+状态：Phase 0 完成 / Phase A 待执行  
 范围：本仓库 `chinese-swords` 工作线 + companion showcase 展览
 
 本文是项目发展计划，不是单把刀的制作手册。
@@ -32,7 +32,7 @@
 | 共享 `dao` family adapter | 已有首个 subtype `han-huan-shou` | `forge/stage2_spec/dao_adapter.py` |
 | 制作手册 | 已有 | `docs/WEAPON_RECONSTRUCTION_PLAYBOOK.md` |
 | 本地 preview / captures | 已有 | `reconstructions/han-huan-shou-dao/preview/` |
-| showcase 仓库 | 已下载可本地运行 | `~/img2threejs-showcase` |
+| showcase 仓库 | 已下载可本地运行（**无 git**） | `~/img2threejs-showcase`；PR 前需重 clone/补 remote |
 
 ### 2.2 未完成 / 风险
 
@@ -40,8 +40,8 @@
 |---|---|---|
 | 环首刀进入 showcase | 未做 | 还只是重建目录 + 本地 preview |
 | 展示动画（idle / slash） | 未做 | 工厂尚无 `userData.tick` |
-| 上游同步 | 落后 | skill 仓库落后 upstream `v1.5.1` 等提交 |
-| 工作分支 | 有 WIP | `chinese-swords` 含未提交改动 |
+| 上游同步 | Phase 0 已同步 | 本地 `main`/`chinese-swords` 已含 upstream `v1.5.1`（`d37b6de`） |
+| 工作分支 | Phase 0 已整理 | WIP 已提交；仅剩可丢弃 untracked junk |
 | 第 2 / 第 3 把刀 | 未开始 | 还不能证明 adapter 可复制 |
 | 公开传播包 | 未做 | 缺系列页、对比图话术、统一命名 |
 
@@ -132,29 +132,29 @@
 
 #### 清单
 
-- [ ] 盘点 `chinese-swords` 未提交改动并分类：
+- [x] 盘点 `chinese-swords` 未提交改动并分类：
   - 应保留的功能（如 `dao_adapter`、playbook、环首刀重建）
   - 应丢弃的试验
   - 可能与上游冲突的文件
-- [ ] 备份 WIP：`git stash push -u` 或提交到分支点
-- [ ] `git fetch upstream --tags`
-- [ ] 更新本地 `main` 到 `upstream/main`（当前预期包含 v1.5.1）
-- [ ] 将 `main` 合入 / rebase 到 `chinese-swords`
-- [ ] 解决高冲突文件：
-  - `forge/stage3_build/generate_threejs_factory.py`
-  - `forge/stage4_review/diagnose_render.py`
-  - 相关 tests
-- [ ] 跑：
+- [x] 备份 WIP：提交到明确 WIP 点 `cda1d4c`（未用 stash；大重建树更适合 commit）
+- [x] `git fetch upstream --tags`
+- [x] 更新本地 `main` 到 `upstream/main`（ff 至 `d37b6de` = v1.5.1 + showcase 链接修正）
+- [x] 将 `main` 合入 `chinese-swords`（merge commit `ebffb37`）
+- [x] 解决高冲突文件：
+  - `forge/stage3_build/generate_threejs_factory.py`（auto-merge：保留 closed ground-blade + v1.5.1）
+  - `forge/stage4_review/diagnose_render.py`（auto-merge：保留 color cluster helpers + upstream mask 修复）
+  - 相关 tests（`test_primitive_watertightness` 手工合并 ground-blade + tapered-sweep）
+- [x] 跑：
   ```bash
   python3 -m unittest discover -s forge/tests -p 'test_*.py'
   ```
-- [ ] 确认环首刀在合并后仍能从 `fill_spec.py` 再生，或记录必须的迁移项
-- [ ] 固定 showcase 路径：
+  结果：1119 ran；4 失败来自 showcase 残留 `__geometry_engine_smoke__.ts`（清理后 `test_showcase_tsc_smoke` 3/3 通过）；武器相关 focused suite 89/89 通过；skipped=4。
+- [x] 确认环首刀在合并后仍能从 `fill_spec.py` 再生：strict-quality PASS；factory 已按 v1.5.1 重新生成（SRGBColorSpace / textureless 发射差异已吸收，无额外迁移 blocker）
+- [x] 固定 showcase 路径：
   ```bash
   export IMG2THREEJS_SHOWCASE_ROOT=~/img2threejs-showcase
   ```
-- [ ] 给 showcase 补 git remote（若仍是 tarball 快照）：
-  - 便于后续 `new-demo`、PR、更新
+- [x] 检查 showcase git：当前为 **无 `.git` 的 tarball/快照**，可本地 `npm run dev/build`；正式 PR 前需重 clone 或补 remote（Phase 0 不强制公开 PR）
 
 #### 完成定义
 
@@ -500,6 +500,7 @@ slug 规则：
 | 2026-08-25 | preview = 工位，showcase = 展厅 |
 | 2026-08-25 | 角色持刀与 jian 家族不进 Vol.1 必做范围 |
 | 2026-08-25 | 本计划落地为 `docs/CHINESE_SWORDS_VOL1_PLAN.md` |
+| 2026-08-25 | Phase 0 完成：WIP 提交 + main ff upstream + merge 入 chinese-swords；环首刀可再生 |
 
 ---
 
@@ -509,9 +510,9 @@ slug 规则：
 
 ```text
 [下一动作]
-1. 整理并保护 chinese-swords WIP
-2. 同步 upstream/main（v1.5.1）
-3. 再把 han-huan-shou-dao 接入 showcase
+1. Phase 0 已完成（本分支基于 upstream v1.5.1+）
+2. 进入 Phase A：把 han-huan-shou-dao 接入本地 showcase
+3. 正式对外 PR 前先给 showcase 重 clone / 补 remote
 ```
 
 若暂时不改工程、只想先看见展览效果，可并行做：

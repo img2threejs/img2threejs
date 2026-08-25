@@ -219,8 +219,14 @@ function clampPbrMetalness(value: number): number {
 
 function clampedAlbedoColor(spec: SculptMaterialSpec): THREE.Color {
   const source = typeof spec.baseColor === 'string' ? spec.baseColor : '#8A7A5F';
-  const [red, green, blue] = hexToRgb(source);
-  return new THREE.Color(red / 255, green / 255, blue / 255);
+  // setStyle with an explicit SRGBColorSpace, NOT the numeric constructor.
+  //
+  // `new THREE.Color(r, g, b)` treats its arguments as LINEAR working-space components,
+  // while an authored `baseColor` hex is sRGB. Feeding one to the other skipped the
+  // transfer function and lifted every dark albedo: #2e2a28, authored as a near-black
+  // vinyl, rendered at roughly sRGB 0.46 — a mid grey. The error is largest exactly where
+  // it matters most, because the transfer curve is steepest near black.
+  return new THREE.Color().setStyle(source, THREE.SRGBColorSpace);
 }
 
 function smoothCurve(value: number): number {
@@ -590,7 +596,17 @@ function makeProceduralTextureSet(
 }
 
 function createSculptMaterial(id: string, spec: SculptMaterialSpec, options: ProceduralModelOptions, denseComponent = false): THREE.MeshPhysicalMaterial {
-  const textures = makeReferenceTextureSet(spec, options) ?? makeProceduralTextureSet(id, spec, options);
+  // A material that declares -- with evidence -- that its subject carries no texture
+  // detail gets NO texture set. Synthesising one anyway is not a harmless default: the
+  // branch below then forces color to white and roughness to 1 and reads both from the
+  // generated maps, so the authored albedo and the reference-derived roughness are both
+  // discarded, and the model gains mottling the reference does not have. Measured on the
+  // tuxedo cat, whose black fur rendered as speckled grey-and-white from a palette that
+  // only ever described two flat regions.
+  const textureless = (spec.textureless as { declared?: boolean } | undefined)?.declared === true;
+  const textures = textureless
+    ? null
+    : makeReferenceTextureSet(spec, options) ?? makeProceduralTextureSet(id, spec, options);
   const material = new THREE.MeshPhysicalMaterial({
     color: textures ? 0xffffff : clampedAlbedoColor(spec),
     roughness: textures ? 1 : clamp01(readLayerNumber(spec.roughness, ['base'], 0.76)),
@@ -756,8 +772,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   const colliders: Record<string, unknown> = {};
   const destructionGroups: Record<string, THREE.Object3D[]> = {};
 
-  const attachment_root_0 = null;
-  const endpoint_root_0 = makeAttachmentEndpoint(attachment_root_0);
+  const endpoint_root_0 = makeAttachmentEndpoint(null);
   const node_root_0 = new THREE.Group();
   node_root_0.name = "Han Huan-Shou Dao assembly__pivot";
   node_root_0.scale.set(1, 1, 1);
@@ -840,8 +855,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   node_root_0.add(socket_root_pommel_anchor_5);
   sockets["root:pommel-anchor"] = socket_root_pommel_anchor_5;
 
-  const attachment_blade_1 = null;
-  const endpoint_blade_1 = makeAttachmentEndpoint(attachment_blade_1);
+  const endpoint_blade_1 = makeAttachmentEndpoint(null);
   const node_blade_1 = new THREE.Group();
   node_blade_1.name = "Dao blade__pivot";
   node_blade_1.scale.set(1, 1, 1);
@@ -1344,8 +1358,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_wrap_seam_2_12);
 
-  const attachment_stud_seat_a_13 = null;
-  const endpoint_stud_seat_a_13 = makeAttachmentEndpoint(attachment_stud_seat_a_13);
+  const endpoint_stud_seat_a_13 = makeAttachmentEndpoint(null);
   const node_stud_seat_a_13 = new THREE.Group();
   node_stud_seat_a_13.name = "Diamond inlay seat 1__pivot";
   node_stud_seat_a_13.scale.set(1, 1, 1);
@@ -1386,8 +1399,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_a_13);
 
-  const attachment_stud_seat_b_14 = null;
-  const endpoint_stud_seat_b_14 = makeAttachmentEndpoint(attachment_stud_seat_b_14);
+  const endpoint_stud_seat_b_14 = makeAttachmentEndpoint(null);
   const node_stud_seat_b_14 = new THREE.Group();
   node_stud_seat_b_14.name = "Diamond inlay seat 2__pivot";
   node_stud_seat_b_14.scale.set(1, 1, 1);
@@ -1428,8 +1440,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_b_14);
 
-  const attachment_stud_seat_c_15 = null;
-  const endpoint_stud_seat_c_15 = makeAttachmentEndpoint(attachment_stud_seat_c_15);
+  const endpoint_stud_seat_c_15 = makeAttachmentEndpoint(null);
   const node_stud_seat_c_15 = new THREE.Group();
   node_stud_seat_c_15.name = "Diamond inlay seat 3__pivot";
   node_stud_seat_c_15.scale.set(1, 1, 1);
@@ -1470,8 +1481,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_c_15);
 
-  const attachment_stud_seat_d_16 = null;
-  const endpoint_stud_seat_d_16 = makeAttachmentEndpoint(attachment_stud_seat_d_16);
+  const endpoint_stud_seat_d_16 = makeAttachmentEndpoint(null);
   const node_stud_seat_d_16 = new THREE.Group();
   node_stud_seat_d_16.name = "Diamond inlay seat 4__pivot";
   node_stud_seat_d_16.scale.set(1, 1, 1);
@@ -1512,8 +1522,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_d_16);
 
-  const attachment_stud_seat_e_17 = null;
-  const endpoint_stud_seat_e_17 = makeAttachmentEndpoint(attachment_stud_seat_e_17);
+  const endpoint_stud_seat_e_17 = makeAttachmentEndpoint(null);
   const node_stud_seat_e_17 = new THREE.Group();
   node_stud_seat_e_17.name = "Diamond inlay seat 5__pivot";
   node_stud_seat_e_17.scale.set(1, 1, 1);
@@ -1554,8 +1563,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_e_17);
 
-  const attachment_stud_seat_f_18 = null;
-  const endpoint_stud_seat_f_18 = makeAttachmentEndpoint(attachment_stud_seat_f_18);
+  const endpoint_stud_seat_f_18 = makeAttachmentEndpoint(null);
   const node_stud_seat_f_18 = new THREE.Group();
   node_stud_seat_f_18.name = "Diamond inlay seat 6__pivot";
   node_stud_seat_f_18.scale.set(1, 1, 1);
@@ -1596,8 +1604,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_f_18);
 
-  const attachment_stud_seat_back_a_19 = null;
-  const endpoint_stud_seat_back_a_19 = makeAttachmentEndpoint(attachment_stud_seat_back_a_19);
+  const endpoint_stud_seat_back_a_19 = makeAttachmentEndpoint(null);
   const node_stud_seat_back_a_19 = new THREE.Group();
   node_stud_seat_back_a_19.name = "Diamond back inlay seat 1__pivot";
   node_stud_seat_back_a_19.scale.set(1, 1, 1);
@@ -1638,8 +1645,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_back_a_19);
 
-  const attachment_stud_seat_back_b_20 = null;
-  const endpoint_stud_seat_back_b_20 = makeAttachmentEndpoint(attachment_stud_seat_back_b_20);
+  const endpoint_stud_seat_back_b_20 = makeAttachmentEndpoint(null);
   const node_stud_seat_back_b_20 = new THREE.Group();
   node_stud_seat_back_b_20.name = "Diamond back inlay seat 2__pivot";
   node_stud_seat_back_b_20.scale.set(1, 1, 1);
@@ -1680,8 +1686,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_back_b_20);
 
-  const attachment_stud_seat_back_c_21 = null;
-  const endpoint_stud_seat_back_c_21 = makeAttachmentEndpoint(attachment_stud_seat_back_c_21);
+  const endpoint_stud_seat_back_c_21 = makeAttachmentEndpoint(null);
   const node_stud_seat_back_c_21 = new THREE.Group();
   node_stud_seat_back_c_21.name = "Diamond back inlay seat 3__pivot";
   node_stud_seat_back_c_21.scale.set(1, 1, 1);
@@ -1722,8 +1727,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_back_c_21);
 
-  const attachment_stud_seat_back_d_22 = null;
-  const endpoint_stud_seat_back_d_22 = makeAttachmentEndpoint(attachment_stud_seat_back_d_22);
+  const endpoint_stud_seat_back_d_22 = makeAttachmentEndpoint(null);
   const node_stud_seat_back_d_22 = new THREE.Group();
   node_stud_seat_back_d_22.name = "Diamond back inlay seat 4__pivot";
   node_stud_seat_back_d_22.scale.set(1, 1, 1);
@@ -1764,8 +1768,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_back_d_22);
 
-  const attachment_stud_seat_back_e_23 = null;
-  const endpoint_stud_seat_back_e_23 = makeAttachmentEndpoint(attachment_stud_seat_back_e_23);
+  const endpoint_stud_seat_back_e_23 = makeAttachmentEndpoint(null);
   const node_stud_seat_back_e_23 = new THREE.Group();
   node_stud_seat_back_e_23.name = "Diamond back inlay seat 5__pivot";
   node_stud_seat_back_e_23.scale.set(1, 1, 1);
@@ -1806,8 +1809,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_back_e_23);
 
-  const attachment_stud_seat_back_f_24 = null;
-  const endpoint_stud_seat_back_f_24 = makeAttachmentEndpoint(attachment_stud_seat_back_f_24);
+  const endpoint_stud_seat_back_f_24 = makeAttachmentEndpoint(null);
   const node_stud_seat_back_f_24 = new THREE.Group();
   node_stud_seat_back_f_24.name = "Diamond back inlay seat 6__pivot";
   node_stud_seat_back_f_24.scale.set(1, 1, 1);
@@ -1848,8 +1850,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_seat_back_f_24);
 
-  const attachment_stud_a_25 = null;
-  const endpoint_stud_a_25 = makeAttachmentEndpoint(attachment_stud_a_25);
+  const endpoint_stud_a_25 = makeAttachmentEndpoint(null);
   const node_stud_a_25 = new THREE.Group();
   node_stud_a_25.name = "Diamond inlay 1__pivot";
   node_stud_a_25.scale.set(1, 1, 1);
@@ -1890,8 +1891,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_a_25);
 
-  const attachment_stud_b_26 = null;
-  const endpoint_stud_b_26 = makeAttachmentEndpoint(attachment_stud_b_26);
+  const endpoint_stud_b_26 = makeAttachmentEndpoint(null);
   const node_stud_b_26 = new THREE.Group();
   node_stud_b_26.name = "Diamond inlay 2__pivot";
   node_stud_b_26.scale.set(1, 1, 1);
@@ -1932,8 +1932,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_b_26);
 
-  const attachment_stud_c_27 = null;
-  const endpoint_stud_c_27 = makeAttachmentEndpoint(attachment_stud_c_27);
+  const endpoint_stud_c_27 = makeAttachmentEndpoint(null);
   const node_stud_c_27 = new THREE.Group();
   node_stud_c_27.name = "Diamond inlay 3__pivot";
   node_stud_c_27.scale.set(1, 1, 1);
@@ -1974,8 +1973,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_c_27);
 
-  const attachment_stud_d_28 = null;
-  const endpoint_stud_d_28 = makeAttachmentEndpoint(attachment_stud_d_28);
+  const endpoint_stud_d_28 = makeAttachmentEndpoint(null);
   const node_stud_d_28 = new THREE.Group();
   node_stud_d_28.name = "Diamond inlay 4__pivot";
   node_stud_d_28.scale.set(1, 1, 1);
@@ -2016,8 +2014,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_d_28);
 
-  const attachment_stud_e_29 = null;
-  const endpoint_stud_e_29 = makeAttachmentEndpoint(attachment_stud_e_29);
+  const endpoint_stud_e_29 = makeAttachmentEndpoint(null);
   const node_stud_e_29 = new THREE.Group();
   node_stud_e_29.name = "Diamond inlay 5__pivot";
   node_stud_e_29.scale.set(1, 1, 1);
@@ -2058,8 +2055,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_e_29);
 
-  const attachment_stud_f_30 = null;
-  const endpoint_stud_f_30 = makeAttachmentEndpoint(attachment_stud_f_30);
+  const endpoint_stud_f_30 = makeAttachmentEndpoint(null);
   const node_stud_f_30 = new THREE.Group();
   node_stud_f_30.name = "Diamond inlay 6__pivot";
   node_stud_f_30.scale.set(1, 1, 1);
@@ -2100,8 +2096,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_f_30);
 
-  const attachment_stud_back_a_31 = null;
-  const endpoint_stud_back_a_31 = makeAttachmentEndpoint(attachment_stud_back_a_31);
+  const endpoint_stud_back_a_31 = makeAttachmentEndpoint(null);
   const node_stud_back_a_31 = new THREE.Group();
   node_stud_back_a_31.name = "Diamond back inlay 1__pivot";
   node_stud_back_a_31.scale.set(1, 1, 1);
@@ -2142,8 +2137,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_back_a_31);
 
-  const attachment_stud_back_b_32 = null;
-  const endpoint_stud_back_b_32 = makeAttachmentEndpoint(attachment_stud_back_b_32);
+  const endpoint_stud_back_b_32 = makeAttachmentEndpoint(null);
   const node_stud_back_b_32 = new THREE.Group();
   node_stud_back_b_32.name = "Diamond back inlay 2__pivot";
   node_stud_back_b_32.scale.set(1, 1, 1);
@@ -2184,8 +2178,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_back_b_32);
 
-  const attachment_stud_back_c_33 = null;
-  const endpoint_stud_back_c_33 = makeAttachmentEndpoint(attachment_stud_back_c_33);
+  const endpoint_stud_back_c_33 = makeAttachmentEndpoint(null);
   const node_stud_back_c_33 = new THREE.Group();
   node_stud_back_c_33.name = "Diamond back inlay 3__pivot";
   node_stud_back_c_33.scale.set(1, 1, 1);
@@ -2226,8 +2219,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_back_c_33);
 
-  const attachment_stud_back_d_34 = null;
-  const endpoint_stud_back_d_34 = makeAttachmentEndpoint(attachment_stud_back_d_34);
+  const endpoint_stud_back_d_34 = makeAttachmentEndpoint(null);
   const node_stud_back_d_34 = new THREE.Group();
   node_stud_back_d_34.name = "Diamond back inlay 4__pivot";
   node_stud_back_d_34.scale.set(1, 1, 1);
@@ -2268,8 +2260,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_back_d_34);
 
-  const attachment_stud_back_e_35 = null;
-  const endpoint_stud_back_e_35 = makeAttachmentEndpoint(attachment_stud_back_e_35);
+  const endpoint_stud_back_e_35 = makeAttachmentEndpoint(null);
   const node_stud_back_e_35 = new THREE.Group();
   node_stud_back_e_35.name = "Diamond back inlay 5__pivot";
   node_stud_back_e_35.scale.set(1, 1, 1);
@@ -2310,8 +2301,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["handle"] ??= [];
   destructionGroups["handle"].push(node_stud_back_e_35);
 
-  const attachment_stud_back_f_36 = null;
-  const endpoint_stud_back_f_36 = makeAttachmentEndpoint(attachment_stud_back_f_36);
+  const endpoint_stud_back_f_36 = makeAttachmentEndpoint(null);
   const node_stud_back_f_36 = new THREE.Group();
   node_stud_back_f_36.name = "Diamond back inlay 6__pivot";
   node_stud_back_f_36.scale.set(1, 1, 1);
@@ -2436,8 +2426,7 @@ export function createHanHuanShouDaoModel(options: ProceduralModelOptions = {}):
   destructionGroups["ring"] ??= [];
   destructionGroups["ring"].push(node_ring_neck_38);
 
-  const attachment_ring_39 = {"parentId": "root", "parentSocket": "rear-ferrule-back", "localStart": [0.0, 0.0, 0.0], "localEnd": [0.0, 0.0, 0.0], "contactType": "sleeve", "overlap": 0.007, "gapTolerance": 0.004, "embedDepth": 0.0};
-  const endpoint_ring_39 = makeAttachmentEndpoint(attachment_ring_39);
+  const endpoint_ring_39 = makeAttachmentEndpoint(null);
   const node_ring_39 = new THREE.Group();
   node_ring_39.name = "Huan-shou ring__pivot";
   node_ring_39.scale.set(1, 1, 1);
