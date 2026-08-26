@@ -17,6 +17,7 @@ can plan around.
 | v1.3 | Quality & efficiency (Divine Eye) | 2026-07-22 | Deterministic multi-signal review harness, input-integrity and geometry-truth gates, reference-grounded texture/material analysis, CIEDE2000 colour math |
 | v1.4 | Weapon Pipeline | 2026-07-25–26 | CS2 image-matched reconstruction, provenance-aware intake and local search, projection-first finishes, family-specific adapters, structural review and component-coverage gates |
 | v1.5 | The Character Update | 2026-08-12 | Skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, `tapered-sweep`, material pipeline with a blocking acceptance gate, resumable workflow state |
+| v1.5.2 | Character rigging & animation | 2026-08-25 | Clip measurement vocabulary and classifier, corrected loop rule (poseReturn, not travel), proximity weight blending, topology-driven chain resolution, foot-contact gate, and the G1-G10 gate suite where an unmeasured gate reports `unevaluated` rather than a pass |
 
 ### v1.2 — Humanoid character generator
 

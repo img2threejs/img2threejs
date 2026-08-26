@@ -26,7 +26,11 @@ def build_parser() -> argparse.ArgumentParser:
     init = commands.add_parser("init")
     init.add_argument("--state", type=Path, default=Path(".img2threejs/state.json"))
     init.add_argument("--reference", required=True)
-    init.add_argument("--profile", choices=("generic", "cs2", "character"), default="generic")
+    init.add_argument(
+        "--profile",
+        choices=("generic", "cs2", "character", "animated-character"),
+        default="generic",
+    )
     init.add_argument("--spec", default="")
     init.add_argument("--max-per-pass", type=int, default=3)
     init.add_argument("--max-total", type=int, default=6)

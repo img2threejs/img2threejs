@@ -78,6 +78,65 @@ FINAL_STEPS: Final = (
     ("action-ready", "Verify explodable/clickable hierarchy, pivots, sockets, and root.userData.sculptRuntime"),
 )
 
+# Stage R -- rigging and animation, docs/pipelines/character-rigging-animation-1.5.2.md.
+#
+# These exist as a checklist scope because the 1.5.2 gates were reachable only by hand: every
+# module under forge/stage5_rig/ was callable, and nothing in the workflow ever told anyone to
+# call one. A gate that nothing invokes reports a clean verdict forever, which is the exact
+# failure the whole gate system exists to end.
+#
+# The ORDER is load-bearing and is not a preference:
+#   - mesh repair happens BEFORE the freeze, because a mesh may legitimately need fixing;
+#   - the freeze happens BEFORE any rig work, because after it the geometry is evidence;
+#   - mesh-parity is verified AFTER binding, because that is the only moment the claim
+#     "implementation did not touch the mesh" can be falsified.
+# Moving the freeze later would let a bind quietly rewrite vertices and then freeze the result,
+# and the manifest would certify the damage instead of catching it.
+RIG_STEPS: Final = (
+    (
+        "rig-contract-read",
+        "Read grimoire/readiness/animation_contract.md and docs/pipelines/character-rigging-animation-1.5.2.md completely",
+    ),
+    (
+        "glb-rig-reference",
+        "python3 forge/stage5_rig/glb_rig_reference.py {reference} --out glb-rig.json "
+        "(skeleton, skin joint order, inverse binds and clips read FROM the GLB; skip with a reason only when there is no GLB)",
+    ),
+    (
+        "mesh-repair",
+        "Inspect the meshes for breakage and repair them now, before the freeze; "
+        "record what was repaired, or skip with a reason when nothing is broken",
+    ),
+    (
+        "mesh-freeze",
+        "node runtime/scripts/export_mesh_buffers.mjs --url <preview> --out meshes.json && "
+        "python3 forge/stage5_rig/mesh_parity.py freeze meshes.json --out mesh-manifest.json",
+    ),
+    (
+        "rig-payload-validate",
+        "python3 forge/stage5_rig/validate_rig_payload.py --payload rig-payload.json "
+        "(structural payload integrity ONLY -- never pose stress or likeness; a sculpt spec is NOT "
+        "a rig payload, they are different schemas)",
+    ),
+    (
+        "rig-bind",
+        "Bind the skeleton: ADD skeleton, skinIndex and skinWeight only. Vertex positions, normals, uvs and indices are frozen evidence",
+    ),
+    (
+        "mesh-parity-verify",
+        "node runtime/scripts/export_mesh_buffers.mjs --url <preview> --out meshes-after.json && "
+        "python3 forge/stage5_rig/mesh_parity.py verify mesh-manifest.json meshes-after.json",
+    ),
+    (
+        "clip-measure",
+        "python3 forge/stage5_rig/clip_features.py sampled-clips.json (measure, classify, name, and decide loop from poseReturn)",
+    ),
+    (
+        "rig-gates",
+        "python3 forge/stage5_rig/rig_gates.py rig-gate-payload.json (G1-G10; an unevaluated gate is not a pass)",
+    ),
+)
+
 
 class WorkflowStateError(ValueError):
     pass
@@ -102,15 +161,15 @@ def new_state(
     max_per_pass: int = 3,
     max_total: int = 6,
 ) -> dict[str, Any]:
-    if profile not in {"generic", "cs2", "character"}:
-        raise WorkflowStateError("profile must be generic, cs2, or character")
+    if profile not in {"generic", "cs2", "character", "animated-character"}:
+        raise WorkflowStateError("profile must be generic, cs2, character, or animated-character")
     if max_per_pass < 1 or max_total < 1 or max_per_pass > max_total:
         raise WorkflowStateError("loop limits require 1 <= max-per-pass <= max-total")
     setup = [_step(*item, scope="setup") for item in SETUP_STEPS]
     insertion = next(index for index, item in enumerate(setup) if item["id"] == "local-spec-search")
     if profile == "cs2":
         setup[insertion:insertion] = [_step(*item, scope="setup") for item in CS2_STEPS]
-    elif profile == "character":
+    elif profile in {"character", "animated-character"}:
         setup[insertion:insertion] = [_step(*item, scope="setup") for item in CHARACTER_STEPS]
     pass_steps = list(PASS_STEPS)
     if profile == "cs2":
@@ -124,7 +183,12 @@ def new_state(
         "currentPass": "",
         "checklist": setup
         + [_step(*item, scope="pass") for item in pass_steps]
-        + [_step(*item, scope="final") for item in FINAL_STEPS],
+        + [_step(*item, scope="final") for item in FINAL_STEPS]
+        + (
+            [_step(*item, scope="rig") for item in RIG_STEPS]
+            if profile == "animated-character"
+            else []
+        ),
         "loops": {
             "perPass": {},
             "total": 0,
@@ -146,7 +210,7 @@ def validate_state(state: Any) -> dict[str, Any]:
         raise WorkflowStateError("state must be a JSON object")
     if state.get("schemaVersion") != SCHEMA_VERSION:
         raise WorkflowStateError(f"unsupported state schemaVersion: {state.get('schemaVersion')!r}")
-    if state.get("profile") not in {"generic", "cs2", "character"}:
+    if state.get("profile") not in {"generic", "cs2", "character", "animated-character"}:
         raise WorkflowStateError("state profile is invalid")
     checklist = state.get("checklist")
     if not isinstance(checklist, list) or not checklist:
@@ -158,7 +222,7 @@ def validate_state(state: Any) -> dict[str, Any]:
         if entry["id"] in seen:
             raise WorkflowStateError(f"duplicate checklist step: {entry['id']}")
         seen.add(entry["id"])
-        if entry.get("scope") not in {"setup", "pass", "final"}:
+        if entry.get("scope") not in {"setup", "pass", "final", "rig"}:
             raise WorkflowStateError(f"invalid checklist scope for {entry['id']}")
         if entry.get("status") not in STEP_STATUSES:
             raise WorkflowStateError(f"invalid checklist status for {entry['id']}")
@@ -246,7 +310,15 @@ def next_entry(state: dict[str, Any]) -> dict[str, Any] | None:
             "command": "python3 forge/next.py --state .img2threejs/state.json {spec}",
         }
     final_pending = _pending(_entries(state, "final"))
-    return final_pending[0] if final_pending else None
+    if final_pending:
+        return final_pending[0]
+    # Stage R runs LAST, after the static model is complete and its coverage gates have passed:
+    # rigging is additive to a finished mesh, and binding a model whose parts are still moving
+    # would freeze geometry that has not settled. Dispatching it here is what makes the rig steps
+    # reachable at all -- a checklist entry no dispatcher returns is a step `next.py` never asks
+    # for, which is the same defect as a gate nothing invokes.
+    rig_pending = _pending(_entries(state, "rig"))
+    return rig_pending[0] if rig_pending else None
 
 
 def recompute(state: dict[str, Any]) -> None:
@@ -383,7 +455,7 @@ def status_payload(state: dict[str, Any]) -> dict[str, Any]:
     entry = next_entry(state)
     current_pass = str(state.get("currentPass") or "")
     loops = state["loops"]
-    visible_scopes = {"setup", "final"}
+    visible_scopes = {"setup", "final", "rig"}
     if current_pass != "complete":
         visible_scopes.add("pass")
     return {
