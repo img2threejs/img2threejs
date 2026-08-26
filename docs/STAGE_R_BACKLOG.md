@@ -318,6 +318,57 @@ measured**); one-model-per-skeleton (incompatible with a per-image skeleton); BV
 
 ---
 
+### S — Seam continuity under animation
+
+The requirement that meshes stay **continuous while animating** is currently listed under *what this
+pipeline does not solve*, and the gate that would measure it has no producer. These three close that.
+
+Full design: `PLAN_1.6_ANIMATION_STAGE.md` §3.
+
+---
+
+**S-1 · Shared-boundary welding with a unified weight zone**
+
+*Why* — proximity blending is a **mitigation, not a fix**, and says so: holes fell 974 px/30 blobs →
+287 px/15 blobs while creases rose 16% (31,316 → 36,470 px). Its own residual note states the
+complete fix is *"one continuous mesh with a unified weight field, which changes the part structure
+and breaks per-part UI"* — and per-part UI is a shipping gate.
+
+The third path was already **declared** in the showcase IR and never built:
+`topologyBridge: "shared-boundary"` + `deformationBridge: "shared-weight-zone"`. `validateContinuity()`
+only checks the constraint objects are well-formed; it never touches geometry. A declaration with
+nothing implementing or verifying it — the same defect class as a gate nothing invokes.
+
+*Done when* — vertices on a welded seam share **one bit-identical binding**, so no pose can separate
+them; parts remain separately addressable so explode/click still passes `check_part_coverage.py`; and
+the 176-frame sweep reports **zero background pixels** through every welded seam.
+
+*Cost* — large. Touches topology. **Do not start before V-1** measures the real gap first.
+
+---
+
+**S-2 · G10 producer — promoted from P-4**
+
+*Why* — without it S-1 is unverifiable, and the current hole/crease numbers are inherited from an
+earlier build rather than measured on today's code. Originally ranked last on cost; the continuity
+requirement makes it essential rather than a luxury.
+
+*Done when* — as P-4, plus a re-measured baseline for the current pipeline.
+
+---
+
+**S-3 · A `rig` group in the correction loop**
+
+*Why* — verified: `correction_loop.py` mentions `rig`, `skin` and `weight` **zero times**. Its groups
+are camera → silhouette → face → clothing → accessory → materials → lighting. Visual feedback can
+therefore never drive a rig or weighting fix, only a material or lighting one.
+
+*Done when* — a `rig` correction group exists, and a defect visible only under animation routes to it.
+
+*Cost* — medium.
+
+---
+
 ## Part 3 — Suggested order
 
 ```
@@ -332,17 +383,22 @@ H-1  runtime/ decision             ← trivial, user's call, unblocks shipping t
 H-2  Stage R correction budget
 H-5  ARCHITECTURE.md
       │
+S-2  G10 producer                  ← was P-4; the continuity requirement makes it essential
+K-1  retarget_tag                  ← the standardisation Stage 6 clips are authored against
+      │
+S-1  shared-boundary welding       ← the seam fix; needs S-2 to be verifiable at all
+      │
 P-3  G3 + G6 producers
+S-3  rig group in the correction loop
 H-3  mesh-repair / rig-bind artifacts
 H-4  orphaned gates onto the checklist
-K-1  retarget_tag
 K-2  contact channel
 K-3  contact-consistency gate
-      │
-P-4  G10 sweep harness             ← expensive; only if V-2 shows the cheaper gates miss tearing
 H-6  second subject
 H-7  fastlane rebase               ← last: do not merge branches before one is known correct
 ```
+
+`P-4` is superseded by `S-2`, which is the same harness at a higher priority.
 
 ## Standing rules for every task above
 
