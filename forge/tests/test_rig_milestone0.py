@@ -263,6 +263,43 @@ class RigMilestone0(unittest.TestCase):
         self.assertEqual(non_manifold, 0, f"gate (d) FAIL: {non_manifold} non-manifold edges after bind")
 
 
+class RigMilestone0TemplateOrdering(unittest.TestCase):
+    """Static text checks on emit_typescript()'s output -- no node/showcase needed.
+
+    `mesh.add(root)` puts the bones' local-space rest transforms into the scene graph, but they
+    stay at their local values until something recomputes world matrices. `new THREE.Skeleton(...)`
+    calls `calculateInverses()` internally, which reads each bone's CURRENT world matrix at
+    construction time. Skeleton-then-updateMatrixWorld (or no updateMatrixWorld at all) captures
+    identity matrices into the inverse binds; those inverses then fail to cancel the rest pose
+    during skinning, so every vertex is displaced by its bone's offset at rest. This compiles,
+    binds, reports `bound: true`, and renders a corpse -- see
+    test_rig_hierarchy_emission.py::test_bone_rotation_deforms_its_own_mesh_and_not_a_distant_one
+    for the equivalent failure mode in the main factory emitter, which generate_threejs_factory.py
+    fixed the same way (`root.updateMatrixWorld(true)` before `new THREE.Skeleton(...)`).
+    """
+
+    def test_update_matrix_world_runs_between_mesh_add_and_skeleton_construction(self) -> None:
+        spec = build_three_bone_arm_spec()
+        source = emit_typescript(spec, COMPONENT_EXTENTS, CAPSULE_RADIUS)
+
+        mesh_add_index = source.index("mesh.add(root);")
+        update_matrix_world_index = source.index("mesh.updateMatrixWorld(true);")
+        skeleton_index = source.index("new THREE.Skeleton(BONE_IDS.map((id) => bones[id]));")
+
+        self.assertLess(
+            mesh_add_index, update_matrix_world_index,
+            "mesh.updateMatrixWorld(true) must run AFTER the bones are attached to the mesh "
+            "(mesh.add(root)), or it recomputes world matrices for a graph the bones aren't "
+            "even part of yet",
+        )
+        self.assertLess(
+            update_matrix_world_index, skeleton_index,
+            "mesh.updateMatrixWorld(true) must run BEFORE `new THREE.Skeleton(...)` -- "
+            "calculateInverses() reads each bone's CURRENT world matrix at construction time, "
+            "so a Skeleton built first captures identity matrices and the rig renders a corpse",
+        )
+
+
 class AxisExemptionSelfCheck(unittest.TestCase):
     """Closes a coverage gap team-lead identified (2026-07-30): the derived
     3-bone-arm capsule always measures axisExemptVertexCount == 0, so the
