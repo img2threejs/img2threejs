@@ -16,6 +16,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC_SEARCH_PATH = ROOT / "forge/_shared/spec_search.py"
+CONSOLE_PATH = ROOT / "forge/_shared/console.py"
 SEARCH_SPECS_CLI = ROOT / "forge/stage1_intake/search_specs.py"
 SPEC_SEARCH_SPEC = importlib.util.spec_from_file_location("spec_search", SPEC_SEARCH_PATH)
 assert SPEC_SEARCH_SPEC is not None and SPEC_SEARCH_SPEC.loader is not None
@@ -93,6 +94,23 @@ def make_record():
     }
 
 
+def require_symlinks(directory):
+    """Skip a test that needs a real symlink when this host will not create one.
+
+    These three tests assert that the ingester REFUSES symlinked sources and caches -- a
+    path-traversal guard. Creating the symlink is setup, not the assertion, and on Windows it
+    needs Developer Mode or an elevated shell (`OSError: [WinError 1314]`). Letting that surface
+    as an ERROR reports a missing OS privilege as a broken guard, which is the opposite of what
+    the run means: the guard is untested here, not failing.
+    """
+    probe = Path(directory) / ".symlink-probe"
+    try:
+        probe.symlink_to(directory, target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+        raise unittest.SkipTest(f"symlinks unavailable on this host: {error}") from error
+    probe.unlink()
+
+
 def write_jsonl(path, records):
     rows = (json.dumps(record, ensure_ascii=False, sort_keys=True) for record in records)
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
@@ -150,6 +168,9 @@ def write_cli_fixture(
     shared.mkdir(parents=True, exist_ok=True)
     intake.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(SPEC_SEARCH_PATH, shared / "spec_search.py")
+    # search_specs.py imports this to force UTF-8 on its own stdout; without it in the fixture
+    # tree the CLI cannot start at all.
+    shutil.copyfile(CONSOLE_PATH, shared / "console.py")
     if SEARCH_SPECS_CLI.is_file():
         shutil.copyfile(SEARCH_SPECS_CLI, intake / "search_specs.py")
 
@@ -226,6 +247,7 @@ def run_cli_fixture(
     malformed_profile=False,
     include_raw_roots=True,
     cache_path=".cache/spec-search/cs2.json",
+    stdout_encoding=None,
 ):
     cli = write_cli_fixture(
         root,
@@ -235,12 +257,20 @@ def run_cli_fixture(
     )
     environment = os.environ.copy()
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    if stdout_encoding is not None:
+        # Reproduces a legacy console on ANY host, so the encoding contract is testable on the
+        # Linux CI runner and not only on the Windows machine where it was first hit.
+        environment["PYTHONIOENCODING"] = stdout_encoding
     return subprocess.run(
         [sys.executable, str(cli), *arguments],
         cwd=root,
         env=environment,
         capture_output=True,
         text=True,
+        # The CLI forces its own stdout to UTF-8 (forge/_shared/console.py), so decode it as
+        # UTF-8 here too. `text=True` alone decodes with the PARENT's locale encoding, which
+        # turned the child's correct bilingual output into mojibake on a cp1252 host.
+        encoding="utf-8",
         check=False,
     )
 
@@ -506,6 +536,7 @@ class SourceIngestionTest(unittest.TestCase):
     def test_symlink_source_file_is_rejected_without_indexing_target(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
+            require_symlinks(root)
             source_root = root / "specs"
             source_root.mkdir()
             secret = root / "secret.md"
@@ -523,6 +554,7 @@ class SourceIngestionTest(unittest.TestCase):
     def test_symlink_source_root_is_rejected_without_indexing_target(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
+            require_symlinks(root)
             secret_root = root / "secret"
             secret_root.mkdir()
             (secret_root / "secret.md").write_text(
@@ -915,6 +947,7 @@ class CliOutputTest(unittest.TestCase):
     def test_symlinked_cache_parent_returns_structured_cache_failure(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
+            require_symlinks(root)
             cli = write_cli_fixture(root)
             outside = root.parent / f"{root.name}-outside"
             outside.mkdir()
@@ -927,6 +960,7 @@ class CliOutputTest(unittest.TestCase):
                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
 
@@ -1007,6 +1041,27 @@ class CliOutputTest(unittest.TestCase):
         self.assertEqual(repeated.returncode, 0, repeated.stderr)
         self.assertTrue(cached.stdout.strip())
         self.assertEqual(cached.stdout, repeated.stdout)
+
+    def test_bilingual_output_survives_a_legacy_console_encoding(self):
+        """The vocabulary is bilingual, so the CLI must not depend on the console's codec.
+
+        `search_specs.py` prints matches with `ensure_ascii=False`, and the fixture corpus (like
+        the shipped `core_3d`/`cs2` packs) carries Vietnamese. Encoding that through cp1252 raises
+        `UnicodeEncodeError` mid-write: the process dies with a partial stream and a non-zero exit.
+        Because `local-spec-search` is a mandatory checklist step, that is a stage-1 pipeline stop,
+        not a cosmetic glitch -- so it is asserted, for the human path and the JSON path alike.
+        """
+        for arguments in (("roughness", "độ", "nhám"), ("roughness", "độ", "nhám", "--json")):
+            with self.subTest(arguments=arguments):
+                with tempfile.TemporaryDirectory() as temporary_directory:
+                    root = Path(temporary_directory)
+                    result = run_cli_fixture(root, *arguments, stdout_encoding="cp1252")
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("UnicodeEncodeError", result.stderr)
+                # Not merely "did not crash": the bilingual text has to arrive intact, which is
+                # the whole reason ensure_ascii=False is used in the first place.
+                self.assertIn("nhám", result.stdout)
 
     def test_validation_and_profile_errors_have_documented_codes(self):
         scenarios = (

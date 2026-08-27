@@ -73,12 +73,12 @@ class PipelineTest(unittest.TestCase):
                 "--out", self.assessment)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(self.assessment.exists())
-        self.assertIn("qualityContract", json.loads(self.assessment.read_text()))
+        self.assertIn("qualityContract", json.loads(self.assessment.read_text(encoding="utf-8")))
 
         r = run("stage2_spec/new_sculpt_spec.py", "Oak", "--assessment", self.assessment,
                 "--out", self.spec)
         self.assertEqual(r.returncode, 0, r.stderr)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         self.assertEqual(spec["schemaVersion"], "2.1")
         self.assertEqual(spec["targetName"], "Oak")
 
@@ -90,7 +90,7 @@ class PipelineTest(unittest.TestCase):
             self.assessment,
         )
         self.assertEqual(r.returncode, 0, r.stderr)
-        assessment = json.loads(self.assessment.read_text())
+        assessment = json.loads(self.assessment.read_text(encoding="utf-8"))
         search = assessment["localSpecSearch"]
         self.assertEqual(search["collection"], "cs2")
         self.assertEqual(search["query"], "Karambit Fade")
@@ -107,7 +107,7 @@ class PipelineTest(unittest.TestCase):
             self.spec,
         )
         self.assertEqual(r.returncode, 0, r.stderr)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         self.assertEqual(spec["localSpecSearch"]["collection"], "cs2")
         self.assertTrue(spec["localSpecSearch"]["matches"])
 
@@ -119,7 +119,7 @@ class PipelineTest(unittest.TestCase):
             self.assessment,
         )
         self.assertEqual(r.returncode, 0, r.stderr)
-        assessment = json.loads(self.assessment.read_text())
+        assessment = json.loads(self.assessment.read_text(encoding="utf-8"))
         self.assertEqual(assessment["localSpecSearch"]["collection"], "core_3d")
 
     def test_normal_validate_passes_strict_fails_on_shallow(self):
@@ -136,7 +136,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_topology_rejects_missing_classification(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         del spec["componentTree"][0]["topologyClass"]
         del spec["componentTree"][0]["topologyRationale"]
         self.spec.write_text(json.dumps(spec))
@@ -146,7 +146,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_topology_rejects_restated_rationale(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["topologyClass"] = "assembled-solid"
         spec["componentTree"][0]["topologyRationale"] = "Assembled Solid"
         self.spec.write_text(json.dumps(spec))
@@ -156,7 +156,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_topology_rejects_disallowed_continuous_sculpt_pairing(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["primitive"] = "box"
         spec["componentTree"][0]["topologyClass"] = "continuous-sculpt"
         spec["componentTree"][0]["topologyRationale"] = "Smooth organic bulge with no seams."
@@ -167,7 +167,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_topology_rejects_disallowed_fiber_strand_pairing(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["primitive"] = "plane-card"
         spec["componentTree"][0]["topologyClass"] = "fiber-strand"
         spec["componentTree"][0]["topologyRationale"] = "Thin repeated strand form."
@@ -178,7 +178,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_topology_accepts_all_six_classes_with_allowed_primitives(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         cases = [
             ("continuous-sculpt", "lathe"),
             ("assembled-solid", "box"),
@@ -210,7 +210,7 @@ class PipelineTest(unittest.TestCase):
         # as "1.0" (round(1.0, 3) -> the float 1.0, not the bare int 1). RGBA_PATTERN must
         # accept that exact format, or every real extracted recipe fails its own validator.
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["colorMaterialRecipe"] = {
             "dominantAlbedo": "rgba(21, 87, 78, 1.0)",
             "secondaryAlbedo": "rgba(34, 67, 67, 1.0)",
@@ -341,7 +341,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_dense_component_enables_height_maps_when_shared_material_is_plain(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         component = spec["componentTree"][0]
         component["geometryDensity"] = "dense"
         spec["materials"][0].pop("geometryDensity", None)
@@ -390,7 +390,7 @@ class PipelineTest(unittest.TestCase):
         # generic box. Confirms all three previously-unimplemented primitives now
         # produce real geometry-builder calls instead of raising or falling back.
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["primitive"] = "extrude"
         spec["componentTree"][0]["topologyClass"] = "continuous-sculpt"
         spec["componentTree"][0]["topologyRationale"] = "Blade tapering to a single sharp point."
@@ -422,7 +422,7 @@ class PipelineTest(unittest.TestCase):
         # unconditionally even when no component in the pass used lathe/tube. Only
         # the primitives actually present should get a helper function.
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["primitive"] = "extrude"
         spec["componentTree"][0]["topologyClass"] = "continuous-sculpt"
         spec["componentTree"][0]["topologyRationale"] = "Blade tapering to a single sharp point."
@@ -444,7 +444,7 @@ class PipelineTest(unittest.TestCase):
         # resolves to its base geometry (default box) so a component may declare it without
         # crashing. The instancing itself is applied by repetition systems (test below).
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["primitive"] = "instanced-cluster"
         self.spec.write_text(json.dumps(spec))
         out = self.dir / "createOakModel.ts"
@@ -456,7 +456,7 @@ class PipelineTest(unittest.TestCase):
         # Repeated parts (teeth/fasteners/spokes) must render as ONE THREE.InstancedMesh
         # (single draw call), not a per-instance Mesh clone loop (real-time perf principle).
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         first_mat = (spec.get("materials") or [{}])[0].get("id", "base")
         spec["repetitionSystems"] = [{
             "id": "teeth", "level": "macro", "parent": "root", "count": 8,
@@ -490,7 +490,7 @@ class PipelineTest(unittest.TestCase):
         # reads correctly from every angle (the karambit-blade fix). Must emit a real
         # extrudePath + CatmullRomCurve3, only when a component uses curve-sweep.
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["componentTree"][0]["primitive"] = "curve-sweep"
         spec["componentTree"][0]["topologyClass"] = "continuous-sculpt"
         spec["componentTree"][0]["topologyRationale"] = "Hooked blade curving through space."
@@ -520,7 +520,7 @@ class PipelineTest(unittest.TestCase):
         # ±0.12. An off-origin blade (y~0.4) with the old formula clamped v→1 so every face sampled
         # the bright spine-rim row → white/washed tip facets. Corrected UV = (y - yMin) / yH.
         run("stage2_spec/new_sculpt_spec.py", "Blade", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         c = spec["componentTree"][0]
         c["primitive"] = "ground-blade"
         c["topologyClass"] = "continuous-sculpt"
@@ -542,7 +542,7 @@ class PipelineTest(unittest.TestCase):
         # a cutout (wire-cutter oval hole) is done via THREE.Shape.holes — dep-free, no
         # three-bvh-csg. The generator must emit hole-handling + oval-loop support on extrude.
         run("stage2_spec/new_sculpt_spec.py", "Blade", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         c = spec["componentTree"][0]
         c["primitive"] = "extrude"
         c["topologyClass"] = "continuous-sculpt"
@@ -566,7 +566,7 @@ class PipelineTest(unittest.TestCase):
         # THIN straight extrude (flat slab) must be flagged before render; the same form
         # with real thickness must not.
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         c = spec["componentTree"][0]
         c["primitive"] = "extrude"
         c["topologyClass"] = "continuous-sculpt"
@@ -588,7 +588,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_generate_factory_emits_color_gradient_codegen(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         spec["materials"][0]["colorGradient"] = {
             "type": "linear",
             "axis": [1.0, 0.0],
@@ -630,7 +630,7 @@ class PipelineTest(unittest.TestCase):
             "formDetail": 0.75, "materialSurface": 0.7, "lightingCamera": 0.8,
         })
         # every critical feature target of this pass needs an AI-vision review entry
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         targets = spec.get("selfCorrectLoop", {}).get("featureReviewTargets", [])
         reviews = [
             {"id": t.get("id"), "score": 0.8, "visible": True, "notes": "acceptable"}
@@ -647,7 +647,7 @@ class PipelineTest(unittest.TestCase):
                 "--feature-reviews-json", freviews,
                 "--camera-view", "front", "--in-place")
         self.assertEqual(r.returncode, 0, r.stderr)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         self.assertTrue(len(spec.get("reviewHistory", [])) >= 1)
 
     def test_pbr_extraction_runs(self):
@@ -666,7 +666,7 @@ class PipelineTest(unittest.TestCase):
             "--out", self.assessment)
         run("stage2_spec/new_sculpt_spec.py", "Widget", "--assessment", self.assessment,
             "--out", self.spec)
-        return json.loads(self.spec.read_text())
+        return json.loads(self.spec.read_text(encoding="utf-8"))
 
     def test_new_schema_fields_present(self):
         spec = self._fresh_spec("complex")
@@ -743,7 +743,7 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("dominantAlbedo", recipe)
         self.assertTrue(recipe["dominantAlbedo"].startswith("rgba("))
         self.assertIn("materialClass", recipe)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         self.assertIn("colorMaterialRecipe", spec["componentTree"][0])
         self.assertEqual(spec["componentTree"][0]["colorMaterialRecipe"]["dominantAlbedo"], recipe["dominantAlbedo"])
 
@@ -771,7 +771,7 @@ class PipelineTest(unittest.TestCase):
         # include that person's specific traits (glasses/headphones/chest decal) unless the
         # caller opts in with --accessories. See new_sculpt_spec.py make_character_component_tree.
         run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         ids = {c["id"] for c in spec["componentTree"]}
         for part in (
             "root", "head", "abdomen", "chest", "neck", "hair",  # spine is two segments (US-001)
@@ -818,7 +818,7 @@ class PipelineTest(unittest.TestCase):
     def test_character_accessories_flag_restores_bust_traits(self):
         run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--accessories",
             "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         ids = {c["id"] for c in spec["componentTree"]}
         for accessory in ("glasses-frame-l", "hp-band", "shirt-decal"):
             self.assertIn(accessory, ids)
@@ -832,7 +832,7 @@ class PipelineTest(unittest.TestCase):
         without any flag, and the old mitten ids do not come back.
         """
         run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         ids = {c["id"] for c in spec["componentTree"]}
         for side in ("l", "r"):
             for digit in ("thumb", "index", "middle", "ring", "little"):
@@ -847,11 +847,11 @@ class PipelineTest(unittest.TestCase):
 
     def test_character_autodetect_from_domain(self):
         run("stage2_spec/new_pre_spec_assessment.py", "Person", "--complexity", "complex", "--out", self.assessment)
-        a = json.loads(self.assessment.read_text())
+        a = json.loads(self.assessment.read_text(encoding="utf-8"))
         a["preSpecAssessment"]["objectClass"]["primaryDomain"] = "character"
         self.assessment.write_text(json.dumps(a))
         run("stage2_spec/new_sculpt_spec.py", "Person", "--assessment", self.assessment, "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         self.assertIn("head", {c["id"] for c in spec["componentTree"]})
 
     def test_character_factory_generates(self):
@@ -867,7 +867,7 @@ class PipelineTest(unittest.TestCase):
         # Author a Doppler-style (anodized-multicolored) CS2 skin, image-first.
         run("stage2_spec/new_sculpt_spec.py", "Karambit Doppler", "--cs2",
             "--finish-style", "anodized-multicolored", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         finish = next(m for m in spec["materials"] if m["id"] == "skin-finish")
         # view-dependent PBR: high metalness, low roughness, strong environment
         self.assertGreaterEqual(finish["metalness"]["base"], 0.9)
@@ -887,13 +887,13 @@ class PipelineTest(unittest.TestCase):
 
     def test_cs2_track_skipped_for_objects(self):
         run("stage2_spec/new_sculpt_spec.py", "Crate", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         self.assertNotIn("skin-finish", {m["id"] for m in spec["materials"]})
 
     def test_cs2_intent_autodetected_from_target_name(self):
         r = run("stage2_spec/new_pre_spec_assessment.py", "Karambit | Doppler", "--out", self.assessment)
         self.assertEqual(r.returncode, 0, r.stderr)
-        payload = json.loads(self.assessment.read_text())
+        payload = json.loads(self.assessment.read_text(encoding="utf-8"))
         self.assertTrue(payload["preSpecAssessment"]["objectClass"]["cs2"])
 
     def test_cs2_defaults_to_ultra_complex(self):
@@ -901,25 +901,25 @@ class PipelineTest(unittest.TestCase):
         # ultra-complex (targetMinDetails 16) in both the assessment and the authored spec.
         r = run("stage2_spec/new_pre_spec_assessment.py", "Karambit | Doppler", "--out", self.assessment)
         self.assertEqual(r.returncode, 0, r.stderr)
-        pre = json.loads(self.assessment.read_text())["preSpecAssessment"]
+        pre = json.loads(self.assessment.read_text(encoding="utf-8"))["preSpecAssessment"]
         self.assertEqual(pre["complexity"]["tier"], "ultra-complex")
         self.assertEqual(pre["detailInventory"]["targetMinDetails"], 16)
         run("stage2_spec/new_sculpt_spec.py", "Karambit Doppler", "--cs2", "--out", self.spec)
-        spec_pre = json.loads(self.spec.read_text())["preSpecAssessment"]
+        spec_pre = json.loads(self.spec.read_text(encoding="utf-8"))["preSpecAssessment"]
         self.assertEqual(spec_pre["complexity"]["tier"], "ultra-complex")
         self.assertEqual(spec_pre["detailInventory"]["targetMinDetails"], 16)
         # an explicit lower --complexity still honors the 9 detail floor
         r2 = run("stage2_spec/new_pre_spec_assessment.py", "Bayonet skin", "--cs2",
                  "--complexity", "simple", "--out", self.assessment, "--force")
         self.assertEqual(r2.returncode, 0, r2.stderr)
-        low = json.loads(self.assessment.read_text())["preSpecAssessment"]
+        low = json.loads(self.assessment.read_text(encoding="utf-8"))["preSpecAssessment"]
         self.assertEqual(low["detailInventory"]["targetMinDetails"], 9)
 
     def test_cs2_identity_precedence_flags_conflict(self):
         # skin name implies anodized-multicolored (Doppler); vision disagrees with patina.
         run("stage2_spec/new_sculpt_spec.py", "Item", "--cs2", "--skin-name", "Karambit Doppler",
             "--vision-finish-style", "patina", "--vision-confidence", "0.9", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         self.assertEqual(spec["cs2Finish"]["finishStyle"], "anodized-multicolored")
         unknowns = spec["preSpecAssessment"]["unknownsToResolveBeforeImplementation"]
         self.assertTrue(any("conflict" in u.lower() for u in unknowns))
@@ -927,7 +927,7 @@ class PipelineTest(unittest.TestCase):
     def test_cs2_float_and_paint_seed_drive_wear_and_placement(self):
         run("stage2_spec/new_sculpt_spec.py", "Karambit", "--cs2", "--finish-style", "patina",
             "--float", "0.7", "--paint-seed", "12345", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
+        spec = json.loads(self.spec.read_text(encoding="utf-8"))
         finish = next(m for m in spec["materials"] if m["id"] == "skin-finish")
         self.assertFalse(finish["wear"]["approximated"])
         self.assertGreater(finish["wear"]["edgeWear"], 0.5)

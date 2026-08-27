@@ -15,6 +15,7 @@ from typing import Final, TypeAlias, TypedDict
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from forge._shared.console import enable_utf8_output  # noqa: E402
 from forge._shared.spec_search import (  # noqa: E402
     CacheReadError,
     CacheValidationError,
@@ -174,6 +175,9 @@ def _emit_error(context: ErrorContext, failure: CliFailure) -> int:
 
 
 def main(argv: Sequence[str]) -> int:
+    # Before argparse, so `--help` (which the bilingual descriptions also reach) and every
+    # payload below leave this process as UTF-8 regardless of the console's own codec.
+    enable_utf8_output()
     json_requested = "--json" in argv
     try:
         options = _parse_options(argv)
