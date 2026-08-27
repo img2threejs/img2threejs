@@ -72,6 +72,11 @@ only the executable order and one-line summary; this file defines the mandatory 
   structural payload integrity only; pose stress, dynamic bounds, readable screenshots, and
   visual likeness remain separate gates. Payload ownership and non-goals:
   `grimoire/readiness/procedural_rigging_contract.md`.
+- **Model-space gate (moving builds, HARD)**: authoring and target frames are separate declarations.
+  `forge/stage5_rig/model_space_gate.py` requires one conversion owner when they differ, an identity
+  semantic root, target-forward marker, and measured front/rear features on opposite sides. A marker
+  or label alone cannot hide sideways geometry. Rigid insects, quadrupeds, and mechanical creatures
+  follow `grimoire/readiness/non_humanoid_animation.md`, not the humanoid skin payload by default.
 - **Tier 1 (legacy, still valid)**: "Tier 2 (AI-vision) never runs against a render that has not passed Tier 1." Run `forge/stage4_review/diagnose_render.py` (silhouette IoU/proportion/symmetry/per-part color) and record it (`--spec ... --in-place`) before requesting a comparison sheet; `orchestrate_passes.py check` refuses otherwise.
 - **Pre-spec / strict-quality**: blocks code gen until the spec is deep enough for its contract.
 - **Screenshot feedback**: `continue` is allowed only with a render + comparison sheet + global

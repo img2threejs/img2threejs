@@ -80,6 +80,8 @@ python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence
 - one image path / screenshot / URL / attached image (if missing or unreadable, ask)
 - intended use: prop, game object, hero render, playable/destructible object, animation rig
   (default: real-time browser prop with interactive performance)
+- authoring coordinate frame, target runtime coordinate frame, and the single owner of any
+  conversion between them; never infer target forward from the reference pose or a viewer default
 - for a CS2 request, an authoritative classification record (family/subtype and evidence refs) or
   an explicit request for the user/vision provider to supply one; heuristic detection alone is not
   enough to select a geometry adapter
@@ -285,6 +287,9 @@ attachment, material, detail inventory, rig payload, character track). In short:
   passes a straight cone occupying roughly the right cells.
 - Character builds validate the rig payload (`stage5_rig/validate_rig_payload.py`) before binding a
   `THREE.Skeleton`; it proves payload integrity only, never pose stress or likeness.
+- Moving builds declare authoring and target model space and run
+  `stage5_rig/model_space_gate.py`. Non-humanoid articulated subjects use
+  `grimoire/readiness/non_humanoid_animation.md`; rigid pivots do not need a humanoid skeleton.
 - CS2 builds also run `cs2_review.py` against the versioned scene fixture.
 - Local state enforces 3 corrections per pass and 6 total by default; reaching either limit is a
   hard stop. `correction_loop.py` may stop earlier on repeated defects, oscillation, or plateau.
@@ -322,8 +327,10 @@ Full rule + examples: `grimoire/review/self_correction.md`.
 ## Left and right
 
 A left/right pair is a **reflection**, never a rotation: negate the lateral axis and nothing else,
-`(x, y, z) → (-x, y, z)`. With `forward: +Z`, Y up and a right-handed frame, the character's own
-left is **+X**. The convention lives as code in `forge/_shared/chirality.py`
+`(x, y, z) → (-x, y, z)`. In this skill's **authoring frame**, with `forward: +Z`, Y up and a
+right-handed frame, the character's own left is **+X**. This does not define a consumer's target
+forward; declare and gate any conversion with `stage5_rig/model_space_gate.py`. The chirality
+convention lives as code in `forge/_shared/chirality.py`
 (`CHARACTER_LEFT_SIGN`), with two different gates for the two defects that shipped from getting it
 wrong: `validate_chirality` catches a rotation-mistaken-for-reflection at spec time, and
 `medial_lateral_bias` vs a reference catches a pair that is wrong the same way on both sides.
