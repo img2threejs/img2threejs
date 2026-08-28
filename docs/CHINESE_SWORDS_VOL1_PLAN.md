@@ -1,7 +1,7 @@
 # 中国刀剑程序化重建 · 第一辑执行计划
 
-最后更新：2026-08-25  
-状态：Phase 0 完成 / Phase A 待执行  
+最后更新：2026-08-28  
+状态：Phase 0 完成 / Phase A 完成（本地 showcase）  
 范围：本仓库 `chinese-swords` 工作线 + companion showcase 展览
 
 本文是项目发展计划，不是单把刀的制作手册。
@@ -38,8 +38,8 @@
 
 | 项 | 状态 | 说明 |
 |---|---|---|
-| 环首刀进入 showcase | 未做 | 还只是重建目录 + 本地 preview |
-| 展示动画（idle / slash） | 未做 | 工厂尚无 `userData.tick` |
+| 环首刀进入 showcase | 本地完成 | `#/demo/han-huan-shou-dao`；showcase 仍无 git，公开 PR 另做 |
+| 展示动画（idle / slash） | idle 有 / slash 无 | showcase 工厂副本 `userData.tick` idle rock；未做 Slash |
 | 上游同步 | Phase 0 已同步 | 本地 `main`/`chinese-swords` 已含 upstream `v1.5.1`（`d37b6de`） |
 | 工作分支 | Phase 0 已整理 | WIP 已提交；仅剩可丢弃 untracked junk |
 | 第 2 / 第 3 把刀 | 未开始 | 还不能证明 adapter 可复制 |
@@ -49,8 +49,8 @@
 
 ```text
 建模主线完成
-    → 你在这里：成品展示期起点 / 系列化之前
-        → 门面作品上架
+    → 门面作品上架（Phase A 本地完成）
+        → 你在这里：可开第 2 把 / 或先做 showcase 公开 PR
         → 生产线验证（第 2 把）
         → 三把成辑并上网
 ```
@@ -171,39 +171,41 @@
 
 #### A1. 本地再确认
 
-- [ ] 启动环首刀 preview，确认模型仍可渲染
-- [ ] 抽查关键 captures / HANDOFF 分数未回退
-- [ ] 核对权威文件仍是：
+- [x] 启动环首刀 preview，确认模型仍可渲染  
+  （`python3 -m http.server 4173` → preview index 200；bundle 仍在）
+- [x] 抽查关键 captures / HANDOFF 分数未回退  
+  （Divine Eye hero/optimization PASS；IoU ≈ 0.89；strict-quality PASS）
+- [x] 核对权威文件仍是：
   - `fill_spec.py`
   - `object-sculpt-spec.json`
   - `createHanHuanShouDao.ts`
 
 #### A2. 接入 showcase
 
-- [ ] 在 showcase 中 scaffold：
+- [x] 在 showcase 中 scaffold：
   ```bash
   cd ~/img2threejs-showcase
   npm run new-demo -- han-huan-shou-dao "Han Huan-Shou Dao" object
   ```
-- [ ] 放入工厂代码（从重建产物整理为 showcase demo 工厂）
-- [ ] 添加 `public/references/han-huan-shou-dao.png`（或系列统一裁切图）
-- [ ] 填写 `src/demos/registry.ts`：
+- [x] 放入工厂代码（从重建产物整理为 showcase demo 工厂）
+- [x] 添加 `public/references/han-huan-shou-dao.png`（或系列统一裁切图）
+- [x] 填写 `src/demos/registry.ts`：
   - id / title / author / description
   - cameraPosition / cameraTarget / cameraFov
   - subjectClass = object
-- [ ] `npm run dev` 验收：
+- [x] `npm run dev` / preview 验收：
   - `#/demo/han-huan-shou-dao`
   - 轨道旋转、参考图、爆炸视图（若启用）
-- [ ] `npm run build` 通过
+- [x] `npm run build` 通过
 
 #### A3. 展示层（最小即可）
 
 优先级从高到低：
 
-1. [ ] 静态展览相机与灯光调到“第一眼像样”
-2. [ ] 可选：轻微 idle rock（`userData.tick`）
-3. [ ] 可选：单次 `Slash`（`animationController` 按钮）
-4. [ ] 不做角色持刀
+1. [x] 静态展览相机与灯光调到“第一眼像样”
+2. [x] 可选：轻微 idle rock（`userData.tick`）
+3. [ ] 可选：单次 `Slash`（`animationController` 按钮）— **本阶段不做**
+4. [x] 不做角色持刀
 
 Slash 若做，约束如下：
 
@@ -213,9 +215,9 @@ Slash 若做，约束如下：
 
 #### A4. 作品说明
 
-- [ ] 中文短描述（展览卡）
-- [ ] 英文短描述（registry）
-- [ ] 固定话术要点：
+- [x] 中文短描述（展览卡）— 见 HANDOFF Phase A 话术
+- [x] 英文短描述（registry）
+- [x] 固定话术要点：
   - code-only / procedural Three.js
   - 非 photogrammetry、非下载 mesh
   - 基于三视图 / 参考图重建
@@ -223,11 +225,12 @@ Slash 若做，约束如下：
 
 #### A5. 本仓库记录
 
-- [ ] 更新 `reconstructions/han-huan-shou-dao/HANDOFF.md`：
+- [x] 更新 `reconstructions/han-huan-shou-dao/HANDOFF.md`：
   - showcase 路由
   - 展示功能（idle/slash 有无）
   - 已知限制
-- [ ] 在本计划勾选 Phase A 完成项
+- [x] 在本计划勾选 Phase A 完成项
+- [x] Phase A 视觉证据：`captures/showcase-phase-a/`（hero + orbit + 并排对照，已读回）
 
 #### 完成定义
 
@@ -235,7 +238,8 @@ Slash 若做，约束如下：
 - 有参考图与可读描述
 - 不依赖开发者解释也能看懂“这是什么”
 
-**公开上网可以在 A 结束后就做一次“单品发布”，不必等三把齐。**
+**公开上网可以在 A 结束后就做一次“单品发布”，不必等三把齐。**  
+（当前 showcase 无 git：本地展品已成立；正式 PR 前先重 clone / 补 remote。）
 
 ---
 
@@ -501,6 +505,7 @@ slug 规则：
 | 2026-08-25 | 角色持刀与 jian 家族不进 Vol.1 必做范围 |
 | 2026-08-25 | 本计划落地为 `docs/CHINESE_SWORDS_VOL1_PLAN.md` |
 | 2026-08-25 | Phase 0 完成：WIP 提交 + main ff upstream + merge 入 chinese-swords；环首刀可再生 |
+| 2026-08-28 | Phase A 完成（本地）：环首刀接入 showcase；idle rock；截图门禁读回；slash 未做 |
 
 ---
 
@@ -510,18 +515,17 @@ slug 规则：
 
 ```text
 [下一动作]
-1. Phase 0 已完成（本分支基于 upstream v1.5.1+）
-2. 进入 Phase A：把 han-huan-shou-dao 接入本地 showcase
-3. 正式对外 PR 前先给 showcase 重 clone / 补 remote
+1. Phase A 本地已完成：#/demo/han-huan-shou-dao
+2. 可选：showcase 重 clone / 补 remote 后开单品 PR（公开上网）
+3. 或进入 Phase B：唐横刀简型，验证 dao_adapter 复用
 ```
 
-若暂时不改工程、只想先看见展览效果，可并行做：
+本地展览启动：
 
 ```text
-[可并行]
-- 启动 ~/img2threejs-showcase
-- 手动临时挂一次环首刀 demo 做观感验证
-- 但正式提交前仍需回到 Phase 0/A 清单
+export IMG2THREEJS_SHOWCASE_ROOT=~/img2threejs-showcase
+cd ~/img2threejs-showcase && npm run build && npm run preview -- --host 127.0.0.1 --port 4174
+# → http://127.0.0.1:4174/#/demo/han-huan-shou-dao
 ```
 
 ---

@@ -13,16 +13,16 @@
 
 | 顺序 | slug | 状态 | 说明 |
 |---|---|---|---|
-| 1 | [`han-huan-shou-dao`](./han-huan-shou-dao/) | 重建完成 / 待上架 showcase | 汉代环首刀；镇馆之宝 |
+| 1 | [`han-huan-shou-dao`](./han-huan-shou-dao/) | 重建完成 / **本地 showcase 已上架** | 汉代环首刀；`#/demo/han-huan-shou-dao` |
 | 2 | `tang-heng-dao` | 计划中 | 唐横刀简型；验证 `dao_adapter` |
 | 3 | `ming-yaodao` 或 `xiu-chun-dao-lite` | 计划中 | 近古刀装；拉出系列跨度 |
 
 当前执行顺序见计划 Phase 0 → A → B → C：
 
-1. 同步上游并整理分支  
-2. 环首刀接入 showcase  
-3. 第二把压生产线  
-4. 三把成辑并公开展示  
+1. ~~同步上游并整理分支~~（Phase 0 完成）  
+2. ~~环首刀接入本地 showcase~~（Phase A 完成；公开 PR 仍可选）  
+3. 第二把压生产线（Phase B）  
+4. 三把成辑并公开展示（Phase C）  
 
 ## 目录约定
 

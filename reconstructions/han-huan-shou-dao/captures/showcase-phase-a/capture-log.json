@@ -1,0 +1,61 @@
+{
+  "runtime": {
+    "ready": true,
+    "runtime": {
+      "model": "han-huan-shou-dao",
+      "hasTick": true,
+      "pivotNames": [],
+      "socketNames": [
+        "root:blade-heel",
+        "root:guard-back",
+        "root:front-ferrule-back",
+        "root:handle-back",
+        "root:rear-ferrule-back",
+        "root:pommel-anchor"
+      ],
+      "actionAnchors": {},
+      "colliderCount": 0,
+      "adjacencyCount": 0,
+      "attachmentGate": null,
+      "attachmentAudit": null,
+      "destructionGroupNames": [
+        "root",
+        "blade",
+        "guard",
+        "collar",
+        "handle",
+        "ferrule",
+        "ring"
+      ]
+    },
+    "parts": {
+      "partCount": 7,
+      "integralMeshes": 39,
+      "unnamedMeshes": 0
+    },
+    "hasViewer": true,
+    "h2": "Han Huan-Shou Dao (汉代环首刀)"
+  },
+  "stats": {
+    "meshCount": 46,
+    "tri": 86544,
+    "partCount": 7,
+    "bg": "ffffff"
+  },
+  "consoleErrors": [],
+  "url": "http://127.0.0.1:4174",
+  "demo": "han-huan-shou-dao",
+  "cameras": {
+    "heroPos": [
+      1.95,
+      0.72,
+      5.35
+    ],
+    "target": [
+      1.15,
+      0.02,
+      0
+    ]
+  },
+  "at": "2026-08-28T13:23:00.854Z"
+}
