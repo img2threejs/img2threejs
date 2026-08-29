@@ -1,0 +1,59 @@
+{
+  "pass": "showcase-polish-a1",
+  "at": "2026-08-29T13:03:22.504Z",
+  "iterations": 2,
+  "p2Wrap": "skipped — P0/P1 closed without expanding wrap scope",
+  "runtime": {
+    "partCount": 7,
+    "integralMeshes": 39,
+    "unnamedMeshes": 0,
+    "socketCount": 6,
+    "destructionGroups": ["root", "blade", "guard", "collar", "handle", "ferrule", "ring"],
+    "meshCountSceneTraverse": 47,
+    "triangles": 87490,
+    "consoleErrors": 0
+  },
+  "whiteCapture": {
+    "file": "showcase-capture-white.png",
+    "size": [1440, 900],
+    "fill_w": 0.9222222222222223,
+    "reference_fill_w": 0.950595238095238,
+    "length_abs_delta": 0.028373015873015772,
+    "length_rel_delta": 0.02984763097474421,
+    "phaseA_fill_w": 0.8569444444444444,
+    "captureMargin": 1.04
+  },
+  "hero": {
+    "cameraPosition": [1.52, 0.54, 4.62],
+    "cameraTarget": [0.86, 0.02, 0],
+    "cameraFov": 28,
+    "rightDisplayFill": 0.8050541516245487,
+    "tipClearPx": 69,
+    "ringMarginPx": 140,
+    "exposure": 1.18,
+    "environmentIntensity": 1.12
+  },
+  "silhouette": {
+    "note": "Raw diagnose_render.py on 1440x900 vs 1680x360 scoring crop is a plate-aspect mismatch, not a model regression. Use length-normalized IoU.",
+    "rawDiagnoseIoU": 0.278,
+    "widthNormalizedIoU": 0.8783,
+    "bladeOnlyWidthNormalizedIoU": 0.9027,
+    "phaseAWidthNormalizedIoU": 0.9012,
+    "phaseABladeOnlyIoU": 0.9103,
+    "workstationEightPassIoU": 0.8898
+  },
+  "acceptance": {
+    "strictQuality": "PASS",
+    "daoAdapterTests": "4 OK",
+    "whiteLengthDeltaLe5pct": true,
+    "heroFill75to85": true,
+    "ringNotSquare": true,
+    "hamonNotThreeRails": true,
+    "meshesLe50": true,
+    "trisLe100k": true,
+    "partsUnchanged": true,
+    "consoleErrorsZero": true,
+    "desktopCanvasNotBlank": true,
+    "mobileCanvasNotBlank": true
+  }
+}

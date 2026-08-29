@@ -1,6 +1,6 @@
 # 汉代环首刀重建交接
 
-最后更新：2026-08-28
+最后更新：2026-08-29
 
 通用制作流程、刀/剑差异、模块化装饰合同和完整验收清单见
 [`docs/WEAPON_RECONSTRUCTION_PLAYBOOK.md`](../../docs/WEAPON_RECONSTRUCTION_PLAYBOOK.md)。本文件只记录
@@ -45,7 +45,26 @@
 | forge tests | 680 passed, 25 skipped |
 
 `object-sculpt-spec.json` 已记录八条独立的 `action=continue` 审核；spec pipeline 与
-`.img2threejs/state.json` 均为 `complete`，没有剩余 mandatory step。
+`.img2threejs/state.json` 均为 `complete`，没有剩余 mandatory step。不要把 stale `.img2threejs/state.json` 当成这次 polish 的完成证据。
+
+## Phase A.1 Public Showcase Polish（2026-08-29）
+
+有限范围门面打磨，**没有**重开 8-pass pipeline，也没有改 dao adapter / 组件 ID / socket / explode 合同。权威链仍是 `fill_spec.py` → spec → 生成工厂。
+
+改动：
+
+- 环首：12 点方框轮廓改为 32 点椭圆挤出（W/H ≈ 0.937），真实椭圆孔、短颈、正反刻线跟随新轮廓
+- 刃纹：正反面各保留 3 条 ID；主线 + 两条更细更暗的伴随线，低频起伏与端部包络
+- 钢材 / 鎏金：略提高 envMapIntensity 与金属度；展厅层 exposure 1.18、IBL 1.12、稍亮渐变底
+- 白底构图：实际路径是 `frameForCapture` + `captureMargin`（1.12 → 1.04），不是 hero 相机
+- 首屏构图：相机 `[1.52, 0.54, 4.62]`，看向 `[0.86, 0.02, 0]`，刀身约占右侧展示区 80.5%
+- P2 缠柄：未改（3.25 圈），避免扩 scope
+
+证据在 `captures/showcase-polish-a1/`。白底相对 `reference-face-clean.png` 的归一化长度差 2.98%。等长归一化剪影 IoU 0.878（刃身-only 0.903）。`diagnose_render.py` 直接对比 1440×900 白底与 1680×360 评分裁切会因画幅失败（IoU 0.278），那是评分几何不匹配，不是模型回归。工位 8-pass 剪影仍以当时的 0.8898 为准。
+
+运行时：scene traverse 47 meshes / 87,490 tris / 7 parts / 6 sockets / 0 console errors。Showcase idle rock 只存在于展厅工厂的 `options.animate` + `userData.tick`，没有写回 `fill_spec.py`。
+
+剩余限制：环首纹饰仍是简化三圈刻线；没有 Slash / 角色动画；缠柄没有加密度。
 
 ## Dao Family 架构
 

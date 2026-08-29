@@ -1262,7 +1262,7 @@
           {
             "id": "pommel-anchor",
             "localPosition": [
-              2.2036544811320757,
+              2.1996544811320757,
               0.0,
               0.0
             ],
@@ -1645,11 +1645,11 @@
       "name": "Hamon front line 1",
       "level": "micro",
       "role": "detail",
-      "importance": 0.72,
+      "importance": 0.58,
       "confidence": 0.78,
       "primitive": "tube",
       "topologyClass": "continuous-sculpt",
-      "topologyRationale": "Thin procedural wave follows the blade front face rather than projecting source pixels.",
+      "topologyRationale": "Primary hamon plus quieter companion etches on the front face; low-frequency wander with tapered ends, not three equal highlight rails.",
       "geometryDescriptor": {
         "topologyIntent": "Hamon front line 1 reconstruction",
         "edgeTreatment": {
@@ -1663,68 +1663,148 @@
         "tubePath": {
           "points": [
             [
-              0.30377,
-              0.00957,
-              0.0137
+              0.28,
+              0.00819,
+              0.01291
             ],
             [
-              0.35802,
-              0.00955,
-              0.01505
+              0.33333,
+              0.00804,
+              0.01444
             ],
             [
-              0.41226,
+              0.38667,
+              0.0077,
+              0.01576
+            ],
+            [
+              0.44,
+              0.00764,
+              0.01709
+            ],
+            [
+              0.49333,
+              0.00762,
+              0.0182
+            ],
+            [
+              0.54667,
+              0.00689,
+              0.01908
+            ],
+            [
+              0.6,
+              0.00682,
+              0.01996
+            ],
+            [
+              0.65333,
+              0.00644,
+              0.02075
+            ],
+            [
+              0.70667,
+              0.00591,
+              0.02141
+            ],
+            [
+              0.76,
+              0.00593,
+              0.02191
+            ],
+            [
+              0.81333,
+              0.00666,
+              0.02219
+            ],
+            [
+              0.86667,
+              0.00773,
+              0.02247
+            ],
+            [
+              0.92,
+              0.00851,
+              0.0227
+            ],
+            [
+              0.97333,
+              0.00895,
+              0.02293
+            ],
+            [
+              1.02667,
+              0.00893,
+              0.02316
+            ],
+            [
+              1.08,
               0.00886,
-              0.0164
+              0.02335
             ],
             [
-              0.46651,
-              0.00969,
-              0.01775
+              1.13333,
+              0.00867,
+              0.02353
             ],
             [
-              0.54788,
-              0.00748,
-              0.0191
+              1.18667,
+              0.00845,
+              0.02372
             ],
             [
-              0.62925,
-              0.00915,
-              0.02045
+              1.24,
+              0.00823,
+              0.0239
             ],
             [
-              0.73774,
-              0.00566,
-              0.0218
+              1.29333,
+              0.00793,
+              0.0241
             ],
             [
-              0.87335,
-              0.01258,
-              0.0225
+              1.34667,
+              0.00764,
+              0.0243
             ],
             [
-              1.03608,
-              0.01141,
-              0.0232
+              1.4,
+              0.00743,
+              0.02449
             ],
             [
-              1.22594,
-              0.00989,
-              0.02385
+              1.45333,
+              0.00766,
+              0.02467
             ],
             [
-              1.4158,
-              0.0102,
-              0.02455
+              1.50667,
+              0.00822,
+              0.02484
             ],
             [
-              1.61922,
-              0.01165,
-              0.0252
+              1.56,
+              0.00895,
+              0.02501
+            ],
+            [
+              1.61333,
+              0.00972,
+              0.02518
+            ],
+            [
+              1.66667,
+              0.01041,
+              0.02537
+            ],
+            [
+              1.72,
+              0.01095,
+              0.02556
             ]
           ],
-          "radius": 0.00075,
-          "radialSegments": 6,
+          "radius": 0.00042,
+          "radialSegments": 5,
           "closed": false
         }
       },
@@ -1806,12 +1886,12 @@
           "seamRefs": [],
           "detachableFragments": [],
           "breakImpulse": 0.0,
-          "debrisMaterial": "hamon-steel"
+          "debrisMaterial": "hamon-steel-secondary"
         }
       },
-      "material": "hamon-steel",
+      "material": "hamon-steel-secondary",
       "materialLayers": [
-        "hamon-steel"
+        "hamon-steel-secondary"
       ],
       "deformations": [],
       "joints": [],
@@ -1833,10 +1913,10 @@
       "details": [],
       "fidelityTier": "blockout",
       "colorMaterialRecipe": {
-        "dominantAlbedo": "rgba(221, 225, 228, 1.0)",
-        "secondaryAlbedo": "rgba(200, 205, 209, 1.0)",
+        "dominantAlbedo": "rgba(142, 149, 156, 1.0)",
+        "secondaryAlbedo": "rgba(122, 129, 136, 1.0)",
         "materialClass": "metal",
-        "materialClassConfidence": 0.72
+        "materialClassConfidence": 0.6
       },
       "explodeWithParent": "blade",
       "ownerModule": "blade",
@@ -1848,11 +1928,11 @@
       "name": "Hamon front line 2",
       "level": "micro",
       "role": "detail",
-      "importance": 0.72,
+      "importance": 0.78,
       "confidence": 0.78,
       "primitive": "tube",
       "topologyClass": "continuous-sculpt",
-      "topologyRationale": "Thin procedural wave follows the blade front face rather than projecting source pixels.",
+      "topologyRationale": "Primary hamon plus quieter companion etches on the front face; low-frequency wander with tapered ends, not three equal highlight rails.",
       "geometryDescriptor": {
         "topologyIntent": "Hamon front line 2 reconstruction",
         "edgeTreatment": {
@@ -1866,68 +1946,148 @@
         "tubePath": {
           "points": [
             [
-              0.30377,
-              0.01557,
-              0.0137
+              0.28,
+              0.01579,
+              0.01291
             ],
             [
-              0.35802,
-              0.01557,
-              0.01505
+              0.33333,
+              0.01564,
+              0.01444
             ],
             [
-              0.41226,
-              0.01493,
-              0.0164
+              0.38667,
+              0.01526,
+              0.01576
             ],
             [
-              0.46651,
-              0.01556,
-              0.01775
+              0.44,
+              0.01511,
+              0.01709
             ],
             [
-              0.54788,
-              0.01371,
-              0.0191
+              0.49333,
+              0.01495,
+              0.0182
             ],
             [
-              0.62925,
-              0.01575,
-              0.02045
+              0.54667,
+              0.01408,
+              0.01908
             ],
             [
-              0.73774,
-              0.01161,
-              0.0218
+              0.6,
+              0.01391,
+              0.01996
             ],
             [
-              0.87335,
-              0.01655,
-              0.0225
+              0.65333,
+              0.01354,
+              0.02075
             ],
             [
-              1.03608,
-              0.01908,
-              0.0232
+              0.70667,
+              0.01328,
+              0.02141
             ],
             [
-              1.22594,
-              0.01764,
-              0.02385
+              0.76,
+              0.01392,
+              0.02191
             ],
             [
-              1.4158,
-              0.0171,
-              0.02455
+              0.81333,
+              0.01559,
+              0.02219
             ],
             [
-              1.61922,
-              0.01772,
-              0.0252
+              0.86667,
+              0.01765,
+              0.02247
+            ],
+            [
+              0.92,
+              0.01911,
+              0.0227
+            ],
+            [
+              0.97333,
+              0.01957,
+              0.02293
+            ],
+            [
+              1.02667,
+              0.01881,
+              0.02316
+            ],
+            [
+              1.08,
+              0.01746,
+              0.02335
+            ],
+            [
+              1.13333,
+              0.01583,
+              0.02353
+            ],
+            [
+              1.18667,
+              0.01445,
+              0.02372
+            ],
+            [
+              1.24,
+              0.01355,
+              0.0239
+            ],
+            [
+              1.29333,
+              0.01308,
+              0.0241
+            ],
+            [
+              1.34667,
+              0.01298,
+              0.0243
+            ],
+            [
+              1.4,
+              0.01318,
+              0.02449
+            ],
+            [
+              1.45333,
+              0.01389,
+              0.02467
+            ],
+            [
+              1.50667,
+              0.01495,
+              0.02484
+            ],
+            [
+              1.56,
+              0.01612,
+              0.02501
+            ],
+            [
+              1.61333,
+              0.01718,
+              0.02518
+            ],
+            [
+              1.66667,
+              0.01799,
+              0.02537
+            ],
+            [
+              1.72,
+              0.01855,
+              0.02556
             ]
           ],
-          "radius": 0.0011,
-          "radialSegments": 6,
+          "radius": 0.00092,
+          "radialSegments": 5,
           "closed": false
         }
       },
@@ -2036,8 +2196,8 @@
       "details": [],
       "fidelityTier": "blockout",
       "colorMaterialRecipe": {
-        "dominantAlbedo": "rgba(221, 225, 228, 1.0)",
-        "secondaryAlbedo": "rgba(200, 205, 209, 1.0)",
+        "dominantAlbedo": "rgba(184, 191, 198, 1.0)",
+        "secondaryAlbedo": "rgba(154, 162, 169, 1.0)",
         "materialClass": "metal",
         "materialClassConfidence": 0.72
       },
@@ -2051,11 +2211,11 @@
       "name": "Hamon front line 3",
       "level": "micro",
       "role": "detail",
-      "importance": 0.72,
+      "importance": 0.58,
       "confidence": 0.78,
       "primitive": "tube",
       "topologyClass": "continuous-sculpt",
-      "topologyRationale": "Thin procedural wave follows the blade front face rather than projecting source pixels.",
+      "topologyRationale": "Primary hamon plus quieter companion etches on the front face; low-frequency wander with tapered ends, not three equal highlight rails.",
       "geometryDescriptor": {
         "topologyIntent": "Hamon front line 3 reconstruction",
         "edgeTreatment": {
@@ -2069,68 +2229,148 @@
         "tubePath": {
           "points": [
             [
-              0.30377,
-              0.02157,
-              0.0137
+              0.28,
+              0.02459,
+              0.01291
             ],
             [
-              0.35802,
-              0.02162,
-              0.01505
+              0.33333,
+              0.02439,
+              0.01444
             ],
             [
-              0.41226,
-              0.0209,
-              0.0164
+              0.38667,
+              0.02392,
+              0.01576
             ],
             [
-              0.46651,
-              0.0213,
-              0.01775
+              0.44,
+              0.02372,
+              0.01709
             ],
             [
-              0.54788,
-              0.02042,
-              0.0191
+              0.49333,
+              0.02369,
+              0.0182
             ],
             [
-              0.62925,
-              0.02169,
-              0.02045
+              0.54667,
+              0.0232,
+              0.01908
             ],
             [
-              0.73774,
-              0.0189,
-              0.0218
+              0.6,
+              0.02361,
+              0.01996
             ],
             [
-              0.87335,
-              0.01968,
-              0.0225
+              0.65333,
+              0.02385,
+              0.02075
             ],
             [
-              1.03608,
-              0.02465,
-              0.0232
+              0.70667,
+              0.02385,
+              0.02141
             ],
             [
-              1.22594,
-              0.02394,
-              0.02385
+              0.76,
+              0.02411,
+              0.02191
             ],
             [
-              1.4158,
-              0.02345,
-              0.02455
+              0.81333,
+              0.02468,
+              0.02219
             ],
             [
-              1.61922,
-              0.02374,
-              0.0252
+              0.86667,
+              0.02519,
+              0.02247
+            ],
+            [
+              0.92,
+              0.02513,
+              0.0227
+            ],
+            [
+              0.97333,
+              0.02459,
+              0.02293
+            ],
+            [
+              1.02667,
+              0.02361,
+              0.02316
+            ],
+            [
+              1.08,
+              0.02273,
+              0.02335
+            ],
+            [
+              1.13333,
+              0.02201,
+              0.02353
+            ],
+            [
+              1.18667,
+              0.02168,
+              0.02372
+            ],
+            [
+              1.24,
+              0.02179,
+              0.0239
+            ],
+            [
+              1.29333,
+              0.02222,
+              0.0241
+            ],
+            [
+              1.34667,
+              0.02285,
+              0.0243
+            ],
+            [
+              1.4,
+              0.02349,
+              0.02449
+            ],
+            [
+              1.45333,
+              0.0243,
+              0.02467
+            ],
+            [
+              1.50667,
+              0.02509,
+              0.02484
+            ],
+            [
+              1.56,
+              0.02577,
+              0.02501
+            ],
+            [
+              1.61333,
+              0.02635,
+              0.02518
+            ],
+            [
+              1.66667,
+              0.02687,
+              0.02537
+            ],
+            [
+              1.72,
+              0.02735,
+              0.02556
             ]
           ],
-          "radius": 0.00075,
-          "radialSegments": 6,
+          "radius": 0.00036,
+          "radialSegments": 5,
           "closed": false
         }
       },
@@ -2212,12 +2452,12 @@
           "seamRefs": [],
           "detachableFragments": [],
           "breakImpulse": 0.0,
-          "debrisMaterial": "hamon-steel"
+          "debrisMaterial": "hamon-steel-secondary"
         }
       },
-      "material": "hamon-steel",
+      "material": "hamon-steel-secondary",
       "materialLayers": [
-        "hamon-steel"
+        "hamon-steel-secondary"
       ],
       "deformations": [],
       "joints": [],
@@ -2239,10 +2479,10 @@
       "details": [],
       "fidelityTier": "blockout",
       "colorMaterialRecipe": {
-        "dominantAlbedo": "rgba(221, 225, 228, 1.0)",
-        "secondaryAlbedo": "rgba(200, 205, 209, 1.0)",
+        "dominantAlbedo": "rgba(142, 149, 156, 1.0)",
+        "secondaryAlbedo": "rgba(122, 129, 136, 1.0)",
         "materialClass": "metal",
-        "materialClassConfidence": 0.72
+        "materialClassConfidence": 0.6
       },
       "explodeWithParent": "blade",
       "ownerModule": "blade",
@@ -2254,11 +2494,11 @@
       "name": "Hamon back line 1",
       "level": "micro",
       "role": "detail",
-      "importance": 0.72,
+      "importance": 0.58,
       "confidence": 0.68,
       "primitive": "tube",
       "topologyClass": "continuous-sculpt",
-      "topologyRationale": "Thin procedural wave follows the blade back face rather than projecting source pixels.",
+      "topologyRationale": "Primary hamon plus quieter companion etches on the back face; low-frequency wander with tapered ends, not three equal highlight rails.",
       "geometryDescriptor": {
         "topologyIntent": "Hamon back line 1 reconstruction",
         "edgeTreatment": {
@@ -2272,68 +2512,148 @@
         "tubePath": {
           "points": [
             [
-              0.30377,
-              0.00957,
-              -0.0137
+              0.28,
+              0.00819,
+              -0.01291
             ],
             [
-              0.35802,
+              0.33333,
+              0.00802,
+              -0.01444
+            ],
+            [
+              0.38667,
+              0.00763,
+              -0.01576
+            ],
+            [
+              0.44,
+              0.00748,
+              -0.01709
+            ],
+            [
+              0.49333,
+              0.00738,
+              -0.0182
+            ],
+            [
+              0.54667,
+              0.00665,
+              -0.01908
+            ],
+            [
+              0.6,
+              0.00668,
+              -0.01996
+            ],
+            [
+              0.65333,
+              0.00649,
+              -0.02075
+            ],
+            [
+              0.70667,
+              0.00621,
+              -0.02141
+            ],
+            [
+              0.76,
+              0.00649,
+              -0.02191
+            ],
+            [
+              0.81333,
+              0.00743,
+              -0.02219
+            ],
+            [
+              0.86667,
+              0.0086,
+              -0.02247
+            ],
+            [
+              0.92,
+              0.00934,
+              -0.0227
+            ],
+            [
+              0.97333,
               0.00956,
-              -0.01505
+              -0.02293
             ],
             [
-              0.41226,
-              0.0089,
-              -0.0164
+              1.02667,
+              0.00918,
+              -0.02316
             ],
             [
-              0.46651,
-              0.00965,
-              -0.01775
+              1.08,
+              0.00864,
+              -0.02335
             ],
             [
-              0.54788,
-              0.00752,
-              -0.0191
+              1.13333,
+              0.00798,
+              -0.02353
             ],
             [
-              0.62925,
-              0.0095,
-              -0.02045
+              1.18667,
+              0.00742,
+              -0.02372
             ],
             [
-              0.73774,
-              0.00546,
-              -0.0218
+              1.24,
+              0.00707,
+              -0.0239
             ],
             [
-              0.87335,
-              0.01183,
-              -0.0225
+              1.29333,
+              0.00684,
+              -0.0241
             ],
             [
-              1.03608,
-              0.01242,
-              -0.0232
+              1.34667,
+              0.0068,
+              -0.0243
             ],
             [
-              1.22594,
-              0.01083,
-              -0.02385
+              1.4,
+              0.0069,
+              -0.02449
             ],
             [
-              1.4158,
-              0.01065,
-              -0.02455
+              1.45333,
+              0.0074,
+              -0.02467
             ],
             [
-              1.61922,
-              0.01169,
-              -0.0252
+              1.50667,
+              0.00816,
+              -0.02484
+            ],
+            [
+              1.56,
+              0.00898,
+              -0.02501
+            ],
+            [
+              1.61333,
+              0.00976,
+              -0.02518
+            ],
+            [
+              1.66667,
+              0.01042,
+              -0.02537
+            ],
+            [
+              1.72,
+              0.01095,
+              -0.02556
             ]
           ],
-          "radius": 0.00075,
-          "radialSegments": 6,
+          "radius": 0.00042,
+          "radialSegments": 5,
           "closed": false
         }
       },
@@ -2415,12 +2735,12 @@
           "seamRefs": [],
           "detachableFragments": [],
           "breakImpulse": 0.0,
-          "debrisMaterial": "hamon-steel"
+          "debrisMaterial": "hamon-steel-secondary"
         }
       },
-      "material": "hamon-steel",
+      "material": "hamon-steel-secondary",
       "materialLayers": [
-        "hamon-steel"
+        "hamon-steel-secondary"
       ],
       "deformations": [],
       "joints": [],
@@ -2442,10 +2762,10 @@
       "details": [],
       "fidelityTier": "blockout",
       "colorMaterialRecipe": {
-        "dominantAlbedo": "rgba(221, 225, 228, 1.0)",
-        "secondaryAlbedo": "rgba(200, 205, 209, 1.0)",
+        "dominantAlbedo": "rgba(142, 149, 156, 1.0)",
+        "secondaryAlbedo": "rgba(122, 129, 136, 1.0)",
         "materialClass": "metal",
-        "materialClassConfidence": 0.72
+        "materialClassConfidence": 0.6
       },
       "explodeWithParent": "blade",
       "ownerModule": "blade",
@@ -2457,11 +2777,11 @@
       "name": "Hamon back line 2",
       "level": "micro",
       "role": "detail",
-      "importance": 0.72,
+      "importance": 0.78,
       "confidence": 0.68,
       "primitive": "tube",
       "topologyClass": "continuous-sculpt",
-      "topologyRationale": "Thin procedural wave follows the blade back face rather than projecting source pixels.",
+      "topologyRationale": "Primary hamon plus quieter companion etches on the back face; low-frequency wander with tapered ends, not three equal highlight rails.",
       "geometryDescriptor": {
         "topologyIntent": "Hamon back line 2 reconstruction",
         "edgeTreatment": {
@@ -2475,68 +2795,148 @@
         "tubePath": {
           "points": [
             [
-              0.30377,
-              0.01557,
-              -0.0137
+              0.28,
+              0.01579,
+              -0.01291
             ],
             [
-              0.35802,
-              0.01559,
-              -0.01505
+              0.33333,
+              0.0156,
+              -0.01444
             ],
             [
-              0.41226,
-              0.01493,
-              -0.0164
+              0.38667,
+              0.01513,
+              -0.01576
             ],
             [
-              0.46651,
-              0.01545,
-              -0.01775
+              0.44,
+              0.01488,
+              -0.01709
             ],
             [
-              0.54788,
-              0.014,
-              -0.0191
+              0.49333,
+              0.01474,
+              -0.0182
             ],
             [
-              0.62925,
-              0.01581,
-              -0.02045
+              0.54667,
+              0.01406,
+              -0.01908
             ],
             [
-              0.73774,
-              0.01206,
-              -0.0218
+              0.6,
+              0.01426,
+              -0.01996
             ],
             [
-              0.87335,
-              0.01524,
-              -0.0225
+              0.65333,
+              0.01435,
+              -0.02075
             ],
             [
-              1.03608,
-              0.01915,
-              -0.0232
+              0.70667,
+              0.0145,
+              -0.02141
             ],
             [
-              1.22594,
-              0.01799,
-              -0.02385
+              0.76,
+              0.01537,
+              -0.02191
             ],
             [
-              1.4158,
-              0.01735,
-              -0.02455
+              0.81333,
+              0.01698,
+              -0.02219
             ],
             [
-              1.61922,
-              0.01774,
-              -0.0252
+              0.86667,
+              0.0187,
+              -0.02247
+            ],
+            [
+              0.92,
+              0.01956,
+              -0.0227
+            ],
+            [
+              0.97333,
+              0.01924,
+              -0.02293
+            ],
+            [
+              1.02667,
+              0.01765,
+              -0.02316
+            ],
+            [
+              1.08,
+              0.01553,
+              -0.02335
+            ],
+            [
+              1.13333,
+              0.01338,
+              -0.02353
+            ],
+            [
+              1.18667,
+              0.01182,
+              -0.02372
+            ],
+            [
+              1.24,
+              0.01117,
+              -0.0239
+            ],
+            [
+              1.29333,
+              0.01126,
+              -0.0241
+            ],
+            [
+              1.34667,
+              0.0119,
+              -0.0243
+            ],
+            [
+              1.4,
+              0.01277,
+              -0.02449
+            ],
+            [
+              1.45333,
+              0.01395,
+              -0.02467
+            ],
+            [
+              1.50667,
+              0.01522,
+              -0.02484
+            ],
+            [
+              1.56,
+              0.01639,
+              -0.02501
+            ],
+            [
+              1.61333,
+              0.01734,
+              -0.02518
+            ],
+            [
+              1.66667,
+              0.01804,
+              -0.02537
+            ],
+            [
+              1.72,
+              0.01855,
+              -0.02556
             ]
           ],
-          "radius": 0.0011,
-          "radialSegments": 6,
+          "radius": 0.00092,
+          "radialSegments": 5,
           "closed": false
         }
       },
@@ -2645,8 +3045,8 @@
       "details": [],
       "fidelityTier": "blockout",
       "colorMaterialRecipe": {
-        "dominantAlbedo": "rgba(221, 225, 228, 1.0)",
-        "secondaryAlbedo": "rgba(200, 205, 209, 1.0)",
+        "dominantAlbedo": "rgba(184, 191, 198, 1.0)",
+        "secondaryAlbedo": "rgba(154, 162, 169, 1.0)",
         "materialClass": "metal",
         "materialClassConfidence": 0.72
       },
@@ -2660,11 +3060,11 @@
       "name": "Hamon back line 3",
       "level": "micro",
       "role": "detail",
-      "importance": 0.72,
+      "importance": 0.58,
       "confidence": 0.68,
       "primitive": "tube",
       "topologyClass": "continuous-sculpt",
-      "topologyRationale": "Thin procedural wave follows the blade back face rather than projecting source pixels.",
+      "topologyRationale": "Primary hamon plus quieter companion etches on the back face; low-frequency wander with tapered ends, not three equal highlight rails.",
       "geometryDescriptor": {
         "topologyIntent": "Hamon back line 3 reconstruction",
         "edgeTreatment": {
@@ -2678,68 +3078,148 @@
         "tubePath": {
           "points": [
             [
-              0.30377,
-              0.02157,
-              -0.0137
+              0.28,
+              0.02459,
+              -0.01291
             ],
             [
-              0.35802,
-              0.02164,
-              -0.01505
+              0.33333,
+              0.02438,
+              -0.01444
             ],
             [
-              0.41226,
-              0.02085,
-              -0.0164
+              0.38667,
+              0.02391,
+              -0.01576
             ],
             [
-              0.46651,
-              0.02119,
-              -0.01775
+              0.44,
+              0.02375,
+              -0.01709
             ],
             [
-              0.54788,
-              0.02081,
-              -0.0191
-            ],
-            [
-              0.62925,
-              0.02145,
-              -0.02045
-            ],
-            [
-              0.73774,
-              0.0198,
-              -0.0218
-            ],
-            [
-              0.87335,
-              0.01848,
-              -0.0225
-            ],
-            [
-              1.03608,
+              0.49333,
               0.0238,
-              -0.0232
+              -0.0182
             ],
             [
-              1.22594,
-              0.02351,
-              -0.02385
+              0.54667,
+              0.02342,
+              -0.01908
             ],
             [
-              1.4158,
-              0.02334,
-              -0.02455
+              0.6,
+              0.02396,
+              -0.01996
             ],
             [
-              1.61922,
-              0.02373,
-              -0.0252
+              0.65333,
+              0.02426,
+              -0.02075
+            ],
+            [
+              0.70667,
+              0.0242,
+              -0.02141
+            ],
+            [
+              0.76,
+              0.02426,
+              -0.02191
+            ],
+            [
+              0.81333,
+              0.0245,
+              -0.02219
+            ],
+            [
+              0.86667,
+              0.02464,
+              -0.02247
+            ],
+            [
+              0.92,
+              0.02424,
+              -0.0227
+            ],
+            [
+              0.97333,
+              0.02347,
+              -0.02293
+            ],
+            [
+              1.02667,
+              0.02241,
+              -0.02316
+            ],
+            [
+              1.08,
+              0.0216,
+              -0.02335
+            ],
+            [
+              1.13333,
+              0.02108,
+              -0.02353
+            ],
+            [
+              1.18667,
+              0.02103,
+              -0.02372
+            ],
+            [
+              1.24,
+              0.02147,
+              -0.0239
+            ],
+            [
+              1.29333,
+              0.02221,
+              -0.0241
+            ],
+            [
+              1.34667,
+              0.02307,
+              -0.0243
+            ],
+            [
+              1.4,
+              0.02384,
+              -0.02449
+            ],
+            [
+              1.45333,
+              0.02465,
+              -0.02467
+            ],
+            [
+              1.50667,
+              0.02536,
+              -0.02484
+            ],
+            [
+              1.56,
+              0.02593,
+              -0.02501
+            ],
+            [
+              1.61333,
+              0.02642,
+              -0.02518
+            ],
+            [
+              1.66667,
+              0.02688,
+              -0.02537
+            ],
+            [
+              1.72,
+              0.02735,
+              -0.02556
             ]
           ],
-          "radius": 0.00075,
-          "radialSegments": 6,
+          "radius": 0.00036,
+          "radialSegments": 5,
           "closed": false
         }
       },
@@ -2821,12 +3301,12 @@
           "seamRefs": [],
           "detachableFragments": [],
           "breakImpulse": 0.0,
-          "debrisMaterial": "hamon-steel"
+          "debrisMaterial": "hamon-steel-secondary"
         }
       },
-      "material": "hamon-steel",
+      "material": "hamon-steel-secondary",
       "materialLayers": [
-        "hamon-steel"
+        "hamon-steel-secondary"
       ],
       "deformations": [],
       "joints": [],
@@ -2848,10 +3328,10 @@
       "details": [],
       "fidelityTier": "blockout",
       "colorMaterialRecipe": {
-        "dominantAlbedo": "rgba(221, 225, 228, 1.0)",
-        "secondaryAlbedo": "rgba(200, 205, 209, 1.0)",
+        "dominantAlbedo": "rgba(142, 149, 156, 1.0)",
+        "secondaryAlbedo": "rgba(122, 129, 136, 1.0)",
         "materialClass": "metal",
-        "materialClassConfidence": 0.72
+        "materialClassConfidence": 0.6
       },
       "explodeWithParent": "blade",
       "ownerModule": "blade",
@@ -7737,61 +8217,141 @@
         "profile2D": {
           "points": [
             [
-              -0.35,
-              -0.5
-            ],
-            [
-              0.35,
-              -0.5
-            ],
-            [
-              0.48,
-              -0.38
-            ],
-            [
               0.5,
-              -0.2
+              0.0
             ],
             [
-              0.5,
-              0.2
+              0.49039,
+              0.09755
             ],
             [
-              0.48,
-              0.38
+              0.46194,
+              0.19134
             ],
             [
-              0.35,
+              0.41573,
+              0.27779
+            ],
+            [
+              0.35355,
+              0.35355
+            ],
+            [
+              0.27779,
+              0.41573
+            ],
+            [
+              0.19134,
+              0.46194
+            ],
+            [
+              0.09755,
+              0.49039
+            ],
+            [
+              0.0,
               0.5
             ],
             [
-              -0.35,
-              0.5
+              -0.09755,
+              0.49039
             ],
             [
-              -0.48,
-              0.38
+              -0.19134,
+              0.46194
+            ],
+            [
+              -0.27779,
+              0.41573
+            ],
+            [
+              -0.35355,
+              0.35355
+            ],
+            [
+              -0.41573,
+              0.27779
+            ],
+            [
+              -0.46194,
+              0.19134
+            ],
+            [
+              -0.49039,
+              0.09755
             ],
             [
               -0.5,
-              0.2
+              0.0
             ],
             [
-              -0.5,
-              -0.2
+              -0.49039,
+              -0.09755
             ],
             [
-              -0.48,
-              -0.38
+              -0.46194,
+              -0.19134
+            ],
+            [
+              -0.41573,
+              -0.27779
+            ],
+            [
+              -0.35355,
+              -0.35355
+            ],
+            [
+              -0.27779,
+              -0.41573
+            ],
+            [
+              -0.19134,
+              -0.46194
+            ],
+            [
+              -0.09755,
+              -0.49039
+            ],
+            [
+              -0.0,
+              -0.5
+            ],
+            [
+              0.09755,
+              -0.49039
+            ],
+            [
+              0.19134,
+              -0.46194
+            ],
+            [
+              0.27779,
+              -0.41573
+            ],
+            [
+              0.35355,
+              -0.35355
+            ],
+            [
+              0.41573,
+              -0.27779
+            ],
+            [
+              0.46194,
+              -0.19134
+            ],
+            [
+              0.49039,
+              -0.09755
             ]
           ],
           "depth": 1.0,
           "ovalHoles": [
             {
-              "cx": 0.03,
-              "cy": 0.01,
-              "rx": 0.26,
-              "ry": 0.41
+              "cx": 0.04,
+              "cy": 0.0,
+              "rx": 0.28,
+              "ry": 0.262
             }
           ]
         }
@@ -7816,15 +8376,15 @@
         "embedDepth": 0.0
       },
       "dimensions": {
-        "width": 0.156,
-        "height": 0.139,
+        "width": 0.148,
+        "height": 0.158,
         "depth": 0.012,
         "units": "relative",
         "confidence": 0.9
       },
       "transform": {
         "position": [
-          2.2036544811320757,
+          2.1996544811320757,
           0.0,
           -0.006
         ],
@@ -7834,8 +8394,8 @@
           0.0
         ],
         "scale": [
-          0.156,
-          0.139,
+          0.148,
+          0.158,
           0.012
         ]
       },
@@ -7950,68 +8510,168 @@
         "tubePath": {
           "points": [
             [
-              2.15615,
-              -0.06047,
+              2.26548,
+              0.0,
               0.0067
             ],
             [
-              2.25116,
-              -0.06047,
+              2.26423,
+              0.01356,
               0.0067
             ],
             [
-              2.2688,
-              -0.04595,
+              2.26053,
+              0.0266,
               0.0067
             ],
             [
-              2.27151,
-              -0.02419,
+              2.25451,
+              0.03862,
               0.0067
             ],
             [
-              2.27151,
-              0.02419,
+              2.24641,
+              0.04916,
               0.0067
             ],
             [
-              2.2688,
-              0.04595,
+              2.23654,
+              0.0578,
               0.0067
             ],
             [
-              2.25116,
-              0.06047,
+              2.22529,
+              0.06423,
               0.0067
             ],
             [
-              2.15615,
-              0.06047,
+              2.21307,
+              0.06818,
               0.0067
             ],
             [
-              2.13851,
-              0.04595,
+              2.20036,
+              0.06952,
               0.0067
             ],
             [
-              2.13579,
-              0.02419,
+              2.18766,
+              0.06818,
               0.0067
             ],
             [
-              2.13579,
-              -0.02419,
+              2.17544,
+              0.06423,
               0.0067
             ],
             [
-              2.13851,
-              -0.04595,
+              2.16419,
+              0.0578,
+              0.0067
+            ],
+            [
+              2.15432,
+              0.04916,
+              0.0067
+            ],
+            [
+              2.14622,
+              0.03862,
+              0.0067
+            ],
+            [
+              2.1402,
+              0.0266,
+              0.0067
+            ],
+            [
+              2.1365,
+              0.01356,
+              0.0067
+            ],
+            [
+              2.13524,
+              0.0,
+              0.0067
+            ],
+            [
+              2.1365,
+              -0.01356,
+              0.0067
+            ],
+            [
+              2.1402,
+              -0.0266,
+              0.0067
+            ],
+            [
+              2.14622,
+              -0.03862,
+              0.0067
+            ],
+            [
+              2.15432,
+              -0.04916,
+              0.0067
+            ],
+            [
+              2.16419,
+              -0.0578,
+              0.0067
+            ],
+            [
+              2.17544,
+              -0.06423,
+              0.0067
+            ],
+            [
+              2.18766,
+              -0.06818,
+              0.0067
+            ],
+            [
+              2.20036,
+              -0.06952,
+              0.0067
+            ],
+            [
+              2.21307,
+              -0.06818,
+              0.0067
+            ],
+            [
+              2.22529,
+              -0.06423,
+              0.0067
+            ],
+            [
+              2.23654,
+              -0.0578,
+              0.0067
+            ],
+            [
+              2.24641,
+              -0.04916,
+              0.0067
+            ],
+            [
+              2.25451,
+              -0.03862,
+              0.0067
+            ],
+            [
+              2.26053,
+              -0.0266,
+              0.0067
+            ],
+            [
+              2.26423,
+              -0.01356,
               0.0067
             ]
           ],
           "radius": 0.0011,
-          "radialSegments": 6,
+          "radialSegments": 5,
           "closed": true
         }
       },
@@ -8153,248 +8813,168 @@
         "tubePath": {
           "points": [
             [
-              2.26917,
-              0.00139,
+              2.25459,
+              0.0,
               0.0067
             ],
             [
-              2.26865,
-              0.00965,
+              2.25357,
+              0.0111,
               0.0067
             ],
             [
-              2.2671,
-              0.01776,
+              2.25054,
+              0.02177,
               0.0067
             ],
             [
-              2.26454,
-              0.02559,
+              2.24561,
+              0.0316,
               0.0067
             ],
             [
-              2.26102,
-              0.03301,
+              2.23899,
+              0.04022,
               0.0067
             ],
             [
-              2.2566,
-              0.03989,
+              2.23091,
+              0.04729,
               0.0067
             ],
             [
-              2.25135,
-              0.04611,
+              2.2217,
+              0.05255,
               0.0067
             ],
             [
-              2.24537,
-              0.05157,
+              2.21171,
+              0.05579,
               0.0067
             ],
             [
-              2.23875,
-              0.05616,
+              2.20131,
+              0.05688,
               0.0067
             ],
             [
-              2.23162,
-              0.05982,
+              2.19092,
+              0.05579,
               0.0067
             ],
             [
-              2.22408,
-              0.06248,
+              2.18092,
+              0.05255,
               0.0067
             ],
             [
-              2.21628,
-              0.06409,
+              2.17171,
+              0.04729,
               0.0067
             ],
             [
-              2.20833,
-              0.06464,
+              2.16364,
+              0.04022,
               0.0067
             ],
             [
-              2.20039,
-              0.06409,
+              2.15701,
+              0.0316,
               0.0067
             ],
             [
-              2.19259,
-              0.06248,
+              2.15209,
+              0.02177,
               0.0067
             ],
             [
-              2.18505,
-              0.05982,
+              2.14906,
+              0.0111,
               0.0067
             ],
             [
-              2.17791,
-              0.05616,
+              2.14803,
+              0.0,
               0.0067
             ],
             [
-              2.1713,
-              0.05157,
+              2.14906,
+              -0.0111,
               0.0067
             ],
             [
-              2.16531,
-              0.04611,
+              2.15209,
+              -0.02177,
               0.0067
             ],
             [
-              2.16007,
-              0.03989,
+              2.15701,
+              -0.0316,
               0.0067
             ],
             [
-              2.15565,
-              0.03301,
+              2.16364,
+              -0.04022,
               0.0067
             ],
             [
-              2.15213,
-              0.02559,
+              2.17171,
+              -0.04729,
               0.0067
             ],
             [
-              2.14957,
-              0.01776,
+              2.18092,
+              -0.05255,
               0.0067
             ],
             [
-              2.14801,
-              0.00965,
+              2.19092,
+              -0.05579,
               0.0067
             ],
             [
-              2.14749,
-              0.00139,
+              2.20131,
+              -0.05688,
               0.0067
             ],
             [
-              2.14801,
-              -0.00687,
+              2.21171,
+              -0.05579,
               0.0067
             ],
             [
-              2.14957,
-              -0.01498,
+              2.2217,
+              -0.05255,
               0.0067
             ],
             [
-              2.15213,
-              -0.02281,
+              2.23091,
+              -0.04729,
               0.0067
             ],
             [
-              2.15565,
-              -0.03023,
+              2.23899,
+              -0.04022,
               0.0067
             ],
             [
-              2.16007,
-              -0.03711,
+              2.24561,
+              -0.0316,
               0.0067
             ],
             [
-              2.16531,
-              -0.04333,
+              2.25054,
+              -0.02177,
               0.0067
             ],
             [
-              2.1713,
-              -0.04879,
-              0.0067
-            ],
-            [
-              2.17791,
-              -0.05338,
-              0.0067
-            ],
-            [
-              2.18505,
-              -0.05704,
-              0.0067
-            ],
-            [
-              2.19259,
-              -0.0597,
-              0.0067
-            ],
-            [
-              2.20039,
-              -0.06131,
-              0.0067
-            ],
-            [
-              2.20833,
-              -0.06186,
-              0.0067
-            ],
-            [
-              2.21628,
-              -0.06131,
-              0.0067
-            ],
-            [
-              2.22408,
-              -0.0597,
-              0.0067
-            ],
-            [
-              2.23162,
-              -0.05704,
-              0.0067
-            ],
-            [
-              2.23875,
-              -0.05338,
-              0.0067
-            ],
-            [
-              2.24537,
-              -0.04879,
-              0.0067
-            ],
-            [
-              2.25135,
-              -0.04333,
-              0.0067
-            ],
-            [
-              2.2566,
-              -0.03711,
-              0.0067
-            ],
-            [
-              2.26102,
-              -0.03023,
-              0.0067
-            ],
-            [
-              2.26454,
-              -0.02281,
-              0.0067
-            ],
-            [
-              2.2671,
-              -0.01498,
-              0.0067
-            ],
-            [
-              2.26865,
-              -0.00687,
+              2.25357,
+              -0.0111,
               0.0067
             ]
           ],
           "radius": 0.0011,
-          "radialSegments": 6,
+          "radialSegments": 5,
           "closed": true
         }
       },
@@ -8536,248 +9116,168 @@
         "tubePath": {
           "points": [
             [
-              2.25513,
-              0.00139,
+              2.24506,
+              0.0,
               0.0067
             ],
             [
-              2.25473,
-              0.00937,
+              2.24424,
+              0.00894,
               0.0067
             ],
             [
-              2.25354,
-              0.01722,
+              2.24179,
+              0.01753,
               0.0067
             ],
             [
-              2.25157,
-              0.02479,
+              2.23783,
+              0.02546,
               0.0067
             ],
             [
-              2.24886,
-              0.03197,
+              2.23249,
+              0.0324,
               0.0067
             ],
             [
-              2.24546,
-              0.03862,
+              2.22599,
+              0.0381,
               0.0067
             ],
             [
-              2.24143,
-              0.04464,
+              2.21857,
+              0.04233,
               0.0067
             ],
             [
-              2.23682,
-              0.04991,
+              2.21051,
+              0.04494,
               0.0067
             ],
             [
-              2.23173,
-              0.05436,
+              2.20214,
+              0.04582,
               0.0067
             ],
             [
-              2.22624,
-              0.05789,
+              2.19377,
+              0.04494,
               0.0067
             ],
             [
-              2.22045,
-              0.06047,
+              2.18572,
+              0.04233,
               0.0067
             ],
             [
-              2.21444,
-              0.06203,
+              2.1783,
+              0.0381,
               0.0067
             ],
             [
-              2.20833,
-              0.06255,
+              2.17179,
+              0.0324,
               0.0067
             ],
             [
-              2.20223,
-              0.06203,
+              2.16645,
+              0.02546,
               0.0067
             ],
             [
-              2.19622,
-              0.06047,
+              2.16249,
+              0.01753,
               0.0067
             ],
             [
-              2.19042,
-              0.05789,
+              2.16005,
+              0.00894,
               0.0067
             ],
             [
-              2.18493,
-              0.05436,
+              2.15922,
+              0.0,
               0.0067
             ],
             [
-              2.17984,
-              0.04991,
+              2.16005,
+              -0.00894,
               0.0067
             ],
             [
-              2.17524,
-              0.04464,
+              2.16249,
+              -0.01753,
               0.0067
             ],
             [
-              2.17121,
-              0.03862,
+              2.16645,
+              -0.02546,
               0.0067
             ],
             [
-              2.1678,
-              0.03197,
+              2.17179,
+              -0.0324,
               0.0067
             ],
             [
-              2.1651,
-              0.02479,
+              2.1783,
+              -0.0381,
               0.0067
             ],
             [
-              2.16313,
-              0.01722,
+              2.18572,
+              -0.04233,
               0.0067
             ],
             [
-              2.16193,
-              0.00937,
+              2.19377,
+              -0.04494,
               0.0067
             ],
             [
-              2.16153,
-              0.00139,
+              2.20214,
+              -0.04582,
               0.0067
             ],
             [
-              2.16193,
-              -0.00659,
+              2.21051,
+              -0.04494,
               0.0067
             ],
             [
-              2.16313,
-              -0.01444,
+              2.21857,
+              -0.04233,
               0.0067
             ],
             [
-              2.1651,
-              -0.02201,
+              2.22599,
+              -0.0381,
               0.0067
             ],
             [
-              2.1678,
-              -0.02919,
+              2.23249,
+              -0.0324,
               0.0067
             ],
             [
-              2.17121,
-              -0.03584,
+              2.23783,
+              -0.02546,
               0.0067
             ],
             [
-              2.17524,
-              -0.04186,
+              2.24179,
+              -0.01753,
               0.0067
             ],
             [
-              2.17984,
-              -0.04713,
-              0.0067
-            ],
-            [
-              2.18493,
-              -0.05158,
-              0.0067
-            ],
-            [
-              2.19042,
-              -0.05511,
-              0.0067
-            ],
-            [
-              2.19622,
-              -0.05769,
-              0.0067
-            ],
-            [
-              2.20223,
-              -0.05925,
-              0.0067
-            ],
-            [
-              2.20833,
-              -0.05977,
-              0.0067
-            ],
-            [
-              2.21444,
-              -0.05925,
-              0.0067
-            ],
-            [
-              2.22045,
-              -0.05769,
-              0.0067
-            ],
-            [
-              2.22624,
-              -0.05511,
-              0.0067
-            ],
-            [
-              2.23173,
-              -0.05158,
-              0.0067
-            ],
-            [
-              2.23682,
-              -0.04713,
-              0.0067
-            ],
-            [
-              2.24143,
-              -0.04186,
-              0.0067
-            ],
-            [
-              2.24546,
-              -0.03584,
-              0.0067
-            ],
-            [
-              2.24886,
-              -0.02919,
-              0.0067
-            ],
-            [
-              2.25157,
-              -0.02201,
-              0.0067
-            ],
-            [
-              2.25354,
-              -0.01444,
-              0.0067
-            ],
-            [
-              2.25473,
-              -0.00659,
+              2.24424,
+              -0.00894,
               0.0067
             ]
           ],
           "radius": 0.0011,
-          "radialSegments": 6,
+          "radialSegments": 5,
           "closed": true
         }
       },
@@ -8919,68 +9419,168 @@
         "tubePath": {
           "points": [
             [
-              2.15615,
-              -0.06047,
+              2.26548,
+              0.0,
               -0.0067
             ],
             [
-              2.25116,
-              -0.06047,
+              2.26423,
+              0.01356,
               -0.0067
             ],
             [
-              2.2688,
-              -0.04595,
+              2.26053,
+              0.0266,
               -0.0067
             ],
             [
-              2.27151,
-              -0.02419,
+              2.25451,
+              0.03862,
               -0.0067
             ],
             [
-              2.27151,
-              0.02419,
+              2.24641,
+              0.04916,
               -0.0067
             ],
             [
-              2.2688,
-              0.04595,
+              2.23654,
+              0.0578,
               -0.0067
             ],
             [
-              2.25116,
-              0.06047,
+              2.22529,
+              0.06423,
               -0.0067
             ],
             [
-              2.15615,
-              0.06047,
+              2.21307,
+              0.06818,
               -0.0067
             ],
             [
-              2.13851,
-              0.04595,
+              2.20036,
+              0.06952,
               -0.0067
             ],
             [
-              2.13579,
-              0.02419,
+              2.18766,
+              0.06818,
               -0.0067
             ],
             [
-              2.13579,
-              -0.02419,
+              2.17544,
+              0.06423,
               -0.0067
             ],
             [
-              2.13851,
-              -0.04595,
+              2.16419,
+              0.0578,
+              -0.0067
+            ],
+            [
+              2.15432,
+              0.04916,
+              -0.0067
+            ],
+            [
+              2.14622,
+              0.03862,
+              -0.0067
+            ],
+            [
+              2.1402,
+              0.0266,
+              -0.0067
+            ],
+            [
+              2.1365,
+              0.01356,
+              -0.0067
+            ],
+            [
+              2.13524,
+              0.0,
+              -0.0067
+            ],
+            [
+              2.1365,
+              -0.01356,
+              -0.0067
+            ],
+            [
+              2.1402,
+              -0.0266,
+              -0.0067
+            ],
+            [
+              2.14622,
+              -0.03862,
+              -0.0067
+            ],
+            [
+              2.15432,
+              -0.04916,
+              -0.0067
+            ],
+            [
+              2.16419,
+              -0.0578,
+              -0.0067
+            ],
+            [
+              2.17544,
+              -0.06423,
+              -0.0067
+            ],
+            [
+              2.18766,
+              -0.06818,
+              -0.0067
+            ],
+            [
+              2.20036,
+              -0.06952,
+              -0.0067
+            ],
+            [
+              2.21307,
+              -0.06818,
+              -0.0067
+            ],
+            [
+              2.22529,
+              -0.06423,
+              -0.0067
+            ],
+            [
+              2.23654,
+              -0.0578,
+              -0.0067
+            ],
+            [
+              2.24641,
+              -0.04916,
+              -0.0067
+            ],
+            [
+              2.25451,
+              -0.03862,
+              -0.0067
+            ],
+            [
+              2.26053,
+              -0.0266,
+              -0.0067
+            ],
+            [
+              2.26423,
+              -0.01356,
               -0.0067
             ]
           ],
           "radius": 0.0011,
-          "radialSegments": 6,
+          "radialSegments": 5,
           "closed": true
         }
       },
@@ -9122,248 +9722,168 @@
         "tubePath": {
           "points": [
             [
-              2.26917,
-              0.00139,
+              2.25459,
+              0.0,
               -0.0067
             ],
             [
-              2.26865,
-              0.00965,
+              2.25357,
+              0.0111,
               -0.0067
             ],
             [
-              2.2671,
-              0.01776,
+              2.25054,
+              0.02177,
               -0.0067
             ],
             [
-              2.26454,
-              0.02559,
+              2.24561,
+              0.0316,
               -0.0067
             ],
             [
-              2.26102,
-              0.03301,
+              2.23899,
+              0.04022,
               -0.0067
             ],
             [
-              2.2566,
-              0.03989,
+              2.23091,
+              0.04729,
               -0.0067
             ],
             [
-              2.25135,
-              0.04611,
+              2.2217,
+              0.05255,
               -0.0067
             ],
             [
-              2.24537,
-              0.05157,
+              2.21171,
+              0.05579,
               -0.0067
             ],
             [
-              2.23875,
-              0.05616,
+              2.20131,
+              0.05688,
               -0.0067
             ],
             [
-              2.23162,
-              0.05982,
+              2.19092,
+              0.05579,
               -0.0067
             ],
             [
-              2.22408,
-              0.06248,
+              2.18092,
+              0.05255,
               -0.0067
             ],
             [
-              2.21628,
-              0.06409,
+              2.17171,
+              0.04729,
               -0.0067
             ],
             [
-              2.20833,
-              0.06464,
+              2.16364,
+              0.04022,
               -0.0067
             ],
             [
-              2.20039,
-              0.06409,
+              2.15701,
+              0.0316,
               -0.0067
             ],
             [
-              2.19259,
-              0.06248,
+              2.15209,
+              0.02177,
               -0.0067
             ],
             [
-              2.18505,
-              0.05982,
+              2.14906,
+              0.0111,
               -0.0067
             ],
             [
-              2.17791,
-              0.05616,
+              2.14803,
+              0.0,
               -0.0067
             ],
             [
-              2.1713,
-              0.05157,
+              2.14906,
+              -0.0111,
               -0.0067
             ],
             [
-              2.16531,
-              0.04611,
+              2.15209,
+              -0.02177,
               -0.0067
             ],
             [
-              2.16007,
-              0.03989,
+              2.15701,
+              -0.0316,
               -0.0067
             ],
             [
-              2.15565,
-              0.03301,
+              2.16364,
+              -0.04022,
               -0.0067
             ],
             [
-              2.15213,
-              0.02559,
+              2.17171,
+              -0.04729,
               -0.0067
             ],
             [
-              2.14957,
-              0.01776,
+              2.18092,
+              -0.05255,
               -0.0067
             ],
             [
-              2.14801,
-              0.00965,
+              2.19092,
+              -0.05579,
               -0.0067
             ],
             [
-              2.14749,
-              0.00139,
+              2.20131,
+              -0.05688,
               -0.0067
             ],
             [
-              2.14801,
-              -0.00687,
+              2.21171,
+              -0.05579,
               -0.0067
             ],
             [
-              2.14957,
-              -0.01498,
+              2.2217,
+              -0.05255,
               -0.0067
             ],
             [
-              2.15213,
-              -0.02281,
+              2.23091,
+              -0.04729,
               -0.0067
             ],
             [
-              2.15565,
-              -0.03023,
+              2.23899,
+              -0.04022,
               -0.0067
             ],
             [
-              2.16007,
-              -0.03711,
+              2.24561,
+              -0.0316,
               -0.0067
             ],
             [
-              2.16531,
-              -0.04333,
+              2.25054,
+              -0.02177,
               -0.0067
             ],
             [
-              2.1713,
-              -0.04879,
-              -0.0067
-            ],
-            [
-              2.17791,
-              -0.05338,
-              -0.0067
-            ],
-            [
-              2.18505,
-              -0.05704,
-              -0.0067
-            ],
-            [
-              2.19259,
-              -0.0597,
-              -0.0067
-            ],
-            [
-              2.20039,
-              -0.06131,
-              -0.0067
-            ],
-            [
-              2.20833,
-              -0.06186,
-              -0.0067
-            ],
-            [
-              2.21628,
-              -0.06131,
-              -0.0067
-            ],
-            [
-              2.22408,
-              -0.0597,
-              -0.0067
-            ],
-            [
-              2.23162,
-              -0.05704,
-              -0.0067
-            ],
-            [
-              2.23875,
-              -0.05338,
-              -0.0067
-            ],
-            [
-              2.24537,
-              -0.04879,
-              -0.0067
-            ],
-            [
-              2.25135,
-              -0.04333,
-              -0.0067
-            ],
-            [
-              2.2566,
-              -0.03711,
-              -0.0067
-            ],
-            [
-              2.26102,
-              -0.03023,
-              -0.0067
-            ],
-            [
-              2.26454,
-              -0.02281,
-              -0.0067
-            ],
-            [
-              2.2671,
-              -0.01498,
-              -0.0067
-            ],
-            [
-              2.26865,
-              -0.00687,
+              2.25357,
+              -0.0111,
               -0.0067
             ]
           ],
           "radius": 0.0011,
-          "radialSegments": 6,
+          "radialSegments": 5,
           "closed": true
         }
       },
@@ -9505,248 +10025,168 @@
         "tubePath": {
           "points": [
             [
-              2.25513,
-              0.00139,
+              2.24506,
+              0.0,
               -0.0067
             ],
             [
-              2.25473,
-              0.00937,
+              2.24424,
+              0.00894,
               -0.0067
             ],
             [
-              2.25354,
-              0.01722,
+              2.24179,
+              0.01753,
               -0.0067
             ],
             [
-              2.25157,
-              0.02479,
+              2.23783,
+              0.02546,
               -0.0067
             ],
             [
-              2.24886,
-              0.03197,
+              2.23249,
+              0.0324,
               -0.0067
             ],
             [
-              2.24546,
-              0.03862,
+              2.22599,
+              0.0381,
               -0.0067
             ],
             [
-              2.24143,
-              0.04464,
+              2.21857,
+              0.04233,
               -0.0067
             ],
             [
-              2.23682,
-              0.04991,
+              2.21051,
+              0.04494,
               -0.0067
             ],
             [
-              2.23173,
-              0.05436,
+              2.20214,
+              0.04582,
               -0.0067
             ],
             [
-              2.22624,
-              0.05789,
+              2.19377,
+              0.04494,
               -0.0067
             ],
             [
-              2.22045,
-              0.06047,
+              2.18572,
+              0.04233,
               -0.0067
             ],
             [
-              2.21444,
-              0.06203,
+              2.1783,
+              0.0381,
               -0.0067
             ],
             [
-              2.20833,
-              0.06255,
+              2.17179,
+              0.0324,
               -0.0067
             ],
             [
-              2.20223,
-              0.06203,
+              2.16645,
+              0.02546,
               -0.0067
             ],
             [
-              2.19622,
-              0.06047,
+              2.16249,
+              0.01753,
               -0.0067
             ],
             [
-              2.19042,
-              0.05789,
+              2.16005,
+              0.00894,
               -0.0067
             ],
             [
-              2.18493,
-              0.05436,
+              2.15922,
+              0.0,
               -0.0067
             ],
             [
-              2.17984,
-              0.04991,
+              2.16005,
+              -0.00894,
               -0.0067
             ],
             [
-              2.17524,
-              0.04464,
+              2.16249,
+              -0.01753,
               -0.0067
             ],
             [
-              2.17121,
-              0.03862,
+              2.16645,
+              -0.02546,
               -0.0067
             ],
             [
-              2.1678,
-              0.03197,
+              2.17179,
+              -0.0324,
               -0.0067
             ],
             [
-              2.1651,
-              0.02479,
+              2.1783,
+              -0.0381,
               -0.0067
             ],
             [
-              2.16313,
-              0.01722,
+              2.18572,
+              -0.04233,
               -0.0067
             ],
             [
-              2.16193,
-              0.00937,
+              2.19377,
+              -0.04494,
               -0.0067
             ],
             [
-              2.16153,
-              0.00139,
+              2.20214,
+              -0.04582,
               -0.0067
             ],
             [
-              2.16193,
-              -0.00659,
+              2.21051,
+              -0.04494,
               -0.0067
             ],
             [
-              2.16313,
-              -0.01444,
+              2.21857,
+              -0.04233,
               -0.0067
             ],
             [
-              2.1651,
-              -0.02201,
+              2.22599,
+              -0.0381,
               -0.0067
             ],
             [
-              2.1678,
-              -0.02919,
+              2.23249,
+              -0.0324,
               -0.0067
             ],
             [
-              2.17121,
-              -0.03584,
+              2.23783,
+              -0.02546,
               -0.0067
             ],
             [
-              2.17524,
-              -0.04186,
+              2.24179,
+              -0.01753,
               -0.0067
             ],
             [
-              2.17984,
-              -0.04713,
-              -0.0067
-            ],
-            [
-              2.18493,
-              -0.05158,
-              -0.0067
-            ],
-            [
-              2.19042,
-              -0.05511,
-              -0.0067
-            ],
-            [
-              2.19622,
-              -0.05769,
-              -0.0067
-            ],
-            [
-              2.20223,
-              -0.05925,
-              -0.0067
-            ],
-            [
-              2.20833,
-              -0.05977,
-              -0.0067
-            ],
-            [
-              2.21444,
-              -0.05925,
-              -0.0067
-            ],
-            [
-              2.22045,
-              -0.05769,
-              -0.0067
-            ],
-            [
-              2.22624,
-              -0.05511,
-              -0.0067
-            ],
-            [
-              2.23173,
-              -0.05158,
-              -0.0067
-            ],
-            [
-              2.23682,
-              -0.04713,
-              -0.0067
-            ],
-            [
-              2.24143,
-              -0.04186,
-              -0.0067
-            ],
-            [
-              2.24546,
-              -0.03584,
-              -0.0067
-            ],
-            [
-              2.24886,
-              -0.02919,
-              -0.0067
-            ],
-            [
-              2.25157,
-              -0.02201,
-              -0.0067
-            ],
-            [
-              2.25354,
-              -0.01444,
-              -0.0067
-            ],
-            [
-              2.25473,
-              -0.00659,
+              2.24424,
+              -0.00894,
               -0.0067
             ]
           ],
           "radius": 0.0011,
-          "radialSegments": 6,
+          "radialSegments": 5,
           "closed": true
         }
       },
@@ -9929,10 +10369,10 @@
         "localResponse": "slightly higher below the hamon, lower on the polished shinogi"
       },
       "metalness": {
-        "base": 0.82,
-        "variation": 0.06
+        "base": 0.84,
+        "variation": 0.05
       },
-      "envMapIntensity": 0.45,
+      "envMapIntensity": 0.68,
       "vertexColors": true,
       "vertexToneFinal": true,
       "normal": {
@@ -10057,15 +10497,16 @@
         }
       ],
       "roughness": {
-        "base": 0.38,
-        "variation": 0.1,
+        "base": 0.3,
+        "variation": 0.08,
         "map": "independent-procedural-field",
         "localResponse": "duller in engraved recesses on the ring"
       },
       "metalness": {
-        "base": 0.74,
-        "variation": 0.08
+        "base": 0.86,
+        "variation": 0.06
       },
+      "envMapIntensity": 1.05,
       "normal": {
         "pattern": "derived-from-independent-height-field",
         "strength": 0.18,
@@ -10348,21 +10789,154 @@
       "name": "Polished hamon line",
       "type": "standard",
       "shaderModel": "MeshStandardMaterial / PBR approximation",
-      "baseColor": "#DDE1E4",
-      "color": "#DDE1E4",
+      "baseColor": "#B8BFC6",
+      "color": "#B8BFC6",
       "albedo": {
-        "dominant": "#DDE1E4",
+        "dominant": "#B8BFC6",
         "secondary": [
-          "#C8CDD1",
-          "#EEF0F2"
+          "#9AA2A9",
+          "#C9CED3"
         ],
-        "samplingNotes": "Thin pale etched lines from the illustrated hamon band."
+        "samplingNotes": "Primary etched hamon: cooler than chrome, not a white highlight rail."
       },
       "colorVariation": {
         "palette": [
-          "#C8CDD1",
-          "#DDE1E4",
-          "#EEF0F2"
+          "#9AA2A9",
+          "#B8BFC6",
+          "#C9CED3"
+        ],
+        "pattern": "fine-etched-line",
+        "amplitude": 0.05,
+        "heightCorrelation": 0.0
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "triplanar",
+        "repeat": [
+          4.0,
+          1.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Keep grind lines running heel-to-tip."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.2,
+          "amplitude": 0.12,
+          "role": "broad value along the hamon zone"
+        },
+        {
+          "id": "meso",
+          "frequency": 8.0,
+          "amplitude": 0.08,
+          "role": "longitudinal grind"
+        },
+        {
+          "id": "micro",
+          "frequency": 36.0,
+          "amplitude": 0.04,
+          "role": "fine polish grit"
+        }
+      ],
+      "roughness": {
+        "base": 0.48,
+        "variation": 0.06,
+        "map": "independent-procedural-field"
+      },
+      "metalness": {
+        "base": 0.7,
+        "variation": 0.05
+      },
+      "envMapIntensity": 0.22,
+      "vertexColors": false,
+      "vertexToneFinal": false,
+      "normal": {
+        "pattern": "derived-from-independent-height-field",
+        "strength": 0.14,
+        "scale": 22.0,
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "longitudinal-grind",
+        "amplitude": 0.002,
+        "scale": 20.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.18,
+        "contactShadowBias": 0.2,
+        "notes": "Keep the blade bright; only darken the guard and wrap contacts."
+      },
+      "wear": {
+        "edgeWear": 0.16,
+        "scratches": [
+          "faint heel-to-tip grind"
+        ],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.04,
+        "cavityBias": 0.2,
+        "color": "#6A6864"
+      },
+      "patina": {
+        "amount": 0.0,
+        "color": "#AEB4BA",
+        "notes": "Illustrated as clean steel."
+      },
+      "localOverrides": [
+        {
+          "id": "hamon-band",
+          "region": "wavy band along the edge, distal two-thirds",
+          "albedo": "#D8DCE0",
+          "roughness": 0.34,
+          "notes": "Hamon is drawn, not a geometry bevel. Blockout keeps it as a value/roughness stain.",
+          "evidenceRefs": [
+            "blade-face"
+          ]
+        },
+        {
+          "id": "edge-brightening",
+          "region": "cutting edge",
+          "albedo": "#E8EBEE",
+          "roughness": 0.2,
+          "evidenceRefs": [
+            "blade-face"
+          ]
+        }
+      ],
+      "shaderNotes": [
+        "Polished steel: high metalness, mid-low roughness. Not rust, not chrome mirror.",
+        "Do not reuse albedo as roughness."
+      ],
+      "notes": "Reconstruct the three-view illustration, not the excavated relic photo."
+    },
+    {
+      "id": "hamon-steel-secondary",
+      "name": "Quiet hamon companion line",
+      "type": "standard",
+      "shaderModel": "MeshStandardMaterial / PBR approximation",
+      "baseColor": "#8E959C",
+      "color": "#8E959C",
+      "albedo": {
+        "dominant": "#8E959C",
+        "secondary": [
+          "#7A8188",
+          "#A4ABB1"
+        ],
+        "samplingNotes": "Thinner, darker companion etch; must not compete with the primary hamon."
+      },
+      "colorVariation": {
+        "palette": [
+          "#7A8188",
+          "#8E959C",
+          "#A4ABB1"
         ],
         "pattern": "fine-etched-line",
         "amplitude": 0.04,
@@ -10399,15 +10973,15 @@
         }
       ],
       "roughness": {
-        "base": 0.38,
+        "base": 0.58,
         "variation": 0.05,
         "map": "independent-procedural-field"
       },
       "metalness": {
-        "base": 0.82,
-        "variation": 0.06
+        "base": 0.62,
+        "variation": 0.04
       },
-      "envMapIntensity": 0.3,
+      "envMapIntensity": 0.12,
       "vertexColors": false,
       "vertexToneFinal": false,
       "normal": {
@@ -10537,9 +11111,10 @@
         "map": "independent-procedural-field"
       },
       "metalness": {
-        "base": 0.74,
-        "variation": 0.08
+        "base": 0.86,
+        "variation": 0.06
       },
+      "envMapIntensity": 0.25,
       "normal": {
         "pattern": "derived-from-independent-height-field",
         "strength": 0.18,
@@ -10587,8 +11162,7 @@
         "Yellow metal fittings, not painted plastic.",
         "Keep hue from shifting blue under ACES."
       ],
-      "notes": "Illustration gilt; alloy is not specified.",
-      "envMapIntensity": 0.25
+      "notes": "Illustration gilt; alloy is not specified."
     }
   ],
   "repetitionSystems": [],

@@ -99,8 +99,9 @@ FERRULE_DIAM = 56.0 * S
 HANDLE_LEN = 215.0 * S
 COLLAR_LEN = 14.0 * S
 FERRULE_LEN = 10.0 * S
-RING_WIDTH = 0.156
-RING_HEIGHT = 0.139
+# Slightly vertical oval pommel (W/H ≈ 0.94). Previous 0.156×0.139 boxy 12-gon read as a square frame.
+RING_WIDTH = 0.148
+RING_HEIGHT = 0.158
 RING_DEPTH = 0.012
 INLAY_COUNT = 6
 
@@ -157,30 +158,74 @@ ASSEMBLY_SOCKETS = {
     "pommel-anchor": RING_X,
 }
 
-# Normalized ring silhouette. It includes the short neck at -X and a real oval hole.
+def _ellipse_points(count: int = 32) -> list[list[float]]:
+    """Smooth oval in normalized [-0.5, 0.5]. 32 samples kill the 12-gon / square-frame read without blowing the triangle budget."""
+    return [
+        [
+            round(0.5 * math.cos(index / count * math.tau), 5),
+            round(0.5 * math.sin(index / count * math.tau), 5),
+        ]
+        for index in range(count)
+    ]
+
+
+# Normalized ring silhouette. Short neck is a separate cylinder; the hole stays a real cutout.
+# Hole radii chosen so the aperture is nearly circular in world units after RING_WIDTH × RING_HEIGHT.
 RING_PROFILE = {
-    "points": [
-        [-0.35, -0.50], [0.35, -0.50], [0.48, -0.38], [0.50, -0.20],
-        [0.50, 0.20], [0.48, 0.38], [0.35, 0.50], [-0.35, 0.50],
-        [-0.48, 0.38], [-0.50, 0.20], [-0.50, -0.20], [-0.48, -0.38],
-    ],
+    "points": _ellipse_points(32),
     "depth": 1.0,
-    "ovalHoles": [{"cx": 0.03, "cy": 0.01, "rx": 0.26, "ry": 0.41}],
+    "ovalHoles": [{"cx": 0.04, "cy": 0.0, "rx": 0.28, "ry": 0.262}],
 }
 
+# Primary hamon is index 1 (hamon-2 / hamon-back-2). Flanking lines stay thinner, darker, quieter.
+HAMON_LINE_SPECS = (
+    (-0.0076, 0.18, 0.52, 0.00042, "hamon-steel-secondary"),
+    (0.0000, 0.82, 1.00, 0.00092, "hamon-steel"),
+    (0.0088, 1.92, 0.40, 0.00036, "hamon-steel-secondary"),
+)
 
-def hamon_path(vertical_offset: float, phase: float, face_sign: float = 1.0) -> list[list[float]]:
+
+def _blade_envelope(world_x: float) -> tuple[float, float, float]:
+    samples = [
+        (BLADE_HEEL_X - station[0], station[1], station[2], thickness)
+        for station, thickness in zip(BLADE_STATIONS, BLADE_THICKNESSES)
+    ]
+    samples.sort()
+    if world_x <= samples[0][0]:
+        return samples[0][1], samples[0][2], samples[0][3]
+    if world_x >= samples[-1][0]:
+        return samples[-1][1], samples[-1][2], samples[-1][3]
+    for prev, nxt in zip(samples, samples[1:]):
+        if prev[0] <= world_x <= nxt[0]:
+            span = nxt[0] - prev[0] or 1.0
+            u = (world_x - prev[0]) / span
+            return (
+                prev[1] + (nxt[1] - prev[1]) * u,
+                prev[2] + (nxt[2] - prev[2]) * u,
+                prev[3] + (nxt[3] - prev[3]) * u,
+            )
+    return samples[-1][1], samples[-1][2], samples[-1][3]
+
+
+def hamon_path(
+    vertical_offset: float,
+    phase: float,
+    face_sign: float = 1.0,
+    amplitude: float = 1.0,
+) -> list[list[float]]:
+    """One etched line with end taper and low-frequency wander — not three parallel rails."""
     points = []
-    for station, thickness in reversed(list(zip(BLADE_STATIONS, BLADE_THICKNESSES))):
-        local_x, spine_y, edge_y = station
-        world_x = BLADE_HEEL_X - local_x
-        if not 0.30 <= world_x <= 1.70:
-            continue
-        envelope = math.sin(math.pi * (world_x - 0.30) / 1.40) ** 2
-        wave = envelope * (
-            math.sin(world_x * 31.0 + phase) * 0.0030
-            + math.sin(world_x * 67.0 + phase * 0.7) * 0.0012
-            + math.sin(world_x * 13.0 + 1.3 - phase * 0.25) * 0.0008
+    start_x, end_x = 0.28, 1.72
+    samples = 28
+    for index in range(samples):
+        t = index / (samples - 1)
+        world_x = start_x + (end_x - start_x) * t
+        spine_y, edge_y, thickness = _blade_envelope(world_x)
+        envelope = math.sin(math.pi * t) ** 2
+        wave = envelope * amplitude * (
+            math.sin(world_x * 6.8 + phase) * 0.0050
+            + math.sin(world_x * 3.05 + phase * 0.42) * 0.0034
+            + math.sin(world_x * 14.2 + 0.9 - phase * 0.28) * 0.0010
         )
         y = edge_y + (spine_y - edge_y) * 0.68 + vertical_offset + wave
         z = face_sign * (thickness * 0.5 + 0.0008)
@@ -190,19 +235,15 @@ def hamon_path(vertical_offset: float, phase: float, face_sign: float = 1.0) -> 
 
 def ring_engraving_path(kind: str, face_sign: float = 1.0) -> list[list[float]]:
     z = face_sign * (RING_DEPTH * 0.5 + 0.0007)
-    if kind == "outer":
-        return [
-            [round(RING_X + x * RING_WIDTH * 0.87, 5), round(y * RING_HEIGHT * 0.87, 5), z]
-            for x, y in RING_PROFILE["points"]
-        ]
-    radius_x, radius_y = (0.39, 0.455) if kind == "middle" else (0.30, 0.44)
+    scale = {"outer": 0.88, "middle": 0.72, "inner": 0.58}[kind]
+    hole_cx = 0.04 * RING_WIDTH
     return [
         [
-            round(RING_X + (0.03 + math.cos(index / 48 * math.tau) * radius_x) * RING_WIDTH, 5),
-            round((0.01 + math.sin(index / 48 * math.tau) * radius_y) * RING_HEIGHT, 5),
+            round(RING_X + hole_cx * (1.0 - scale) + math.cos(index / 32 * math.tau) * 0.5 * scale * RING_WIDTH, 5),
+            round(math.sin(index / 32 * math.tau) * 0.5 * scale * RING_HEIGHT, 5),
             z,
         ]
-        for index in range(48)
+        for index in range(32)
     ]
 
 
@@ -435,8 +476,8 @@ def steel_material():
             "map": "independent-procedural-field",
             "localResponse": "slightly higher below the hamon, lower on the polished shinogi",
         },
-        "metalness": {"base": 0.82, "variation": 0.06},
-        "envMapIntensity": 0.45,
+        "metalness": {"base": 0.84, "variation": 0.05},
+        "envMapIntensity": 0.68,
         "vertexColors": True,
         "vertexToneFinal": True,
         "normal": {"pattern": "derived-from-independent-height-field", "strength": 0.14, "scale": 22.0, "space": "tangent"},
@@ -507,12 +548,13 @@ def gilt_material():
             {"id": "micro", "frequency": 32.0, "amplitude": 0.04, "role": "fine grit"},
         ],
         "roughness": {
-            "base": 0.38,
-            "variation": 0.1,
+            "base": 0.30,
+            "variation": 0.08,
             "map": "independent-procedural-field",
             "localResponse": "duller in engraved recesses on the ring",
         },
-        "metalness": {"base": 0.74, "variation": 0.08},
+        "metalness": {"base": 0.86, "variation": 0.06},
+        "envMapIntensity": 1.05,
         "normal": {"pattern": "derived-from-independent-height-field", "strength": 0.18, "scale": 10.0, "space": "tangent"},
         "bump": {"pattern": "cast-engraving", "amplitude": 0.005, "scale": 10.0},
         "displacement": {"pattern": "none", "amplitude": 0.0, "scale": 1.0, "silhouetteAffects": False},
@@ -630,25 +672,53 @@ def hamon_material():
         {
             "id": "hamon-steel",
             "name": "Polished hamon line",
-            "baseColor": "#DDE1E4",
-            "color": "#DDE1E4",
+            "baseColor": "#B8BFC6",
+            "color": "#B8BFC6",
             "vertexColors": False,
             "vertexToneFinal": False,
-            "envMapIntensity": 0.3,
+            "envMapIntensity": 0.22,
         }
     )
     material["albedo"] = {
-        "dominant": "#DDE1E4",
-        "secondary": ["#C8CDD1", "#EEF0F2"],
-        "samplingNotes": "Thin pale etched lines from the illustrated hamon band.",
+        "dominant": "#B8BFC6",
+        "secondary": ["#9AA2A9", "#C9CED3"],
+        "samplingNotes": "Primary etched hamon: cooler than chrome, not a white highlight rail.",
     }
     material["colorVariation"] = {
-        "palette": ["#C8CDD1", "#DDE1E4", "#EEF0F2"],
+        "palette": ["#9AA2A9", "#B8BFC6", "#C9CED3"],
+        "pattern": "fine-etched-line",
+        "amplitude": 0.05,
+        "heightCorrelation": 0.0,
+    }
+    material["roughness"] = {"base": 0.48, "variation": 0.06, "map": "independent-procedural-field"}
+    material["metalness"] = {"base": 0.70, "variation": 0.05}
+    return material
+
+
+def hamon_secondary_material():
+    material = hamon_material()
+    material.update(
+        {
+            "id": "hamon-steel-secondary",
+            "name": "Quiet hamon companion line",
+            "baseColor": "#8E959C",
+            "color": "#8E959C",
+            "envMapIntensity": 0.12,
+        }
+    )
+    material["albedo"] = {
+        "dominant": "#8E959C",
+        "secondary": ["#7A8188", "#A4ABB1"],
+        "samplingNotes": "Thinner, darker companion etch; must not compete with the primary hamon.",
+    }
+    material["colorVariation"] = {
+        "palette": ["#7A8188", "#8E959C", "#A4ABB1"],
         "pattern": "fine-etched-line",
         "amplitude": 0.04,
         "heightCorrelation": 0.0,
     }
-    material["roughness"] = {"base": 0.38, "variation": 0.05, "map": "independent-procedural-field"}
+    material["roughness"] = {"base": 0.58, "variation": 0.05, "map": "independent-procedural-field"}
+    material["metalness"] = {"base": 0.62, "variation": 0.04}
     return material
 
 
@@ -1211,20 +1281,28 @@ def main() -> None:
             attachment=contact_attachment("root", "blade-heel", overlap=0.001),
             position=(0.0, 0.0, 0.0),
             scale=(1.0, 1.0, 1.0),
-            material="hamon-steel",
-            rationale=f"Thin procedural wave follows the blade {face_name} face rather than projecting source pixels.",
+            material=material_id,
+            rationale=(
+                f"Primary hamon plus quieter companion etches on the {face_name} face; "
+                "low-frequency wander with tapered ends, not three equal highlight rails."
+            ),
             topology="continuous-sculpt",
-            importance=0.72,
+            importance=0.78 if index == 1 else 0.58,
             confidence=0.78 if face_sign > 0 else 0.68,
             extra_geom={
                 "tubePath": {
-                    "points": hamon_path(offset, phase + phase_shift, face_sign),
-                    "radius": 0.0011 if index == 1 else 0.00075,
-                    "radialSegments": 6,
+                    "points": hamon_path(offset, phase + phase_shift, face_sign, amplitude),
+                    "radius": radius,
+                    "radialSegments": 5,
                     "closed": False,
                 }
             },
-            color=recipe(rgba(221, 225, 228), rgba(200, 205, 209), "metal", 0.72),
+            color=recipe(
+                rgba(184, 191, 198) if index == 1 else rgba(142, 149, 156),
+                rgba(154, 162, 169) if index == 1 else rgba(122, 129, 136),
+                "metal",
+                0.72 if index == 1 else 0.6,
+            ),
             evidence=["blade-face"],
             explode_with_parent="blade",
             fracture_group="blade",
@@ -1234,10 +1312,10 @@ def main() -> None:
         )
         for face_name, face_sign, phase_shift, component_ids in (
             ("front", 1.0, 0.0, HAMON_FRONT_IDS),
-            ("back", -1.0, 0.37, HAMON_BACK_IDS),
+            ("back", -1.0, 0.55, HAMON_BACK_IDS),
         )
-        for index, (component_id, (offset, phase)) in enumerate(
-            zip(component_ids, ((-0.006, 0.0), (0.0, 0.8), (0.006, 1.6)))
+        for index, (component_id, (offset, phase, amplitude, radius, material_id)) in enumerate(
+            zip(component_ids, HAMON_LINE_SPECS)
         )
     ]
     ring_engraving_components = [
@@ -1260,7 +1338,7 @@ def main() -> None:
                 "tubePath": {
                     "points": ring_engraving_path(kind, face_sign),
                     "radius": 0.0011,
-                    "radialSegments": 6,
+                    "radialSegments": 5,
                     "closed": True,
                 }
             },
@@ -1544,6 +1622,7 @@ def main() -> None:
         wrap_material(),
         wrap_seam_material(),
         hamon_material(),
+        hamon_secondary_material(),
         engraving_material(),
     ]
     spec["lookDevTargets"]["qualityPriority"] = "stylized-approximate"
