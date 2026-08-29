@@ -30,9 +30,10 @@
 | Gate | 结果 |
 |---|---:|
 | strict-quality | PASS |
-| silhouette IoU | 0.8898 |
+| standardized 1680x360 silhouette IoU | 0.8864 |
 | aspect-ratio delta | 0.0000 |
 | scale delta | 0.0000 |
+| max per-component color delta-E | 10.82（上限 20） |
 | Divine Eye | PASS / 0.8592（目标 0.85） |
 | multi-angle degenerate view | false |
 | blade boundary / non-manifold | 0 / 0 |
@@ -53,14 +54,22 @@
 
 改动：
 
-- 环首：12 点方框轮廓改为 32 点椭圆挤出（W/H ≈ 0.937），真实椭圆孔、短颈、正反刻线跟随新轮廓
+- 环首：12 点折线改为 32 点平滑 superellipse（0.148 × 0.139），保留参考中的方圆外饰、纵向椭圆孔、短颈与正反刻线
 - 刃纹：正反面各保留 3 条 ID；主线 + 两条更细更暗的伴随线，低频起伏与端部包络
-- 钢材 / 鎏金：略提高 envMapIntensity 与金属度；展厅层 exposure 1.18、IBL 1.12、稍亮渐变底
+- 钢材 / 鎏金：沿用已通过标准色差门禁的工位 PBR 参数；展厅层 exposure 1.18、IBL 1.12、稍亮渐变底
 - 白底构图：实际路径是 `frameForCapture` + `captureMargin`（1.12 → 1.04），不是 hero 相机
 - 首屏构图：相机 `[1.52, 0.54, 4.62]`，看向 `[0.86, 0.02, 0]`，刀身约占右侧展示区 80.5%
 - P2 缠柄：未改（3.25 圈），避免扩 scope
 
-证据在 `captures/showcase-polish-a1/`。白底相对 `reference-face-clean.png` 的归一化长度差 2.98%。等长归一化剪影 IoU 0.878（刃身-only 0.903）。`diagnose_render.py` 直接对比 1440×900 白底与 1680×360 评分裁切会因画幅失败（IoU 0.278），那是评分几何不匹配，不是模型回归。工位 8-pass 剪影仍以当时的 0.8898 为准。
+正式证据包含 `captures/polish-a1-standard-*` 与
+`captures/showcase-polish-a1/diagnose-standard-1680x360.json`。标准工位捕获与
+`reference-face-clean.png` 使用相同的 1680×360 panel；最终 IoU 0.8864、aspect/scale delta
+均为 0、max delta-E 10.82，全部通过。不要再用 1440×900 showcase 白底图直接做标准评分。
+
+移动端 `390×844` 首屏保留 showcase 自身的 `fitToViewport()`，不再错误复用桌面相机。
+自动审计记录整刀 NDC `x=[-0.518, 0.867]`、`y=[-0.015, 0.026]`，`fits=true`；桌面与移动端
+合成画布像素方差分别为 778.76 / 188.08，均非空。证据为 `showcase-mobile-page.png` 与
+`capture-log.json`。
 
 运行时：scene traverse 47 meshes / 87,490 tris / 7 parts / 6 sockets / 0 console errors。Showcase idle rock 只存在于展厅工厂的 `options.animate` + `userData.tick`，没有写回 `fill_spec.py`。
 
@@ -218,14 +227,15 @@ PREVIEW_URL=http://127.0.0.1:4173/reconstructions/han-huan-shou-dao/preview/inde
 
 ## Showcase 展览（Phase A）
 
-本地 companion：`~/img2threejs-showcase`（当前为 **无 `.git` 的 tarball/快照**；正式 PR 前需重 clone / 补 remote）。
+本地 companion：`~/img2threejs-showcase`，是完整 Git 工作树；当前分支
+`han-huan-shou-dao-polish`，remote `origin` 指向 `abyssalyanbin/img2threejs-showcase`。
 
 | 项 | 值 |
 |---|---|
 | demo id / 路由 | `han-huan-shou-dao` → `#/demo/han-huan-shou-dao` |
 | 工厂副本 | `src/demos/han-huan-shou-dao/createHanHuanShouDaoModel.ts`（由工位 `createHanHuanShouDao.ts` 整理；展示用 `animate` / idle rock 仅在此副本） |
 | 参考图 | `public/references/han-huan-shou-dao.png`（来自 `reference-face-clean.png`，≤800KB） |
-| 相机 | `cameraPosition [1.95, 0.72, 5.35]`，`cameraTarget [1.15, 0.02, 0]`，`fov 28` |
+| 相机 | `cameraPosition [1.52, 0.54, 4.62]`，`cameraTarget [0.86, 0.02, 0]`，`fov 28`；移动端由 `fitToViewport()` 响应式取景 |
 | 灯光 | `installLights` → `createHanHuanShouDaoLookDevLights('reference')` |
 | 展示功能 | L0 静态展览 + L1 轻微 idle rock（`userData.tick`）；**无** Slash；**无**角色持刀 |
 | 爆炸视图 | 画廊自带；六模块（blade / guard / collar / handle / ferrule / ring） |
@@ -257,7 +267,7 @@ PREVIEW_URL=http://127.0.0.1:4173/reconstructions/han-huan-shou-dao/preview/inde
 ## 完成状态与限制
 
 - 八个 build pass、最终 part coverage 和 action-ready checklist 已完成。
-- **Phase A 本地 showcase 上架已完成**（见上节）；公开 PR / 上网仍受 showcase 无 git 约束。
+- **Phase A 本地 showcase 上架与生产构建已完成**（见上节）；公开状态以对应 PR 为准。
 - 静态 4096px shadow map 只在换灯或 explode/restore 时更新，避免每帧重绘阴影，同时保持最终截图不变。
 - 十二枚金色嵌件没有改成 InstancedMesh：它们是独立命名、可选择的 interaction target，并通过 `mergePolicy=keep` 保留后续替换能力；当前 46 draw calls 仍低于预算。
 - 当前无头 Chrome 使用 SwiftShader，完整双面组件版本测得 2.66 FPS，只能作为软件渲染环境诊断。硬件 WebGL 的 30 FPS 仍是部署目标，不能把本机软件数值冒充硬件基准。

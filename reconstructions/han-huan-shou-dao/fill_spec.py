@@ -99,9 +99,9 @@ FERRULE_DIAM = 56.0 * S
 HANDLE_LEN = 215.0 * S
 COLLAR_LEN = 14.0 * S
 FERRULE_LEN = 10.0 * S
-# Slightly vertical oval pommel (W/H ≈ 0.94). Previous 0.156×0.139 boxy 12-gon read as a square frame.
+# Slightly horizontal oval pommel (W/H ≈ 1.06), matching the scoring reference.
 RING_WIDTH = 0.148
-RING_HEIGHT = 0.158
+RING_HEIGHT = 0.139
 RING_DEPTH = 0.012
 INLAY_COUNT = 6
 
@@ -158,23 +158,23 @@ ASSEMBLY_SOCKETS = {
     "pommel-anchor": RING_X,
 }
 
-def _ellipse_points(count: int = 32) -> list[list[float]]:
-    """Smooth oval in normalized [-0.5, 0.5]. 32 samples kill the 12-gon / square-frame read without blowing the triangle budget."""
+def _rounded_square_points(count: int = 32) -> list[list[float]]:
+    """Smooth superellipse matching the reference's rounded-square gilt frame."""
     return [
         [
-            round(0.5 * math.cos(index / count * math.tau), 5),
-            round(0.5 * math.sin(index / count * math.tau), 5),
+            round(0.5 * math.copysign(abs(math.cos(index / count * math.tau)) ** 0.5, math.cos(index / count * math.tau)), 5),
+            round(0.5 * math.copysign(abs(math.sin(index / count * math.tau)) ** 0.5, math.sin(index / count * math.tau)), 5),
         ]
         for index in range(count)
     ]
 
 
 # Normalized ring silhouette. Short neck is a separate cylinder; the hole stays a real cutout.
-# Hole radii chosen so the aperture is nearly circular in world units after RING_WIDTH × RING_HEIGHT.
+# The reference aperture is a tall oval inside the rounded-square outer fitting.
 RING_PROFILE = {
-    "points": _ellipse_points(32),
+    "points": _rounded_square_points(32),
     "depth": 1.0,
-    "ovalHoles": [{"cx": 0.04, "cy": 0.0, "rx": 0.28, "ry": 0.262}],
+    "ovalHoles": [{"cx": 0.04, "cy": 0.0, "rx": 0.28, "ry": 0.42}],
 }
 
 # Primary hamon is index 1 (hamon-2 / hamon-back-2). Flanking lines stay thinner, darker, quieter.
@@ -476,8 +476,8 @@ def steel_material():
             "map": "independent-procedural-field",
             "localResponse": "slightly higher below the hamon, lower on the polished shinogi",
         },
-        "metalness": {"base": 0.84, "variation": 0.05},
-        "envMapIntensity": 0.68,
+        "metalness": {"base": 0.82, "variation": 0.06},
+        "envMapIntensity": 0.45,
         "vertexColors": True,
         "vertexToneFinal": True,
         "normal": {"pattern": "derived-from-independent-height-field", "strength": 0.14, "scale": 22.0, "space": "tangent"},
@@ -548,13 +548,12 @@ def gilt_material():
             {"id": "micro", "frequency": 32.0, "amplitude": 0.04, "role": "fine grit"},
         ],
         "roughness": {
-            "base": 0.30,
-            "variation": 0.08,
+            "base": 0.38,
+            "variation": 0.1,
             "map": "independent-procedural-field",
             "localResponse": "duller in engraved recesses on the ring",
         },
-        "metalness": {"base": 0.86, "variation": 0.06},
-        "envMapIntensity": 1.05,
+        "metalness": {"base": 0.74, "variation": 0.08},
         "normal": {"pattern": "derived-from-independent-height-field", "strength": 0.18, "scale": 10.0, "space": "tangent"},
         "bump": {"pattern": "cast-engraving", "amplitude": 0.005, "scale": 10.0},
         "displacement": {"pattern": "none", "amplitude": 0.0, "scale": 1.0, "silhouetteAffects": False},

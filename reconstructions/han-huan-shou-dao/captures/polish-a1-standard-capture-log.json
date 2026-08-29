@@ -1,0 +1,868 @@
+{
+  "url": "http://127.0.0.1:4173/reconstructions/han-huan-shou-dao/preview/index.html",
+  "viewport": {
+    "width": 1680,
+    "height": 360
+  },
+  "consoleErrors": [],
+  "assembly": {
+    "factor": 1,
+    "modules": [
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "movedModules": 6,
+    "maxDisplacement": 0.3
+  },
+  "materialAudit": {
+    "requiredChannels": [
+      "albedo",
+      "roughness",
+      "height",
+      "normal",
+      "ao"
+    ],
+    "requiredBands": [
+      "macro",
+      "meso",
+      "micro"
+    ],
+    "materials": [
+      {
+        "id": "polished-steel",
+        "components": [
+          "root",
+          "blade"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "c56fdce2-59d0-4c66-b2fb-0c5a4d5badd0",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "6a3a5f3d-a9e6-46d4-bef5-f6f69a0bfb32",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "917be60b-6cac-4227-b9d2-7d4ef1c8d6b0",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "2e12bd6f-bb06-4fdd-b0b7-c1b86e434b32",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "bda10c64-d5b3-4395-bc8a-9e12c6536bd9",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.08,
+        "normalStrength": 0.14,
+        "bumpScale": 0.002,
+        "aoIntensity": 0.18,
+        "dirtAmount": 0.04,
+        "edgeWear": 0.16,
+        "localOverrideCount": 2
+      },
+      {
+        "id": "hamon-steel-secondary",
+        "components": [
+          "hamon-1",
+          "hamon-3",
+          "hamon-back-1",
+          "hamon-back-3"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "cd01519d-7ff2-4935-945f-bf8e734daea4",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "f4bfbaf5-8ebf-4705-b7d6-babbbd3511d5",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "e4e704a5-340f-4523-a7dc-73b27934d7bb",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "468abd20-72f3-4843-be81-518249bda49d",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "3a27f540-385e-4477-a9dc-dca1b7e846a6",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.05,
+        "normalStrength": 0.14,
+        "bumpScale": 0.002,
+        "aoIntensity": 0.18,
+        "dirtAmount": 0.04,
+        "edgeWear": 0.16,
+        "localOverrideCount": 2
+      },
+      {
+        "id": "hamon-steel",
+        "components": [
+          "hamon-2",
+          "hamon-back-2"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "d51e4f63-dd77-4fc3-a411-afd2deee52ff",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "5e11a3e8-2f4c-40ab-bcdf-b664ecd5f4c2",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "ae383d81-1974-4a49-95c5-0a7161a12e78",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "1c1acdf0-c9ca-4f1d-915e-7b65de404bb3",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "482c33d6-f0af-4f95-9baf-68ef0d23f1d2",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.06,
+        "normalStrength": 0.14,
+        "bumpScale": 0.002,
+        "aoIntensity": 0.18,
+        "dirtAmount": 0.04,
+        "edgeWear": 0.16,
+        "localOverrideCount": 2
+      },
+      {
+        "id": "gilt-bronze",
+        "components": [
+          "guard",
+          "collar",
+          "stud-a",
+          "stud-b",
+          "stud-c",
+          "stud-d",
+          "stud-e",
+          "stud-f",
+          "stud-back-a",
+          "stud-back-b",
+          "stud-back-c",
+          "stud-back-d",
+          "stud-back-e",
+          "stud-back-f",
+          "ferrule",
+          "ring-neck",
+          "ring"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "ba46815e-44dc-47aa-a264-6d1f09eda2e9",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "0c14a0ba-25dd-4f8f-a375-4ce20dd46288",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "675b23da-836c-45f7-8708-6a09e9c88aa6",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "63f5ad64-c3f6-4d71-bc2a-3c3acf40da70",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "5927e877-ccfa-48e9-9f1a-b08144bea07c",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.18,
+        "bumpScale": 0.005,
+        "aoIntensity": 0.28,
+        "dirtAmount": 0.08,
+        "edgeWear": 0.18,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "cord-wrap",
+        "components": [
+          "handle"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "040654b9-7aae-4e4d-aa4b-8beab913e5fe",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "cce5a1f8-1af3-48d5-9d81-106e2ed31101",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "baa461de-6f53-4ae2-953c-c0fc1ff78b8a",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "74ab7240-d7ef-4185-a190-7f34a147dc7c",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "07f20a9e-8d2a-450b-afbe-c8d4d8f924d7",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.35,
+        "bumpScale": 0.012,
+        "aoIntensity": 0.4,
+        "dirtAmount": 0.12,
+        "edgeWear": 0.08,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "wrap-seam",
+        "components": [
+          "wrap-seam-1",
+          "wrap-seam-2",
+          "stud-seat-a",
+          "stud-seat-b",
+          "stud-seat-c",
+          "stud-seat-d",
+          "stud-seat-e",
+          "stud-seat-f",
+          "stud-seat-back-a",
+          "stud-seat-back-b",
+          "stud-seat-back-c",
+          "stud-seat-back-d",
+          "stud-seat-back-e",
+          "stud-seat-back-f"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "b76e9f35-d81a-4815-8ae7-d966ad085106",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "c9937663-0f5a-4a9e-8f52-77a3169d2578",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "7265ab03-b6a8-43f7-84e8-179fceb722c0",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "900cb000-efa7-46f1-aea3-2c99b7b0cb9b",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "18d2cd89-94c9-40b2-8214-fe29ea27c481",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.1,
+        "normalStrength": 0.35,
+        "bumpScale": 0.012,
+        "aoIntensity": 0.4,
+        "dirtAmount": 0.12,
+        "edgeWear": 0.08,
+        "localOverrideCount": 1
+      },
+      {
+        "id": "gilt-engraving",
+        "components": [
+          "ring-engraving-outer",
+          "ring-engraving-middle",
+          "ring-engraving-inner",
+          "ring-engraving-back-outer",
+          "ring-engraving-back-middle",
+          "ring-engraving-back-inner"
+        ],
+        "source": "procedural",
+        "channels": {
+          "albedo": {
+            "present": true,
+            "uuid": "dddaada9-264a-4f97-8132-bf2c2bc90ee7",
+            "width": 1024,
+            "height": 1024
+          },
+          "roughness": {
+            "present": true,
+            "uuid": "3e8af82b-0932-4dd6-a307-0899ed203649",
+            "width": 1024,
+            "height": 1024
+          },
+          "height": {
+            "present": true,
+            "uuid": "b346d44d-97cc-40f9-93ad-0ed60a564ff2",
+            "width": 1024,
+            "height": 1024
+          },
+          "normal": {
+            "present": true,
+            "uuid": "27f36e1f-abbf-4894-a6b4-4bc98c69debb",
+            "width": 1024,
+            "height": 1024
+          },
+          "ao": {
+            "present": true,
+            "uuid": "36f0b11f-6cb5-407c-9a6a-0cf7bbb13c9a",
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        "independentChannels": true,
+        "surfaceBands": [
+          "macro",
+          "meso",
+          "micro"
+        ],
+        "roughnessVariation": 0.08,
+        "normalStrength": 0.18,
+        "bumpScale": 0.005,
+        "aoIntensity": 0.28,
+        "dirtAmount": 0.08,
+        "edgeWear": 0.18,
+        "localOverrideCount": 1
+      }
+    ],
+    "failures": []
+  },
+  "lightingAudit": {
+    "requiredNotes": [
+      "key",
+      "fill",
+      "rim",
+      "exposure",
+      "tone mapping",
+      "background",
+      "contact shadow"
+    ],
+    "notes": [
+      "Key: even orthographic plate lighting, slightly above-front, no hard indoor bounce.",
+      "Fill: white page surround, high value, keeps steel from falling to mid-grey.",
+      "Rim / environment: weak studio rim so the disk guard and ring read as volumes.",
+      "Exposure: 1.0; protect steel highlights with ACES filmic tone mapping.",
+      "Background: pure white plate field with no gradient or floor plane.",
+      "Contact shadow: optional; the plate is on white, so review shots may omit the floor."
+    ],
+    "renderer": {
+      "toneMapping": 4,
+      "exposure": 1,
+      "outputColorSpace": "srgb",
+      "shadowsEnabled": true
+    },
+    "background": "#ffffff",
+    "environmentPresent": true,
+    "modes": [
+      {
+        "mode": "neutral",
+        "lightCount": 4,
+        "hemisphereCount": 1,
+        "directionalCount": 3,
+        "keyIntensity": 2.15,
+        "fillIntensity": 0.42,
+        "rimIntensity": 0.85,
+        "keyCastsShadow": true
+      },
+      {
+        "mode": "grazing",
+        "lightCount": 4,
+        "hemisphereCount": 1,
+        "directionalCount": 3,
+        "keyIntensity": 4.2,
+        "fillIntensity": 0.12,
+        "rimIntensity": 0.28,
+        "keyCastsShadow": true
+      },
+      {
+        "mode": "reference",
+        "lightCount": 4,
+        "hemisphereCount": 1,
+        "directionalCount": 3,
+        "keyIntensity": 2.6,
+        "fillIntensity": 0.42,
+        "rimIntensity": 0.85,
+        "keyCastsShadow": true
+      }
+    ],
+    "failures": []
+  },
+  "interactionAudit": {
+    "expectedModules": [
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "expectedSockets": [
+      "root:blade-heel",
+      "root:guard-back",
+      "root:front-ferrule-back",
+      "root:handle-back",
+      "root:rear-ferrule-back",
+      "root:pommel-anchor"
+    ],
+    "expectedColliders": [
+      "root",
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "actionable": [
+      {
+        "id": "root",
+        "level": "macro",
+        "pivotName": "Han Huan-Shou Dao assembly__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      },
+      {
+        "id": "blade",
+        "level": "macro",
+        "pivotName": "Dao blade__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      },
+      {
+        "id": "guard",
+        "level": "meso",
+        "pivotName": "Disk guard__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      },
+      {
+        "id": "collar",
+        "level": "meso",
+        "pivotName": "Gilt front ferrule__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      },
+      {
+        "id": "handle",
+        "level": "macro",
+        "pivotName": "Cord-wrapped grip__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      },
+      {
+        "id": "ferrule",
+        "level": "meso",
+        "pivotName": "Gilt rear ferrule__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      },
+      {
+        "id": "ring-neck",
+        "level": "meso",
+        "pivotName": "Huan-shou neck__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      },
+      {
+        "id": "ring",
+        "level": "macro",
+        "pivotName": "Huan-shou ring__pivot",
+        "stablePivot": true,
+        "meshIsDirectChild": true,
+        "hasPivotMetadata": true,
+        "hasColliderMetadata": true,
+        "hasDestructionMetadata": true
+      }
+    ],
+    "mappings": [
+      {
+        "componentId": "hamon-1",
+        "expectedModule": "blade",
+        "resolvedModule": "blade"
+      },
+      {
+        "componentId": "stud-c",
+        "expectedModule": "handle",
+        "resolvedModule": "handle"
+      },
+      {
+        "componentId": "ring-engraving-inner",
+        "expectedModule": "ring",
+        "resolvedModule": "ring"
+      }
+    ],
+    "exploded": {
+      "factor": 1,
+      "modules": [
+        "blade",
+        "guard",
+        "collar",
+        "handle",
+        "ferrule",
+        "ring"
+      ],
+      "movedModules": 6,
+      "maxDisplacement": 0.3
+    },
+    "moduleDisplacements": [
+      {
+        "moduleId": "blade",
+        "nodeCount": 7,
+        "minDisplacement": 0.3,
+        "maxDisplacement": 0.30000000000000004
+      },
+      {
+        "moduleId": "guard",
+        "nodeCount": 1,
+        "minDisplacement": 0.17999999999999994,
+        "maxDisplacement": 0.17999999999999994
+      },
+      {
+        "moduleId": "collar",
+        "nodeCount": 1,
+        "minDisplacement": 0.06000000000000005,
+        "maxDisplacement": 0.06000000000000005
+      },
+      {
+        "moduleId": "handle",
+        "nodeCount": 27,
+        "minDisplacement": 0.05999999999999983,
+        "maxDisplacement": 0.06000000000000005
+      },
+      {
+        "moduleId": "ferrule",
+        "nodeCount": 1,
+        "minDisplacement": 0.18000000000000016,
+        "maxDisplacement": 0.18000000000000016
+      },
+      {
+        "moduleId": "ring",
+        "nodeCount": 8,
+        "minDisplacement": 0.2999999999999998,
+        "maxDisplacement": 0.3
+      }
+    ],
+    "restorationError": 0,
+    "selectionCleared": true,
+    "socketIds": [
+      "root:blade-heel",
+      "root:front-ferrule-back",
+      "root:guard-back",
+      "root:handle-back",
+      "root:pommel-anchor",
+      "root:rear-ferrule-back"
+    ],
+    "colliderIds": [
+      "blade",
+      "collar",
+      "ferrule",
+      "guard",
+      "handle",
+      "ring",
+      "root"
+    ],
+    "destructionGroups": {
+      "root": 1,
+      "blade": 7,
+      "guard": 1,
+      "collar": 1,
+      "handle": 27,
+      "ferrule": 1,
+      "ring": 8
+    },
+    "failures": []
+  },
+  "performanceAudit": {
+    "budget": {
+      "qualityPriority": "stylized-approximate",
+      "targetTriangles": 250000,
+      "maxDrawCalls": 160,
+      "textureSize": 2048,
+      "fpsTarget": 30,
+      "optimizationPolicy": "Reach accepted visual fidelity first, then optimize without removing reference-critical geometry or surface layers."
+    },
+    "render": {
+      "drawCalls": 46,
+      "triangles": 87488,
+      "lines": 0,
+      "points": 0
+    },
+    "measuredFps": 4.01,
+    "rendererBackend": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "fpsAuthority": "report-only-software-renderer",
+    "resources": {
+      "meshCount": 46,
+      "instancedMeshCount": 0,
+      "uniqueGeometries": 46,
+      "uniqueMaterials": 7,
+      "sharedMaterials": 6,
+      "uniqueTextures": 35,
+      "rendererGeometries": 47,
+      "rendererTextures": 30
+    },
+    "lodPlan": [
+      {
+        "tier": "near",
+        "distance": 0,
+        "strategy": "full component tree and material layers"
+      },
+      {
+        "tier": "far",
+        "distance": 30,
+        "strategy": "merge static components and reduce local feature geometry"
+      }
+    ],
+    "repeatedDetailDecisions": [
+      {
+        "family": "handle-inlays",
+        "count": 12,
+        "strategy": "retain-selectable-components",
+        "reason": "Each front/back stud and recessed seat is a named component; shared materials already avoid duplicate texture sets."
+      },
+      {
+        "family": "hamon-lines",
+        "count": 6,
+        "strategy": "retain-distinct-curves",
+        "reason": "The six front/back curves have distinct paths and cannot share one instance transform."
+      },
+      {
+        "family": "ring-engravings",
+        "count": 6,
+        "strategy": "retain-distinct-profiles",
+        "reason": "Front/back concentric profiles differ by face and size and remain integral ring details."
+      }
+    ],
+    "optimizationPolicy": "Stay below the authored runtime budgets without removing accepted silhouette, material, or interaction evidence.",
+    "benchmarkPolicy": "FPS is a hard gate on hardware-accelerated WebGL; SwiftShader or llvmpipe measurements are retained as report-only environment diagnostics.",
+    "warnings": [
+      "measured FPS below target on ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    ],
+    "failures": []
+  },
+  "results": [
+    {
+      "id": "hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-hero.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-plus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-orbit-plus35.png",
+      "ok": true
+    },
+    {
+      "id": "orbit-minus35",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-orbit-minus35.png",
+      "ok": true
+    },
+    {
+      "id": "profile",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-profile.png",
+      "ok": true
+    },
+    {
+      "id": "rear",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-rear.png",
+      "ok": true
+    },
+    {
+      "id": "head-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-head-hero.png",
+      "ok": true
+    },
+    {
+      "id": "head-threequarter",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-head-threequarter.png",
+      "ok": true
+    },
+    {
+      "id": "topdown",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-topdown.png",
+      "ok": true
+    },
+    {
+      "id": "material-neutral",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-material-neutral.png",
+      "ok": true,
+      "lighting": "neutral"
+    },
+    {
+      "id": "material-reference",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-material-reference.png",
+      "ok": true,
+      "lighting": "reference"
+    },
+    {
+      "id": "material-grazing-blade",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-material-grazing-blade.png",
+      "ok": true,
+      "lighting": "grazing"
+    },
+    {
+      "id": "material-grazing-handle",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-material-grazing-handle.png",
+      "ok": true,
+      "lighting": "grazing"
+    },
+    {
+      "id": "assembly-exploded",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-assembly-exploded.png",
+      "ok": true
+    },
+    {
+      "id": "selection-handle-integral",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-selection-handle-integral.png",
+      "ok": true,
+      "selected": {
+        "componentId": "stud-c",
+        "moduleId": "handle"
+      }
+    },
+    {
+      "id": "selection-ring-integral",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-selection-ring-integral.png",
+      "ok": true,
+      "selected": {
+        "componentId": "ring-engraving-inner",
+        "moduleId": "ring"
+      }
+    },
+    {
+      "id": "map-stripped-hero",
+      "path": "/home/nyb/img2threejs/reconstructions/han-huan-shou-dao/captures/polish-a1-standard-map-stripped-hero.png",
+      "ok": true
+    }
+  ]
+}

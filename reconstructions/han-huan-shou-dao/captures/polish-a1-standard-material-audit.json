@@ -1,0 +1,420 @@
+{
+  "requiredChannels": [
+    "albedo",
+    "roughness",
+    "height",
+    "normal",
+    "ao"
+  ],
+  "requiredBands": [
+    "macro",
+    "meso",
+    "micro"
+  ],
+  "materials": [
+    {
+      "id": "polished-steel",
+      "components": [
+        "root",
+        "blade"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "c56fdce2-59d0-4c66-b2fb-0c5a4d5badd0",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "6a3a5f3d-a9e6-46d4-bef5-f6f69a0bfb32",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "917be60b-6cac-4227-b9d2-7d4ef1c8d6b0",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "2e12bd6f-bb06-4fdd-b0b7-c1b86e434b32",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "bda10c64-d5b3-4395-bc8a-9e12c6536bd9",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.08,
+      "normalStrength": 0.14,
+      "bumpScale": 0.002,
+      "aoIntensity": 0.18,
+      "dirtAmount": 0.04,
+      "edgeWear": 0.16,
+      "localOverrideCount": 2
+    },
+    {
+      "id": "hamon-steel-secondary",
+      "components": [
+        "hamon-1",
+        "hamon-3",
+        "hamon-back-1",
+        "hamon-back-3"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "cd01519d-7ff2-4935-945f-bf8e734daea4",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "f4bfbaf5-8ebf-4705-b7d6-babbbd3511d5",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "e4e704a5-340f-4523-a7dc-73b27934d7bb",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "468abd20-72f3-4843-be81-518249bda49d",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "3a27f540-385e-4477-a9dc-dca1b7e846a6",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.05,
+      "normalStrength": 0.14,
+      "bumpScale": 0.002,
+      "aoIntensity": 0.18,
+      "dirtAmount": 0.04,
+      "edgeWear": 0.16,
+      "localOverrideCount": 2
+    },
+    {
+      "id": "hamon-steel",
+      "components": [
+        "hamon-2",
+        "hamon-back-2"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "d51e4f63-dd77-4fc3-a411-afd2deee52ff",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "5e11a3e8-2f4c-40ab-bcdf-b664ecd5f4c2",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "ae383d81-1974-4a49-95c5-0a7161a12e78",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "1c1acdf0-c9ca-4f1d-915e-7b65de404bb3",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "482c33d6-f0af-4f95-9baf-68ef0d23f1d2",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.06,
+      "normalStrength": 0.14,
+      "bumpScale": 0.002,
+      "aoIntensity": 0.18,
+      "dirtAmount": 0.04,
+      "edgeWear": 0.16,
+      "localOverrideCount": 2
+    },
+    {
+      "id": "gilt-bronze",
+      "components": [
+        "guard",
+        "collar",
+        "stud-a",
+        "stud-b",
+        "stud-c",
+        "stud-d",
+        "stud-e",
+        "stud-f",
+        "stud-back-a",
+        "stud-back-b",
+        "stud-back-c",
+        "stud-back-d",
+        "stud-back-e",
+        "stud-back-f",
+        "ferrule",
+        "ring-neck",
+        "ring"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "ba46815e-44dc-47aa-a264-6d1f09eda2e9",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "0c14a0ba-25dd-4f8f-a375-4ce20dd46288",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "675b23da-836c-45f7-8708-6a09e9c88aa6",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "63f5ad64-c3f6-4d71-bc2a-3c3acf40da70",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "5927e877-ccfa-48e9-9f1a-b08144bea07c",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.1,
+      "normalStrength": 0.18,
+      "bumpScale": 0.005,
+      "aoIntensity": 0.28,
+      "dirtAmount": 0.08,
+      "edgeWear": 0.18,
+      "localOverrideCount": 1
+    },
+    {
+      "id": "cord-wrap",
+      "components": [
+        "handle"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "040654b9-7aae-4e4d-aa4b-8beab913e5fe",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "cce5a1f8-1af3-48d5-9d81-106e2ed31101",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "baa461de-6f53-4ae2-953c-c0fc1ff78b8a",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "74ab7240-d7ef-4185-a190-7f34a147dc7c",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "07f20a9e-8d2a-450b-afbe-c8d4d8f924d7",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.1,
+      "normalStrength": 0.35,
+      "bumpScale": 0.012,
+      "aoIntensity": 0.4,
+      "dirtAmount": 0.12,
+      "edgeWear": 0.08,
+      "localOverrideCount": 1
+    },
+    {
+      "id": "wrap-seam",
+      "components": [
+        "wrap-seam-1",
+        "wrap-seam-2",
+        "stud-seat-a",
+        "stud-seat-b",
+        "stud-seat-c",
+        "stud-seat-d",
+        "stud-seat-e",
+        "stud-seat-f",
+        "stud-seat-back-a",
+        "stud-seat-back-b",
+        "stud-seat-back-c",
+        "stud-seat-back-d",
+        "stud-seat-back-e",
+        "stud-seat-back-f"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "b76e9f35-d81a-4815-8ae7-d966ad085106",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "c9937663-0f5a-4a9e-8f52-77a3169d2578",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "7265ab03-b6a8-43f7-84e8-179fceb722c0",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "900cb000-efa7-46f1-aea3-2c99b7b0cb9b",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "18d2cd89-94c9-40b2-8214-fe29ea27c481",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.1,
+      "normalStrength": 0.35,
+      "bumpScale": 0.012,
+      "aoIntensity": 0.4,
+      "dirtAmount": 0.12,
+      "edgeWear": 0.08,
+      "localOverrideCount": 1
+    },
+    {
+      "id": "gilt-engraving",
+      "components": [
+        "ring-engraving-outer",
+        "ring-engraving-middle",
+        "ring-engraving-inner",
+        "ring-engraving-back-outer",
+        "ring-engraving-back-middle",
+        "ring-engraving-back-inner"
+      ],
+      "source": "procedural",
+      "channels": {
+        "albedo": {
+          "present": true,
+          "uuid": "dddaada9-264a-4f97-8132-bf2c2bc90ee7",
+          "width": 1024,
+          "height": 1024
+        },
+        "roughness": {
+          "present": true,
+          "uuid": "3e8af82b-0932-4dd6-a307-0899ed203649",
+          "width": 1024,
+          "height": 1024
+        },
+        "height": {
+          "present": true,
+          "uuid": "b346d44d-97cc-40f9-93ad-0ed60a564ff2",
+          "width": 1024,
+          "height": 1024
+        },
+        "normal": {
+          "present": true,
+          "uuid": "27f36e1f-abbf-4894-a6b4-4bc98c69debb",
+          "width": 1024,
+          "height": 1024
+        },
+        "ao": {
+          "present": true,
+          "uuid": "36f0b11f-6cb5-407c-9a6a-0cf7bbb13c9a",
+          "width": 1024,
+          "height": 1024
+        }
+      },
+      "independentChannels": true,
+      "surfaceBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "roughnessVariation": 0.08,
+      "normalStrength": 0.18,
+      "bumpScale": 0.005,
+      "aoIntensity": 0.28,
+      "dirtAmount": 0.08,
+      "edgeWear": 0.18,
+      "localOverrideCount": 1
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,67 @@
+{
+  "budget": {
+    "qualityPriority": "stylized-approximate",
+    "targetTriangles": 250000,
+    "maxDrawCalls": 160,
+    "textureSize": 2048,
+    "fpsTarget": 30,
+    "optimizationPolicy": "Reach accepted visual fidelity first, then optimize without removing reference-critical geometry or surface layers."
+  },
+  "render": {
+    "drawCalls": 46,
+    "triangles": 87488,
+    "lines": 0,
+    "points": 0
+  },
+  "measuredFps": 4.01,
+  "rendererBackend": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "fpsAuthority": "report-only-software-renderer",
+  "resources": {
+    "meshCount": 46,
+    "instancedMeshCount": 0,
+    "uniqueGeometries": 46,
+    "uniqueMaterials": 7,
+    "sharedMaterials": 6,
+    "uniqueTextures": 35,
+    "rendererGeometries": 47,
+    "rendererTextures": 30
+  },
+  "lodPlan": [
+    {
+      "tier": "near",
+      "distance": 0,
+      "strategy": "full component tree and material layers"
+    },
+    {
+      "tier": "far",
+      "distance": 30,
+      "strategy": "merge static components and reduce local feature geometry"
+    }
+  ],
+  "repeatedDetailDecisions": [
+    {
+      "family": "handle-inlays",
+      "count": 12,
+      "strategy": "retain-selectable-components",
+      "reason": "Each front/back stud and recessed seat is a named component; shared materials already avoid duplicate texture sets."
+    },
+    {
+      "family": "hamon-lines",
+      "count": 6,
+      "strategy": "retain-distinct-curves",
+      "reason": "The six front/back curves have distinct paths and cannot share one instance transform."
+    },
+    {
+      "family": "ring-engravings",
+      "count": 6,
+      "strategy": "retain-distinct-profiles",
+      "reason": "Front/back concentric profiles differ by face and size and remain integral ring details."
+    }
+  ],
+  "optimizationPolicy": "Stay below the authored runtime budgets without removing accepted silhouette, material, or interaction evidence.",
+  "benchmarkPolicy": "FPS is a hard gate on hardware-accelerated WebGL; SwiftShader or llvmpipe measurements are retained as report-only environment diagnostics.",
+  "warnings": [
+    "measured FPS below target on ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  ],
+  "failures": []
+}

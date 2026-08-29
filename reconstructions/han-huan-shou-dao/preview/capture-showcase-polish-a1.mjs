@@ -66,6 +66,87 @@ async function shot(name, locator = 'canvas') {
   return dest;
 }
 
+async function frameAndPixelAudit() {
+  const frame = await page.evaluate(() => {
+    const viewer = window.__IMG2THREEJS_VIEWER__;
+    const root = viewer?.explodeRoot;
+    const camera = viewer?.camera;
+    if (!root || !camera) return { ready: false };
+
+    root.updateWorldMatrix(true, true);
+    const ndc = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+    let meshCount = 0;
+    root.traverse((node) => {
+      if (!node.isMesh || !node.visible || !node.geometry) return;
+      if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
+      const box = node.geometry.boundingBox;
+      if (!box) return;
+      meshCount += 1;
+      for (const x of [box.min.x, box.max.x]) {
+        for (const y of [box.min.y, box.max.y]) {
+          for (const z of [box.min.z, box.max.z]) {
+            const point = box.min.clone().set(x, y, z).applyMatrix4(node.matrixWorld).project(camera);
+            ndc.minX = Math.min(ndc.minX, point.x);
+            ndc.maxX = Math.max(ndc.maxX, point.x);
+            ndc.minY = Math.min(ndc.minY, point.y);
+            ndc.maxY = Math.max(ndc.maxY, point.y);
+          }
+        }
+      }
+    });
+
+    const margin = 0.985;
+    return {
+      ready: true,
+      meshCount,
+      ndc,
+      fits: ndc.minX >= -margin && ndc.maxX <= margin && ndc.minY >= -margin && ndc.maxY <= margin,
+      camera: {
+        position: viewer.camera.position.toArray(),
+        target: viewer.controls.target.toArray(),
+        aspect: viewer.camera.aspect,
+      },
+    };
+  });
+  if (!frame.ready) return frame;
+
+  // Read the browser-composited screenshot. WebGL's default back buffer is not
+  // preserved, so drawImage(canvas) can be black even when the user sees a frame.
+  const png = await page.locator('canvas').first().screenshot({ type: 'png' });
+  const pixels = await page.evaluate(async (src) => {
+    const image = new Image();
+    image.src = src;
+    await image.decode();
+    const sample = document.createElement('canvas');
+    sample.width = 64;
+    sample.height = 64;
+    const context = sample.getContext('2d', { willReadFrequently: true });
+    context.drawImage(image, 0, 0, sample.width, sample.height);
+    const data = context.getImageData(0, 0, sample.width, sample.height).data;
+    let sum = 0;
+    let sumSquares = 0;
+    let minLuma = 255;
+    let maxLuma = 0;
+    const count = data.length / 4;
+    for (let index = 0; index < data.length; index += 4) {
+      const luma = data[index] * 0.2126 + data[index + 1] * 0.7152 + data[index + 2] * 0.0722;
+      sum += luma;
+      sumSquares += luma * luma;
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+    }
+    const mean = sum / count;
+    const variance = Math.max(0, sumSquares / count - mean * mean);
+    return {
+      minLuma: Number(minLuma.toFixed(2)),
+      maxLuma: Number(maxLuma.toFixed(2)),
+      variance: Number(variance.toFixed(2)),
+      nonBlank: maxLuma - minLuma >= 8 && variance >= 4,
+    };
+  }, `data:image/png;base64,${png.toString('base64')}`);
+  return { ...frame, pixels };
+}
+
 function orbitPos(azDeg, radius = 5.05, elev = 0.14) {
   const az = (azDeg * Math.PI) / 180;
   return [
@@ -95,6 +176,7 @@ const runtime = await page.evaluate(() => ({
 console.log('runtime', JSON.stringify(runtime, null, 2));
 await freezeIdle();
 await setCamera(heroPos, target);
+const desktopAudit = await frameAndPixelAudit();
 await shot('showcase-hero');
 await page.screenshot({ path: path.join(outDir, 'showcase-hero-page.png'), type: 'png', fullPage: false });
 console.log('wrote', path.join(outDir, 'showcase-hero-page.png'), statSync(path.join(outDir, 'showcase-hero-page.png')).size);
@@ -142,7 +224,9 @@ await page.setViewportSize({ width: 390, height: 844 });
 await page.goto(`${base}/#/demo/han-huan-shou-dao`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 await waitReady();
 await freezeIdle();
-await setCamera(heroPos, target);
+// Keep the viewer's responsive fit. Reapplying the desktop camera here defeats fitToViewport().
+await page.waitForTimeout(500);
+const mobileAudit = await frameAndPixelAudit();
 await shot('showcase-mobile-smoke');
 await page.screenshot({ path: path.join(outDir, 'showcase-mobile-page.png'), type: 'png', fullPage: false });
 console.log('wrote', path.join(outDir, 'showcase-mobile-page.png'), statSync(path.join(outDir, 'showcase-mobile-page.png')).size);
@@ -154,6 +238,7 @@ await writeFile(path.join(outDir, 'capture-log.json'), JSON.stringify({
   url: base,
   demo: 'han-huan-shou-dao',
   cameras: { heroPos, target },
+  audits: { desktop: desktopAudit, mobile: mobileAudit },
   at: new Date().toISOString(),
 }, null, 2));
 
@@ -161,6 +246,10 @@ if (consoleErrors.length) console.error('console errors:', consoleErrors.slice(0
 if (!stats.meshCount || stats.tri < 1000) {
   console.error('FAIL: model missing or too few triangles', stats);
   process.exit(2);
+}
+if (!desktopAudit.fits || !desktopAudit.pixels?.nonBlank || !mobileAudit.fits || !mobileAudit.pixels?.nonBlank) {
+  console.error('FAIL: canvas framing or pixel audit', { desktopAudit, mobileAudit });
+  process.exit(3);
 }
 console.log('OK');
 await browser.close();

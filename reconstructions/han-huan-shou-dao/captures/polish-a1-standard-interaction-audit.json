@@ -1,0 +1,206 @@
+{
+  "expectedModules": [
+    "blade",
+    "guard",
+    "collar",
+    "handle",
+    "ferrule",
+    "ring"
+  ],
+  "expectedSockets": [
+    "root:blade-heel",
+    "root:guard-back",
+    "root:front-ferrule-back",
+    "root:handle-back",
+    "root:rear-ferrule-back",
+    "root:pommel-anchor"
+  ],
+  "expectedColliders": [
+    "root",
+    "blade",
+    "guard",
+    "collar",
+    "handle",
+    "ferrule",
+    "ring"
+  ],
+  "actionable": [
+    {
+      "id": "root",
+      "level": "macro",
+      "pivotName": "Han Huan-Shou Dao assembly__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    },
+    {
+      "id": "blade",
+      "level": "macro",
+      "pivotName": "Dao blade__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    },
+    {
+      "id": "guard",
+      "level": "meso",
+      "pivotName": "Disk guard__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    },
+    {
+      "id": "collar",
+      "level": "meso",
+      "pivotName": "Gilt front ferrule__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    },
+    {
+      "id": "handle",
+      "level": "macro",
+      "pivotName": "Cord-wrapped grip__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    },
+    {
+      "id": "ferrule",
+      "level": "meso",
+      "pivotName": "Gilt rear ferrule__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    },
+    {
+      "id": "ring-neck",
+      "level": "meso",
+      "pivotName": "Huan-shou neck__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    },
+    {
+      "id": "ring",
+      "level": "macro",
+      "pivotName": "Huan-shou ring__pivot",
+      "stablePivot": true,
+      "meshIsDirectChild": true,
+      "hasPivotMetadata": true,
+      "hasColliderMetadata": true,
+      "hasDestructionMetadata": true
+    }
+  ],
+  "mappings": [
+    {
+      "componentId": "hamon-1",
+      "expectedModule": "blade",
+      "resolvedModule": "blade"
+    },
+    {
+      "componentId": "stud-c",
+      "expectedModule": "handle",
+      "resolvedModule": "handle"
+    },
+    {
+      "componentId": "ring-engraving-inner",
+      "expectedModule": "ring",
+      "resolvedModule": "ring"
+    }
+  ],
+  "exploded": {
+    "factor": 1,
+    "modules": [
+      "blade",
+      "guard",
+      "collar",
+      "handle",
+      "ferrule",
+      "ring"
+    ],
+    "movedModules": 6,
+    "maxDisplacement": 0.3
+  },
+  "moduleDisplacements": [
+    {
+      "moduleId": "blade",
+      "nodeCount": 7,
+      "minDisplacement": 0.3,
+      "maxDisplacement": 0.30000000000000004
+    },
+    {
+      "moduleId": "guard",
+      "nodeCount": 1,
+      "minDisplacement": 0.17999999999999994,
+      "maxDisplacement": 0.17999999999999994
+    },
+    {
+      "moduleId": "collar",
+      "nodeCount": 1,
+      "minDisplacement": 0.06000000000000005,
+      "maxDisplacement": 0.06000000000000005
+    },
+    {
+      "moduleId": "handle",
+      "nodeCount": 27,
+      "minDisplacement": 0.05999999999999983,
+      "maxDisplacement": 0.06000000000000005
+    },
+    {
+      "moduleId": "ferrule",
+      "nodeCount": 1,
+      "minDisplacement": 0.18000000000000016,
+      "maxDisplacement": 0.18000000000000016
+    },
+    {
+      "moduleId": "ring",
+      "nodeCount": 8,
+      "minDisplacement": 0.2999999999999998,
+      "maxDisplacement": 0.3
+    }
+  ],
+  "restorationError": 0,
+  "selectionCleared": true,
+  "socketIds": [
+    "root:blade-heel",
+    "root:front-ferrule-back",
+    "root:guard-back",
+    "root:handle-back",
+    "root:pommel-anchor",
+    "root:rear-ferrule-back"
+  ],
+  "colliderIds": [
+    "blade",
+    "collar",
+    "ferrule",
+    "guard",
+    "handle",
+    "ring",
+    "root"
+  ],
+  "destructionGroups": {
+    "root": 1,
+    "blade": 7,
+    "guard": 1,
+    "collar": 1,
+    "handle": 27,
+    "ferrule": 1,
+    "ring": 8
+  },
+  "failures": []
+}
