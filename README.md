@@ -13,9 +13,11 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Runtime](https://img.shields.io/badge/runtime-Three.js-000000.svg)](https://threejs.org)
 [![Tooling](https://img.shields.io/badge/tooling-Python%203.10%2B%20stdlib-3776ab.svg)](forge)
-[![Sponsor](https://img.shields.io/badge/Sponsor-Buy%20Me%20A%20Coffee-FFDD00.svg?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/hoainhowors)
+[![Sponsor](https://img.shields.io/badge/Sponsor-Ko--fi-FF5E5B.svg?logo=kofi&logoColor=white)](https://ko-fi.com/iamnick)
 [![Scripts](https://img.shields.io/badge/scripts-forge%20%2F%20scripts-3776ab.svg)](scripts)
 [![Sponsored by Atlas Cloud](https://img.shields.io/badge/Sponsored%20by-Atlas%20Cloud-000000.svg?labelColor=1a1a1a&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4NDUuOTUgNzkyIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNzEyLjA1LDU5NC4zTDQyMi45OCwxNS40NiwxMzMuOSw1OTQuM2wtOTEuMDEsMTgyLjI1YzU3LjE4LTM0LjU1LDExOS40OS02MS40LDE4NS40NC03OS40NSw2Mi4wMi0xNi45NywxMjcuMjQtMjYuMjEsMTk0LjY1LTI2LjIxLDM0LjY5LDAsNjguNzksMi40OSwxMDIuMTksNy4xOGwtNjUuNzItMTQxLjc2Yy0xOC42MS0zLjIzLTEwMS4yOC0zLjIzLTE2MS44Myw5Ljg0bDEyNS4zNi0yNzMuMTYsMTk0LjY1LDQyNC4xMmMuMzUuMS42OS4yMSwxLjAzLjMsNjUuNTcsMTguMDQsMTI3LjUzLDQ0Ljc4LDE4NC40MSw3OS4xNGwtOTEuMDEtMTgyLjI1WiIvPjwvc3ZnPg%3D%3D)](https://www.atlascloud.ai/console/coding-plan)
+[![Sponsored by Tripo](https://img.shields.io/badge/Sponsored%20by-Tripo-000000.svg?labelColor=1a1a1a&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBmaWxsPSIjZmFjZTAwIiBkPSJNMTIuNjYxIDQuNzUyYS4wNC4wNCAwIDAwLS4wMTMtLjA1NS4wMzguMDM4IDAgMDAtLjAyLS4wMDVINi40OTZhLjE5LjE5IDAgMDEtLjE2NS0uMDkyTDQuMjQ1IDEuMDUyYS4wMzQuMDM0IDAgMDEuMDE0LS4wNDdBLjAzOC4wMzggMCAwMTQuMjc1IDFjNS40OTIgMCAxMC43MzMgMCAxNS43MjEuMDAyIDIuMDg5IDAgMy42OTkgMS41NCA0LjAwMyAzLjU5OC4wMDguMDYyLS4wMTkuMDkyLS4wOC4wOTJoLTYuNjdhLjIwNC4yMDQgMCAwMC0uMTc0LjFjLTEuNDE0IDIuNDEtMi44MiA0LjgwMy00LjIxOCA3LjE3OC0uMjguNDcyLS45Mi42Mi0xLjM3My4zNDItLjE5LS4xMTYtLjM1Ny0uMzA0LS41MDItLjU2MWEzNy45MTcgMzcuOTE3IDAgMDAtLjg4Mi0xLjQ4OWMtLjIyMi0uMzU2LS4yMzQtLjcwNy0uMDM1LTEuMDUyYTY2MS43NyA2NjEuNzcgMCAwMTIuNTk3LTQuNDZ2LjAwMnoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTAuNzcyIDE2Ljk4NmMuNTcuOTcyIDEuOTM1LjkxNiAyLjQ4OS0uMDI4TDE5IDcuMTY0YS4xMjcuMTI3IDAgMDEuMTE2LS4wNjdoNC4yM2MuMDE3IDAgLjAzLjAxNC4wMjguMDMgMCAuMDA1LS4wMDEuMDEtLjAwMy4wMTMtMi42MDUgNC40MzItNS4yMzIgOC45MDYtNy44OCAxMy40Mi0xLjI4MyAyLjE5MS00LjI3OCAyLjUxNy02LjE3OS45NDctLjMwOC0uMjU0LS42NjUtLjcyNy0xLjA2OS0xLjQxNy0yLjUyNS00LjMyNC01LjA5OC04LjcxLTcuNzItMTMuMTYyLTEuMDYzLTEuODAzLS40MjQtMy45NDcgMS4xOS01LjIuMDUzLS4wNDEuMDk1LS4wMzMuMTI5LjAyMyAyLjkwNSA0Ljk1IDUuODgyIDEwLjAyOSA4LjkzIDE1LjIzNnoiLz48L3N2Zz4%3D)](https://www.tripo3d.ai/)
+[![Sponsored by Hyper3D](https://img.shields.io/badge/Sponsored%20by-Hyper3D-000000.svg?labelColor=1a1a1a&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAADlElEQVRYCeWWbWiOURjH9wzDZoYs5i3aF%2FEBiTYZRQ35qGxS%2B2AoFNoHRcl7vlETGcWX1aLkLbKsJTNiXmpKpExt5v2lGWNte%2Fz%2Bd%2Ff9dO6z57mfe08p5arfc851netc57rP23PS0v53iYSZgGg0Ogy%2F5VACU%2BAnnIlEIjWUf1cYvAgaIZ7sxxjqI1LKkuCb4Ue8kV1bB%2BXElIIn60TgLdDnDhRULEsWa8DtjKZp7woa1W37TTljwAMEdSBgFjS5AyQrzuOQ7jKCcnBQ7FBtBCmHZPIdh0oYpaCUObATnoCS3wPzwwzo28F0GkKnezDX7fyJ8gF8hT54Bc3wmCP4mtIn9C%2FCcBbyoQv2QSW%2BqicXAhRAL7yFU3AI6uEoTE8ewZmNqfg%2BB8kL0FFdEqavpnI9qPNe0HRKdkOGHQBbBIbbdunYi6EbfsER%2BAC6yBILDgqoo3cavBOwPXEPZyDNWNxjiP0iSA6CTks7zAyKp8xLwBv8ZKCz24j%2FMVhj%2B2JbCRItoy4syW0YavvGdBovywvRHpgcawio4LcBWmG06YaeB7pFlUAneFJm%2BqWbCvWXrn6FndtqtSVSJ9GgPTLecviG3gDZYH71VjLRn5sjdgKNrv2CWwYWBNItOBZqYZ7l3IN%2BHyaAeUHNQS8AR8wGGe6AvlznP64w6FIaRrosoNTAs6AOTNGXt8Em00hdH10It8CXWRrT%2FpEBTmA3p0x%2BppSj2JtOF403e56vlmA25HoGo1TijtgzIONxiK2R4%2BX%2F6fWrjnaO3xbLnoduJ%2Bq55HgVew%2FIHoUMZiLTc7JKe3Y09TuYPV3VpixE8Z0Ms9Grx2aAAZWMprcCpsEzbFUErqJuyk0Ubbz3oMFr8NETzZagS6fddtYltBbiyeF%2BziEMBCqNF8y1lfpCYNQ1fDegw0batPNDCb6ZkAstYMsjDP6lwaA1b7Y9DV033S5YB1mJsqAtGyrAeSVRFkIj6CbUdVwH%2BWb%2F2HuAhus0rDAbrXotus61LhKt%2FTX4DBLNjv7tVkE9bGNfaDNrabW3dBx74Klnp%2B4XHBeD%2FrWCpJpGvRNMP%2FPh%2BoC20EvlzwCNzmVg%2FnGg9pOHWA7AJdDSeHKVyoCf6LEl8LIhiN5yekoVQ7x7Qq468w2gP68meAc3mN5uygFJvwS83iSyiPpqUELjYAwooU7QgG%2BgGjTwF8qUJGECZjSS0bWqy2cQdEBbKl9Lv39P%2FgAQ2ul5m76dAQAAAABJRU5ErkJggg%3D%3D)](https://hyper3d.ai/)
 
 <table align="center">
   <tr>
@@ -345,7 +347,7 @@ If img2threejs is useful to you, a star helps others find it.
 
 img2threejs is free and open source. If it saved you time or found its way into your project, consider supporting continued development:
 
-<a href="https://www.buymeacoffee.com/hoainhowors" target="_blank" rel="noopener noreferrer"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/O8A625YLSR)
 
 VietQR / MoMo / PayPal also work — see the [donate page](https://img2threejs.io/donate.html).
 
@@ -353,15 +355,110 @@ VietQR / MoMo / PayPal also work — see the [donate page](https://img2threejs.i
 
 ## Sponsors
 
-<a href="https://www.atlascloud.ai/console/coding-plan" target="_blank" rel="noopener noreferrer">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/atlas-cloud-logomark-white.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/atlas-cloud-logomark-black.svg" />
-    <img alt="Atlas Cloud" src="assets/sponsors/atlas-cloud-logomark-black.svg" width="72" height="67" />
-  </picture>
-</a>
+Reconstruction-by-code is an inference workload before it is a graphics one: every gate rerun, every
+render-vs-reference pass and every material fit spends tokens. These three pay for that loop.
 
-**[Atlas Cloud](https://www.atlascloud.ai/console/coding-plan)** is a full-modal AI inference platform that gives developers a single AI API to access video generation, image generation, and LLM APIs. Instead of managing multiple vendor integrations, you connect once and get unified access to 300+ curated models across all modalities. Check out Atlas Cloud's new coding plan promotion for more budget-friendly API access: <https://www.atlascloud.ai/console/coding-plan>
+<table>
+  <tr>
+    <td align="center" width="200">
+      <a href="https://www.atlascloud.ai/console/coding-plan" target="_blank" rel="noopener noreferrer">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/atlas-cloud-logomark-white.svg" />
+          <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/atlas-cloud-logomark-black.svg" />
+          <img alt="Atlas Cloud" src="assets/sponsors/atlas-cloud-logomark-black.svg" width="72" height="67" />
+        </picture>
+      </a>
+      <br /><sub><b>Atlas Cloud</b></sub>
+      <br /><sub>Full-modal AI inference</sub>
+    </td>
+    <td align="center" width="200">
+      <a href="https://www.tripo3d.ai/" target="_blank" rel="noopener noreferrer">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/tripo-logomark-white.svg" />
+          <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/tripo-logomark-black.svg" />
+          <img alt="Tripo" src="assets/sponsors/tripo-logomark-black.svg" width="68" height="68" />
+        </picture>
+      </a>
+      <br /><sub><b>Tripo</b></sub>
+      <br /><sub>Image &amp; text to 3D</sub>
+    </td>
+    <td align="center" width="200">
+      <a href="https://hyper3d.ai/" target="_blank" rel="noopener noreferrer">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/hyper3d-logomark-white.png" />
+          <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/hyper3d-logomark-black.png" />
+          <img alt="Hyper3D" src="assets/sponsors/hyper3d-logomark-black.png" width="68" height="68" />
+        </picture>
+      </a>
+      <br /><sub><b>Hyper3D</b></sub>
+      <br /><sub>Rodin generative 3D</sub>
+    </td>
+  </tr>
+</table>
+
+### Atlas Cloud
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/atlas-cloud-logomark-white.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/atlas-cloud-logomark-black.svg" />
+  <img alt="" src="assets/sponsors/atlas-cloud-logomark-black.svg" width="38" height="36" align="right" />
+</picture>
+
+**[Atlas Cloud](https://www.atlascloud.ai/console/coding-plan)** is a full-modal AI inference
+platform: one AI API for video generation, image generation and LLM access, with unified access to
+300+ curated models across every modality instead of a separate integration per vendor.
+
+That single endpoint is what keeps this project's loop affordable — the pipeline is token-hungry by
+design, because gating a spec before codegen means running the analysis more than once. Atlas Cloud's
+coding plan is the budget-friendly route to that API.
+
+**→ [Open the Atlas Cloud coding plan](https://www.atlascloud.ai/console/coding-plan)**
+
+### Tripo
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/tripo-logomark-white.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/tripo-logomark-black.svg" />
+  <img alt="" src="assets/sponsors/tripo-logomark-black.svg" width="38" height="38" align="right" />
+</picture>
+
+**[Tripo](https://www.tripo3d.ai/)** turns a prompt or a reference image into a production 3D asset:
+High Detail meshes up to 2M polygons for render and print, artist-grade quad **Smart Mesh** from 500
+to 50K triangles for real-time engines, AI auto-rigging, PBR texturing up to 8K, and part-level
+segmentation. Exports GLB, FBX, OBJ, USD, STL and 3MF, with first-party plugins for Blender, Unity,
+Unreal, Godot, Cocos and ComfyUI.
+
+It pairs with img2threejs as the measuring stick. A procedural rebuild lives or dies on silhouette,
+proportion and joint placement, and a quad mesh plus an auto-rig of the same subject gives those
+gates a second read that one reference photograph cannot settle on its own.
+
+**→ [Open Tripo Studio](https://www.tripo3d.ai/)**
+
+### Hyper3D
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/hyper3d-logomark-white.png" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/hyper3d-logomark-black.png" />
+  <img alt="" src="assets/sponsors/hyper3d-logomark-black.png" width="38" height="38" align="right" />
+</picture>
+
+**[Hyper3D](https://hyper3d.ai/)** builds **Rodin**, which generates a 3D asset from a prompt or an
+image in seconds with high reference fidelity and coherent detail across views. Generation is
+steerable rather than a dice roll: bounding-box, voxel and point-cloud ControlNet guidance, partial
+editing to refine one region without disturbing the rest, smart low-poly optimisation, and
+ChatAvatar for rigged production faces. Exports STL, FBX, OBJ, GLB, glTF and USDZ.
+
+It answers the one question a single photograph never can — what the back looks like. Generate the
+subject, orbit it, and the hidden sides become references the material and surface gates can actually
+be run against, instead of assumptions the pipeline has to make silently.
+
+**→ [Open Hyper3D Rodin](https://hyper3d.ai/)**
+
+---
+
+Sponsorship pays for compute, not for coverage: a sponsor's product is described here in its own
+terms, and no gate, default or benchmark in this repository is weighted toward one. Want your logo in
+this row? Open an issue or write to <hoainho.work@gmail.com>.
 
 ---
 
