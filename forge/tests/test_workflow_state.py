@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -55,14 +57,54 @@ class WorkflowStateTest(unittest.TestCase):
         self.assertLess(ids.index("material-evidence"), ids.index("material-spec-wiring"))
         self.assertLess(ids.index("material-spec-wiring"), ids.index("strict-validation"))
 
-    def test_cs2_state_includes_classification_and_manifest_before_pre_spec(self):
-        state = new_state("knife.png", profile="cs2")
+    def test_plugin_domain_steps_splice_before_their_anchors(self):
+        """A plugin-contributed domain drives the checklist through the registry, hermetically.
+
+        This test used to build a `cs2` state and passed only on machines where the cs2 plugin
+        happened to be installed under ~/.img2 -- the machine-global dependency that turned CI
+        red. It now installs a fixture plugin (mirroring cs2's `domain.json` shape: setup steps
+        anchored before `local-spec-search`, one pass step anchored before `ai-review-recorded`)
+        into a disposable $IMG2_HOME and asserts the same splice-order semantics.
+        """
+        domain_entry = {
+            "id": "fixture-dom",
+            "setupSteps": [
+                ["fx-contract-read", "Read {plugin_dir}/grimoire/contract.md completely"],
+                ["fx-classification", "Obtain an authoritative fixture classification record"],
+                ["fx-manifest", "python3 {plugin_dir}/tools/manifest.py {reference} --out fx.json"],
+            ],
+            "setupAnchorBefore": "local-spec-search",
+            "passSteps": [
+                ["fx-review", "python3 {plugin_dir}/tools/review.py --spec {spec} --out fx-review.json"]
+            ],
+            "passAnchorBefore": "ai-review-recorded",
+        }
+        home = Path(tempfile.mkdtemp(prefix="img2-home-"))
+        self.addCleanup(shutil.rmtree, home, True)
+        plugin_dir = home / "plugins" / "fixture-plugin"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "domain.json").write_text(json.dumps(domain_entry), encoding="utf-8")
+        (home / "plugins.json").write_text(
+            json.dumps({"version": 1, "plugins": [{"id": "fixture-plugin"}]}), encoding="utf-8"
+        )
+        prior = os.environ.get("IMG2_HOME")
+        os.environ["IMG2_HOME"] = str(home)
+        try:
+            state = new_state("fixture.png", profile="fixture-dom")
+        finally:
+            if prior is None:
+                os.environ.pop("IMG2_HOME", None)
+            else:
+                os.environ["IMG2_HOME"] = prior
         ids = [entry["id"] for entry in state["checklist"]]
-        self.assertLess(ids.index("cs2-contract-read"), ids.index("cs2-authoritative-classification"))
-        self.assertLess(ids.index("cs2-authoritative-classification"), ids.index("pre-spec-assessment"))
-        self.assertLess(ids.index("cs2-manifest"), ids.index("pre-spec-assessment"))
-        self.assertLess(ids.index("pass-gate-check"), ids.index("cs2-review"))
-        self.assertLess(ids.index("cs2-review"), ids.index("ai-review-recorded"))
+        self.assertLess(ids.index("fx-contract-read"), ids.index("fx-classification"))
+        self.assertLess(ids.index("fx-classification"), ids.index("fx-manifest"))
+        self.assertLess(ids.index("fx-manifest"), ids.index("local-spec-search"))
+        self.assertLess(ids.index("local-spec-search"), ids.index("pre-spec-assessment"))
+        self.assertLess(ids.index("pass-gate-check"), ids.index("fx-review"))
+        self.assertLess(ids.index("fx-review"), ids.index("ai-review-recorded"))
+        by_id = {entry["id"]: entry for entry in state["checklist"]}
+        self.assertIn(str(plugin_dir), by_id["fx-manifest"]["command"])
 
     def test_character_state_requires_contract_landmarks_and_route_decision(self):
         state = new_state("character.png", profile="character")

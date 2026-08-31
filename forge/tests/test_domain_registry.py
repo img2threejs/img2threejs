@@ -6,7 +6,11 @@ assertions, which already pin the 21 / 23 / 25 step counts per profile.
 
 from __future__ import annotations
 
+import contextlib
+import json
+import os
 import sys
+import tempfile
 import textwrap
 import unittest
 from pathlib import Path
@@ -31,9 +35,15 @@ class Registry(unittest.TestCase):
     def test_generic_resolves_to_no_domain(self) -> None:
         self.assertIsNone(domain_profile("generic"))
 
-    def test_both_in_repo_domains_are_registered(self) -> None:
-        # Two consumers, one of them destined to leave the repo. A seam with one consumer is a rename.
-        self.assertEqual(sorted(registered_domains()), ["character", "cs2"])
+    def test_both_registry_sources_register_hermetically(self) -> None:
+        # A seam with one consumer is a rename, so both sources are exercised: the in-repo module,
+        # and an installed plugin's domain.json. Neither half may depend on what this machine
+        # happens to have under ~/.img2 -- the old form of this test asserted the INSTALLED cs2
+        # plugin and was green or red depending on the machine, which is what turned CI red.
+        with self._temp_img2_home({}):
+            self.assertEqual(sorted(registered_domains()), ["character"])
+        with self._temp_img2_home({"fixture-plugin": {"id": "fixture-dom"}}):
+            self.assertEqual(sorted(registered_domains()), ["character", "fixture-dom"])
 
     def test_an_unregistered_profile_fails_loud_and_names_what_is_available(self) -> None:
         with self.assertRaises(DomainRegistryError) as ctx:
@@ -77,13 +87,41 @@ class Registry(unittest.TestCase):
         self.assertIn("passAnchorBefore", str(ctx.exception))
 
     def test_two_providers_claiming_one_id_is_ambiguous(self) -> None:
-        with self.assertRaises(DomainRegistryError) as ctx:
-            self._with_temp_domain(
-                "dupe",
-                'DOMAIN = {"id": "cs2"}',
-                registered_domains,
-            )
+        # Collides with the in-repo `character` module rather than an installed plugin, so the
+        # refusal is provable on a machine with nothing installed. IMG2_HOME is pinned empty for
+        # the same reason: a real installation must not be able to add a second collision path.
+        with self._temp_img2_home({}):
+            with self.assertRaises(DomainRegistryError) as ctx:
+                self._with_temp_domain(
+                    "dupe",
+                    'DOMAIN = {"id": "character"}',
+                    registered_domains,
+                )
         self.assertIn("declared twice", str(ctx.exception))
+
+    @contextlib.contextmanager
+    def _temp_img2_home(self, plugins: dict[str, dict]):
+        """A disposable $IMG2_HOME holding exactly `plugins` ({registry_id: domain_entry})."""
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            rows = []
+            for registry_id, domain_entry in plugins.items():
+                rows.append({"id": registry_id})
+                plugin_dir = home / "plugins" / registry_id
+                plugin_dir.mkdir(parents=True)
+                (plugin_dir / "domain.json").write_text(json.dumps(domain_entry), encoding="utf-8")
+            (home / "plugins.json").write_text(
+                json.dumps({"version": 1, "plugins": rows}), encoding="utf-8"
+            )
+            prior = os.environ.get("IMG2_HOME")
+            os.environ["IMG2_HOME"] = str(home)
+            try:
+                yield home
+            finally:
+                if prior is None:
+                    os.environ.pop("IMG2_HOME", None)
+                else:
+                    os.environ["IMG2_HOME"] = prior
 
     def _with_temp_domain(self, stem: str, body: str, action):
         """Drop a domain module into the package for one assertion, then remove it."""
