@@ -3,7 +3,7 @@
 One copy-paste prompt that carries a subject from a GLB reference to a **rigged, animated,
 gate-cleared** procedural Three.js character, for img2threejs 1.5.2 and later.
 
-It is the animated sibling of [`GLB_CHARACTER_PROMPT.md`](GLB_CHARACTER_PROMPT.md). That one stops
+It is the animated sibling of [`prompts/build.md`](standard-prompts/build.md). That one stops
 at a static reconstruction; this one continues through Stage R — rigging, animation, and the G1–G10
 gates — under one rule the static route never needed:
 
@@ -96,7 +96,7 @@ means you must choose a skin explicitly and say why. `animationCount: 0` means S
 not R3 identification — a different route with different gates.
 
 ### Stages 1–3 — Reconstruction
-Follow `docs/GLB_CHARACTER_PROMPT.md` for the geometry route (cross-section loft, implicit surface
+Follow `docs/standard-prompts/build.md` for the geometry route (cross-section loft, implicit surface
 only where the loft cannot reach, TypeScript encoding, `verify_cells.mjs` before any encode). None
 of it changes here. Come back when the static model renders and its gates are green.
 
@@ -220,4 +220,5 @@ it rather than shipping a shredded figure.
 - [`docs/pipelines/character-rigging-animation-1.5.2.md`](pipelines/character-rigging-animation-1.5.2.md) — the derivation and the failure log.
 - [`grimoire/readiness/animation_contract.md`](../grimoire/readiness/animation_contract.md) — the routing file read at Stage R.
 - [`forge/stage5_rig/CONTRACT_1.5.2.md`](../forge/stage5_rig/CONTRACT_1.5.2.md) — module map and payload shapes.
-- [`docs/GLB_CHARACTER_PROMPT.md`](GLB_CHARACTER_PROMPT.md) — the static reconstruction route this one continues.
+- [`docs/standard-prompts/build.md`](standard-prompts/build.md) — the static reconstruction route this one continues.
+- [`docs/prompts/transcribe-glb.md`](standard-prompts/transcribe-glb.md) — when the GLB should be copied 1:1 instead of reconstructed.
