@@ -13,9 +13,11 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Runtime](https://img.shields.io/badge/runtime-Three.js-000000.svg)](https://threejs.org)
 [![Tooling](https://img.shields.io/badge/tooling-Python%203.10%2B%20stdlib-3776ab.svg)](forge)
-[![Sponsor](https://img.shields.io/badge/Sponsor-Buy%20Me%20A%20Coffee-FFDD00.svg?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/hoainhowors)
+[![Sponsor](https://img.shields.io/badge/Sponsor-Ko--fi-FF5E5B.svg?logo=kofi&logoColor=white)](https://ko-fi.com/iamnick)
 [![Scripts](https://img.shields.io/badge/scripts-forge%20%2F%20scripts-3776ab.svg)](scripts)
 [![Sponsored by Atlas Cloud](https://img.shields.io/badge/Sponsored%20by-Atlas%20Cloud-000000.svg?labelColor=1a1a1a&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4NDUuOTUgNzkyIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNzEyLjA1LDU5NC4zTDQyMi45OCwxNS40NiwxMzMuOSw1OTQuM2wtOTEuMDEsMTgyLjI1YzU3LjE4LTM0LjU1LDExOS40OS02MS40LDE4NS40NC03OS40NSw2Mi4wMi0xNi45NywxMjcuMjQtMjYuMjEsMTk0LjY1LTI2LjIxLDM0LjY5LDAsNjguNzksMi40OSwxMDIuMTksNy4xOGwtNjUuNzItMTQxLjc2Yy0xOC42MS0zLjIzLTEwMS4yOC0zLjIzLTE2MS44Myw5Ljg0bDEyNS4zNi0yNzMuMTYsMTk0LjY1LDQyNC4xMmMuMzUuMS42OS4yMSwxLjAzLjMsNjUuNTcsMTguMDQsMTI3LjUzLDQ0Ljc4LDE4NC40MSw3OS4xNGwtOTEuMDEtMTgyLjI1WiIvPjwvc3ZnPg%3D%3D)](https://www.atlascloud.ai/console/coding-plan)
+[![Sponsored by Tripo](https://img.shields.io/badge/Sponsored%20by-Tripo-000000.svg?labelColor=1a1a1a&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBmaWxsPSIjZmFjZTAwIiBkPSJNMTIuNjYxIDQuNzUyYS4wNC4wNCAwIDAwLS4wMTMtLjA1NS4wMzguMDM4IDAgMDAtLjAyLS4wMDVINi40OTZhLjE5LjE5IDAgMDEtLjE2NS0uMDkyTDQuMjQ1IDEuMDUyYS4wMzQuMDM0IDAgMDEuMDE0LS4wNDdBLjAzOC4wMzggMCAwMTQuMjc1IDFjNS40OTIgMCAxMC43MzMgMCAxNS43MjEuMDAyIDIuMDg5IDAgMy42OTkgMS41NCA0LjAwMyAzLjU5OC4wMDguMDYyLS4wMTkuMDkyLS4wOC4wOTJoLTYuNjdhLjIwNC4yMDQgMCAwMC0uMTc0LjFjLTEuNDE0IDIuNDEtMi44MiA0LjgwMy00LjIxOCA3LjE3OC0uMjguNDcyLS45Mi42Mi0xLjM3My4zNDItLjE5LS4xMTYtLjM1Ny0uMzA0LS41MDItLjU2MWEzNy45MTcgMzcuOTE3IDAgMDAtLjg4Mi0xLjQ4OWMtLjIyMi0uMzU2LS4yMzQtLjcwNy0uMDM1LTEuMDUyYTY2MS43NyA2NjEuNzcgMCAwMTIuNTk3LTQuNDZ2LjAwMnoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTAuNzcyIDE2Ljk4NmMuNTcuOTcyIDEuOTM1LjkxNiAyLjQ4OS0uMDI4TDE5IDcuMTY0YS4xMjcuMTI3IDAgMDEuMTE2LS4wNjdoNC4yM2MuMDE3IDAgLjAzLjAxNC4wMjguMDMgMCAuMDA1LS4wMDEuMDEtLjAwMy4wMTMtMi42MDUgNC40MzItNS4yMzIgOC45MDYtNy44OCAxMy40Mi0xLjI4MyAyLjE5MS00LjI3OCAyLjUxNy02LjE3OS45NDctLjMwOC0uMjU0LS42NjUtLjcyNy0xLjA2OS0xLjQxNy0yLjUyNS00LjMyNC01LjA5OC04LjcxLTcuNzItMTMuMTYyLTEuMDYzLTEuODAzLS40MjQtMy45NDcgMS4xOS01LjIuMDUzLS4wNDEuMDk1LS4wMzMuMTI5LjAyMyAyLjkwNSA0Ljk1IDUuODgyIDEwLjAyOSA4LjkzIDE1LjIzNnoiLz48L3N2Zz4%3D)](https://www.tripo3d.ai/)
+[![Sponsored by Hyper3D](https://img.shields.io/badge/Sponsored%20by-Hyper3D-000000.svg?labelColor=1a1a1a&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAADlElEQVRYCeWWbWiOURjH9wzDZoYs5i3aF%2FEBiTYZRQ35qGxS%2B2AoFNoHRcl7vlETGcWX1aLkLbKsJTNiXmpKpExt5v2lGWNte%2Fz%2Bd%2Ff9dO6z57mfe08p5arfc851netc57rP23PS0v53iYSZgGg0Ogy%2F5VACU%2BAnnIlEIjWUf1cYvAgaIZ7sxxjqI1LKkuCb4Ue8kV1bB%2BXElIIn60TgLdDnDhRULEsWa8DtjKZp7woa1W37TTljwAMEdSBgFjS5AyQrzuOQ7jKCcnBQ7FBtBCmHZPIdh0oYpaCUObATnoCS3wPzwwzo28F0GkKnezDX7fyJ8gF8hT54Bc3wmCP4mtIn9C%2FCcBbyoQv2QSW%2BqicXAhRAL7yFU3AI6uEoTE8ewZmNqfg%2BB8kL0FFdEqavpnI9qPNe0HRKdkOGHQBbBIbbdunYi6EbfsER%2BAC6yBILDgqoo3cavBOwPXEPZyDNWNxjiP0iSA6CTks7zAyKp8xLwBv8ZKCz24j%2FMVhj%2B2JbCRItoy4syW0YavvGdBovywvRHpgcawio4LcBWmG06YaeB7pFlUAneFJm%2BqWbCvWXrn6FndtqtSVSJ9GgPTLecviG3gDZYH71VjLRn5sjdgKNrv2CWwYWBNItOBZqYZ7l3IN%2BHyaAeUHNQS8AR8wGGe6AvlznP64w6FIaRrosoNTAs6AOTNGXt8Em00hdH10It8CXWRrT%2FpEBTmA3p0x%2BppSj2JtOF403e56vlmA25HoGo1TijtgzIONxiK2R4%2BX%2F6fWrjnaO3xbLnoduJ%2Bq55HgVew%2FIHoUMZiLTc7JKe3Y09TuYPV3VpixE8Z0Ms9Grx2aAAZWMprcCpsEzbFUErqJuyk0Ubbz3oMFr8NETzZagS6fddtYltBbiyeF%2BziEMBCqNF8y1lfpCYNQ1fDegw0batPNDCb6ZkAstYMsjDP6lwaA1b7Y9DV033S5YB1mJsqAtGyrAeSVRFkIj6CbUdVwH%2BWb%2F2HuAhus0rDAbrXotus61LhKt%2FTX4DBLNjv7tVkE9bGNfaDNrabW3dBx74Klnp%2B4XHBeD%2FrWCpJpGvRNMP%2FPh%2BoC20EvlzwCNzmVg%2FnGg9pOHWA7AJdDSeHKVyoCf6LEl8LIhiN5yekoVQ7x7Qq468w2gP68meAc3mN5uygFJvwS83iSyiPpqUELjYAwooU7QgG%2BgGjTwF8qUJGECZjSS0bWqy2cQdEBbKl9Lv39P%2FgAQ2ul5m76dAQAAAABJRU5ErkJggg%3D%3D)](https://hyper3d.ai/)
 
 <table align="center">
   <tr>
@@ -39,7 +41,7 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 
 *Reference images reconstructed in code as animation-ready Three.js models, running live in the browser.*
 
-### [→ Open the Live Demo Gallery](https://img2threejs.github.io/img2threejs-showcase/)
+### [→ Open the Live Demo Gallery](https://img2threejs.io/)
 
 Every model in the gallery is generated code, running in your browser. No mesh files, no downloads.
 
@@ -49,18 +51,28 @@ Every model in the gallery is generated code, running in your browser. No mesh f
 
 Reconstructions built entirely from primitives, procedural shaders, and generated geometry. Open any model to orbit it, inspect its reference, and read the generated source.
 
-| Demo | Subject | View | Source |
-| --- | --- | --- | --- |
-| Glock-18 · Ghost Protocol (Well-Worn) | CS2 weapon | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/glock-ghost-protocol) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/glock-ghost-protocol/createGlockGhostProtocolModel.ts) |
-| Classic Knife · Fade (Minimal Wear) | CS2 weapon | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/classic-fade) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/classic-fade/createClassicFadeModel.ts) |
-| BMX Endurance Bike | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/bmx-endurance) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/bmx-endurance/createBmxEnduranceBikeModel.ts) |
-| M9 Bayonet · Doppler Phase 2 | CS2 weapon | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/m9-doppler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/m9-doppler/createM9DopplerModel.ts) |
-| Sony WF-1000XM3 Earbuds + Case | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/sony-wf1000xm3) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/sony-wf1000xm3/createSonyWf1000xm3Model.ts) |
-| ISSACA 12 Gauge Shotgun | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/issaca-shotgun) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/issaca-shotgun/createIssacaShotgunModel.ts) |
-| Gerber Paracord Knife | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/gerber-knife) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/gerber-knife/createGerberKnifeModel.ts) |
-| Doraemon House (isometric diorama) | diorama | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/doraemon-house) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/doraemon-house/createDoraemonHouseModel.ts) |
-| War-Hauler "SECTOR 07" | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/warhauler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/warhauler/createWarHaulerModel.ts) |
-| Crowned Loot Chest | hard-surface object | [Live](https://img2threejs.github.io/img2threejs-showcase/#/demo/crown-chest) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/crown-chest/createCrownChestModel.ts) |
+| Demo | Subject | Built with | View | Source |
+| --- | --- | --- | --- | --- |
+| Dual-Sword Warrior — TypeScript procedural surfaces ⚠︎ | character | `v1.5.1` | [Live](https://img2threejs.io/#/demo/girl-character) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/girl-character/createGirlCharacterModel.ts) |
+| Low-Poly Humanoid — Rigged Character ⚠︎ | character | `v1.5.0` | [Live](https://img2threejs.io/#/demo/low-poly-humanoid) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/low-poly-humanoid/createLowPolyHumanoidModel.ts) |
+| ★ Talon Knife \| Doppler Ruby (Factory New) | object | `v1.4.4` | [Live](https://img2threejs.io/#/demo/talon-doppler-ruby) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/talon-doppler-ruby/createTalonDopplerRubyModel.ts) |
+| AWP \| Medusa (Minimal Wear) · V2 rebuild | object | `V2` | [Live](https://img2threejs.io/#/demo/awp-medusa-v2) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/awp-medusa-v2/createAwpMedusaModelV2.ts) |
+| Pikachu 10K Star Celebration ⚠︎ | character | `v1.5-beta` | [Live](https://img2threejs.io/#/demo/electric-mouse-mascot) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/electric-mouse-mascot/createElectricMouseMascotModel.ts) |
+| Glock-18 \| Ghost Protocol (Well-Worn) | object | `v1.4.1` | [Live](https://img2threejs.io/#/demo/glock-ghost-protocol) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/glock-ghost-protocol/createGlockGhostProtocolModel.ts) |
+| Classic Knife \| Fade (Minimal Wear) | object | `v1.3` | [Live](https://img2threejs.io/#/demo/classic-fade) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/classic-fade/createClassicFadeModel.ts) |
+| BMX Endurance Bike | object | `v1.3` | [Live](https://img2threejs.io/#/demo/bmx-endurance) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/bmx-endurance/createBmxEnduranceBikeModel.ts) |
+| M9 Bayonet \| Doppler Phase 2 | object | `v1.3` | [Live](https://img2threejs.io/#/demo/m9-doppler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/m9-doppler/createM9DopplerModel.ts) |
+| Sony WF-1000XM3 Earbuds + Case | object | `v1.2` | [Live](https://img2threejs.io/#/demo/sony-wf1000xm3) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/sony-wf1000xm3/createSonyWf1000xm3Model.ts) |
+| ISSACA 12 Gauge Shotgun | object | `v1.2` | [Live](https://img2threejs.io/#/demo/issaca-shotgun) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/issaca-shotgun/createIssacaShotgunModel.ts) |
+| Gerber Paracord Knife | object | `v1.2` | [Live](https://img2threejs.io/#/demo/gerber-knife) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/gerber-knife/createGerberKnifeModel.ts) |
+| Doraemon House (isometric diorama) | object | `v1.2` | [Live](https://img2threejs.io/#/demo/doraemon-house) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/doraemon-house/createDoraemonHouseModel.ts) |
+| War-Hauler "SECTOR 07" | object | `v1.2` | [Live](https://img2threejs.io/#/demo/warhauler) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/warhauler/createWarHaulerModel.ts) |
+| Crowned Loot Chest ⚠︎ | object | `v1.2` | [Live](https://img2threejs.io/#/demo/crown-chest) | [code](https://github.com/img2threejs/img2threejs-showcase/blob/main/src/demos/crown-chest/createCrownChestModel.ts) |
+
+⚠︎ marks a demo whose registry `status` is still `placeholder` rather than `final` — it renders, but it
+is not finished work. The **Built with** column is the version each demo's own registry entry records in
+`generatedWith`, not an inference from dates; `awp-medusa-v2` records `V2`, which is that demo's rebuild
+pass rather than a release number. Rows are ordered newest first by the commit that added the demo.
 
 The gallery source lives in [img2threejs/img2threejs-showcase](https://github.com/img2threejs/img2threejs-showcase). If this project is useful, a star on this repo helps others find it.
 
@@ -169,6 +181,30 @@ The factory generator repeats the strict-quality gate and is fail-closed: on fai
 `BLOCKED` with the spec artifact, failure metrics, causes, and next action, and does not write a
 factory. `--allow-nonstrict` is only for explicit legacy test fixtures, never production output.
 
+### Copy-paste prompts for the GLB-reference route
+
+Rebuilding a character from a **GLB reference** rather than a photo is a different route with its own
+gates — the GLB is a measurement instrument and never ships. Three prompts cover it, each in its own
+copy block:
+
+| Prompt | Use it when | Do not use it when |
+|---|---|---|
+| [Build](docs/GLB_CHARACTER_PROMPT.md) | you have a GLB and no built surfaces yet | there is no GLB, or the build already completed and merely looks wrong |
+| [Polish](docs/GLB_CHARACTER_POLISH_PROMPT.md) | the build completed and the result does not look like the GLB | the surfaces were never built — that is a build re-run, not a polish |
+| [Animation](docs/GLB_CHARACTER_ANIMATION_PROMPT.md) | the figure looks right standing still and has passed the build gates | the surface is ungated, or `joint_loops.py` fails — that is a surface finding no weight tuning reaches |
+
+They force every parameter the GLB genuinely carries — size, proportions, per-band widths and
+centroids, base colour, roughness and metalness — to the measured value, with the check that proves
+it landed. Three things are **not** 1:1 and each prompt says so: rigging and animation are usually
+absent from the asset (`skinCount: 0`, `animationCount: 0`), texture images and normal maps are
+deliberately not copied per this skill's code-only contract, and nothing finer than the node's cell
+size can be carried at all.
+
+**These are reference material, not a guarantee.** They are written to be general, so the measured
+figures in them came from one character and are there to show what to measure — not values to copy.
+Run the one that matches your situation rather than all three in sequence; each notes the cost of
+being used out of turn.
+
 For the script-by-script reference, the full scripts table, and expected artifacts, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
@@ -214,6 +250,7 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage1_intake/solve_camera_pose.py` | Emit a reference-camera block so the render can be camera-matched. |
 | `stage1_intake/delight_albedo.py` | Approximate a neutral albedo from the photo before texture projection. |
 | `stage3_build/bake_projected_texture.py` | Emit a projection/UV-bake descriptor for photo-texture projection. |
+
 | `stage5_rig/rig_spec.py` | Derive and validate a skeleton from the component tree, so bones cannot drift from the geometry. |
 | `stage5_rig/geodesic_skinning.py` | Vertex weights from distance measured through the solid; keeps rigid roles out of smooth skinning. |
 | `stage5_rig/validate_rig_payload.py` | Blocking payload-integrity gate before a `THREE.Skeleton` is bound. |
@@ -234,6 +271,19 @@ Chrome DevTools diagnostics, Three.js scene inspection, Playwright cross-browser
 version-aware Context7 retrieval. These tools never approve a pass or silently provide geometry.
 Install, routing, provenance rules and exact commands:
 [`docs/integrations/reference_fidelity_tooling.md`](docs/integrations/reference_fidelity_tooling.md).
+
+### Optional GLB-baseline character pipeline
+
+[`integrations/glb_character_pipeline`](integrations/glb_character_pipeline) reconstructs a character
+from a **multipart GLB used as a measurement instrument plus its diffuse image**, and emits the
+procedural TypeScript the demo actually ships — no `.glb` or `.bin` is fetched at runtime. It carries
+its own `pyproject.toml`/`uv.lock` so the stdlib-only `forge` core stays dependency-free, and operates
+on a companion showcase checkout via `IMG2THREEJS_SHOWCASE_ROOT`.
+
+It applies **only** when a build has a GLB to measure — skip it entirely otherwise, and use the core
+image-driven pipeline instead. Reproduces `girl-character`'s shipped `crossSections.ts` exactly (748
+rings, 86,240 ring points). Method and per-stage rationale:
+[`PIPELINE.md`](integrations/glb_character_pipeline/PIPELINE.md).
 
 ---
 
@@ -297,24 +347,118 @@ If img2threejs is useful to you, a star helps others find it.
 
 img2threejs is free and open source. If it saved you time or found its way into your project, consider supporting continued development:
 
-<a href="https://www.buymeacoffee.com/hoainhowors" target="_blank" rel="noopener noreferrer"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/O8A625YLSR)
 
-VietQR / MoMo / PayPal also work — see the [donate page](https://hoainho.github.io/img2threejs-showcase/donate.html).
-VietQR / MoMo / PayPal also work — see the [donate page](https://img2threejs.github.io/img2threejs-showcase/donate.html).
+VietQR / MoMo / PayPal also work — see the [donate page](https://img2threejs.io/donate.html).
 
 ---
 
 ## Sponsors
 
-<a href="https://www.atlascloud.ai/console/coding-plan" target="_blank" rel="noopener noreferrer">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/atlas-cloud-logomark-white.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/atlas-cloud-logomark-black.svg" />
-    <img alt="Atlas Cloud" src="assets/sponsors/atlas-cloud-logomark-black.svg" width="72" height="67" />
-  </picture>
-</a>
+Reconstruction-by-code is an inference workload before it is a graphics one: every gate rerun, every
+render-vs-reference pass and every material fit spends tokens. These three pay for that loop.
 
-**[Atlas Cloud](https://www.atlascloud.ai/console/coding-plan)** is a full-modal AI inference platform that gives developers a single AI API to access video generation, image generation, and LLM APIs. Instead of managing multiple vendor integrations, you connect once and get unified access to 300+ curated models across all modalities. Check out Atlas Cloud's new coding plan promotion for more budget-friendly API access: <https://www.atlascloud.ai/console/coding-plan>
+<table>
+  <tr>
+    <td align="center" width="200">
+      <a href="https://www.atlascloud.ai/console/coding-plan" target="_blank" rel="noopener noreferrer">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/atlas-cloud-logomark-white.svg" />
+          <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/atlas-cloud-logomark-black.svg" />
+          <img alt="Atlas Cloud" src="assets/sponsors/atlas-cloud-logomark-black.svg" width="72" height="67" />
+        </picture>
+      </a>
+      <br /><sub><b>Atlas Cloud</b></sub>
+      <br /><sub>Full-modal AI inference</sub>
+    </td>
+    <td align="center" width="200">
+      <a href="https://www.tripo3d.ai/" target="_blank" rel="noopener noreferrer">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/tripo-logomark-white.svg" />
+          <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/tripo-logomark-black.svg" />
+          <img alt="Tripo" src="assets/sponsors/tripo-logomark-black.svg" width="68" height="68" />
+        </picture>
+      </a>
+      <br /><sub><b>Tripo</b></sub>
+      <br /><sub>Image &amp; text to 3D</sub>
+    </td>
+    <td align="center" width="200">
+      <a href="https://hyper3d.ai/" target="_blank" rel="noopener noreferrer">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/hyper3d-logomark-white.png" />
+          <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/hyper3d-logomark-black.png" />
+          <img alt="Hyper3D" src="assets/sponsors/hyper3d-logomark-black.png" width="68" height="68" />
+        </picture>
+      </a>
+      <br /><sub><b>Hyper3D</b></sub>
+      <br /><sub>Rodin generative 3D</sub>
+    </td>
+  </tr>
+</table>
+
+### Atlas Cloud
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/atlas-cloud-logomark-white.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/atlas-cloud-logomark-black.svg" />
+  <img alt="" src="assets/sponsors/atlas-cloud-logomark-black.svg" width="38" height="36" align="right" />
+</picture>
+
+**[Atlas Cloud](https://www.atlascloud.ai/console/coding-plan)** is a full-modal AI inference
+platform: one AI API for video generation, image generation and LLM access, with unified access to
+300+ curated models across every modality instead of a separate integration per vendor.
+
+That single endpoint is what keeps this project's loop affordable — the pipeline is token-hungry by
+design, because gating a spec before codegen means running the analysis more than once. Atlas Cloud's
+coding plan is the budget-friendly route to that API.
+
+**→ [Open the Atlas Cloud coding plan](https://www.atlascloud.ai/console/coding-plan)**
+
+### Tripo
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/tripo-logomark-white.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/tripo-logomark-black.svg" />
+  <img alt="" src="assets/sponsors/tripo-logomark-black.svg" width="38" height="38" align="right" />
+</picture>
+
+**[Tripo](https://www.tripo3d.ai/)** turns a prompt or a reference image into a production 3D asset:
+High Detail meshes up to 2M polygons for render and print, artist-grade quad **Smart Mesh** from 500
+to 50K triangles for real-time engines, AI auto-rigging, PBR texturing up to 8K, and part-level
+segmentation. Exports GLB, FBX, OBJ, USD, STL and 3MF, with first-party plugins for Blender, Unity,
+Unreal, Godot, Cocos and ComfyUI.
+
+It pairs with img2threejs as the measuring stick. A procedural rebuild lives or dies on silhouette,
+proportion and joint placement, and a quad mesh plus an auto-rig of the same subject gives those
+gates a second read that one reference photograph cannot settle on its own.
+
+**→ [Open Tripo Studio](https://www.tripo3d.ai/)**
+
+### Hyper3D
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/hyper3d-logomark-white.png" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/hyper3d-logomark-black.png" />
+  <img alt="" src="assets/sponsors/hyper3d-logomark-black.png" width="38" height="38" align="right" />
+</picture>
+
+**[Hyper3D](https://hyper3d.ai/)** builds **Rodin**, which generates a 3D asset from a prompt or an
+image in seconds with high reference fidelity and coherent detail across views. Generation is
+steerable rather than a dice roll: bounding-box, voxel and point-cloud ControlNet guidance, partial
+editing to refine one region without disturbing the rest, smart low-poly optimisation, and
+ChatAvatar for rigged production faces. Exports STL, FBX, OBJ, GLB, glTF and USDZ.
+
+It answers the one question a single photograph never can — what the back looks like. Generate the
+subject, orbit it, and the hidden sides become references the material and surface gates can actually
+be run against, instead of assumptions the pipeline has to make silently.
+
+**→ [Open Hyper3D Rodin](https://hyper3d.ai/)**
+
+---
+
+Sponsorship pays for compute, not for coverage: a sponsor's product is described here in its own
+terms, and no gate, default or benchmark in this repository is weighted toward one. Want your logo in
+this row? Open an issue or write to <hoainho.work@gmail.com>.
 
 ---
 

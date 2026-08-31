@@ -282,6 +282,11 @@ attachment, material, detail inventory, rig payload, character track). In short:
   wrong the same way on both sides still passes, and needs `medial_lateral_bias` vs a reference.
 - Hair subjects: `scalp_exposure.py` is HARD and runs on geometry before any render; `hair_gate.py`
   is soft and subordinate to it. A coverage shortfall never authorises widening the masses.
+- Flat colour regions with hard boundaries (blaze/bib/socks, livery stripe, painted marking) are an
+  identity feature, so their boundaries are gated on geometry: `vertex_region_gate.py`. Never a
+  texture — this pipeline emits code; the shape predicates live in `_shared/vertex_paint.py`.
+- A curve claim ("curled into a hook, not a straight cone") needs `swept_arc_gate.py`: silhouette IoU
+  passes a straight cone occupying roughly the right cells.
 - Character builds validate the rig payload (`stage5_rig/validate_rig_payload.py`) before binding a
   `THREE.Skeleton`; it proves payload integrity only, never pose stress or likeness.
 - A rig that must MOVE runs the animation gates too (`grimoire/readiness/animation_contract.md`,

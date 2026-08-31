@@ -107,6 +107,10 @@ python3 forge/stage4_review/compare_region_passes.py \
 The comparison blocks per-region claims when the semantic-ID pass or region colors are absent.
 It is a deterministic diagnostic, not an AI likeness score.
 
+See also: `integrations/glb_character_pipeline/` for an opt-in, GLB-baseline reconstruction pipeline
+(SDF point-cloud splat + Surface Nets) that produces the procedural TypeScript/three.js character this
+bridge captures passes from — distinct from this doc's own manifest/pass-recording contract.
+
 ## Failure routing
 
 - no browser/MCP: `request-input` and ask for installation/authentication;

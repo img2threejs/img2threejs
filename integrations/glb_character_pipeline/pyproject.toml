@@ -1,0 +1,12 @@
+[project]
+name = "img2threejs-glb-character-pipeline"
+version = "0.1.0"
+description = "Optional GLB-baseline character reconstruction pipeline (Surface Nets + SDF splat) for the img2threejs procedural pipeline"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "numpy>=1.26,<3",
+  "pillow>=11,<13",
+]
+
+[tool.uv]
+package = false

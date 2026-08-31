@@ -338,6 +338,25 @@ local geometry is fine, and local space would hide exactly that. Normals go thro
 inverse-transpose. Every mesh it declines to emit — instanced, over the triangle cap, filtered out —
 is listed with its reason, so a short mesh list cannot be mistaken for a clean one.
 
+### stage4_review/vertex_region_gate.py
+`stage4_review/vertex_region_gate.py --geometry meshes.json --palette palette.json [--expect expect.json] [--azimuth 0] [--color-tolerance T] [--max-unclassified N] [--out report.json] [--json]`
+Gates colour-region BOUNDARIES on executed geometry, before any browser render. When a subject's
+identity is carried by flat colour regions with hard edges — a tuxedo cat's blaze, bib and socks; a
+livery stripe; a painted marking — the position of those boundaries is an identity feature, so it is
+measured rather than eyeballed. `--palette` is `{regionId: '#rrggbb'}` for every region to measure;
+without `--expect` the gate only reports measurements instead of passing or failing. Read
+`--max-unclassified`: vertices matching no palette entry are named, so a clean verdict over a mostly
+unclassified mesh cannot be mistaken for agreement. The shape predicates it shares with the
+validator and the emitted TypeScript live in `_shared/vertex_paint.py` (no CLI).
+
+### stage4_review/swept_arc_gate.py
+`stage4_review/swept_arc_gate.py --geometry meshes.json --component ID [--expect expect.json] [--out report.json] [--json]`
+Gates a swept component's SHAPE — bend radius, angular span and taper — on executed geometry.
+"Curled upward into a hook; a curved spine, not a straight cone" is a claim about a curve, and no
+other gate can hold it: a silhouette IoU passes a straight cone that happens to occupy roughly the
+right cells, and `self_intersection.py` asks whether a mesh crosses itself rather than what shape it
+is. `--component` takes a mesh id or name.
+
 ## Reference comparison and baselines
 
 ### stage4_review/interior_difference.py
