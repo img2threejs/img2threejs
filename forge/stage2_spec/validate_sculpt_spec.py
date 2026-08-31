@@ -560,7 +560,11 @@ VISUAL_PASS_IDS = {
     "lighting-pass",
     "interaction-pass",
 }
-VALID_PIPELINE_PASS_IDS = VISUAL_PASS_IDS | {"optimization-pass"}
+# proportion-lock and feature-placement are shipped by the base's own character build-pass
+# template (new_sculpt_spec.py: make_character_build_passes); they are legal pipeline passes but
+# NOT visual passes -- their acceptance is gated by domain checks (e.g. humanoid_proportions), not
+# by the render/comparison/vision gate, so they join the union here rather than VISUAL_PASS_IDS.
+VALID_PIPELINE_PASS_IDS = VISUAL_PASS_IDS | {"optimization-pass", "proportion-lock", "feature-placement"}
 ATTACHMENT_ROLES = {
     "appendage",
     "branch",
@@ -2125,6 +2129,10 @@ def validate_build_passes(spec: dict[str, Any], errors: list[str], warnings: lis
             continue
         if pass_id in ids:
             errors.append(f"duplicate buildPasses id {pass_id!r}")
+        if pass_id not in VALID_PIPELINE_PASS_IDS:
+            errors.append(
+                f"buildPasses[{index}].id {pass_id!r} must be one of: {', '.join(sorted(VALID_PIPELINE_PASS_IDS))}"
+            )
         ids.append(pass_id)
         for field in ("goal",):
             value = item.get(field)
@@ -2202,6 +2210,13 @@ def validate_sculpt_pipeline(
     else:
         validate_string_array(pass_order, "sculptPipeline.passOrder", errors)
         pass_order_ids = [str(value) for value in pass_order] if isinstance(pass_order, list) else build_pass_ids
+        if isinstance(pass_order, list):
+            for index, pass_id in enumerate(pass_order_ids):
+                if pass_id not in VALID_PIPELINE_PASS_IDS:
+                    errors.append(
+                        f"sculptPipeline.passOrder[{index}] {pass_id!r} must be one of: "
+                        f"{', '.join(sorted(VALID_PIPELINE_PASS_IDS))}"
+                    )
     if build_pass_ids and pass_order_ids and pass_order_ids != build_pass_ids:
         warnings.append("sculptPipeline.passOrder differs from buildPasses order; sync the pipeline before generation")
     current = pipeline.get("currentPass")
