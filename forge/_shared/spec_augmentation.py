@@ -33,12 +33,20 @@ class SpecAugmentationError(ValueError):
     pass
 
 
-def _stricter_tier(current: Any, proposed: Any) -> Any:
+def _stricter_tier(current: Any, proposed: Any, clamped: list[str]) -> Any:
     if proposed not in TIER_ORDER:
         raise SpecAugmentationError(f"unknown quality tier {proposed!r}; expected one of {', '.join(TIER_ORDER)}")
-    if current not in TIER_ORDER:
+    if current is None:
         return proposed
-    return proposed if TIER_ORDER.index(proposed) > TIER_ORDER.index(current) else current
+    if current not in TIER_ORDER:
+        # A malformed base tier is a base defect to surface, not a blank the plugin gets to fill:
+        # silently accepting the proposal here let a looser tier replace a typo'd stricter one.
+        raise SpecAugmentationError(f"the spec's existing quality tier {current!r} is not one of {', '.join(TIER_ORDER)}")
+    if TIER_ORDER.index(proposed) > TIER_ORDER.index(current):
+        return proposed
+    if proposed != current:
+        clamped.append(f"qualityBar: kept {current} over proposed {proposed}")
+    return current
 
 
 def _raise_only_number(path: str, current: Any, proposed: Any, clamped: list[str]) -> Any:
@@ -85,6 +93,17 @@ def merge_spec_augmentation(spec: dict[str, Any], artifact: Any, *, domain_id: s
             if "domain" in value:
                 raise SpecAugmentationError("assessmentPatch may not set objectClass.domain; the base sets it from domain resolution")
             pre.setdefault("objectClass", {}).update(value)
+        elif key == "detailInventory" and isinstance(value, dict):
+            # The one floor-controlled value reachable through this partition. The clamp guards the
+            # VALUE, whichever partition carries it -- without this, a patch lowered the floor the
+            # strict validator reads while `clamped` reported nothing, and qualityFloors' own clamp
+            # never ran because the patched value arrived first.
+            inv = pre.setdefault(key, {})
+            for sub, proposed in value.items():
+                if sub == "targetMinDetails":
+                    inv[sub] = _raise_only_number("targetMinDetails", inv.get(sub), proposed, clamped)
+                else:
+                    inv[sub] = proposed
         elif isinstance(value, dict):
             pre.setdefault(key, {}).update(value)
         else:
@@ -98,7 +117,7 @@ def merge_spec_augmentation(spec: dict[str, Any], artifact: Any, *, domain_id: s
     contract = spec.setdefault("qualityContract", {})
     for key, value in floors.items():
         if key == "qualityBar":
-            contract["qualityBar"] = _stricter_tier(contract.get("qualityBar"), value)
+            contract["qualityBar"] = _stricter_tier(contract.get("qualityBar"), value, clamped)
         elif key == "targetMinDetails":
             inv = pre.setdefault("detailInventory", {})
             inv["targetMinDetails"] = _raise_only_number("targetMinDetails", inv.get("targetMinDetails"), value, clamped)

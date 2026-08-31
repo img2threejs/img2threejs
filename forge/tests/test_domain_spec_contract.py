@@ -54,6 +54,55 @@ class RaiseOnly(unittest.TestCase):
         self.assertEqual(spec["qualityContract"]["minimumSpecDepth"]["macroComponents"], 5)
 
 
+class RaiseOnlyCoversEveryPathToAFloor(unittest.TestCase):
+    """The clamp must guard the VALUE, not just the qualityFloors partition.
+
+    assessmentPatch merges into preSpecAssessment, and `detailInventory.targetMinDetails` -- the
+    exact number strict validation reads -- lives there. Before this test existed, a patch could
+    drop the floor 40 -> 2 with `clamped: []` reporting nothing, and plugin-cs2's own emit tool sent
+    the value through BOTH partitions with the unclamped one winning (found in review of PR #106 by
+    running the code, not by reading it).
+    """
+
+    def test_assessment_patch_cannot_lower_the_detail_floor(self) -> None:
+        spec = {"preSpecAssessment": {"detailInventory": {"targetMinDetails": 40}}}
+        record = merge_spec_augmentation(
+            spec, artifact(assessmentPatch={"detailInventory": {"targetMinDetails": 2}})
+        )
+        self.assertEqual(spec["preSpecAssessment"]["detailInventory"]["targetMinDetails"], 40)
+        self.assertTrue(record["clamped"], "the kept-over-proposed decision must leave a record")
+
+    def test_assessment_patch_may_still_raise_the_detail_floor(self) -> None:
+        spec = {"preSpecAssessment": {"detailInventory": {"targetMinDetails": 12}}}
+        record = merge_spec_augmentation(
+            spec, artifact(assessmentPatch={"detailInventory": {"targetMinDetails": 60}})
+        )
+        self.assertEqual(spec["preSpecAssessment"]["detailInventory"]["targetMinDetails"], 60)
+        self.assertEqual(record["clamped"], [])
+
+    def test_assessment_patch_other_detail_inventory_keys_still_merge(self) -> None:
+        spec = {"preSpecAssessment": {"detailInventory": {"targetMinDetails": 40}}}
+        merge_spec_augmentation(
+            spec, artifact(assessmentPatch={"detailInventory": {"expectedFinishes": ["anodized"]}})
+        )
+        self.assertEqual(
+            spec["preSpecAssessment"]["detailInventory"]["expectedFinishes"], ["anodized"]
+        )
+        self.assertEqual(spec["preSpecAssessment"]["detailInventory"]["targetMinDetails"], 40)
+
+    def test_a_kept_tier_is_recorded_like_a_kept_number(self) -> None:
+        spec = {"qualityContract": {"qualityBar": "ultra-complex"}}
+        record = merge_spec_augmentation(spec, artifact(qualityFloors={"qualityBar": "simple"}))
+        self.assertEqual(spec["qualityContract"]["qualityBar"], "ultra-complex")
+        self.assertTrue(record["clamped"], "a tier kept over a looser proposal must leave a record")
+
+    def test_a_malformed_base_tier_is_refused_not_silently_replaced(self) -> None:
+        spec = {"qualityContract": {"qualityBar": "Ultra-Complex"}}
+        with self.assertRaises(SpecAugmentationError) as ctx:
+            merge_spec_augmentation(spec, artifact(qualityFloors={"qualityBar": "simple"}))
+        self.assertIn("Ultra-Complex", str(ctx.exception))
+
+
 class WhatAnArtifactMayNotDo(unittest.TestCase):
     def test_it_may_not_set_a_base_owned_section(self) -> None:
         with self.assertRaises(SpecAugmentationError) as ctx:
