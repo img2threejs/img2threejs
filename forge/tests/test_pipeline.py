@@ -889,6 +889,33 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("fixtureSection", spec, "the augmentation merge was skipped")
         self.assertEqual(spec["specAugmentation"]["provider"], "fixture")
 
+    def test_a_domain_run_with_a_missing_augmentation_fails_loud(self):
+        """02-how-it-works draws the missing-provider case as FAIL LOUD; the code must match.
+
+        Before this test, a resolved --domain whose spec-augmentation.json was absent (emit step
+        failed, or an actor:agent step skipped) silently wrote the generic skeleton and exited 0 --
+        a whole run could finish with no domain contribution and nobody would know.
+        """
+        r = run(
+            "stage2_spec/new_sculpt_spec.py", "Knife",
+            "--domain", "fixturedom",
+            "--augmentation", self.dir / "does-not-exist.json",
+            "--out", self.spec,
+        )
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("does-not-exist.json", r.stderr)
+        self.assertIn("fixturedom", r.stderr)
+        self.assertFalse(self.spec.exists(), "no generic skeleton may be written for a failed domain run")
+
+    def test_a_generic_run_still_skips_a_missing_augmentation(self):
+        r = run(
+            "stage2_spec/new_sculpt_spec.py", "Crate",
+            "--augmentation", self.dir / "does-not-exist.json",
+            "--out", self.spec,
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(self.spec.exists())
+
     def test_cs2_track_skipped_for_objects(self):
         run("stage2_spec/new_sculpt_spec.py", "Crate", "--out", self.spec)
         spec = json.loads(self.spec.read_text())

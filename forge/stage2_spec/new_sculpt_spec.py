@@ -1946,14 +1946,28 @@ def main(argv: list[str]) -> int:
         if isinstance(assessment, dict) and isinstance(assessment.get("preSpecAssessment"), dict):
             anatomy = assessment["preSpecAssessment"].get("anatomy")
         apply_character_template(spec, anatomy, include_accessories=args.accessories)
-    if args.augmentation is not None and args.augmentation.expanduser().is_file():
-        try:
-            artifact = json.loads(args.augmentation.expanduser().read_text(encoding="utf-8"))
-            merge_spec_augmentation(spec, artifact, domain_id=args.domain)
-        except (OSError, json.JSONDecodeError) as exc:
-            parser.error(f"cannot read spec augmentation {args.augmentation}: {exc}")
-        except SpecAugmentationError as exc:
-            parser.error(str(exc))
+    if args.augmentation is not None:
+        source = args.augmentation.expanduser()
+        if not source.is_file():
+            # A domain run whose augmentation artifact is missing means the domain's emit step
+            # failed or was skipped. Writing the generic skeleton and exiting 0 here is the silent
+            # downgrade 02-how-it-works.md draws as FAIL LOUD (PR #106 review, finding 4). Without
+            # --domain the flag is speculative plumbing from a generic checklist, and skipping stays
+            # correct.
+            if args.domain:
+                parser.error(
+                    f"--domain {args.domain} is resolved but the augmentation artifact "
+                    f"{args.augmentation} does not exist; run the domain's emit step instead of "
+                    f"continuing on the generic skeleton"
+                )
+        else:
+            try:
+                artifact = json.loads(source.read_text(encoding="utf-8"))
+                merge_spec_augmentation(spec, artifact, domain_id=args.domain)
+            except (OSError, json.JSONDecodeError) as exc:
+                parser.error(f"cannot read spec augmentation {args.augmentation}: {exc}")
+            except SpecAugmentationError as exc:
+                parser.error(str(exc))
     payload = json.dumps(spec, indent=2, ensure_ascii=False) + "\n"
 
     if args.out:
