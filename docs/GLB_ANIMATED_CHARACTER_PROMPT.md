@@ -221,4 +221,4 @@ it rather than shipping a shredded figure.
 - [`grimoire/readiness/animation_contract.md`](../grimoire/readiness/animation_contract.md) — the routing file read at Stage R.
 - [`forge/stage5_rig/CONTRACT_1.5.2.md`](../forge/stage5_rig/CONTRACT_1.5.2.md) — module map and payload shapes.
 - [`docs/standard-prompts/build.md`](standard-prompts/build.md) — the static reconstruction route this one continues.
-- [`docs/prompts/transcribe-glb.md`](standard-prompts/transcribe-glb.md) — when the GLB should be copied 1:1 instead of reconstructed.
+- [`docs/standard-prompts/glb-force-measured.md`](standard-prompts/glb-force-measured.md) — when every parameter the GLB measures should be forced rather than approximated.

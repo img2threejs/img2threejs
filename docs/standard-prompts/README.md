@@ -6,7 +6,7 @@ exit condition. Replace every `<PLACEHOLDER>` before pasting.
 | Prompt | Use when | Route |
 |---|---|---|
 | [`build.md`](build.md) | a reference image, no mesh | reconstruct from primitives, gated |
-| [`transcribe-glb.md`](transcribe-glb.md) | a GLB you want copied **1:1** | transcribe measured surface, no reconstruction |
+| [`glb-force-measured.md`](glb-force-measured.md) | a GLB is available and every parameter it measures should be forced, not approximated | measure, force, prove with parity gates |
 | [`polish.md`](polish.md) | a build that renders but does not match | bounded correction, one defect at a time |
 | [`vfx.md`](vfx.md) | a finished model that needs effects | author on sockets and destruction groups |
 
