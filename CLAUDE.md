@@ -47,3 +47,10 @@ implementation claims and completion:
 5. If capture, file write, readback, comparison, scoring, or diagnosis fails, stop the visual
    workflow and repair the tooling first. Do not infer visual evidence from runtime readiness,
    structural tests, inline previews, or code review, and do not claim the visual gate passed.
+
+**Scope of this gate.** It governs the Three.js reconstruction this repository builds — the
+procedural model and its self-correction loop. An exported artifact produced by an explicitly-selected
+emission target (`--target <kind>`) is a different thing: it is verified to the base's own stated
+limit — container/structure check where a prober exists, existence/size/location/determinism
+otherwise — and is never reported under this gate's completion vocabulary. The visual fidelity of an
+export, if any is claimed, is that target plugin's own gate's responsibility, not this one's.

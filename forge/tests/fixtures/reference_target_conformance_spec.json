@@ -1,0 +1,3247 @@
+{
+  "targetName": "TradeIt Hard Case",
+  "targetId": "tradeit-hard-case",
+  "schemaVersion": "2.1",
+  "terminologyProfile": {
+    "domain": "real-time procedural Three.js asset",
+    "geometryTerms": [
+      "silhouette",
+      "topology",
+      "primitive",
+      "bevel",
+      "chamfer",
+      "taper",
+      "bend",
+      "boolean cut",
+      "edge loop",
+      "surface normal",
+      "displacement"
+    ],
+    "materialTerms": [
+      "albedo",
+      "baseColor",
+      "roughness",
+      "metalness",
+      "normal map",
+      "bump map",
+      "ambient occlusion",
+      "cavity dirt",
+      "edge wear",
+      "clearcoat"
+    ],
+    "lightingTerms": [
+      "key light",
+      "fill light",
+      "rim light",
+      "HDRI/environment reflection",
+      "contact shadow"
+    ],
+    "descriptionRule": "Use measurable 3D graphics terms. Avoid vague words unless they are paired with concrete geometry/material/shader parameters."
+  },
+  "sourceImage": ".img2threejs/refs/case-closed.png",
+  "referenceCamera": {
+    "solved": false,
+    "fovDegrees": 35.0,
+    "aspect": 1.0,
+    "orientation": {
+      "yaw": 28.0,
+      "pitch": 12.0,
+      "roll": 0.0
+    },
+    "positionHint": [
+      1.1,
+      0.55,
+      1.8
+    ],
+    "note": "3/4 front-left studio framing, not solved via solve_camera_pose.py (flat print decal route does not require pixel-exact projection); used only as a review-render hint."
+  },
+  "suitability": "pass",
+  "scores": {
+    "object_isolation": 3,
+    "silhouette_readability": 3,
+    "depth_inference": 2,
+    "primitive_decomposition": 3,
+    "material_procedurality": 3,
+    "occlusion_risk": 2,
+    "interaction_fit": 3
+  },
+  "preSpecAssessment": {
+    "objectClass": {
+      "primaryType": "rotomolded hard equipment case",
+      "primaryDomain": "object",
+      "formLanguage": [
+        "geometric",
+        "tapered-box"
+      ],
+      "structureKind": [
+        "rigid-shell",
+        "hinged-lid",
+        "hardware-mounted"
+      ],
+      "motionPotential": [
+        "lid-hinge-rotation",
+        "latch-cam-rotation",
+        "padlock-shackle-idle-sway"
+      ],
+      "materialFamilies": [
+        "matte-composite-shell",
+        "satin-metal-hardware",
+        "plated-brass-metal",
+        "flat-printed-decal"
+      ],
+      "notes": "Pelican/SKB-style protective case: tapered rotomolded shell, 2 over-center draw latches, recessed side handle, brass padlock (closed-state accessory), printed logo/stripe decal. Confirmed by a second ghost-render reference showing the open/hinged state."
+    },
+    "complexity": {
+      "tier": "moderate",
+      "scores": {
+        "silhouetteComplexity": 1,
+        "componentCount": 2,
+        "hierarchyDepth": 2,
+        "repetitionDensity": 1,
+        "materialLayerCount": 2,
+        "localDetailDensity": 2,
+        "occlusionRisk": 2,
+        "actionReadinessNeed": 2
+      },
+      "estimatedCounts": {
+        "macroComponents": 6,
+        "mesoComponents": 6,
+        "microFeatureGroups": 3,
+        "materialLayers": 4,
+        "repetitionSystems": 1
+      },
+      "reasoning": [
+        "Macro parts: body, lid, latchLeft, latchRight, sideHandle, padlock \u2014 six independent volumes.",
+        "Meso: 3-rib lid group, decal graphic panel, latch cam+bail per latch, hasp loop, handle recess pocket.",
+        "Micro/repetition: 2x mirrored latch assembly, ~4x lid-edge fastener heads treated as one instanced group.",
+        "Materials: matte shell, satin-metal hardware, plated-brass padlock body + satin steel shackle, flat decal on the shell finish \u2014 4 distinct PBR treatments, no patterned/photoreal skin.",
+        "occlusionRisk=2: back face, left face, bottom, and hinge-pin geometry are all hidden in both references.",
+        "actionReadinessNeed=2: user explicitly requested lid/latch pivots plus an idle userData.tick animation."
+      ]
+    },
+    "specDepthDecision": {
+      "requiredDepth": "moderate",
+      "minimumComponentLevels": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "needsRepetitionSystems": true,
+      "needsMaterialLocalOverrides": true,
+      "needsMultipleReviewViews": true,
+      "needsActionReadyHierarchy": true,
+      "rationale": "Six macro parts with meso sub-assemblies (latch cam+bail, lid ribs, decal panel) and one repetition system (mirrored latches / fastener row) push this past a shallow moderate spec; local overrides are needed for the decal, hardware, and padlock finishes layered on the shared shell material."
+    },
+    "unknownsToResolveBeforeImplementation": [],
+    "detailInventory": {
+      "scanMethod": "grid-3x3",
+      "targetMinDetails": 6,
+      "note": "Populated from build_detail_inventory.py grid-3x3 crops of case-closed.png + full-frame case-open.png for mechanism confirmation.",
+      "details": [
+        {
+          "id": "tradeit-logo-icon",
+          "description": "Circular blue double-arrow/handshake icon, front-left of the decal panel.",
+          "priority": "critical",
+          "componentRef": "decalGraphic",
+          "materialRef": "decalPrint",
+          "evidenceRef": "zone-r1c0.png, zone-r1c1.png",
+          "confidence": 0.85,
+          "realization": "unreported",
+          "kind": "decal",
+          "mapsTo": {
+            "ref": "shellMatte/tradeitLogoIcon"
+          }
+        },
+        {
+          "id": "tradeit-wordmark",
+          "description": "White 'TRADEIT' wordmark below the icon, flat printed text.",
+          "priority": "critical",
+          "componentRef": "decalGraphic",
+          "materialRef": "decalPrint",
+          "evidenceRef": "zone-r1c0.png, zone-r2c1.png",
+          "confidence": 0.85,
+          "realization": "unreported",
+          "kind": "decal",
+          "mapsTo": {
+            "ref": "shellMatte/tradeitWordmark"
+          }
+        },
+        {
+          "id": "diagonal-blue-chevron",
+          "description": "Wide diagonal blue wedge/chevron band across the lower-right of the front face, widening toward the bottom-left.",
+          "priority": "critical",
+          "componentRef": "decalGraphic",
+          "materialRef": "decalPrint",
+          "evidenceRef": "zone-r1c2.png",
+          "confidence": 0.8,
+          "realization": "unreported",
+          "kind": "decal",
+          "mapsTo": {
+            "ref": "shellMatte/diagonalChevron"
+          }
+        },
+        {
+          "id": "draw-latch-pair",
+          "description": "Two black over-center cam latches with metal wire bail hardware, mounted flush at ~30%/70% width straddling the lid/body seam.",
+          "priority": "critical",
+          "componentRef": "latchLeft,latchRight",
+          "materialRef": "shellMatte,hardwareSatin",
+          "evidenceRef": "zone-r1c1.png",
+          "confidence": 0.75,
+          "realization": "unreported",
+          "kind": "fastener",
+          "mapsTo": {
+            "ref": "latch"
+          }
+        },
+        {
+          "id": "hasp-eyeloop",
+          "description": "Small bent-wire/eyebolt loop mounted on the shell right of the latches, the padlock shackle passes through it.",
+          "priority": "important",
+          "componentRef": "haspLoop",
+          "materialRef": "hardwareSatin",
+          "evidenceRef": "zone-r1c1.png",
+          "confidence": 0.6,
+          "realization": "unreported",
+          "kind": "fastener",
+          "mapsTo": {
+            "ref": "haspLoop"
+          }
+        },
+        {
+          "id": "padlock-assembly",
+          "description": "Brass-plated padlock body + steel shackle hanging from the hasp loop; closed-state-only accessory (absent in case-open).",
+          "priority": "important",
+          "componentRef": "padlock",
+          "materialRef": "brassPlated,steelSatin",
+          "evidenceRef": "zone-r1c1.png",
+          "confidence": 0.55,
+          "realization": "unreported",
+          "kind": "fastener",
+          "mapsTo": {
+            "ref": "padlock"
+          }
+        },
+        {
+          "id": "lid-top-ribs",
+          "description": "Three parallel raised rounded ribs spanning the full depth of the lid top face, evenly spaced.",
+          "priority": "important",
+          "componentRef": "lid",
+          "materialRef": "shellMatte",
+          "evidenceRef": "zone-r0c1.png, zone-r0c2.png",
+          "confidence": 0.85,
+          "realization": "unreported",
+          "kind": "ridge",
+          "mapsTo": {
+            "ref": "lidRidge"
+          }
+        },
+        {
+          "id": "side-handle-recess",
+          "description": "Recessed rectangular pocket on the right face with an inset grip bar; far side/full cross-section not visible.",
+          "priority": "minor",
+          "componentRef": "sideHandle",
+          "materialRef": "shellMatte",
+          "evidenceRef": "zone-r1c2.png",
+          "confidence": 0.5,
+          "realization": "unreported",
+          "kind": "groove",
+          "mapsTo": {
+            "ref": "sideHandle/side-handle-recess"
+          }
+        },
+        {
+          "id": "lid-edge-fastener-row",
+          "description": "Row of ~4 small round rivet/screw heads along the lid's front-bottom lip, below the ribs.",
+          "priority": "minor",
+          "componentRef": "lid",
+          "materialRef": "hardwareSatin",
+          "evidenceRef": "zone-r0c2.png",
+          "confidence": 0.55,
+          "realization": "unreported",
+          "kind": "fastener",
+          "mapsTo": {
+            "ref": "lidFastener"
+          }
+        },
+        {
+          "id": "rounded-bevel-edges",
+          "description": "Continuous rounded fillet on all 12 body/lid edges; molded into the shell, not applied bumpers.",
+          "priority": "important",
+          "componentRef": "body,lid",
+          "materialRef": "shellMatte",
+          "evidenceRef": "case-closed.png (full frame)",
+          "confidence": 0.8,
+          "realization": "unreported",
+          "kind": "bevel",
+          "mapsTo": {
+            "ref": "root/rounded-bevel-edges"
+          }
+        },
+        {
+          "id": "body-taper",
+          "description": "Body tapers inward from lid seam to base (rotomold draft angle), visible in the front-face silhouette.",
+          "priority": "important",
+          "componentRef": "body",
+          "materialRef": "shellMatte",
+          "evidenceRef": "case-closed.png (full frame)",
+          "confidence": 0.7,
+          "realization": "unreported",
+          "kind": "contour",
+          "mapsTo": {
+            "ref": "root/body-taper"
+          }
+        }
+      ]
+    },
+    "anatomy": {
+      "applies": false,
+      "styleHeads": 0.0,
+      "proportions": {
+        "headUnit": 0.0,
+        "torso": 0.0,
+        "legs": 0.0,
+        "shoulderWidth": 0.0,
+        "hipWidth": 0.0
+      },
+      "pose": {
+        "type": "unassessed",
+        "jointAngles": {}
+      },
+      "faceLandmarks": {
+        "eyeLine": 0.0,
+        "eyeSpacing": 0.0,
+        "noseBase": 0.0,
+        "mouthLine": 0.0,
+        "hairline": 0.0
+      },
+      "features": [],
+      "confidence": 0.0,
+      "note": "Only meaningful when objectClass.primaryDomain is character or hybrid. Set applies=true and fill from forge/stage1_intake/extract_landmarks.py. See grimoire/character/reconstruction.md and grimoire/character/likeness_maximization.md."
+    },
+    "sourceImage": ".img2threejs/refs/case-closed.png"
+  },
+  "qualityContract": {
+    "qualityBar": "moderate",
+    "definitionOfDone": [
+      "The rendered model matches the reference silhouette, primary proportions, visible component hierarchy, material response, and most recognizable local features for the selected fidelity tier."
+    ],
+    "minimumSpecDepth": {
+      "macroComponents": 2,
+      "mesoComponents": 3,
+      "microFeatureGroups": 2,
+      "materialLayers": 2,
+      "repetitionSystems": 0,
+      "reviewViewpoints": 3
+    },
+    "featureGroups": [
+      {
+        "id": "overall-silhouette",
+        "name": "Overall silhouette and proportions",
+        "required": true,
+        "qualityCriteria": [
+          "Bounding shape, dominant curves, negative spaces, and scale relationships are explicitly described."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "model reads as a generic placeholder instead of the reference object",
+          "major proportions are guessed without evidence"
+        ]
+      },
+      {
+        "id": "primary-structure",
+        "name": "Primary structure and hierarchy",
+        "required": true,
+        "qualityCriteria": [
+          "Major parts, joints, seams, contact points, and parent-child relationships are named before code generation."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "large visible parts are merged into one mesh",
+          "component hierarchy is too shallow for the observed complexity"
+        ]
+      },
+      {
+        "id": "attachment-joint-correctness",
+        "name": "Attachment and joint correctness",
+        "required": true,
+        "qualityCriteria": [
+          "Every visible child appendage, branch, limb, handle, connector, tube, cable, horn, wing, leg, or hinged part has an attachment contract with parent socket, localStart/localEnd, contact type, embed/overlap, and gap tolerance."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "child part root floats away from the parent",
+          "branch/limb/tube is centered in space instead of pivoting from its root",
+          "parent-child transform mixes world and local coordinates"
+        ]
+      },
+      {
+        "id": "surface-material-response",
+        "name": "Surface material response",
+        "required": true,
+        "qualityCriteria": [
+          "Albedo zones, roughness, normal/bump/displacement intent, cavity dirt, edge wear, and local overrides are specified where visible.",
+          "Important materials define independent albedo, roughness, height/normal, and AO responses instead of reusing one texture for unrelated PBR channels.",
+          "Surface response is decomposed into macro, meso, and micro frequency bands with scale and amplitude tied to object scale."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "surface looks like flat plastic",
+          "local material variation is missing or not tied to image evidence"
+        ]
+      },
+      {
+        "id": "reference-lookdev",
+        "name": "Reference color, material, and lighting response",
+        "required": true,
+        "qualityCriteria": [
+          "Material-pass names the reference-derived albedo palette, roughness variation, tactile normal/bump/displacement response, and local masks.",
+          "When a source image is available, run reference PBR extraction and require confidence >= 0.7 before treating maps as implementation-ready.",
+          "Lighting-pass names key/fill/rim or environment light, exposure, tone mapping, background, and contact shadow behavior.",
+          "Neutral, grazing-angle, and reference-matched renders prove that surface relief survives relighting and is not painted into albedo."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "model has acceptable shape but reads as flat shaded or plastic",
+          "colors are a generic average instead of reference-observed local color zones",
+          "lighting is evenly ambient and cannot reproduce the source value range"
+        ]
+      }
+    ],
+    "visualDeltaChecks": [
+      "silhouette and negative-space delta",
+      "component hierarchy depth delta",
+      "repetition density and distribution delta",
+      "material albedo/roughness/normal response delta",
+      "local feature placement and scale delta"
+    ],
+    "antiShallowSpecRules": [
+      "Do not proceed to code if qualityContract.qualityBar is unassessed.",
+      "Do not proceed to code if the spec only contains a root component for a moderate or complex object.",
+      "Do not proceed to code if required featureGroups are not represented by componentTree, materials, or repetitionSystems.",
+      "Do not proceed to code if visible local features are described only in prose and not attached to components/materials/evidenceRefs.",
+      "Do not proceed past structural-pass if attached child parts lack attachment.parentSocket, localStart, localEnd, embedDepth/overlap, and gapTolerance.",
+      "Do not pass material look-dev when albedo is reused as roughness, height, normal, or AO.",
+      "Do not pass material look-dev without macro, meso, and micro surface frequency bands for close-up materials.",
+      "Do not pass reference-fidelity material look-dev from a source image without usable referencePbr maps or an explicit documented limitation.",
+      "Do not patch a spec with extracted PBR maps when extraction confidence is below the target threshold unless the user explicitly accepts lower fidelity.",
+      "Do not place adjacent separate-geometry parts below 0.02 world-unit seam overlap (source: grimoire/build/geometry_patterns.md).",
+      "Do not satisfy raised or recessed relief, fasteners, or grip structure with a map alone when the feature affects form; use geometry or displacement (source: grimoire/build/geometry_patterns.md).",
+      "Adjacent components must overlap by at least 0.02 world units at shared seams (source: grimoire/build/geometry_patterns.md).",
+      "Raised or recessed relief and fasteners must be geometry, instanced micro-parts, or displacement; a map alone is an approximation (source: grimoire/build/geometry_patterns.md)."
+    ],
+    "mustNotDo": [
+      "Do not proceed to code if qualityContract.qualityBar is unassessed.",
+      "Do not proceed to code if the spec only contains a root component for a moderate or complex object.",
+      "Do not proceed to code if required featureGroups are not represented by componentTree, materials, or repetitionSystems.",
+      "Do not proceed to code if visible local features are described only in prose and not attached to components/materials/evidenceRefs.",
+      "Do not proceed past structural-pass if attached child parts lack attachment.parentSocket, localStart, localEnd, embedDepth/overlap, and gapTolerance.",
+      "Do not pass material look-dev when albedo is reused as roughness, height, normal, or AO.",
+      "Do not pass material look-dev without macro, meso, and micro surface frequency bands for close-up materials.",
+      "Do not pass reference-fidelity material look-dev from a source image without usable referencePbr maps or an explicit documented limitation.",
+      "Do not patch a spec with extracted PBR maps when extraction confidence is below the target threshold unless the user explicitly accepts lower fidelity.",
+      "Do not place adjacent separate-geometry parts below 0.02 world-unit seam overlap (source: grimoire/build/geometry_patterns.md).",
+      "Do not satisfy raised or recessed relief, fasteners, or grip structure with a map alone when the feature affects form; use geometry or displacement (source: grimoire/build/geometry_patterns.md).",
+      "Adjacent components must overlap by at least 0.02 world units at shared seams (source: grimoire/build/geometry_patterns.md).",
+      "Raised or recessed relief and fasteners must be geometry, instanced micro-parts, or displacement; a map alone is an approximation (source: grimoire/build/geometry_patterns.md)."
+    ]
+  },
+  "qualityTargets": {
+    "targetFidelity": 0.7,
+    "mustMatch": [
+      "macro silhouette and proportions",
+      "primary material albedo/roughness response",
+      "reference-derived PBR material response at or above 0.7 confidence when source pixels are usable",
+      "most recognizable local features"
+    ],
+    "niceToHave": [
+      "micro scratches, stains, chips, and dirt masks",
+      "secondary lighting match"
+    ],
+    "fpsTarget": 60,
+    "reviewViewpoints": [
+      "front-three-quarter-left",
+      "front",
+      "side-right",
+      "top-lid",
+      "rear"
+    ]
+  },
+  "selfCorrectLoop": {
+    "enabled": true,
+    "visualAcceptance": {
+      "reviewer": "ai-vision",
+      "threshold": 0.7,
+      "comparisonArtifactRequired": true,
+      "layerScoresRequired": true,
+      "codePixelDiffIsAcceptanceAuthority": false,
+      "scoringRule": "AI vision must inspect a side-by-side reference/render sheet and score the current pass from 0 to 1. Pixel-diff code may assist diagnostics but cannot approve a pass.",
+      "requiredLayerScores": [
+        "silhouetteProportion",
+        "componentStructure",
+        "formDetail",
+        "materialSurface",
+        "lightingCamera"
+      ],
+      "featureReviewPolicy": {
+        "enabled": true,
+        "reviewUnit": "semantic-subsystem",
+        "maxCriticalFeaturesPerPass": 5,
+        "maxImportantFeaturesPerPass": 3,
+        "criticalDefaultThreshold": 0.8,
+        "importantAverageThreshold": 0.65,
+        "adaptiveEscalation": true,
+        "singleImagePairOnly": true,
+        "selectionRule": "Choose only the most visually salient, identity-defining, user-prioritized, or high-risk semantic systems. Group repeated parts instead of reviewing every mesh. AI vision scores every selected feature from the same full reference/render pair."
+      }
+    },
+    "reviewAfterPasses": [
+      "blockout",
+      "structural-pass",
+      "form-refinement",
+      "material-pass",
+      "surface-pass",
+      "lighting-pass",
+      "interaction-pass",
+      "optimization-pass"
+    ],
+    "allowedActions": [
+      "continue",
+      "refine-spec",
+      "refine-code",
+      "request-input",
+      "stop"
+    ],
+    "specRefineTriggers": [
+      "missing component",
+      "wrong primitive family",
+      "wrong proportions",
+      "material layer under-specified",
+      "local feature not traceable to viewEvidence",
+      "reference ambiguity discovered during implementation"
+    ],
+    "codeRefineTriggers": [
+      "spec is adequate but generated geometry/material does not match",
+      "browser render differs from reference",
+      "performance budget exceeded",
+      "lighting hides geometry or material response"
+    ],
+    "stopCriteria": [
+      "target fidelity reached or user accepts current approximation",
+      "remaining gaps require new reference images or manual art"
+    ],
+    "screenshotPolicy": {
+      "requiredForPasses": [
+        "blockout",
+        "structural-pass",
+        "form-refinement",
+        "material-pass",
+        "surface-pass",
+        "lighting-pass",
+        "interaction-pass"
+      ],
+      "preferredCapture": "in-app-browser-screenshot",
+      "fallbackCapture": "user-supplied-screenshot-path",
+      "minimumEvidence": "Each visual pass needs a reference image, rendered screenshot, side-by-side comparison sheet, AI vision score, layer scores, and critique before choosing continue.",
+      "reviewPairRule": "Compare the same camera/viewpoint whenever possible; do not judge a front reference against a random render angle.",
+      "acceptanceAuthority": "AI vision review of the comparison sheet. Code-generated pixel similarity is not sufficient evidence."
+    }
+  },
+  "featureReviewTargets": [
+    {
+      "id": "case-silhouette-taper",
+      "name": "Tapered body silhouette + rounded-bevel edges",
+      "tier": "critical",
+      "passIds": [
+        "blockout",
+        "form-refinement"
+      ],
+      "minimumScore": 0.8,
+      "mustPass": true,
+      "componentRefs": [
+        "root",
+        "lid"
+      ],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "draw-latch-geometry",
+      "name": "Over-center draw latch pair (cam + metal bail), mirrored placement",
+      "tier": "critical",
+      "passIds": [
+        "structural-pass",
+        "form-refinement"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "latch",
+        "latchCam",
+        "latchBail"
+      ],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "decal-logo-lockup",
+      "name": "TRADEIT wordmark + icon + diagonal chevron decal placement/colors",
+      "tier": "critical",
+      "passIds": [
+        "material-pass",
+        "surface-pass"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "root"
+      ],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "lid-rib-band",
+      "name": "3-rib lid stiffening band",
+      "tier": "important",
+      "passIds": [
+        "structural-pass"
+      ],
+      "minimumScore": 0.7,
+      "mustPass": false,
+      "componentRefs": [
+        "lid",
+        "lidRidge"
+      ],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "padlock-hasp-hardware",
+      "name": "Brass padlock + hasp loop, closed-state-only accessory",
+      "tier": "important",
+      "passIds": [
+        "structural-pass",
+        "material-pass"
+      ],
+      "minimumScore": 0.65,
+      "mustPass": false,
+      "componentRefs": [
+        "padlock",
+        "padlockBody",
+        "padlockShackle",
+        "haspLoop"
+      ],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "lid-open-hinge-mechanism",
+      "name": "Lid hinge opens/closes matching the second reference's rotation range",
+      "tier": "important",
+      "passIds": [
+        "interaction-pass"
+      ],
+      "minimumScore": 0.65,
+      "mustPass": false,
+      "componentRefs": [
+        "lid"
+      ],
+      "evidenceRefs": [
+        "open-mechanism"
+      ]
+    }
+  ],
+  "sculptPipeline": {
+    "passGateMode": "locked-sequential",
+    "passOrder": [
+      "blockout",
+      "structural-pass",
+      "form-refinement",
+      "material-pass",
+      "surface-pass",
+      "lighting-pass",
+      "interaction-pass",
+      "optimization-pass"
+    ],
+    "currentPass": "blockout",
+    "completedPasses": [],
+    "lastCompletedPass": "",
+    "blockedReason": "blockout requires a browser screenshot and self-correction review before structural-pass unlocks",
+    "nextRequiredEvidence": [
+      "blockout browser render screenshot from your agent's browser/screenshot tool",
+      "side-by-side reference/render comparison sheet",
+      "AI vision score >= 0.7 with layer scores and mismatch critique",
+      "critical semantic feature scores from the same image pair meeting their individual thresholds",
+      "reviewHistory entry for blockout with action=continue"
+    ]
+  },
+  "lookDevTargets": {
+    "qualityPriority": "reference-fidelity",
+    "materialPass": {
+      "albedoPaletteRequired": true,
+      "roughnessVariationRequired": true,
+      "normalOrBumpRequired": true,
+      "localOverridesRequired": true,
+      "minimumTextureResolution": 1024,
+      "preferredTextureResolution": 2048,
+      "independentMapChannels": [
+        "albedo",
+        "roughness",
+        "height",
+        "normal",
+        "ambient-occlusion"
+      ],
+      "requiredSurfaceFrequencyBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "geometryReliefRequiredWhenSilhouetteAffected": true,
+      "referencePbrExtraction": {
+        "requiredWhenSourceImagePresent": false,
+        "targetThreshold": 0.7,
+        "stopOnLowConfidence": true,
+        "script": "forge/stage1_intake/extract_pbr_evidence.py",
+        "acceptedLimitation": "single-image extraction is reference-derived inference, not exact photogrammetry",
+        "skipReason": "Flat matte-plastic shell + 2-color printed decal, no patterned/photoreal skin -- scalar PBR values estimated by eye per grimoire/build/threejs_texture_reference.md 'solid albedo for flat paint' rule instead of extract_pbr_evidence.py. See spec.risks[0]."
+      },
+      "mustAvoid": [
+        "single flat albedo per material",
+        "uniform roughness",
+        "albedo texture reused as roughness/height/normal/AO",
+        "single-frequency random noise",
+        "plastic-looking smooth bark, stone, cloth, foliage, or aged material",
+        "local color/detail described only in prose without material masks",
+        "claiming exact PBR recovery when confidence is below the target threshold"
+      ]
+    },
+    "lightingPass": {
+      "requiredTerms": [
+        "key light",
+        "fill light",
+        "rim or environment light",
+        "exposure",
+        "tone mapping",
+        "background",
+        "contact shadow"
+      ],
+      "mustAvoid": [
+        "ambient-only lighting",
+        "flat value range",
+        "missing contact shadow",
+        "reference lighting copied without separating material readability"
+      ]
+    },
+    "screenshotReview": [
+      "Compare albedo palette and local color zones.",
+      "Compare roughness/normal/bump response under light.",
+      "Compare cavity dirt, edge wear, stains, moss, scratches, or other local masks.",
+      "Compare key/fill/rim structure, exposure, tone mapping, background, and contact shadows.",
+      "Capture a neutral-light render to verify material readability without reference lighting.",
+      "Capture a grazing-light close-up to expose flat normals, uniform roughness, tiling, and plastic highlights.",
+      "Capture a reference-matched render from the same camera framing as the source."
+    ]
+  },
+  "actionReadiness": {
+    "contract": "Every macro/meso component should be generated as a stable named Object3D pivot node with a mesh child, action metadata, optional sockets, collider proxy, and destruction metadata.",
+    "defaultRigType": "action-ready-static-rig",
+    "rootMotionNode": "root",
+    "requiredComponentFields": [
+      "id",
+      "parent",
+      "transform",
+      "attachment for child appendages, connectors, limbs, tubes, handles, legs, horns, wings, branches, or cables",
+      "actionProfile.animationRole",
+      "actionProfile.pivot",
+      "actionProfile.collider",
+      "actionProfile.destruction"
+    ],
+    "transformChannels": [
+      "translate",
+      "rotate",
+      "scale",
+      "bend",
+      "twist",
+      "detach",
+      "visibility",
+      "material-state"
+    ],
+    "authoringRules": [
+      "Do not collapse independently movable parts into one mesh.",
+      "Put transforms on component pivot groups, not only on raw meshes.",
+      "For attached child parts, put the pivot at the semantic root/socket and build visible geometry from localStart to localEnd.",
+      "Represent hinge, socket, detachable, and breakable intent even when no animation is implemented yet.",
+      "Use simplified collider proxies for runtime physics instead of visual mesh colliders by default."
+    ],
+    "destructionPolicy": {
+      "defaultBreakable": false,
+      "fractureGroupNaming": "Use stable semantic names such as body-shell, left-hinge, glass-panel, branch-segment.",
+      "debrisStrategy": "Prefer detachable component groups and a small number of procedural fragments over random mesh explosion."
+    }
+  },
+  "assumptions": [
+    "Back face, left face, and base/underside are plain shell (no visible evidence either way).",
+    "Hinge barrel/pin geometry is a generic rigid back-top pivot, not measured from pixels.",
+    "Body draft angle ~4-6deg/side, estimated from front-face convergence, not measured.",
+    "Decal graphic is redrawn as a vector canvas-baked texture matched to sampled hex values, not projected from the source photo (resolution/angle too low/oblique for clean de-lit projection).",
+    "Side handle's far-side cross-section is inferred generically from the visible near edge only.",
+    "Hardware layout corrected after a pixel-grid re-measurement pass on case-closed.png: the lid/body seam carries 3 rib-pair gussets (not 2 cam-action draw latches -- no bail/hook hardware is visible on any of them), the lid carries 6 evenly-spaced ribs (not 3), and the grab handle sits on the FRONT face at x-fraction ~0.75 (not on a side face). Two additional side-face handles were added on explicit user request (tay cam 2 ben) as an inferred, unphotographed pair. componentTree/materials below reflect the pre-correction pass and are superseded by src/demos/tradeit-case/createTradeitCaseModel.ts for hardware placement.",
+    "Second correction pass driven by an independent NotebookLM fidelity critique (transcript not stored here, only the verified findings): reduced body taper 0.86->0.95, sharpened bevel radii, replaced 3 short seam gussets with 2 full-height front rib pairs (split into body+lid parts so the seam rides with the hinge) plus 1 short hasp-mount gusset, enlarged the padlock/hasp, made all handles sit behind the shell surface instead of proud of it, and rebuilt the decal as a logo panel boxed into the inter-rib channel plus a solid-colour chevron that reaches and wraps the front-right corner. Two of the critique rounds claims were checked against a pixel grid on case-closed.png before acting: the missing-front-ribs claim was confirmed real (the rib pair at x-fraction ~0.30-0.38 runs the full case height, not just the seam); a repeated no-front-handle claim and an earlier decal-floats-off-the-corner claim did NOT hold up under zoom and were left as originally built -- LLM visual critique was useful but not taken as ground truth over a direct pixel check."
+  ],
+  "coordinateFrame": {
+    "front": "camera-facing side in the reference image",
+    "up": "image up direction",
+    "scaleReference": "unit scale; adjust after first browser render"
+  },
+  "silhouette": {
+    "boundingShape": "tapered rectangular box (frustum-like: full width at the lid seam, ~14% narrower at the base)",
+    "aspectRatios": [
+      "width:height ~ 1.0:0.62",
+      "width:depth ~ 1.0:0.78"
+    ],
+    "symmetry": "bilateral left-right through the vertical center plane; asymmetric front-vs-back",
+    "dominantCurves": [
+      "continuous rounded-fillet bevel on all 12 body/lid edges",
+      "inward body taper from lid seam to base (rotomold draft angle)",
+      "3 parallel rounded ribs across the lid top face"
+    ],
+    "negativeSpaces": [
+      "gap between padlock body and shell front face (padlock hangs free from the hasp loop)",
+      "recessed side-handle pocket reads as a dark negative shape against the shell"
+    ],
+    "landmarks": [
+      "lid/body seam line at ~78% total height",
+      "latch pair at ~30%/70% width, straddling the seam",
+      "hasp loop right of the latches at seam height",
+      "decal panel front-left, chevron front-right"
+    ]
+  },
+  "viewEvidence": [
+    {
+      "id": "closed-front-3q",
+      "view": "primary",
+      "imageRegion": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0,
+        "units": "normalized"
+      },
+      "observations": [
+        "Tapered body + ribbed lid, 2 draw latches, brass padlock on hasp loop, recessed side handle, TRADEIT logo/wordmark + diagonal chevron decal, all on the front-right 3/4 face.",
+        "Studio white background, single soft key light upper-left, low ambient fill."
+      ],
+      "confidence": 0.8
+    },
+    {
+      "id": "open-mechanism",
+      "view": "secondary-mechanism",
+      "imageRegion": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0,
+        "units": "normalized"
+      },
+      "observations": [
+        "Flat-shaded ghost/clay render, NOT a material/color reference.",
+        "Lid hinges at the back-top edge, rotates up+back past vertical to ~100-110 deg open.",
+        "Latches stay mounted to the body, shown flipped to a disengaged/open position near the seam.",
+        "Interior is a single flat-bottom rectangular cavity, no dividers/foam.",
+        "Hasp loop present with no padlock body attached -- padlock is a closed-state-only accessory."
+      ],
+      "confidence": 0.7
+    }
+  ],
+  "componentTree": [
+    {
+      "id": "root",
+      "name": "Body shell",
+      "level": "macro",
+      "role": "body",
+      "importance": 1.0,
+      "confidence": 0.75,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Rigid molded lower shell assembled from a rounded box blockout with a taper deform; not an organic/continuous surface.",
+      "geometryDescriptor": {
+        "topologyIntent": "tapered rounded box, full width at the top seam narrowing toward the base",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.045,
+          "segments": 4
+        },
+        "deformationStack": [
+          {
+            "type": "taper",
+            "axis": "y",
+            "factor": 0.86,
+            "notes": "body narrows toward the base (rotomold draft angle); silhouette-affecting, estimated ~4-6deg/side"
+          }
+        ],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": null,
+      "attachment": null,
+      "dimensions": {
+        "width": 1.0,
+        "height": 0.46,
+        "depth": 0.78,
+        "units": "relative",
+        "confidence": 0.75
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "shellMatte",
+      "materialLayers": [
+        "shellMatte"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(33, 35, 39, 1.0)",
+        "secondaryAlbedo": "rgba(24, 26, 28, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.6,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Near-black warm dark gray read from mid-tone shell pixels, discounting studio falloff toward pure black at the silhouette edge."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "rounded-bevel-edges",
+          "description": "Continuous rounded fillet on all 12 body/lid edges, molded in.",
+          "confidence": 0.8,
+          "level": "macro",
+          "evidence": [
+            "closed-front-3q"
+          ]
+        },
+        {
+          "id": "body-taper",
+          "description": "Body narrows from lid seam to base.",
+          "confidence": 0.7,
+          "level": "macro",
+          "evidence": [
+            "closed-front-3q"
+          ]
+        },
+        {
+          "id": "front-facet-lines",
+          "description": "Faint vertical panel lines, low-medium confidence -- see material localOverrides.frontFacetLines.",
+          "confidence": 0.35,
+          "level": "micro",
+          "evidence": [
+            "closed-front-3q"
+          ]
+        }
+      ],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "lid",
+      "name": "Lid",
+      "level": "macro",
+      "role": "hinge-lid",
+      "importance": 0.95,
+      "confidence": 0.7,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Rigid molded upper shell, same construction family as the body, hinged as a rigid rotation not a deforming shell.",
+      "geometryDescriptor": {
+        "topologyIntent": "rounded box slab, front-bottom lip step at the seam",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.04,
+          "segments": 4
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentId": "root",
+        "parentSocket": "lidHingeSocket",
+        "localStart": [
+          0,
+          0.23,
+          -0.39
+        ],
+        "localEnd": [
+          0,
+          0.23,
+          0.39
+        ],
+        "contactType": "pivot-hinge",
+        "embedDepth": 0.01,
+        "gapTolerance": 0.004,
+        "evidenceRefs": [
+          "closed-front-3q"
+        ]
+      },
+      "dimensions": {
+        "width": 1.02,
+        "height": 0.16,
+        "depth": 0.7956000000000001,
+        "units": "relative",
+        "confidence": 0.7
+      },
+      "transform": {
+        "position": [
+          0,
+          0.31,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "shellMatte",
+      "materialLayers": [
+        "shellMatte"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(33, 35, 39, 1.0)",
+        "secondaryAlbedo": "rgba(24, 26, 28, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.6,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Near-black warm dark gray read from mid-tone shell pixels, discounting studio falloff toward pure black at the silhouette edge."
+      },
+      "actionProfile": {
+        "animationRole": "hinge",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0.23,
+            -0.39
+          ],
+          "axis": [
+            1,
+            0,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": false,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "lid-front-lip-step",
+          "description": "Shallow step in the shell where the lid meets the body seam.",
+          "confidence": 0.6,
+          "level": "meso",
+          "evidence": [
+            "closed-front-3q"
+          ]
+        }
+      ],
+      "evidenceRefs": [
+        "closed-front-3q",
+        "open-mechanism"
+      ]
+    },
+    {
+      "id": "lidRidge",
+      "name": "Lid stiffening ridge (repetition template)",
+      "level": "meso",
+      "role": "surface-relief-band",
+      "importance": 0.6,
+      "confidence": 0.75,
+      "primitive": "box",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Thin raised band molded onto the lid's outer face; relief on a host surface, not an independent volume.",
+      "geometryDescriptor": {
+        "topologyIntent": "thin rounded raised band, instanced 3x via lidRidgeArray",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.006,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "lid",
+      "attachment": null,
+      "dimensions": {
+        "width": 0.7176,
+        "height": 0.012,
+        "depth": 0.03,
+        "units": "relative",
+        "confidence": 0.75
+      },
+      "transform": {
+        "position": [
+          0,
+          0.37,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          1.5708
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "shellMatte",
+      "materialLayers": [
+        "shellMatte"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(33, 35, 39, 1.0)",
+        "secondaryAlbedo": "rgba(24, 26, 28, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.6,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Near-black warm dark gray read from mid-tone shell pixels, discounting studio falloff toward pure black at the silhouette edge."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "lidFastener",
+      "name": "Lid edge rivet/screw head (repetition template)",
+      "level": "micro",
+      "role": "fastener",
+      "importance": 0.35,
+      "confidence": 0.55,
+      "primitive": "cylinder",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Small discrete rivet/screw head, a real fastened part, not relief.",
+      "geometryDescriptor": {
+        "topologyIntent": "short lathed cylinder cap",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.002,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "lid",
+      "attachment": {
+        "parentId": "lid",
+        "parentSocket": "lidEdgeFastenerRow",
+        "localStart": [
+          -0.39,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.39,
+          0.0,
+          0.0
+        ],
+        "contactType": "flush-mount",
+        "embedDepth": 0.003,
+        "gapTolerance": 0.001,
+        "evidenceRefs": [
+          "closed-front-3q"
+        ]
+      },
+      "dimensions": {
+        "width": 0.018,
+        "height": 0.006,
+        "depth": 0.018,
+        "units": "relative",
+        "confidence": 0.55
+      },
+      "transform": {
+        "position": [
+          0,
+          0.24000000000000002,
+          0.36
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "hardwareSatin",
+      "materialLayers": [
+        "hardwareSatin"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(140, 142, 146, 1.0)",
+        "secondaryAlbedo": "rgba(90, 92, 96, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.55,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Bright satin metal read on the latch bail / rivet heads / hasp loop, small in frame."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "latch",
+      "name": "Draw latch (left, repetition template)",
+      "level": "meso",
+      "role": "latch",
+      "importance": 0.85,
+      "confidence": 0.65,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Assembled cam-latch housing; a compact rigid mechanism, not a continuous sculpt.",
+      "geometryDescriptor": {
+        "topologyIntent": "hard-surface blockout",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.02,
+          "segments": 3
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentId": "root",
+        "parentSocket": "latchMountLeft",
+        "localStart": [
+          -0.3,
+          0.17,
+          0.39
+        ],
+        "localEnd": [
+          -0.3,
+          0.25,
+          0.39
+        ],
+        "contactType": "flush-mount",
+        "embedDepth": 0.008,
+        "gapTolerance": 0.002,
+        "evidenceRefs": [
+          "closed-front-3q"
+        ]
+      },
+      "dimensions": {
+        "width": 0.1,
+        "height": 0.09,
+        "depth": 0.05,
+        "units": "relative",
+        "confidence": 0.65
+      },
+      "transform": {
+        "position": [
+          -0.3,
+          0.21000000000000002,
+          0.39
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "shellMatte",
+      "materialLayers": [
+        "shellMatte"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(33, 35, 39, 1.0)",
+        "secondaryAlbedo": "rgba(24, 26, 28, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.6,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Near-black warm dark gray read from mid-tone shell pixels, discounting studio falloff toward pure black at the silhouette edge."
+      },
+      "actionProfile": {
+        "animationRole": "latch-cam",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            -0.3,
+            0.21000000000000002,
+            0.39
+          ],
+          "axis": [
+            1,
+            0,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "latchCam",
+      "name": "Latch cam body",
+      "level": "micro",
+      "role": "latch-cam",
+      "importance": 0.5,
+      "confidence": 0.6,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "The thumb-actuated cam housing, a discrete rigid box with rounded corners.",
+      "geometryDescriptor": {
+        "topologyIntent": "rounded box cam housing",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.012,
+          "segments": 3
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "latch",
+      "attachment": null,
+      "dimensions": {
+        "width": 0.1,
+        "height": 0.09,
+        "depth": 0.04,
+        "units": "relative",
+        "confidence": 0.6
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0.01
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "shellMatte",
+      "materialLayers": [
+        "shellMatte"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(33, 35, 39, 1.0)",
+        "secondaryAlbedo": "rgba(24, 26, 28, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.6,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Near-black warm dark gray read from mid-tone shell pixels, discounting studio falloff toward pure black at the silhouette edge."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "latchBail",
+      "name": "Latch wire bail",
+      "level": "micro",
+      "role": "connector",
+      "importance": 0.45,
+      "confidence": 0.55,
+      "primitive": "torus",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Bent-wire metal bail that hooks over the lid edge catch; a thin rigid loop.",
+      "geometryDescriptor": {
+        "topologyIntent": "half-arc torus bail",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "latch",
+      "attachment": {
+        "parentId": "latch",
+        "parentSocket": "bailPivot",
+        "localStart": [
+          0,
+          0.02,
+          0.015
+        ],
+        "localEnd": [
+          0,
+          0.08,
+          0.015
+        ],
+        "contactType": "hinge-catch",
+        "embedDepth": 0.004,
+        "gapTolerance": 0.002,
+        "evidenceRefs": [
+          "closed-front-3q"
+        ]
+      },
+      "dimensions": {
+        "width": 0.09,
+        "height": 0.05,
+        "depth": 0.01,
+        "units": "relative",
+        "confidence": 0.55
+      },
+      "transform": {
+        "position": [
+          0,
+          0.05,
+          0.015
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "hardwareSatin",
+      "materialLayers": [
+        "hardwareSatin"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(140, 142, 146, 1.0)",
+        "secondaryAlbedo": "rgba(90, 92, 96, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.55,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Bright satin metal read on the latch bail / rivet heads / hasp loop, small in frame."
+      },
+      "actionProfile": {
+        "animationRole": "bail-pivot",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0.02,
+            0.015
+          ],
+          "axis": [
+            1,
+            0,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "sideHandle",
+      "name": "Side handle pocket",
+      "level": "meso",
+      "role": "handle-pocket",
+      "importance": 0.4,
+      "confidence": 0.5,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "A discrete inset pocket + grip bar assembled from boxes; only the near edge is visible (single view), so this is the lowest-confidence macro/meso part.",
+      "geometryDescriptor": {
+        "topologyIntent": "hard-surface blockout",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.02,
+          "segments": 3
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentId": "root",
+        "parentSocket": "sideHandleSocket",
+        "localStart": [
+          0.47,
+          0.07,
+          -0.03
+        ],
+        "localEnd": [
+          0.47,
+          0.19,
+          0.13
+        ],
+        "contactType": "inset-socket",
+        "embedDepth": 0.01,
+        "gapTolerance": 0.003,
+        "evidenceRefs": [
+          "closed-front-3q"
+        ]
+      },
+      "dimensions": {
+        "width": 0.03,
+        "height": 0.1,
+        "depth": 0.16,
+        "units": "relative",
+        "confidence": 0.5
+      },
+      "transform": {
+        "position": [
+          0.49,
+          0.13,
+          0.05
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "shellMatte",
+      "materialLayers": [
+        "shellMatte"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(33, 35, 39, 1.0)",
+        "secondaryAlbedo": "rgba(24, 26, 28, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.6,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Near-black warm dark gray read from mid-tone shell pixels, discounting studio falloff toward pure black at the silhouette edge."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "side-handle-recess",
+          "description": "Recessed pocket with an inset grip bar; far side/full cross-section unmeasured.",
+          "confidence": 0.5,
+          "level": "meso",
+          "evidence": [
+            "closed-front-3q"
+          ]
+        }
+      ],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "haspLoop",
+      "name": "Padlock hasp eyeloop",
+      "level": "micro",
+      "role": "socket",
+      "importance": 0.4,
+      "confidence": 0.55,
+      "primitive": "torus",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Small bent-wire/eyebolt loop mounted flush on the shell; a discrete hardware part.",
+      "geometryDescriptor": {
+        "topologyIntent": "hard-surface blockout",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.02,
+          "segments": 3
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentId": "root",
+        "parentSocket": "haspMount",
+        "localStart": [
+          0.1,
+          0.17500000000000002,
+          0.39
+        ],
+        "localEnd": [
+          0.14,
+          0.20500000000000002,
+          0.39
+        ],
+        "contactType": "flush-mount",
+        "embedDepth": 0.004,
+        "gapTolerance": 0.002,
+        "evidenceRefs": [
+          "closed-front-3q"
+        ]
+      },
+      "dimensions": {
+        "width": 0.03,
+        "height": 0.03,
+        "depth": 0.01,
+        "units": "relative",
+        "confidence": 0.55
+      },
+      "transform": {
+        "position": [
+          0.12,
+          0.19,
+          0.39
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "hardwareSatin",
+      "materialLayers": [
+        "hardwareSatin"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(140, 142, 146, 1.0)",
+        "secondaryAlbedo": "rgba(90, 92, 96, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.55,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Bright satin metal read on the latch bail / rivet heads / hasp loop, small in frame."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "padlock",
+      "name": "Padlock assembly",
+      "level": "meso",
+      "role": "appendage",
+      "importance": 0.55,
+      "confidence": 0.5,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Rigid hanging accessory (body + shackle), attached only by the shackle through the hasp loop -- gravity-hung, not fixed.",
+      "geometryDescriptor": {
+        "topologyIntent": "hard-surface blockout",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.02,
+          "segments": 3
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "haspLoop",
+      "attachment": {
+        "parentId": "haspLoop",
+        "parentSocket": "shacklePassthrough",
+        "localStart": [
+          0.12,
+          0.17500000000000002,
+          0.39
+        ],
+        "localEnd": [
+          0.12,
+          0.16,
+          0.39
+        ],
+        "contactType": "through-embed",
+        "embedDepth": 0.006,
+        "gapTolerance": 0.002,
+        "evidenceRefs": [
+          "closed-front-3q"
+        ]
+      },
+      "dimensions": {
+        "width": 0.05,
+        "height": 0.08,
+        "depth": 0.02,
+        "units": "relative",
+        "confidence": 0.5
+      },
+      "transform": {
+        "position": [
+          0.12,
+          0.14,
+          0.4
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "brassPlated",
+      "materialLayers": [
+        "brassPlated"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(201, 162, 39, 1.0)",
+        "secondaryAlbedo": "rgba(143, 112, 26, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.5,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Warm gold-yellow padlock body, ~28x40px in frame -- color read solid, roughness/exact hue approximate."
+      },
+      "actionProfile": {
+        "animationRole": "idle-sway",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0.12,
+            0.19,
+            0.39
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "padlockBody",
+      "name": "Padlock body",
+      "level": "micro",
+      "role": "lock-body",
+      "importance": 0.4,
+      "confidence": 0.5,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Plated brass rectangular body with rounded corners.",
+      "geometryDescriptor": {
+        "topologyIntent": "rounded box lock body",
+        "edgeTreatment": {
+          "type": "rounded",
+          "bevelRadius": 0.008,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "padlock",
+      "attachment": null,
+      "dimensions": {
+        "width": 0.05,
+        "height": 0.06,
+        "depth": 0.02,
+        "units": "relative",
+        "confidence": 0.5
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.02,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "brassPlated",
+      "materialLayers": [
+        "brassPlated"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(201, 162, 39, 1.0)",
+        "secondaryAlbedo": "rgba(143, 112, 26, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.5,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Warm gold-yellow padlock body, ~28x40px in frame -- color read solid, roughness/exact hue approximate."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "id": "padlockShackle",
+      "name": "Padlock shackle",
+      "level": "micro",
+      "role": "shackle",
+      "importance": 0.4,
+      "confidence": 0.5,
+      "primitive": "torus",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Satin steel U-shaped shackle passing through the hasp loop.",
+      "geometryDescriptor": {
+        "topologyIntent": "half-arc torus shackle",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "vertex normals from generated geometry"
+      },
+      "parent": "padlock",
+      "attachment": null,
+      "dimensions": {
+        "width": 0.03,
+        "height": 0.035,
+        "depth": 0.01,
+        "units": "relative",
+        "confidence": 0.5
+      },
+      "transform": {
+        "position": [
+          0,
+          0.02,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "material": "steelSatin",
+      "materialLayers": [
+        "steelSatin"
+      ],
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(154, 156, 162, 1.0)",
+        "secondaryAlbedo": "rgba(106, 108, 114, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.5,
+        "evidence": [
+          "closed-front-3q"
+        ],
+        "samplingNotes": "Cooler gray padlock shackle, small in frame, same finish class as hardwareSatin but slightly cooler/lower-roughness highlight."
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "explicit",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.6
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "Coarse proxy; refine after first browser render."
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "breakImpulse": 0.0,
+          "fractureGroup": "",
+          "debrisMaterial": "",
+          "seamRefs": [],
+          "detachableFragments": []
+        }
+      },
+      "localFeatures": [],
+      "evidenceRefs": [
+        "closed-front-3q"
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "id": "shellMatte",
+      "name": "Rotomolded shell (matte composite)",
+      "type": "standard",
+      "shaderModel": "MeshStandardMaterial / PBR approximation",
+      "baseColor": "#212327",
+      "color": "#212327",
+      "albedo": {
+        "dominant": "#212327",
+        "secondary": [
+          "#242629",
+          "#181a1c"
+        ],
+        "samplingNotes": "Estimated by eye from a 400x492px studio photo with light falloff toward the silhouette edge; not spectrophotometric. Near-black, slightly warm dark gray, matte -- no crisp specular hotspot on flat panels."
+      },
+      "colorVariation": {
+        "palette": [
+          "#212327",
+          "#242629",
+          "#181a1c"
+        ],
+        "pattern": "uniform",
+        "amplitude": 0.06,
+        "heightCorrelation": 0.1
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          1.0,
+          1.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world-scale detail; decal graphics use a dedicated canvas-baked UV island, not tiled repeat."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.5,
+          "amplitude": 0.1,
+          "role": "broad color/value read"
+        },
+        {
+          "id": "meso",
+          "frequency": 8.0,
+          "amplitude": 0.05,
+          "role": "fine matte grain / brushing"
+        },
+        {
+          "id": "micro",
+          "frequency": 32.0,
+          "amplitude": 0.02,
+          "role": "highlight breakup under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.62,
+        "variation": 0.08,
+        "map": "independent-procedural-field",
+        "localResponse": "slightly lower roughness on rounded edges/ribs than on flat panels"
+      },
+      "metalness": {
+        "base": 0.0,
+        "variation": 0.03
+      },
+      "normal": {
+        "pattern": "derived-from-independent-height-field",
+        "strength": 0.15,
+        "scale": 20.0,
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "fine-matte-grain",
+        "amplitude": 0.01,
+        "scale": 4.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.3,
+        "contactShadowBias": 0.3,
+        "notes": "Darken the lid/body seam, latch mounts, hasp loop, and handle pocket."
+      },
+      "wear": {
+        "edgeWear": 0.05,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [
+        {
+          "id": "tradeitLogoIcon",
+          "description": "Circular blue double-arrow/handshake icon baked into a canvas decal texture, flat print (#2e57e0 fill, white #f2f2f2 linework), no separate geometry/relief.",
+          "confidence": 0.75
+        },
+        {
+          "id": "tradeitWordmark",
+          "description": "White 'TRADEIT' wordmark below the icon, same canvas decal, flat print, no relief.",
+          "confidence": 0.75
+        },
+        {
+          "id": "diagonalChevron",
+          "description": "Wide diagonal blue (#2e57e0) wedge/chevron baked into the same canvas decal, widening from upper-right toward lower-left across the front-right third of the shell.",
+          "confidence": 0.7
+        },
+        {
+          "id": "frontFacetLines",
+          "description": "Faint vertical panel/facet lines on the lower front face \u2014 low-medium confidence, could be render/lighting artifact rather than molded relief; represented as a subtle normal-map micro-band, not geometry, so it can be safely wrong.",
+          "confidence": 0.35
+        }
+      ],
+      "shaderNotes": [
+        "Approximate PBR inference from a single low-resolution studio photo, not extracted measurement; confidence flagged per-field in preSpecAssessment.unknownsToResolveBeforeImplementation."
+      ]
+    },
+    {
+      "id": "hardwareSatin",
+      "name": "Latch/rivet/loop hardware (satin metal)",
+      "type": "physical",
+      "shaderModel": "MeshStandardMaterial / PBR approximation",
+      "baseColor": "#8c8e92",
+      "color": "#8c8e92",
+      "albedo": {
+        "dominant": "#8c8e92",
+        "secondary": [
+          "#a2a4a8",
+          "#5a5c60"
+        ],
+        "samplingNotes": "Estimated by eye from a 400x492px studio photo with light falloff toward the silhouette edge; not spectrophotometric. Latch wire bail, rivet/screw heads, hasp eyeloop -- brighter, higher-specular than the shell."
+      },
+      "colorVariation": {
+        "palette": [
+          "#8c8e92",
+          "#a2a4a8",
+          "#5a5c60"
+        ],
+        "pattern": "mottled",
+        "amplitude": 0.06,
+        "heightCorrelation": 0.1
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          1.0,
+          1.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world-scale detail; decal graphics use a dedicated canvas-baked UV island, not tiled repeat."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.5,
+          "amplitude": 0.1,
+          "role": "broad color/value read"
+        },
+        {
+          "id": "meso",
+          "frequency": 8.0,
+          "amplitude": 0.05,
+          "role": "fine matte grain / brushing"
+        },
+        {
+          "id": "micro",
+          "frequency": 32.0,
+          "amplitude": 0.02,
+          "role": "highlight breakup under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.35,
+        "variation": 0.08,
+        "map": "independent-procedural-field",
+        "localResponse": "slightly lower roughness on rounded edges/ribs than on flat panels"
+      },
+      "metalness": {
+        "base": 0.78,
+        "variation": 0.03
+      },
+      "normal": {
+        "pattern": "derived-from-independent-height-field",
+        "strength": 0.3,
+        "scale": 20.0,
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "brushed-linear",
+        "amplitude": 0.01,
+        "scale": 4.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.3,
+        "contactShadowBias": 0.3,
+        "notes": "Darken the lid/body seam, latch mounts, hasp loop, and handle pocket."
+      },
+      "wear": {
+        "edgeWear": 0.05,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [],
+      "shaderNotes": [
+        "Approximate PBR inference from a single low-resolution studio photo, not extracted measurement; confidence flagged per-field in preSpecAssessment.unknownsToResolveBeforeImplementation."
+      ]
+    },
+    {
+      "id": "brassPlated",
+      "name": "Padlock body (plated brass)",
+      "type": "physical",
+      "shaderModel": "MeshStandardMaterial / PBR approximation",
+      "baseColor": "#c9a227",
+      "color": "#c9a227",
+      "albedo": {
+        "dominant": "#c9a227",
+        "secondary": [
+          "#d8b646",
+          "#8f701a"
+        ],
+        "samplingNotes": "Estimated by eye from a 400x492px studio photo with light falloff toward the silhouette edge; not spectrophotometric. Warm gold-yellow plated metal, small in frame (~28x40px), color read solid, roughness estimated."
+      },
+      "colorVariation": {
+        "palette": [
+          "#c9a227",
+          "#d8b646",
+          "#8f701a"
+        ],
+        "pattern": "mottled",
+        "amplitude": 0.06,
+        "heightCorrelation": 0.1
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          1.0,
+          1.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world-scale detail; decal graphics use a dedicated canvas-baked UV island, not tiled repeat."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.5,
+          "amplitude": 0.1,
+          "role": "broad color/value read"
+        },
+        {
+          "id": "meso",
+          "frequency": 8.0,
+          "amplitude": 0.05,
+          "role": "fine matte grain / brushing"
+        },
+        {
+          "id": "micro",
+          "frequency": 32.0,
+          "amplitude": 0.02,
+          "role": "highlight breakup under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.3,
+        "variation": 0.08,
+        "map": "independent-procedural-field",
+        "localResponse": "slightly lower roughness on rounded edges/ribs than on flat panels"
+      },
+      "metalness": {
+        "base": 0.75,
+        "variation": 0.03
+      },
+      "normal": {
+        "pattern": "derived-from-independent-height-field",
+        "strength": 0.3,
+        "scale": 20.0,
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "brushed-linear",
+        "amplitude": 0.01,
+        "scale": 4.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.3,
+        "contactShadowBias": 0.3,
+        "notes": "Darken the lid/body seam, latch mounts, hasp loop, and handle pocket."
+      },
+      "wear": {
+        "edgeWear": 0.05,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [],
+      "shaderNotes": [
+        "Approximate PBR inference from a single low-resolution studio photo, not extracted measurement; confidence flagged per-field in preSpecAssessment.unknownsToResolveBeforeImplementation."
+      ]
+    },
+    {
+      "id": "steelSatin",
+      "name": "Padlock shackle + latch bail (satin steel)",
+      "type": "physical",
+      "shaderModel": "MeshStandardMaterial / PBR approximation",
+      "baseColor": "#9a9ca2",
+      "color": "#9a9ca2",
+      "albedo": {
+        "dominant": "#9a9ca2",
+        "secondary": [
+          "#b4b6bc",
+          "#6a6c72"
+        ],
+        "samplingNotes": "Estimated by eye from a 400x492px studio photo with light falloff toward the silhouette edge; not spectrophotometric. Cooler gray than the brass body; shared finish class with hardwareSatin but kept distinct for the shackle's slightly higher metalness/lower roughness observed highlight falloff."
+      },
+      "colorVariation": {
+        "palette": [
+          "#9a9ca2",
+          "#b4b6bc",
+          "#6a6c72"
+        ],
+        "pattern": "mottled",
+        "amplitude": 0.06,
+        "heightCorrelation": 0.1
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          1.0,
+          1.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world-scale detail; decal graphics use a dedicated canvas-baked UV island, not tiled repeat."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.5,
+          "amplitude": 0.1,
+          "role": "broad color/value read"
+        },
+        {
+          "id": "meso",
+          "frequency": 8.0,
+          "amplitude": 0.05,
+          "role": "fine matte grain / brushing"
+        },
+        {
+          "id": "micro",
+          "frequency": 32.0,
+          "amplitude": 0.02,
+          "role": "highlight breakup under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.3,
+        "variation": 0.08,
+        "map": "independent-procedural-field",
+        "localResponse": "slightly lower roughness on rounded edges/ribs than on flat panels"
+      },
+      "metalness": {
+        "base": 0.85,
+        "variation": 0.03
+      },
+      "normal": {
+        "pattern": "derived-from-independent-height-field",
+        "strength": 0.3,
+        "scale": 20.0,
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "brushed-linear",
+        "amplitude": 0.01,
+        "scale": 4.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.3,
+        "contactShadowBias": 0.3,
+        "notes": "Darken the lid/body seam, latch mounts, hasp loop, and handle pocket."
+      },
+      "wear": {
+        "edgeWear": 0.05,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [],
+      "shaderNotes": [
+        "Approximate PBR inference from a single low-resolution studio photo, not extracted measurement; confidence flagged per-field in preSpecAssessment.unknownsToResolveBeforeImplementation."
+      ]
+    }
+  ],
+  "repetitionSystems": [
+    {
+      "id": "latchMirrorPair",
+      "kind": "mirror-array",
+      "count": 2,
+      "pitch": 0.6,
+      "axis": "+X",
+      "target": "latch",
+      "realization": "Author 'latch' once at x=-0.3; mirror across the vertical center plane to produce the right-hand latch at x=+0.3 in the generated factory.",
+      "evidence": [
+        "closed-front-3q"
+      ],
+      "confidence": 0.75,
+      "buildsGeometry": true,
+      "instances": 2
+    },
+    {
+      "id": "lidRidgeArray",
+      "kind": "linear-array",
+      "count": 3,
+      "pitch": 0.09,
+      "axis": "+Z",
+      "target": "lidRidge",
+      "realization": "Instance 'lidRidge' 3x evenly spaced across the lid depth.",
+      "evidence": [
+        "closed-front-3q"
+      ],
+      "confidence": 0.8,
+      "buildsGeometry": true,
+      "instances": 3
+    },
+    {
+      "id": "lidFastenerRow",
+      "kind": "linear-array",
+      "count": 4,
+      "pitch": 0.26,
+      "axis": "+X",
+      "target": "lidFastener",
+      "realization": "THREE.InstancedMesh of 'lidFastener' along the lid's front-bottom lip.",
+      "evidence": [
+        "closed-front-3q"
+      ],
+      "confidence": 0.55,
+      "buildsGeometry": true,
+      "instances": 4
+    }
+  ],
+  "buildPasses": [
+    {
+      "id": "blockout",
+      "goal": "Match macro silhouette and proportions.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Silhouette reads correctly without materials.",
+        "Quality contract has named all required macro feature groups before code generation.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "structural-pass",
+      "goal": "Build the component hierarchy implied by the pre-spec complexity assessment.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Macro, meso, and repeated structures meet qualityContract.minimumSpecDepth.",
+        "Parent-child relations, joints, seams, sockets, and contact points are explicit.",
+        "Every attached child appendage/connector has parentSocket, localStart/localEnd, contactType, embedDepth or overlap, and gapTolerance.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "form-refinement",
+      "goal": "Refine shape, deformation, bevels, tapers, curves, asymmetry, and visible local geometry.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Important visible forms are represented in component geometryDescriptor, deformations, localFeatures, or repetitionSystems.",
+        "Endpoint-based child parts are rooted at their attachment sockets and do not visibly float away from parents.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "material-pass",
+      "goal": "Match material color, roughness, bump, and local variation.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Reference-derived albedo palette records dominant, secondary, and accent colors per visible material.",
+        "Each important material defines roughness variation and at least one normal/bump/displacement response.",
+        "Local material overrides, dirt/wear/stains/moss/chips/scratches or equivalent masks are tied to evidenceRefs.",
+        "Thin, transparent, reflective, wet, or fibrous materials document alpha/transmission/clearcoat/metalness/fiber response when relevant.",
+        "Generated preview uses procedural albedo/roughness/bump texture or vertex color variation instead of one flat color.",
+        "Generated preview uses independent PBR maps at 1024px or higher for the quality-first tier.",
+        "If source pixels are available, referencePbr extraction passed at confidence >= 0.7 or the pass is stopped/requesting better references.",
+        "Macro, meso, and micro surface frequency bands are visible at the intended review distance without obvious tiling.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "surface-pass",
+      "goal": "Add procedural surface locality such as normal/bump/displacement, AO, dirt, stains, chips, grain, moss, scratches, and wear.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Every required material feature group has local overrides or surfaceDetail tied to evidenceRefs.",
+        "A grazing-angle close-up proves that normal/height detail breaks highlights naturally and does not read as smooth plastic.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "lighting-pass",
+      "goal": "Make material and form readable under neutral turntable lighting plus optional reference lighting.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "lightingFromPhoto identifies key light direction/color/intensity, fill light, rim or environment light, and ambient color.",
+        "Exposure, tone mapping, background color/gradient, shadow softness, and contact shadow behavior are specified.",
+        "Lighting does not hide geometry/material gaps and screenshots can be compared fairly to the reference.",
+        "Neutral, grazing, and reference-matched lighting checks distinguish material errors from lighting errors.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "interaction-pass",
+      "goal": "Make the model ready for future animation, transformation, physics, or destruction.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Macro and movable meso components have stable pivot nodes.",
+        "Sockets, collider proxies, and destruction metadata are present for future runtime actions.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "optimization-pass",
+      "goal": "Protect runtime performance after visual fidelity is accepted.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Triangle count, draw calls, instancing, LOD strategy, and FPS target are documented or verified.",
+        "Repeated detail is instanced or simplified where possible without breaking silhouette/material believability."
+      ]
+    }
+  ],
+  "visualEvidence": [],
+  "reviewHistory": [],
+  "lodPlan": [
+    {
+      "tier": "near",
+      "distance": 0,
+      "strategy": "full component tree and material layers"
+    },
+    {
+      "tier": "far",
+      "distance": 30,
+      "strategy": "merge static components and reduce local feature geometry"
+    }
+  ],
+  "performanceBudget": {
+    "qualityPriority": "reference-fidelity",
+    "targetTriangles": 250000,
+    "maxDrawCalls": 160,
+    "textureSize": 2048,
+    "fpsTarget": 30,
+    "optimizationPolicy": "Reach accepted visual fidelity first, then optimize without removing reference-critical geometry or surface layers."
+  },
+  "lightingFromPhoto": [
+    {
+      "role": "key",
+      "direction": "upper-left, ~45deg elevation",
+      "colorTemp": "neutral-cool studio",
+      "intensity": "moderate",
+      "evidence": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "role": "fill",
+      "direction": "ambient/bounce, low contrast ratio",
+      "colorTemp": "neutral",
+      "intensity": "low",
+      "evidence": [
+        "closed-front-3q"
+      ]
+    },
+    {
+      "role": "environment",
+      "direction": "soft studio IBL",
+      "colorTemp": "neutral",
+      "intensity": "low",
+      "note": "ACES filmic tone mapping, exposure ~1.0; soft contact shadow under the case on the ground plane.",
+      "evidence": [
+        "closed-front-3q"
+      ]
+    }
+  ],
+  "proceduralStrategy": [
+    "Block out macro silhouette first.",
+    "Add component hierarchy and joints.",
+    "Create stable pivot groups, sockets, collider proxies, and destruction metadata before visual polish.",
+    "Refine forms with bevels, tapers, bends, and procedural noise.",
+    "Run reference PBR extraction for important source-image materials and stop when confidence is below the target threshold.",
+    "Add material variation before adding expensive micro-geometry."
+  ],
+  "animationAnchors": [
+    "root pivot node supports whole-object translation, rotation, scale, and visibility changes",
+    "component pivot groups support later local transforms without rebuilding geometry"
+  ],
+  "destructionAnchors": [
+    "actionProfile.destruction.fractureGroup marks detachable or breakable component sets",
+    "component seams and sockets define plausible break points instead of random explosions"
+  ],
+  "risks": [
+    "Shell and decal-blue hex values are eyeballed from a 400x492px photo with light falloff -- may need a hue/value correction pass after the first render.",
+    "front-facet-lines detail (confidence 0.35) may be a lighting artifact rather than real molded relief; kept as a subtle normal-map band so being wrong costs little fidelity.",
+    "Latch internal spring/pivot geometry is generic, not reference-derived -- only the exterior reads matter for fidelity.",
+    "A shared showcase ground/shadow-catcher plane sits at world Y=0 and depth-occludes any mesh below it; the factory now lifts the whole model so its base rests at Y=0 (see root.position.y in createTradeitCaseModel.ts) -- this is a showcase-integration constraint, not a reference-fidelity one."
+  ],
+  "localSpecSearch": {
+    "collection": "core_3d",
+    "query": "TradeIt Hard Case rotomolded case draft angle taper over-center draw latch cam bail canvas decal texture logo hinge pivot lid rotation brass padlock shackle matte plastic roughness PBR",
+    "index": {
+      "status": "hit",
+      "reason": "current",
+      "fingerprint": "6857e5ab528b42ac12f4f411f862610a0bffce8e47aee3610a7603c318072fe8"
+    },
+    "matches": [
+      {
+        "record_id": "core.socket-pivot",
+        "file_path": "grimoire/glossary/3d_vocabulary.md",
+        "heading": "Animation, Physics, And Destruction",
+        "key_path": null,
+        "score": 18.725599378212,
+        "snippets": [
+          "A pivot is a local rotation origin; a socket is an attachment point for a child part. In a runtime hierarchy, a socket Object3D is a child of the relevant pivot."
+        ],
+        "source_refs": [
+          {
+            "path": "grimoire/glossary/3d_vocabulary.md",
+            "heading": "Animation, Physics, And Destruction",
+            "key_path": null
+          },
+          {
+            "path": "grimoire/readiness/action_rigging.md",
+            "heading": "Hierarchy Pattern",
+            "key_path": null
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "grimoire/readiness/action_rigging.md"
+          },
+          {
+            "kind": "notebooklm-research",
+            "ref": "notebooklm:4b03c2f9-8393-411f-b5b4-039ab9532843",
+            "note": "Validated generic schema vocabulary; numeric claims remain backed by local source_refs."
+          }
+        ]
+      },
+      {
+        "record_id": "core.pbr-roughness",
+        "file_path": "grimoire/glossary/3d_vocabulary.md",
+        "heading": "Material And PBR",
+        "key_path": null,
+        "score": 11.159824817191,
+        "snippets": [
+          "Roughness is microfacet scatter: high roughness reads matte and low roughness reads glossy. Recognition cues: low roughness reads as a sharp, mirror-like, tight specular highlight; high roughness reads as a blurry, wide, dim highlight and matte ..."
+        ],
+        "source_refs": [
+          {
+            "path": "grimoire/glossary/3d_vocabulary.md",
+            "heading": "Material And PBR",
+            "key_path": null
+          },
+          {
+            "path": "grimoire/intake/image_analysis.md",
+            "heading": "Layer 5 \u2014 Materials & surface (PBR)",
+            "key_path": null
+          },
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.material_pbr[1]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "grimoire/glossary/3d_vocabulary.md"
+          },
+          {
+            "kind": "notebooklm-research",
+            "ref": "notebooklm:4b03c2f9-8393-411f-b5b4-039ab9532843",
+            "note": "Validated generic schema vocabulary; numeric claims remain backed by local source_refs."
+          },
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation \u2014 merged recognition cues + Three.js target instead of duplicating this entity."
+          }
+        ]
+      },
+      {
+        "record_id": "core.pbr-hand-painted-vs-pbr-texture",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.material_pbr[12]",
+        "score": 10.098736381353,
+        "snippets": [
+          "... baked directly into color (static, stylized) from textures that respond dynamically to scene lighting via separate PBR channels. Ph\u00e2n bi\u1ec7t k\u1ebft c\u1ea5u c\u00f3 \u00e1nh s\u00e1ng \u0111\u01b0\u1ee3c n\u01b0\u1edbng tr\u1ef1c ti\u1ebfp v\u00e0o m\u00e0u (t\u0129nh, c\u00e1ch \u0111i\u1ec7u) v\u1edbi k\u1ebft c\u1ea5u ph\u1ea3n h\u1ed3i \u0111\u1ed9ng ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.material_pbr[12]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      }
+    ]
+  }
+}

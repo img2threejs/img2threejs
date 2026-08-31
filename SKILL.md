@@ -9,7 +9,11 @@ version: 1.5.1
 
 Rebuild the object visible in a reference image as a **code-only** procedural Three.js model,
 gated by a staged sculpting pipeline and an AI-vision self-correction loop. This is
-reconstruction-by-code, **not** photogrammetry, mesh extraction, or downloaded art packs.
+reconstruction-by-code, **not** photogrammetry, mesh extraction, or downloaded art packs. That
+promise governs how the model is *built* — it says nothing about which file formats it can
+subsequently be *exported* to; an explicitly-selected emission target (`--target <kind>`) is a
+terminal, whole-artifact transform of the already-built model, verified to its own stated limit,
+never a second way to build one.
 
 Agent-agnostic: works under Claude Code, Codex, or OpenCode. Wherever this doc says "agent
 vision" or "agent browser tool", use whatever the host provides — native image reading, a

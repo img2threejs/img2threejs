@@ -63,6 +63,32 @@ PASS_STEPS: Final = (
 FINAL_STEPS: Final = (
     ("part-coverage", "python3 forge/stage4_review/check_part_coverage.py --spec {spec} --manifest parts.json"),
     ("action-ready", "Verify explodable/clickable hierarchy, pivots, sockets, and root.userData.sculptRuntime"),
+    # D4/task 3.8: base-owned, appended unconditionally -- no plugin ever splices this in (there is
+    # no `finalSteps` key in domains/__init__.py's _ALLOWED, deliberately: a plugin must never be
+    # able to change what runs at the terminal phase behind the user's back). An explicit
+    # `--target <kind>` is the only thing that ever populates this step: on a successful run,
+    # `emit_target.record_target_selection` marks it `done` and records which plugin ran (or
+    # `None` for the reference target) in the new `targetSelection` state field, which slice 4's
+    # gate-participation rule reads. With no `--target`, emit_target.py's no-op path (D2) never
+    # touches this file at all -- correcting an earlier claim in this comment that the no-op path
+    # marks the row "done"; it does not, and this row is left `pending` on that path (a stated,
+    # not-yet-resolved rough edge: forge/next.py will keep naming it as the next required step
+    # even though there is nothing further to do when no target will ever be selected). Round-3 H6:
+    # workspaces created before this change do not carry this row in their persisted checklist
+    # (new_state() materialises FINAL_STEPS once, at init) -- not breakage, since nothing crashes and
+    # SCHEMA_VERSION stays 1, but emit_target.py's own action-ready precondition still enforces
+    # terminal-only there directly, independent of whether this row exists in a given state file.
+    (
+        "emission-target",
+        "python3 forge/stage3_build/emit_target.py --spec {spec} --workspace . "
+        "[--target <kind> [--plugin <id>]]",
+    ),
+    # task 4.2's proposed hook point (see run_gates.py's module docstring for the full rationale):
+    # a distinct checklist step, not auto-chained inside emit_target.py, following the same
+    # discipline every other FINAL_STEPS/PASS_STEPS row already has -- the agent invokes it, it is
+    # not triggered by the step before it. Harmless with no plugin involved: the two-clause rule
+    # naturally yields zero gates to run, and this exits 0 having done nothing.
+    ("plugin-gates", "python3 forge/stage3_build/run_gates.py --workspace ."),
 )
 
 
