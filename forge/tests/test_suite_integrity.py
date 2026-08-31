@@ -30,7 +30,22 @@ TESTS_DIR = Path(__file__).resolve().parent
 # could live on neither side and were rewritten as base-side tests in test_domain_spec_contract.py.
 # The import guard above is what caught test_cs2_foundation going dark mid-move -- reported as a
 # synthetic loader error rather than a quietly smaller suite.
-COLLECTED_FLOOR = 1112
+#
+# 1119 -> 1165 for establish-the-emission-target-contract slice 3 (the socket): test_targets.py
+# (21), test_emit_target.py (13), test_target_reference_conformance.py (7 -- the envelope-parity
+# scenario originally failed on purpose per task 3.10, then went green once the lead's exit-code
+# reconciliation was implemented; 2 more classifier tests were added alongside it),
+# test_sculpt_echo_roundtrip.py (1, skips without node/sibling checkouts),
+# test_sculpt_echo_failure_matrix.py (4, same skip guard).
+# 1165 -> 1182 for the same change's slice 4 (gate execution): test_run_gates.py (17 -- argv
+# drift guard, two-clause participation for both domain and target plugins, blocking/non-blocking
+# stop, malformed-envelope classification, hang-names-the-gate for both blocking and non-blocking
+# gates, and the full-chain IMG2_HOME-unset-in-the-parent-env scenario).
+# 1182 -> 1184: the lead's fix to clause (i)'s owner lookup (domain_owner_plugin, derived from the
+# registry layout instead of assumed from a name match) added 2 tests -- a plugin whose package
+# name differs from its domain id, and an in-repo domain's profile correctly attributing no
+# installed plugin as its owner.
+COLLECTED_FLOOR = 1184
 
 
 REPO_ROOT = TESTS_DIR.parents[1]
