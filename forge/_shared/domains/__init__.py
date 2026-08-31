@@ -136,9 +136,16 @@ def _installed_plugin_domains() -> list[tuple[Path, Any]]:
         plugin_dir = str(declaration.parent)
         for key in ("setupSteps", "passSteps"):
             if key in entry:
-                entry[key] = tuple(
-                    (step_id, command.replace("{plugin_dir}", plugin_dir)) for step_id, command in entry[key]
-                )
+                try:
+                    entry[key] = tuple(
+                        (step_id, command.replace("{plugin_dir}", plugin_dir)) for step_id, command in entry[key]
+                    )
+                except (TypeError, ValueError, AttributeError) as exc:
+                    # Unpacking used to run before validation, so a malformed row surfaced as a bare
+                    # ValueError/AttributeError instead of an error naming the file at fault.
+                    raise DomainRegistryError(
+                        f"{declaration}: {key!r} rows must be [id, command] pairs of strings"
+                    ) from exc
         out.append((declaration, entry))
     return out
 
