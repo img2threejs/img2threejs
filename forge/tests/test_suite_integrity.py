@@ -45,7 +45,7 @@ TESTS_DIR = Path(__file__).resolve().parent
 # registry layout instead of assumed from a name match) added 2 tests -- a plugin whose package
 # name differs from its domain id, and an in-repo domain's profile correctly attributing no
 # installed plugin as its owner.
-COLLECTED_FLOOR = 1184
+COLLECTED_FLOOR = 1185
 
 
 REPO_ROOT = TESTS_DIR.parents[1]

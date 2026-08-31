@@ -1935,6 +1935,17 @@ def main(argv: list[str]) -> int:
     # here. With none installed the spec keeps the skeleton this pipeline authored and the agent
     # infers the shape from the reference, which is what a run without a domain plugin has always
     # done for any other object.
+    # The template and the augmentation are independent contributions, applied in that order: the
+    # template authors the track's own spec content (componentTree, rig, buildPasses), and the
+    # guarded merge then layers plugin sections on the completed spec. These two used to be joined
+    # by an `elif`, which meant any run handed an augmentation file silently skipped the character
+    # template -- the emitted spec lost `rig` entirely and still exited 0 (PR #106 review, finding
+    # 4: "apply_character_template never runs. Exit 0, plausible-looking spec.").
+    if routing is not None and routing["track"] == "character-v1.5":
+        anatomy = None
+        if isinstance(assessment, dict) and isinstance(assessment.get("preSpecAssessment"), dict):
+            anatomy = assessment["preSpecAssessment"].get("anatomy")
+        apply_character_template(spec, anatomy, include_accessories=args.accessories)
     if args.augmentation is not None and args.augmentation.expanduser().is_file():
         try:
             artifact = json.loads(args.augmentation.expanduser().read_text(encoding="utf-8"))
@@ -1943,11 +1954,6 @@ def main(argv: list[str]) -> int:
             parser.error(f"cannot read spec augmentation {args.augmentation}: {exc}")
         except SpecAugmentationError as exc:
             parser.error(str(exc))
-    elif routing is not None and routing["track"] == "character-v1.5":
-        anatomy = None
-        if isinstance(assessment, dict) and isinstance(assessment.get("preSpecAssessment"), dict):
-            anatomy = assessment["preSpecAssessment"].get("anatomy")
-        apply_character_template(spec, anatomy, include_accessories=args.accessories)
     payload = json.dumps(spec, indent=2, ensure_ascii=False) + "\n"
 
     if args.out:

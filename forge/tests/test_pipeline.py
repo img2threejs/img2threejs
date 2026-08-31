@@ -864,6 +864,31 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("createPersonModel", ts)
         self.assertIn('meshes["head"]', ts)
 
+    def test_character_template_survives_an_augmentation_file(self):
+        """Both contributions apply; neither silences the other.
+
+        These two blocks used to be joined by an `elif`: a character run handed an augmentation
+        file skipped `apply_character_template` entirely, so the emitted spec lost `rig` and still
+        exited 0 -- the silent data loss PR #106's review demonstrated by diffing the same
+        assessment run with and without an augmentation. This pins the fix from both sides.
+        """
+        aug = self.dir / "spec-augmentation.json"
+        aug.write_text(
+            json.dumps(
+                {
+                    "kind": "spec-augmentation-v1",
+                    "provenance": {"provider": "fixture", "version": "0.0.1"},
+                    "specSections": {"fixtureSection": {"marker": True}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--augmentation", aug, "--out", self.spec)
+        spec = json.loads(self.spec.read_text())
+        self.assertIn("rig", spec, "the character template was skipped: `rig` is missing")
+        self.assertIn("fixtureSection", spec, "the augmentation merge was skipped")
+        self.assertEqual(spec["specAugmentation"]["provider"], "fixture")
+
     def test_cs2_track_skipped_for_objects(self):
         run("stage2_spec/new_sculpt_spec.py", "Crate", "--out", self.spec)
         spec = json.loads(self.spec.read_text())
