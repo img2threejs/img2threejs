@@ -5,6 +5,8 @@ license: Apache-2.0
 version: 1.5.1
 ---
 
+> Last updated: 2026-09-01 00:42
+
 # img2threejs — Image to procedural Three.js
 
 Rebuild the object visible in a reference image as a **code-only** procedural Three.js model,
@@ -115,6 +117,11 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
     implementation** — write the proven change back to the spec or TypeScript, rebuild, recapture.
     Full adapter + MCP routing and authority boundaries:
     `docs/integrations/reference_fidelity_tooling.md`.
+1d. **Optional free generative reference** — only after a read-only zero-cost preflight and exact
+    upload approval, `python3 -m integrations.mesh3d.free_assist` may obtain a TRELLIS/SF3D proxy.
+    It never retries or switches provider automatically, resumes local failures from the persisted
+    raw GLB, and cannot influence reconstruction until mesh and visual admission pass. Full safety,
+    cache, credential, and local-SF3D contract: `docs/integrations/free-generative-assist.md`.
 2. **Pre-Spec Assessment Gate** — classify + score complexity + write the quality contract:
    `forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --complexity <simple|moderate|complex|ultra-complex> --out assessment.json`. Rules: `grimoire/intake/quality_contract.md`.
    Set `objectClass.primaryDomain` (`object` | `character` | `hybrid`) and fill the seeded

@@ -1,9 +1,25 @@
+> Last updated: 2026-09-01 00:42
+
 # Changelog
 
 All notable changes to **img2threejs** are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Add a provider-neutral free generative-assist CLI for reviewed TRELLIS and Stable Fast 3D
+  ZeroGPU Spaces plus separately installed local SF3D, with immutable zero-spend policy, explicit
+  upload approval, no automatic retry/fallback, cache-before-network reuse, durable raw-GLB resume,
+  credential redaction, normalized GLB/OBJ artifacts, and fail-closed structural admission.
+
+### Security
+
+- Discover Hugging Face credentials only through the supported token store or `HF_TOKEN`; the new
+  CLI exposes no token, endpoint, paid fallback, retry, refill, or cost-override argument.
 
 ## [1.5.1] — 2026-08-22
 
