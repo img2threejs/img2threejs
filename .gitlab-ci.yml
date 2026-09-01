@@ -12,7 +12,10 @@ forge-suite:
   # the emitted TypeScript with node), not forge runtime deps.
   image: python:3.13-slim
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git nodejs > /dev/null
+    - apt-get update -qq && apt-get install -y -qq git curl xz-utils > /dev/null
+    # Node >= 22 for --experimental-strip-types (Debian's nodejs is 18)
+    - curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+    - node --version
     - pip install -q huggingface_hub
   script:
     - python -m unittest discover -s forge/tests -p 'test_*.py'
