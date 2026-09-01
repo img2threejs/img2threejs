@@ -1,4 +1,4 @@
-> Last updated: 2026-09-01 00:42
+> Last updated: 2026-09-01 03:30
 
 # img2threejs Roadmap
 
@@ -26,6 +26,10 @@ can plan around.
   zero-spend policy, explicit upload approval, no automatic retry/fallback, content-addressed cache,
   durable raw-GLB resume, credential redaction, and structural admission. The single live ZeroGPU
   acceptance run remains a separately approved external test.
+- **Offline dense evidence** — reviewed cached proxies can now inform bounded global massing or
+  explicitly mapped component measurements through hash-bound human approval, reversible spec
+  deltas, dual-baseline review, and runtime guards. The shipped model remains code-only; provider
+  topology and GLB/OBJ assets never become runtime dependencies.
 
 ### v1.2 — Humanoid character generator
 

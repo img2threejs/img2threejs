@@ -637,7 +637,7 @@ class DocumentationTest(unittest.TestCase):
 
     def test_optional_integration_declares_provider_dependencies(self) -> None:
         text = self.PROJECT.read_text(encoding="utf-8")
-        for package in ("gradio-client", "huggingface-hub", "trimesh"):
+        for package in ("gradio-client", "huggingface-hub", "trimesh", "scipy"):
             self.assertIn(package, text)
 
 

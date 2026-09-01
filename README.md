@@ -1,4 +1,4 @@
-> Last updated: 2026-09-01 00:44
+> Last updated: 2026-09-01 03:30
 
 <div align="center">
 
@@ -296,6 +296,15 @@ provider; tokens are not accepted on the CLI. Generated meshes remain blocked fr
 procedural build until structural and visual admission complete. Usage and security contract:
 [`docs/integrations/free-generative-assist.md`](docs/integrations/free-generative-assist.md).
 Install its isolated optional dependencies with `uv sync --project integrations/mesh3d`.
+
+### Optional offline dense evidence
+
+An admitted cached proxy can be converted into bounded dense evidence for a reversible spec
+proposal. Merged meshes are limited to global massing; component measurements require explicit
+human-reviewed mappings and a hash-bound influence approval. The source image remains authoritative,
+and the accepted runtime remains code-only TypeScript/Three.js with no GLB/OBJ loader or provider
+artifact. The bridge performs no upload or provider call:
+[`docs/integrations/trellis-dense-evidence.md`](docs/integrations/trellis-dense-evidence.md).
 
 ---
 

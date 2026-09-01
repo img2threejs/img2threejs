@@ -22,6 +22,59 @@ from workflow_state import (  # noqa: E402
 
 
 class WorkflowStateTest(unittest.TestCase):
+    def test_dense_evidence_step_is_absent_by_default(self):
+        state = new_state("reference.png")
+        ids = [item["id"] for item in state["checklist"]]
+        self.assertNotIn("dense-evidence-admission", ids)
+        self.assertFalse(state["artifacts"].get("denseEvidenceSelected", False))
+
+    def test_dense_evidence_route_adds_ordered_optional_gate(self):
+        state = new_state(
+            "reference.png", spec="object-sculpt-spec.json", dense_evidence=True
+        )
+        ids = [item["id"] for item in state["checklist"]]
+        self.assertLess(
+            ids.index("reference-admission"), ids.index("dense-evidence-admission")
+        )
+        self.assertLess(
+            ids.index("dense-evidence-admission"), ids.index("strict-validation")
+        )
+        command = next(
+            item["command"]
+            for item in state["checklist"]
+            if item["id"] == "dense-evidence-admission"
+        )
+        self.assertIn("check_dense_evidence.py", command)
+        self.assertTrue(state["artifacts"]["denseEvidenceSelected"])
+
+    def test_dense_evidence_route_rejects_character_and_cs2_profiles(self):
+        for profile in ("character", "cs2"):
+            with self.subTest(profile=profile), self.assertRaisesRegex(
+                WorkflowStateError, "dense evidence.*generic"
+            ):
+                new_state("reference.png", profile=profile, dense_evidence=True)
+
+    def test_state_cli_accepts_dense_evidence_only_for_generic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "forge" / "state.py"),
+                    "init",
+                    "--state",
+                    str(state_path),
+                    "--reference",
+                    "reference.png",
+                    "--dense-evidence",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertTrue(state["artifacts"]["denseEvidenceSelected"])
+
     def test_generic_state_starts_with_mandatory_image_analysis(self):
         state = new_state("reference.png")
         payload = status_payload(state)

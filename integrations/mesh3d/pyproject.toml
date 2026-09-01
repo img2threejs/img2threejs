@@ -6,6 +6,7 @@ requires-python = ">=3.11,<3.14"
 dependencies = [
   "gradio-client>=2,<3",
   "huggingface-hub>=0.36,<1",
+  "scipy>=1.14,<2",
   "trimesh>=4,<5",
 ]
 
