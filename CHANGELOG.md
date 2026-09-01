@@ -1,4 +1,4 @@
-> Last updated: 2026-09-01 03:30
+> Last updated: 2026-09-01 21:45
 
 # Changelog
 
@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ZeroGPU Spaces plus separately installed local SF3D, with immutable zero-spend policy, explicit
   upload approval, no automatic retry/fallback, cache-before-network reuse, durable raw-GLB resume,
   credential redaction, normalized GLB/OBJ artifacts, and fail-closed structural admission.
+- Add `forge/stage2_spec/rebase_component_frames.py`, a one-shot converter from object-frame
+  absolute component transforms to the parent-local contract (never in place, refuses rotated
+  parents, emits a reviewable change report), plus a frame-sanity check in
+  `validate_sculpt_spec.py` that flags implausible parent-local offsets as quality warnings —
+  errors under `--strict-quality` — so an object-frame spec is caught at validation time instead
+  of rendering as floating parts.
 - Add an offline dense evidence bridge from admitted cached meshes to bounded, reversible
   ObjectSculptSpec proposals. It adds strict JSON contracts, content-addressed extraction,
   explicit component mappings, hash-bound influence approval, source-authoritative A/B review,

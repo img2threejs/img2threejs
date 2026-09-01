@@ -1,4 +1,4 @@
-> Last updated: 2026-09-01 03:30
+> Last updated: 2026-09-01 21:55
 
 <div align="center">
 
@@ -234,6 +234,7 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage2_spec/new_pre_spec_assessment.py` | Classify the object, score complexity, emit a quality contract. |
 | `stage2_spec/new_sculpt_spec.py` | Author the ObjectSculptSpec from the assessment. |
 | `stage2_spec/validate_sculpt_spec.py` | Validate the spec; `--strict-quality` blocks shallow specs before codegen. |
+| `stage2_spec/rebase_component_frames.py` | Convert object-frame component transforms to the parent-local contract (new file + change report). |
 | `stage1_intake/extract_pbr_evidence.py` | Reference-derived PBR evidence per crop (inference, not inverse rendering). |
 | `stage1_intake/material_region_analysis.py` | Crop material regions, run texture/PBR evidence, and resolve registry profiles. |
 | `stage2_spec/apply_material_analysis.py` | Wire region assignments, priors, maps, and provenance into ObjectSculptSpec. |
