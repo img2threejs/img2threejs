@@ -8,7 +8,7 @@ exit condition. Replace every `<PLACEHOLDER>` before pasting.
 | [`build.md`](build.md) | a reference image, no mesh | reconstruct from primitives, gated |
 | [`glb-force-measured.md`](glb-force-measured.md) | a GLB is available and every parameter it measures should be forced, not approximated | measure, force, prove with parity gates |
 | [`polish.md`](polish.md) | a build that renders but does not match | bounded correction, one defect at a time |
-| [`vfx.md`](vfx.md) | a finished model that needs effects | author on sockets and destruction groups |
+| [`vfx.md`](vfx.md) | the rig and its clips play, only the effects are missing | measure the events off a real mixer, then schedule against them |
 
 Rigging and animation on top of a GLB: [`../GLB_ANIMATED_CHARACTER_PROMPT.md`](../GLB_ANIMATED_CHARACTER_PROMPT.md).
 
