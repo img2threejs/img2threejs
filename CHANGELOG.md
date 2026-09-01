@@ -1,4 +1,4 @@
-> Last updated: 2026-09-01 21:45
+> Last updated: 2026-09-01 23:20
 
 # Changelog
 
@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `validate_sculpt_spec.py` that flags implausible parent-local offsets as quality warnings —
   errors under `--strict-quality` — so an object-frame spec is caught at validation time instead
   of rendering as floating parts.
+- Size the emitted look-dev shadow camera and light positions from the spec's estimated world
+  radius instead of a fixed character-scale `±2.6` box, so a larger model's contact shadow can
+  actually land (`estimate_model_radius` + focused tests in `test_lookdev_shadow_bounds.py`).
 - Add an offline dense evidence bridge from admitted cached meshes to bounded, reversible
   ObjectSculptSpec proposals. It adds strict JSON contracts, content-addressed extraction,
   explicit component mappings, hash-bound influence approval, source-authoritative A/B review,
