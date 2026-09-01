@@ -7,11 +7,12 @@ stages:
 
 forge-suite:
   stage: test
-  # 3.13 to match the verified local environment; git and huggingface_hub are
-  # test-fixture dependencies of the free-assist suite, not forge runtime deps.
+  # 3.13 to match the verified local environment. git, nodejs and
+  # huggingface_hub are test-fixture dependencies (the geometry suites execute
+  # the emitted TypeScript with node), not forge runtime deps.
   image: python:3.13-slim
   before_script:
-    - apt-get update -qq && apt-get install -y -qq git > /dev/null
+    - apt-get update -qq && apt-get install -y -qq git nodejs > /dev/null
     - pip install -q huggingface_hub
   script:
     - python -m unittest discover -s forge/tests -p 'test_*.py'
