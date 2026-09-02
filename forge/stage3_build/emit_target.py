@@ -478,7 +478,9 @@ def _run_reference_target(target: Target, *, spec_path: Path, workspace: Path) -
     emitter = str(_FORGE_ROOT / "stage3_build" / "generate_threejs_factory.py")
 
     def invoke(out_path: Path) -> subprocess.CompletedProcess:
-        argv = [sys.executable, emitter, str(spec_path), "--out", str(out_path), "--pass-id", pass_id]
+        # --force is required: mkstemp below pre-creates out_path, and the emitter refuses an
+        # existing --out without it -- omitting the flag makes every reference-target run fail.
+        argv = [sys.executable, emitter, str(spec_path), "--out", str(out_path), "--force", "--pass-id", pass_id]
         return run_bounded(argv, cwd=workspace, timeout=timeout, declared_env=[], target_kind=target.kind)
 
     artifact_path.parent.mkdir(parents=True, exist_ok=True)

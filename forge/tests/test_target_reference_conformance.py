@@ -15,6 +15,7 @@ envelope, not by exit code, with zero changes to `generate_threejs_factory.py` -
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -196,6 +197,62 @@ class ReferenceTargetEnvelopeParity(unittest.TestCase):
         self.assertEqual(emit_target._classify_reference_failure(2, half_json).classification, "error")
         wrong_shape = b'{"status": "ok", "somethingElse": true}'
         self.assertEqual(emit_target._classify_reference_failure(2, wrong_shape).classification, "error")
+
+
+class ReferenceTargetSocketEndToEnd(unittest.TestCase):
+    """The full socket path for `--target threejs-ts`: resolve -> action-ready -> temp-write ->
+    emitter subprocess -> verify -> determinism -> rename -> provenance, with nothing pre-supplied.
+
+    Regression for the pre-created out-path defect: `_run_reference_target` mkstemps the output
+    file before the emitter runs, so its invocation must carry --force or every real
+    reference-target run failed with "already exists" -- which no other test caught, because each
+    one either passed --force itself or pointed the emitter at a path that did not exist yet."""
+
+    def test_the_socket_produces_the_oracle_artifact_end_to_end(self) -> None:
+        from forge.tests.test_emit_target import _action_ready_state_path
+        from feature_acceptance_policy import feature_targets_for_pass
+
+        spec = json.loads(FROZEN_SPEC.read_text(encoding="utf-8"))
+        # The minimum honest completion record for the frozen pass: review_completes_pass demands
+        # visual evidence, a passing vision score, a passing review per critical feature, and the
+        # spec's own required layer scores.
+        acceptance = spec["selfCorrectLoop"]["visualAcceptance"]
+        spec["reviewHistory"] = [{
+            "passId": FROZEN_PASS_ID, "action": "continue",
+            "visualEvidence": {"renderScreenshot": "render.png", "comparisonImage": "compare.png"},
+            "aiVisionScore": 0.9,
+            "layerScores": {layer: 0.9 for layer in acceptance["requiredLayerScores"]},
+            "featureReviews": [
+                {"id": target["id"], "score": 0.95}
+                for target in feature_targets_for_pass(spec, FROZEN_PASS_ID)
+                if isinstance(target.get("id"), str)
+            ],
+        }]
+        old_home = os.environ.get("IMG2_HOME")
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "ws"
+            workspace.mkdir()
+            spec_path = workspace / "spec.json"
+            spec_path.write_text(json.dumps(spec), encoding="utf-8")
+            _action_ready_state_path(workspace)
+            os.environ["IMG2_HOME"] = str(Path(tmp) / "img2home-empty")
+            try:
+                rc = emit_target.main([
+                    "--spec", str(spec_path), "--target", "threejs-ts", "--workspace", str(workspace),
+                ])
+            finally:
+                if old_home is None:
+                    os.environ.pop("IMG2_HOME", None)
+                else:
+                    os.environ["IMG2_HOME"] = old_home
+            self.assertEqual(rc, 0)
+            artifact = workspace / ".img2" / "artifacts" / "threejs-ts" / "model.ts"
+            self.assertEqual(artifact.read_text(encoding="utf-8"), ORACLE_TS.read_text(encoding="utf-8"))
+            provenance = json.loads(
+                artifact.with_suffix(artifact.suffix + ".provenance.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(provenance["target"], "threejs-ts")
+            self.assertTrue(provenance["determinismVerified"])
 
 
 if __name__ == "__main__":
