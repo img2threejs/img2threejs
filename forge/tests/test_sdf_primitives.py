@@ -322,6 +322,7 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
             "model.traverse((o) => { if (o.isMesh && !out) { const g = o.geometry;\n"
             "  out = { positions: Array.from(g.getAttribute('position').array),\n"
             "          normals: Array.from(g.getAttribute('normal').array),\n"
+            "          uvs: g.getAttribute('uv') ? Array.from(g.getAttribute('uv').array) : null,\n"
             "          indices: Array.from(g.getIndex().array) }; } });\n"
             "console.log(JSON.stringify(out));\n",
             encoding="utf-8",
@@ -429,6 +430,30 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
             self.assertGreater(dot, 0.0, "normal points into the solid")
             checked += 1
         self.assertGreater(checked, 100)
+
+    def test_emits_finite_world_scale_uvs_for_texturing(self):
+        """A textured material on a geometry with no `uv` attribute shades BLACK, not untextured.
+
+        three.js builds the normal-map tangent frame from screen-space UV derivatives; with no
+        attribute the UV is constant, the derivative is zero, and the perturbed normal is NaN.
+        Measured on the widebody coupe: the implicit body shell rendered pitch black beside
+        correctly lit extruded panels of the same material, with outward unit normals. The
+        polygonizer therefore has to emit a parameterisation itself. It projects along each
+        vertex's dominant normal axis at world scale, so a sphere of radius 0.6 must land every
+        UV inside [-0.6, 0.6] and both coordinates must vary (a constant UV is the defect again).
+        """
+        mesh = self._mesh(self.SPHERE)
+        uvs = mesh["uvs"]
+        self.assertIsNotNone(uvs, "polygonizer emitted no uv attribute")
+        self.assertEqual(len(uvs) * 3, len(mesh["positions"]) * 2, "one uv pair per vertex")
+        radius = self.SPHERE["primitives"][0]["radius"]
+        us = uvs[0::2]
+        vs = uvs[1::2]
+        for value in uvs:
+            self.assertTrue(math.isfinite(value))
+            self.assertLessEqual(abs(value), radius + 1e-6)
+        self.assertGreater(max(us) - min(us), radius, "u does not vary across the surface")
+        self.assertGreater(max(vs) - min(vs), radius, "v does not vary across the surface")
 
 
 if __name__ == "__main__":
