@@ -25,6 +25,11 @@ ARTIFACT_KIND: Final = "spec-augmentation-v1"
 
 BASE_OWNED: Final = frozenset({"qualityContract", "preSpecAssessment", "pipelineRouting", "sourceImage", "targetName", "localSpecSearch"})
 
+# assessmentPatch keys whose values carry guarded content (the domain marker, the raise-only detail
+# floor). Named once, like BASE_OWNED: a future guarded key is added here, and the loop's shape
+# guard picks it up without a second edit site.
+PATCH_GUARDED: Final = frozenset({"objectClass", "detailInventory"})
+
 # Ordered loosest to strictest. A domain may move a tier stricter, never looser.
 TIER_ORDER: Final = ("simple", "moderate", "complex", "ultra-complex")
 
@@ -89,17 +94,16 @@ def merge_spec_augmentation(spec: dict[str, Any], artifact: Any, *, domain_id: s
         raise SpecAugmentationError("assessmentPatch must be an object")
     pre = spec.setdefault("preSpecAssessment", {})
     for key, value in patch.items():
-        if key in ("objectClass", "detailInventory") and not isinstance(value, dict):
-            # These two carry guarded values (the domain marker, the raise-only detail floor). A
-            # non-dict replacement would fall through to the plain-assignment branch below and
-            # clobber the dict both guards live in -- refusing it keeps every path to a floor
+        if key in PATCH_GUARDED and not isinstance(value, dict):
+            # A non-dict replacement would fall through to the plain-assignment branch below and
+            # clobber the dict the guards live in -- refusing it keeps every path to a floor
             # clamped, not just the well-formed one.
             raise SpecAugmentationError(f"assessmentPatch.{key} must be an object, got {value!r}")
-        if key == "objectClass" and isinstance(value, dict):
+        if key == "objectClass":
             if "domain" in value:
                 raise SpecAugmentationError("assessmentPatch may not set objectClass.domain; the base sets it from domain resolution")
             pre.setdefault("objectClass", {}).update(value)
-        elif key == "detailInventory" and isinstance(value, dict):
+        elif key == "detailInventory":
             # The one floor-controlled value reachable through this partition. The clamp guards the
             # VALUE, whichever partition carries it -- without this, a patch lowered the floor the
             # strict validator reads while `clamped` reported nothing, and qualityFloors' own clamp

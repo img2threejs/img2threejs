@@ -220,8 +220,9 @@ def run_plugin_gates(
     # honour a forwarded --gate-timeout larger than itself. The margin is runner overhead.
     per_gate = gate_timeout if gate_timeout is not None else GATE_TIMEOUT_SECONDS
     try:
-        gate_count = len(json.loads((plugin_dir / "gates.json").read_text(encoding="utf-8")))
-    except (OSError, json.JSONDecodeError, TypeError):
+        rows = json.loads((plugin_dir / "gates.json").read_text(encoding="utf-8"))
+        gate_count = len(rows) if isinstance(rows, list) else 1
+    except (OSError, json.JSONDecodeError):
         gate_count = 1
     outer_timeout = per_gate * max(gate_count, 1) + 30
     try:
