@@ -215,9 +215,18 @@ def run_plugin_gates(
     # drift-guard test asserts the two match exactly.
     if gate_timeout is not None:
         argv += ["--gate-timeout", str(gate_timeout)]
+    # The runner applies its timeout PER GATE, so the outer bound must cover every declared gate --
+    # a flat bound killed a legitimately-configured multi-gate run mid-flight, and could never
+    # honour a forwarded --gate-timeout larger than itself. The margin is runner overhead.
+    per_gate = gate_timeout if gate_timeout is not None else GATE_TIMEOUT_SECONDS
+    try:
+        gate_count = len(json.loads((plugin_dir / "gates.json").read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError, TypeError):
+        gate_count = 1
+    outer_timeout = per_gate * max(gate_count, 1) + 30
     try:
         proc = run_bounded(
-            argv, cwd=workspace, timeout=GATE_TIMEOUT_SECONDS, declared_env=[],
+            argv, cwd=workspace, timeout=outer_timeout, declared_env=[],
             target_kind=f"gates:{plugin_id}",
         )
     except EmitTargetError as exc:
@@ -245,10 +254,13 @@ def run_gates_for_workspace(
     for plugin_id, plugin_dir in _installed_plugins_with_gates(home):
         try:
             involved = plugin_contributed_a_step(state, plugin_id, home)
-        except DomainRegistryError:
-            # The profile lookup failing here is not this plugin's fault and not this function's
-            # question to answer -- treat as uninvolved rather than crash the whole gate run.
-            involved = False
+        except DomainRegistryError as exc:
+            # Fail loud, not open: gates are the enforcement layer, so "cannot determine
+            # participation" must stop the run -- treating it as uninvolved silently skipped a
+            # blocking gate whose domain steps had actually run in this workspace.
+            raise GateExecutionError(
+                f"cannot determine gate participation for plugin {plugin_id!r}: {exc}"
+            ) from exc
         if not involved:
             continue
         doc = run_plugin_gates(plugin_id, plugin_dir, workspace=workspace, home=home, gate_timeout=gate_timeout)

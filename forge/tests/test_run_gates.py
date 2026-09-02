@@ -212,6 +212,31 @@ class UninvolvedPluginRunsNone(RunGatesTestBase):
         self.assertEqual(results, {})
 
 
+class ParticipationLookupFailureFailsLoudNotOpen(RunGatesTestBase):
+    """A DomainRegistryError during the participation check used to be swallowed as "uninvolved",
+    which silently skipped a blocking gate whose domain steps had actually run -- fail-open in the
+    enforcement layer. It must stop the run naming the plugin instead."""
+
+    def test_a_registry_error_stops_the_run_instead_of_skipping_gates(self):
+        from unittest import mock
+
+        from domains import DomainRegistryError
+
+        _write_gated_plugin(
+            self.home, "gated",
+            gate_body=PASS_GATE.format(gate_id="gated-gate", plugin_id="gated"),
+        )
+        _action_ready_state(self.workspace, self.spec_path)
+        with mock.patch.object(
+            run_gates, "plugin_contributed_a_step",
+            side_effect=DomainRegistryError("domain id 'x' is declared twice"),
+        ):
+            with self.assertRaises(run_gates.GateExecutionError) as ctx:
+                run_gates.run_gates_for_workspace(self.workspace, home=self.home)
+        self.assertIn("participation", str(ctx.exception))
+        self.assertIn("gated", str(ctx.exception))
+
+
 class BlockingStopNamesGateAndPlugin(RunGatesTestBase):
     def test_a_blocking_failure_stops_the_run_naming_gate_and_plugin(self):
         state = _action_ready_state(self.workspace, self.spec_path)
