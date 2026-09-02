@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://img2threejs.local/schemas/component-evidence-map.v1.schema.json",
+  "title": "Component Evidence Map v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "targetSpecSha256", "evidenceSha256", "glbSha256", "mappings", "extensions"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "kind": {"const": "component-evidence-map"},
+    "targetSpecSha256": {"$ref": "#/$defs/sha256"},
+    "evidenceSha256": {"$ref": "#/$defs/sha256"},
+    "glbSha256": {"$ref": "#/$defs/sha256"},
+    "availableComponentIds": {"type": "array", "items": {"type": "string"}},
+    "candidateRegions": {"type": "array", "items": {"type": "object"}},
+    "mappings": {"type": "array", "items": {"$ref": "#/$defs/mapping"}},
+    "extensions": {"type": "object"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["componentId", "selectors", "mappingMethod", "evidenceRefs", "confidence", "permittedFields", "observedSurface", "hiddenLimitations"],
+      "properties": {
+        "componentId": {"type": "string", "minLength": 1},
+        "selectors": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["regionId"], "properties": {"regionId": {"type": "string", "minLength": 1}}}},
+        "mappingMethod": {"const": "human-reviewed-node-boundary"},
+        "evidenceRefs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "confidence": {"type": "number", "minimum": 0.8, "maximum": 1.0},
+        "permittedFields": {"type": "array", "minItems": 1, "items": {"enum": ["dimensions.width", "dimensions.height", "dimensions.depth", "dimensions.radius", "dimensions.length"]}},
+        "observedSurface": {"const": true},
+        "hiddenLimitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

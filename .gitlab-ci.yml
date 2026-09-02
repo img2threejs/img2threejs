@@ -1,0 +1,28 @@
+# CI for the dense-evidence pipeline: the stdlib forge suite plus the isolated
+# mesh3d extractor tests. Everything runs offline against the repo itself —
+# no provider call, no upload, no token. Environment-dependent gates
+# (showcase TypeScript smoke) skip by design without IMG2THREEJS_SHOWCASE_ROOT.
+stages:
+  - test
+
+forge-suite:
+  stage: test
+  # 3.13 to match the verified local environment. git, nodejs and
+  # huggingface_hub are test-fixture dependencies (the geometry suites execute
+  # the emitted TypeScript with node), not forge runtime deps.
+  image: python:3.13-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git curl xz-utils > /dev/null
+    # Node >= 22 for --experimental-strip-types (Debian's nodejs is 18)
+    - curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+    - node --version
+    - pip install -q huggingface_hub
+  script:
+    - python -m unittest discover -s forge/tests -p 'test_*.py'
+
+dense-evidence-mesh3d:
+  stage: test
+  image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+  script:
+    - uv sync --project integrations/mesh3d
+    - PYTHONPATH="$PWD" uv run --project integrations/mesh3d python -m unittest discover -s integrations/mesh3d/tests -t .

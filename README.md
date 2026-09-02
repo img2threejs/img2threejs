@@ -1,3 +1,5 @@
+> Last updated: 2026-09-01 21:55
+
 <div align="center">
 
 <img src="assets/logo.svg" width="112" height="104" alt="img2threejs logo" />
@@ -232,6 +234,7 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage2_spec/new_pre_spec_assessment.py` | Classify the object, score complexity, emit a quality contract. |
 | `stage2_spec/new_sculpt_spec.py` | Author the ObjectSculptSpec from the assessment. |
 | `stage2_spec/validate_sculpt_spec.py` | Validate the spec; `--strict-quality` blocks shallow specs before codegen. |
+| `stage2_spec/rebase_component_frames.py` | Convert object-frame component transforms to the parent-local contract (new file + change report). |
 | `stage1_intake/extract_pbr_evidence.py` | Reference-derived PBR evidence per crop (inference, not inverse rendering). |
 | `stage1_intake/material_region_analysis.py` | Crop material regions, run texture/PBR evidence, and resolve registry profiles. |
 | `stage2_spec/apply_material_analysis.py` | Wire region assignments, priors, maps, and provenance into ObjectSculptSpec. |
@@ -284,6 +287,25 @@ It applies **only** when a build has a GLB to measure — skip it entirely other
 image-driven pipeline instead. Reproduces `girl-character`'s shipped `crossSections.ts` exactly (748
 rings, 86,240 ring points). Method and per-stage rationale:
 [`PIPELINE.md`](integrations/glb_character_pipeline/PIPELINE.md).
+
+### Optional zero-spend generative reference
+
+`integrations.mesh3d.free_assist` can obtain a cached, resumable reference proxy from reviewed
+TRELLIS or Stable Fast 3D ZeroGPU Spaces, or from a separately installed local SF3D checkout. Its
+cost policy is immutable at zero; every hosted upload is explicit; failures never retry or switch
+provider; tokens are not accepted on the CLI. Generated meshes remain blocked from influencing the
+procedural build until structural and visual admission complete. Usage and security contract:
+[`docs/integrations/free-generative-assist.md`](docs/integrations/free-generative-assist.md).
+Install its isolated optional dependencies with `uv sync --project integrations/mesh3d`.
+
+### Optional offline dense evidence
+
+An admitted cached proxy can be converted into bounded dense evidence for a reversible spec
+proposal. Merged meshes are limited to global massing; component measurements require explicit
+human-reviewed mappings and a hash-bound influence approval. The source image remains authoritative,
+and the accepted runtime remains code-only TypeScript/Three.js with no GLB/OBJ loader or provider
+artifact. The bridge performs no upload or provider call:
+[`docs/integrations/trellis-dense-evidence.md`](docs/integrations/trellis-dense-evidence.md).
 
 ---
 

@@ -38,6 +38,13 @@ SETUP_STEPS: Final = (
     ("strict-validation", "python3 forge/stage2_spec/validate_sculpt_spec.py {spec} --strict-quality"),
 )
 
+DENSE_EVIDENCE_STEPS: Final = (
+    (
+        "dense-evidence-admission",
+        "python3 forge/stage1_intake/check_dense_evidence.py --evidence dense-evidence/dense-evidence.v1.json --spec {spec} --out dense-evidence-validation.json; require a separate hash-bound influence approval before emitting a proposed spec and never mutate {spec} in place",
+    ),
+)
+
 CHARACTER_STEPS: Final = (
     (
         "character-contract-read",
@@ -101,12 +108,24 @@ def new_state(
     spec: str = "",
     max_per_pass: int = 3,
     max_total: int = 6,
+    dense_evidence: bool = False,
 ) -> dict[str, Any]:
     if profile not in {"generic", "cs2", "character"}:
         raise WorkflowStateError("profile must be generic, cs2, or character")
     if max_per_pass < 1 or max_total < 1 or max_per_pass > max_total:
         raise WorkflowStateError("loop limits require 1 <= max-per-pass <= max-total")
+    if not isinstance(dense_evidence, bool):
+        raise WorkflowStateError("dense evidence selection must be a boolean")
+    if dense_evidence and profile != "generic":
+        raise WorkflowStateError("dense evidence version 1 is available only for the generic profile")
     setup = [_step(*item, scope="setup") for item in SETUP_STEPS]
+    if dense_evidence:
+        dense_insertion = next(
+            index for index, item in enumerate(setup) if item["id"] == "reference-admission"
+        ) + 1
+        setup[dense_insertion:dense_insertion] = [
+            _step(*item, scope="setup") for item in DENSE_EVIDENCE_STEPS
+        ]
     insertion = next(index for index, item in enumerate(setup) if item["id"] == "local-spec-search")
     if profile == "cs2":
         setup[insertion:insertion] = [_step(*item, scope="setup") for item in CS2_STEPS]
@@ -131,7 +150,11 @@ def new_state(
             "maxPerPass": max_per_pass,
             "maxTotal": max_total,
         },
-        "artifacts": {"reference": reference, "spec": spec},
+        "artifacts": {
+            "reference": reference,
+            "spec": spec,
+            "denseEvidenceSelected": dense_evidence,
+        },
         "passHistory": [],
         "reviewCursor": 0,
         "iterationAction": "initial",
@@ -174,6 +197,16 @@ def validate_state(state: Any) -> dict[str, Any]:
     artifacts = state.get("artifacts")
     if not isinstance(artifacts, dict) or not artifacts.get("reference"):
         raise WorkflowStateError("state artifacts.reference is required")
+    dense_selected = artifacts.get("denseEvidenceSelected", False)
+    if not isinstance(dense_selected, bool):
+        raise WorkflowStateError("state artifacts.denseEvidenceSelected must be a boolean")
+    if dense_selected and state.get("profile") != "generic":
+        raise WorkflowStateError("dense evidence version 1 is available only for the generic profile")
+    has_dense_step = any(
+        entry.get("id") == "dense-evidence-admission" for entry in checklist
+    )
+    if dense_selected != has_dense_step:
+        raise WorkflowStateError("dense evidence selection and checklist step disagree")
     review_cursor = state.get("reviewCursor", 0)
     if not isinstance(review_cursor, int) or review_cursor < 0:
         raise WorkflowStateError("state reviewCursor must be a non-negative integer")

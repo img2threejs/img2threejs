@@ -2772,6 +2772,71 @@ def validate_rig_admission(
                 )
 
 
+def _frame_half_extents(component: dict[str, Any]) -> list[float] | None:
+    dimensions = component.get("dimensions")
+    if not isinstance(dimensions, dict):
+        return None
+    extents = [dimensions.get("width"), dimensions.get("height"), dimensions.get("depth")]
+    if not all(is_number(extent) and extent > 0 for extent in extents):
+        return None
+    return [float(extent) / 2.0 for extent in extents]
+
+
+def validate_component_frame_sanity(spec: dict[str, Any], warnings: list[str]) -> None:
+    """Flag child positions that cannot plausibly be parent-local.
+
+    The transform contract (grimoire/readiness/joint_attachment.md) puts
+    `transform.position` in the PARENT's local frame. A spec authored in
+    object-frame absolute coordinates still validates structurally but renders
+    with every child displaced by its parent's own offset. A child whose local
+    offset lands far outside its parent's volume is almost certainly authored
+    in the wrong frame, so this is a quality warning (an error under
+    --strict-quality), not a hard failure: legitimate overhangs stay inside
+    the slack.
+
+    Per axis, the plausible local reach is (P + child_half) * 1.5, where P is
+    the parent's FULL extent when the parent's primitive derives geometry from
+    its attachment segment (the node pivot then sits at localStart, typically
+    the part's base, so children legitimately reach the far end plus their own
+    half extent) and the parent's HALF extent for center-pivoted primitives.
+    """
+    components = [
+        component
+        for component in spec.get("componentTree", [])
+        if isinstance(component, dict) and isinstance(component.get("id"), str)
+    ]
+    by_id = {component["id"]: component for component in components}
+    for component in components:
+        component_id = component["id"]
+        parent_id = component.get("parent")
+        parent = by_id.get(parent_id) if isinstance(parent_id, str) else None
+        # The root container is unitless (relative 1x1x1); measuring children
+        # against it would flag every top-level part.
+        if parent is None or parent.get("parent") is None:
+            continue
+        transform = component.get("transform")
+        if not isinstance(transform, dict) or not as_number_list(transform.get("position"), 3):
+            continue
+        child_half = _frame_half_extents(component)
+        parent_half = _frame_half_extents(parent)
+        if child_half is None or parent_half is None:
+            continue
+        base_pivot = parent.get("primitive") in ATTACHMENT_PRIMITIVES
+        for axis_index, axis_name in enumerate(("x", "y", "z")):
+            parent_reach = parent_half[axis_index] * (2.0 if base_pivot else 1.0)
+            allowed = (parent_reach + child_half[axis_index]) * 1.5
+            offset = float(transform["position"][axis_index])
+            if abs(offset) > allowed:
+                warnings.append(
+                    f"quality: frame-sanity: component {component_id!r} transform.position "
+                    f"{axis_name}={offset:g} lies outside parent {parent_id!r}'s plausible "
+                    f"local volume (allowed +-{allowed:g}); positions must be parent-local, "
+                    "not object-frame absolute -- convert with "
+                    "forge/stage2_spec/rebase_component_frames.py"
+                )
+                break
+
+
 def validate_spec(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -2805,6 +2870,7 @@ def validate_spec(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
     validate_pipeline_routing_contract(spec, errors)
     validate_cs2_view_dependent_environment(spec, errors)
     validate_components(spec, material_ids, evidence_ids, errors, warnings)
+    validate_component_frame_sanity(spec, warnings)
     lod_plan = spec.get("lodPlan")
     if lod_plan is not None and not isinstance(lod_plan, list):
         errors.append("lodPlan must be an array")

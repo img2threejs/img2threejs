@@ -30,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--spec", default="")
     init.add_argument("--max-per-pass", type=int, default=3)
     init.add_argument("--max-total", type=int, default=6)
+    init.add_argument("--dense-evidence", action="store_true")
 
     status = commands.add_parser("status")
     status.add_argument("--state", type=Path, default=Path(".img2threejs/state.json"))
@@ -77,6 +78,7 @@ def main(argv: list[str]) -> int:
                 spec=args.spec,
                 max_per_pass=args.max_per_pass,
                 max_total=args.max_total,
+                dense_evidence=args.dense_evidence,
             )
             save_state(args.state, state)
             print_status(state)

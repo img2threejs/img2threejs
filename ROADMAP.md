@@ -1,3 +1,5 @@
+> Last updated: 2026-09-01 03:30
+
 # img2threejs Roadmap
 
 Where img2threejs is going: from rebuilding one object at a time to generating whole playable
@@ -17,6 +19,17 @@ can plan around.
 | v1.3 | Quality & efficiency (Divine Eye) | 2026-07-22 | Deterministic multi-signal review harness, input-integrity and geometry-truth gates, reference-grounded texture/material analysis, CIEDE2000 colour math |
 | v1.4 | Weapon Pipeline | 2026-07-25–26 | CS2 image-matched reconstruction, provenance-aware intake and local search, projection-first finishes, family-specific adapters, structural review and component-coverage gates |
 | v1.5 | The Character Update | 2026-08-12 | Skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, `tapered-sweep`, material pipeline with a blocking acceptance gate, resumable workflow state |
+
+## Implemented after v1.5.1
+
+- **Free generative assist** — opt-in TRELLIS/SF3D ZeroGPU reference proxies with an immutable
+  zero-spend policy, explicit upload approval, no automatic retry/fallback, content-addressed cache,
+  durable raw-GLB resume, credential redaction, and structural admission. The single live ZeroGPU
+  acceptance run remains a separately approved external test.
+- **Offline dense evidence** — reviewed cached proxies can now inform bounded global massing or
+  explicitly mapped component measurements through hash-bound human approval, reversible spec
+  deltas, dual-baseline review, and runtime guards. The shipped model remains code-only; provider
+  topology and GLB/OBJ assets never become runtime dependencies.
 
 ### v1.2 — Humanoid character generator
 

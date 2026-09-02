@@ -1,3 +1,5 @@
+> Last updated: 2026-09-01 03:30
+
 ---
 name: img2threejs
 description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
@@ -115,6 +117,17 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
     implementation** — write the proven change back to the spec or TypeScript, rebuild, recapture.
     Full adapter + MCP routing and authority boundaries:
     `docs/integrations/reference_fidelity_tooling.md`.
+1d. **Optional free generative reference** — only after a read-only zero-cost preflight and exact
+    upload approval, `python3 -m integrations.mesh3d.free_assist` may obtain a TRELLIS/SF3D proxy.
+    It never retries or switches provider automatically, resumes local failures from the persisted
+    raw GLB, and cannot influence reconstruction until mesh and visual admission pass. Full safety,
+    cache, credential, and local-SF3D contract: `docs/integrations/free-generative-assist.md`.
+1e. **Optional dense-evidence bridge** — after a cached GLB has structural and visual review, the
+    offline `integrations.mesh3d.dense_evidence` extractor may convert it into bounded massing or
+    explicitly mapped component measurements. Extraction always starts at scope `none`; a separate
+    human approval binds GLB/evidence/review/scope/spec hashes before a reversible proposed spec is
+    emitted. The source image stays authoritative and the runtime stays code-only; merged meshes are
+    capped at global massing. Full contract: `docs/integrations/trellis-dense-evidence.md`.
 2. **Pre-Spec Assessment Gate** — classify + score complexity + write the quality contract:
    `forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --complexity <simple|moderate|complex|ultra-complex> --out assessment.json`. Rules: `grimoire/intake/quality_contract.md`.
    Set `objectClass.primaryDomain` (`object` | `character` | `hybrid`) and fill the seeded

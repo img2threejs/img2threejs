@@ -1,9 +1,43 @@
+> Last updated: 2026-09-02 00:05
+
 # Changelog
 
 All notable changes to **img2threejs** are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Add a provider-neutral free generative-assist CLI for reviewed TRELLIS and Stable Fast 3D
+  ZeroGPU Spaces plus separately installed local SF3D, with immutable zero-spend policy, explicit
+  upload approval, no automatic retry/fallback, cache-before-network reuse, durable raw-GLB resume,
+  credential redaction, normalized GLB/OBJ artifacts, and fail-closed structural admission.
+- Add `forge/stage2_spec/rebase_component_frames.py`, a one-shot converter from object-frame
+  absolute component transforms to the parent-local contract (never in place, refuses rotated
+  parents, emits a reviewable change report), plus a frame-sanity check in
+  `validate_sculpt_spec.py` that flags implausible parent-local offsets as quality warnings —
+  errors under `--strict-quality` — so an object-frame spec is caught at validation time instead
+  of rendering as floating parts.
+- Emit instanced repetition-system geometry at the LOW tessellation tier: an instanced
+  micro-part never deforms or subdivides, and hero-tier instances multiplied a curb ring of
+  cubes into 44,928 triangles — half a diorama's budget (focused tests in
+  `test_instanced_cluster_tessellation.py`).
+- Size the emitted look-dev shadow camera and light positions from the spec's estimated world
+  radius instead of a fixed character-scale `±2.6` box, so a larger model's contact shadow can
+  actually land (`estimate_model_radius` + focused tests in `test_lookdev_shadow_bounds.py`).
+- Add an offline dense evidence bridge from admitted cached meshes to bounded, reversible
+  ObjectSculptSpec proposals. It adds strict JSON contracts, content-addressed extraction,
+  explicit component mappings, hash-bound influence approval, source-authoritative A/B review,
+  optional workflow routing, and code-only runtime guards; it never ships or copies provider mesh
+  topology into the procedural factory.
+
+### Security
+
+- Discover Hugging Face credentials only through the supported token store or `HF_TOKEN`; the new
+  CLI exposes no token, endpoint, paid fallback, retry, refill, or cost-override argument.
 
 ## [1.5.1] — 2026-08-22
 

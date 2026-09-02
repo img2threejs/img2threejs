@@ -259,6 +259,60 @@ def json_literal(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def estimate_model_radius(spec: dict[str, Any]) -> float:
+    """Estimate the model's world half-extent from authored transforms + dims.
+
+    Parent-local positions are accumulated down the tree (rotations ignored --
+    this is a bound estimate for sizing the look-dev shadow camera, not exact
+    geometry), and each component contributes |world position| plus half its
+    declared dimensions per axis. Falls back to a character-scale 2.0 when the
+    tree carries no numeric dimensions.
+    """
+    components = [
+        component
+        for component in spec.get("componentTree", [])
+        if isinstance(component, dict) and isinstance(component.get("id"), str)
+    ]
+    by_id = {component["id"]: component for component in components}
+    world_cache: dict[str, list[float]] = {}
+
+    def world_position(component_id: str, depth: int = 0) -> list[float]:
+        if component_id in world_cache:
+            return world_cache[component_id]
+        component = by_id[component_id]
+        transform = component.get("transform")
+        position = transform.get("position") if isinstance(transform, dict) else None
+        local = (
+            [float(axis) for axis in position]
+            if isinstance(position, list)
+            and len(position) == 3
+            and all(isinstance(axis, (int, float)) and not isinstance(axis, bool) for axis in position)
+            else [0.0, 0.0, 0.0]
+        )
+        parent = component.get("parent")
+        if depth < 64 and isinstance(parent, str) and parent in by_id:
+            base = world_position(parent, depth + 1)
+            local = [base[i] + local[i] for i in range(3)]
+        world_cache[component_id] = local
+        return local
+
+    radius = 0.0
+    for component in components:
+        dimensions = component.get("dimensions")
+        if not isinstance(dimensions, dict):
+            continue
+        extents = [dimensions.get("width"), dimensions.get("height"), dimensions.get("depth")]
+        if not all(
+            isinstance(extent, (int, float)) and not isinstance(extent, bool) and extent > 0
+            for extent in extents
+        ):
+            continue
+        world = world_position(component["id"])
+        for axis_index in range(3):
+            radius = max(radius, abs(world[axis_index]) + float(extents[axis_index]) / 2.0)
+    return radius if radius > 0 else 2.0
+
+
 def vector(values: Any, fallback: list[float]) -> str:
     if (
         isinstance(values, list)
@@ -3813,7 +3867,11 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
                 f"  // repetition system: {system.get('id') or rep_var} (InstancedMesh, {mode}, count={count}, level={level})",
                 "  {",
                 f"    const parent = nodes[{json.dumps(parent_id)}] ?? root;",
-                f"    const geo = {geometry_for(primitive, {}, False, seg)};",
+                # Instanced micro-parts never deform or subdivide, so the LOW
+                # tessellation tier is always enough. At the model tier, a
+                # 26-stone curb ring of hero-tier boxes cost 44,928 triangles —
+                # half the whole diorama's budget spent on cubes.
+                f"    const geo = {geometry_for(primitive, {}, False, TESSELLATION_TIERS['low'])};",
                 f"    const mat = materialMap[{json.dumps(rep_material)}] ?? new THREE.MeshStandardMaterial({{ color: 0x888888 }});",
                 "    // Contract (PLAN_1.5 WS-E): instanceScale is ABSOLUTE, in the parent pivot's",
                 "    // local units -- it is never multiplied by the parent component's own declared",
@@ -3881,6 +3939,19 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
 
     look_dev_targets = spec.get("lookDevTargets", {})
     lighting_from_photo = spec.get("lightingFromPhoto", [])
+    # The look-dev shadow camera must COVER the model: fixed +-2.6 bounds sized
+    # for a character-scale asset silently clip the contact shadow of anything
+    # larger (a 10-unit diorama's shadow never lands past its own base). Scale
+    # the rig from the spec's estimated world radius instead.
+    model_radius = estimate_model_radius(spec)
+    shadow_half = round(max(2.6, model_radius * 1.4), 2)
+    shadow_far = round(max(30.0, model_radius * 8.0), 1)
+    light_scale = max(1.0, model_radius / 5.0)
+
+    def scaled_position(x: float, y: float, z: float) -> str:
+        return (
+            f"{round(x * light_scale, 2)}, {round(y * light_scale, 2)}, {round(z * light_scale, 2)}"
+        )
     lines.extend(
         [
             "",
@@ -3907,9 +3978,9 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
             "    mode === 'reference' ? 0xffcf8a : 0xfff4e8,",
             "    mode === 'grazing' ? 4.2 : mode === 'reference' ? 2.6 : 2.15,",
             "  );",
-            "  if (mode === 'grazing') key.position.set(7.5, 1.1, 4.0);",
-            "  else if (mode === 'reference') key.position.set(-4.5, 7.5, 5.0);",
-            "  else key.position.set(-4.0, 6.0, 5.5);",
+            f"  if (mode === 'grazing') key.position.set({scaled_position(7.5, 1.1, 4.0)});",
+            f"  else if (mode === 'reference') key.position.set({scaled_position(-4.5, 7.5, 5.0)});",
+            f"  else key.position.set({scaled_position(-4.0, 6.0, 5.5)});",
             "  key.castShadow = true;",
             "  key.shadow.mapSize.set(4096, 4096);",
             "  key.shadow.bias = -0.00025;",
@@ -3917,18 +3988,18 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
             "  key.shadow.radius = 7;",
             "  key.shadow.blurSamples = 24;",
             "  key.shadow.camera.near = 0.5;",
-            "  key.shadow.camera.far = 30;",
-            "  key.shadow.camera.left = -2.6;",
-            "  key.shadow.camera.right = 2.6;",
-            "  key.shadow.camera.top = 2.6;",
-            "  key.shadow.camera.bottom = -2.6;",
+            f"  key.shadow.camera.far = {shadow_far};",
+            f"  key.shadow.camera.left = -{shadow_half};",
+            f"  key.shadow.camera.right = {shadow_half};",
+            f"  key.shadow.camera.top = {shadow_half};",
+            f"  key.shadow.camera.bottom = -{shadow_half};",
             "  key.shadow.camera.updateProjectionMatrix();",
             "  lights.add(key);",
             "  const fill = new THREE.DirectionalLight(0xa8c4ff, mode === 'grazing' ? 0.12 : 0.42);",
-            "  fill.position.set(4.0, 3.0, 3.5);",
+            f"  fill.position.set({scaled_position(4.0, 3.0, 3.5)});",
             "  lights.add(fill);",
             "  const rim = new THREE.DirectionalLight(0xfff1c4, mode === 'grazing' ? 0.28 : 0.85);",
-            "  rim.position.set(0.5, 4.5, -6.0);",
+            f"  rim.position.set({scaled_position(0.5, 4.5, -6.0)});",
             "  lights.add(rim);",
             "  lights.userData.reviewMode = mode;",
             f"  lights.userData.lightingFromPhoto = {json_literal(lighting_from_photo)};",
