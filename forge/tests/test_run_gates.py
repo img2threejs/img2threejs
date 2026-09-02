@@ -237,6 +237,32 @@ class ParticipationLookupFailureFailsLoudNotOpen(RunGatesTestBase):
         self.assertIn("gated", str(ctx.exception))
 
 
+class RunnerStderrSurfacesOnEnvelopeFailure(RunGatesTestBase):
+    """A runner that never printed an envelope said why on stderr — e.g. an installed harness too
+    old for a forwarded --gate-timeout rejects it with argparse's "unrecognized arguments" and no
+    stdout at all. That cause must reach the error, not be flattened into "no parseable envelope"."""
+
+    def test_the_runners_stderr_is_named_when_no_envelope_was_printed(self):
+        _write_gated_plugin(
+            self.home, "gated",
+            gate_body=PASS_GATE.format(gate_id="gated-gate", plugin_id="gated"),
+        )
+        # Replace the copied runner with a stub that mimics a pre-0.2.2 harness: argparse rejects
+        # the forwarded flag on stderr and exits 2 without printing an envelope.
+        (self.home / "harness" / "img2_core" / "gate_runner.py").write_text(
+            "import sys\n"
+            "sys.stderr.write(\"gate_runner.py: error: unrecognized arguments: --gate-timeout 60\\n\")\n"
+            "sys.exit(2)\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(run_gates.GateExecutionError) as ctx:
+            run_gates.run_plugin_gates(
+                "gated", self.home / "plugins" / "gated",
+                workspace=self.workspace, home=self.home, gate_timeout=60,
+            )
+        self.assertIn("unrecognized arguments: --gate-timeout", str(ctx.exception))
+
+
 class BlockingStopNamesGateAndPlugin(RunGatesTestBase):
     def test_a_blocking_failure_stops_the_run_naming_gate_and_plugin(self):
         state = _action_ready_state(self.workspace, self.spec_path)

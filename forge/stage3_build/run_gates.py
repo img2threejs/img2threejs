@@ -232,7 +232,16 @@ def run_plugin_gates(
         )
     except EmitTargetError as exc:
         raise GateExecutionError(f"plugin {plugin_id!r} gates: {exc}") from exc
-    doc = parse_gate_run_envelope(proc.stdout)
+    try:
+        doc = parse_gate_run_envelope(proc.stdout)
+    except GateExecutionError as exc:
+        # A runner that never printed an envelope said why on stderr (e.g. an installed harness too
+        # old for a forwarded --gate-timeout: "unrecognized arguments"). Flattening that into "no
+        # parseable envelope" hides the actual cause from the user.
+        stderr_text = proc.stderr.decode("utf-8", errors="replace").strip()
+        if stderr_text:
+            raise GateExecutionError(f"{exc}; gate runner stderr: {stderr_text[:500]}") from exc
+        raise
     _check_exit_agreement(doc, proc.returncode)
     return doc
 
