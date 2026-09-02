@@ -90,6 +90,23 @@ class RaiseOnlyCoversEveryPathToAFloor(unittest.TestCase):
         )
         self.assertEqual(spec["preSpecAssessment"]["detailInventory"]["targetMinDetails"], 40)
 
+    def test_a_non_dict_detail_inventory_patch_is_refused_not_applied(self) -> None:
+        # A non-dict value used to fall through to the plain-assignment branch and clobber the
+        # whole dict the floor lives in -- strict validation then saw no positive targetMinDetails
+        # and disabled the detail gate entirely, with `clamped` reporting nothing.
+        spec = {"preSpecAssessment": {"detailInventory": {"targetMinDetails": 40}}}
+        with self.assertRaises(SpecAugmentationError):
+            merge_spec_augmentation(spec, artifact(assessmentPatch={"detailInventory": 0}))
+        self.assertEqual(spec["preSpecAssessment"]["detailInventory"]["targetMinDetails"], 40)
+
+    def test_a_non_dict_object_class_patch_is_refused_not_applied(self) -> None:
+        spec = {"preSpecAssessment": {"objectClass": {"domain": "base"}}}
+        with self.assertRaises(SpecAugmentationError):
+            merge_spec_augmentation(
+                spec, artifact(assessmentPatch={"objectClass": "weapon"}), domain_id="testdomain"
+            )
+        self.assertEqual(spec["preSpecAssessment"]["objectClass"], {"domain": "base"})
+
     def test_a_kept_tier_is_recorded_like_a_kept_number(self) -> None:
         spec = {"qualityContract": {"qualityBar": "ultra-complex"}}
         record = merge_spec_augmentation(spec, artifact(qualityFloors={"qualityBar": "simple"}))

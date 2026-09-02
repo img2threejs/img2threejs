@@ -89,6 +89,12 @@ def merge_spec_augmentation(spec: dict[str, Any], artifact: Any, *, domain_id: s
         raise SpecAugmentationError("assessmentPatch must be an object")
     pre = spec.setdefault("preSpecAssessment", {})
     for key, value in patch.items():
+        if key in ("objectClass", "detailInventory") and not isinstance(value, dict):
+            # These two carry guarded values (the domain marker, the raise-only detail floor). A
+            # non-dict replacement would fall through to the plain-assignment branch below and
+            # clobber the dict both guards live in -- refusing it keeps every path to a floor
+            # clamped, not just the well-formed one.
+            raise SpecAugmentationError(f"assessmentPatch.{key} must be an object, got {value!r}")
         if key == "objectClass" and isinstance(value, dict):
             if "domain" in value:
                 raise SpecAugmentationError("assessmentPatch may not set objectClass.domain; the base sets it from domain resolution")
