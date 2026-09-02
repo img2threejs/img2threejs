@@ -76,30 +76,47 @@ def severity_for(component: dict[str, Any]) -> str:
 
 
 def collect_local_feature_keys(spec: dict[str, Any]) -> set[str]:
+    """Every spelling a `detailInventory` entry's `mapsTo.ref` may legitimately use.
+
+    The OWNER-PREFIXED form matters: `validate_sculpt_spec._detail_link_keys` accepts both the bare
+    feature id and `<componentId>/<featureId>` (likewise `<materialId>/<overrideId>`), and the
+    prefixed form is the one an author reaches for as soon as two components own a feature of the
+    same name. This collector previously registered only the bare id, so a spec that passed
+    `--strict-quality` still drew an "unresolved mapsTo" warning here -- two gates disagreeing about
+    the format of one documented field, which teaches an author to distrust whichever gate spoke
+    last. Measured on the widebody coupe: 18 such warnings against a spec the validator accepted.
+
+    The composite is registered WITHOUT its separator because the lookup runs through `norm`, which
+    strips every non-alphanumeric character: the incoming ref `wing-plane/wing-edge-chamfer` arrives
+    here as `wingplanewingedgechamfer`, so a key holding a literal "/" could never match it.
+    """
     keys: set[str] = set()
     for component in spec.get("componentTree", []):
         if not isinstance(component, dict):
             continue
-        for field in ("id", "name"):
-            if component.get(field):
-                keys.add(norm(component[field]))
+        owners = {norm(component[field]) for field in ("id", "name") if component.get(field)}
+        keys |= owners
         for feature in component.get("localFeatures", []) or []:
+            labels: set[str] = set()
             if isinstance(feature, dict):
-                for field in ("id", "name", "feature"):
-                    if feature.get(field):
-                        keys.add(norm(feature[field]))
+                labels = {norm(feature[field]) for field in ("id", "name", "feature") if feature.get(field)}
             elif isinstance(feature, str):
-                keys.add(norm(feature))
+                labels = {norm(feature)}
+            keys |= labels
+            keys |= {f"{owner}{label}" for owner in owners for label in labels}
     for material in spec.get("materials", []) or []:
         if not isinstance(material, dict):
             continue
+        owners = {norm(material[field]) for field in ("id", "name") if material.get(field)}
+        keys |= owners
         for override in material.get("localOverrides", []) or []:
+            labels = set()
             if isinstance(override, dict):
-                for field in ("id", "name", "region"):
-                    if override.get(field):
-                        keys.add(norm(override[field]))
+                labels = {norm(override[field]) for field in ("id", "name", "region") if override.get(field)}
             elif isinstance(override, str):
-                keys.add(norm(override))
+                labels = {norm(override)}
+            keys |= labels
+            keys |= {f"{owner}{label}" for owner in owners for label in labels}
     return keys
 
 
