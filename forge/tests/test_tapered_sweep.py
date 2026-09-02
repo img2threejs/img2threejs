@@ -31,6 +31,13 @@ from generate_threejs_factory import _DEFAULT_TAPERED_SWEEP, geometry_for  # noq
 from validate_sculpt_spec import TAPER_RATIO_MAX, VALID_PRIMITIVES, taper_risk  # noqa: E402
 
 
+def _esbuild(showcase: Path) -> str:
+    """npm writes both an extensionless shell script and an .exe/.cmd into .bin; only the
+    latter is executable by CreateProcess, so let which() pick the right one per platform."""
+    bin_dir = showcase / "node_modules" / ".bin"
+    return shutil.which("esbuild", path=str(bin_dir)) or str(bin_dir / "esbuild")
+
+
 def component(stations: list[dict[str, object]]) -> dict[str, object]:
     return {"geometryDescriptor": {"taperedSweep": {"stations": stations}}}
 
@@ -272,7 +279,7 @@ class SweepWindingFacesOutward(unittest.TestCase):
         module = work / "factory.mjs"
         subprocess.run(
             [
-                str(showcase / "node_modules" / ".bin" / "esbuild"),
+                _esbuild(showcase),
                 str(entry),
                 "--bundle", "--format=esm", "--platform=node", "--external:three",
                 f"--outfile={module}", "--log-level=error",

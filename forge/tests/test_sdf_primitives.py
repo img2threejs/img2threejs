@@ -15,6 +15,13 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "implicit_character_torso_limb.json"
 
 
+def _esbuild(showcase: Path) -> str:
+    """npm writes both an extensionless shell script and an .exe/.cmd into .bin; only the
+    latter is executable by CreateProcess, so let which() pick the right one per platform."""
+    bin_dir = showcase / "node_modules" / ".bin"
+    return shutil.which("esbuild", path=str(bin_dir)) or str(bin_dir / "esbuild")
+
+
 def import_forge_modules():
     module_names = ("generate_threejs_factory", "validate_sculpt_spec")
     original_modules = {name: sys.modules.pop(name, None) for name in module_names}
@@ -298,7 +305,7 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
         entry = work / "factory.ts"
         entry.write_text(source, encoding="utf-8")
         subprocess.run(
-            [str(showcase / "node_modules" / ".bin" / "esbuild"), str(entry), "--bundle",
+            [_esbuild(showcase), str(entry), "--bundle",
              "--format=esm", "--platform=node", "--external:three",
              f"--outfile={work / 'factory.mjs'}", "--log-level=error"],
             check=True, capture_output=True, text=True, cwd=showcase,

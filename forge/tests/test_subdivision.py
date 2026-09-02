@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -111,7 +112,7 @@ def compile_generated_module(
     source.write_text(generated + export_statement, encoding="utf-8")
     result = subprocess.run(
         [
-            "npx",
+            (shutil.which("npx") or "npx"),
             "tsc",
             "--target",
             "ES2020",
