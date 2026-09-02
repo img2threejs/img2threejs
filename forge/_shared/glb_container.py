@@ -51,6 +51,7 @@ def parse_glb(path: Path) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
     cursor = 12
     json_payload: bytes | None = None
     bin_payload = b""
+    bin_seen = False
     chunks: list[dict[str, Any]] = []
     while cursor < len(data):
         if cursor + 8 > len(data):
@@ -68,8 +69,11 @@ def parse_glb(path: Path) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
                 raise ValueError("GLB contains more than one JSON chunk")
             json_payload = payload.rstrip(b" \t\r\n\x00")
         elif chunk_type == BIN_CHUNK:
-            if bin_payload:
+            # A seen-flag, not truthiness: a zero-length first BIN chunk is falsy, and truthiness
+            # let a second BIN chunk slide through the duplicate check.
+            if bin_seen:
                 raise ValueError("GLB contains more than one BIN chunk")
+            bin_seen = True
             bin_payload = payload
 
     if json_payload is None:
