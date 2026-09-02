@@ -3867,7 +3867,11 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
                 f"  // repetition system: {system.get('id') or rep_var} (InstancedMesh, {mode}, count={count}, level={level})",
                 "  {",
                 f"    const parent = nodes[{json.dumps(parent_id)}] ?? root;",
-                f"    const geo = {geometry_for(primitive, {}, False, seg)};",
+                # Instanced micro-parts never deform or subdivide, so the LOW
+                # tessellation tier is always enough. At the model tier, a
+                # 26-stone curb ring of hero-tier boxes cost 44,928 triangles —
+                # half the whole diorama's budget spent on cubes.
+                f"    const geo = {geometry_for(primitive, {}, False, TESSELLATION_TIERS['low'])};",
                 f"    const mat = materialMap[{json.dumps(rep_material)}] ?? new THREE.MeshStandardMaterial({{ color: 0x888888 }});",
                 "    // Contract (PLAN_1.5 WS-E): instanceScale is ABSOLUTE, in the parent pivot's",
                 "    // local units -- it is never multiplied by the parent component's own declared",
