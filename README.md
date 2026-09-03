@@ -124,7 +124,24 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
    ~/.codex/skills/img2threejs  -> <your checkout>
    ```
 
-2. **Invoke** — in Claude Code, attach or point to an object image and run:
+2. **Add domain plugins (optional)** — domain knowledge (CS2 skins today) lives in installed
+   plugins, not in this checkout. Install the [img2 harness](https://github.com/img2threejs/img2)
+   once, then add plugins to it:
+
+   ```bash
+   npx github:img2threejs/img2 install   # ~/.img2, the plugin registry, and an `img2` launcher
+   img2 add img2threejs/plugin-cs2       # clone @ newest tag, pin SHA, link host skills
+   img2 doctor                           # fail-loud static audit of every installed plugin
+   ```
+
+   An installed domain plugin contributes its own checklist steps, evidence collection, spec
+   augmentation (quality floors merge raise-only), and a blocking review gate — and registers its
+   profile with `forge/state.py init --profile <id>`. With no plugins installed, `generic`,
+   `character`, and `animated-character` are available; a profile whose plugin is missing fails
+   loud naming what is installed, never silently downgrades. `img2 remove <id>` reverses cleanly.
+   Writing your own plugin: the harness repo's `docs/WRITING_A_PLUGIN.md`.
+
+3. **Invoke** — in Claude Code, attach or point to an object image and run:
 
    ```
    /img2threejs Rebuild this object as a Three.js model, keep the proportions, angles, and colours.
@@ -132,7 +149,7 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
 
    That is enough: the skill classifies the subject, runs the detail inventory, and gates every pass on its own.
 
-3. **Follow the pipeline** — the skill validates the image, writes an assessment and spec, generates the factory pass by pass, and shows you a side-by-side comparison at each step until the render matches.
+4. **Follow the pipeline** — the skill validates the image, writes an assessment and spec, generates the factory pass by pass, and shows you a side-by-side comparison at each step until the render matches.
 
    For a multi-session reconstruction, create a local state index first:
 
@@ -307,6 +324,10 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v1.4 — The Weapon Update** — CS2 image-matched reconstruction: provenance-aware intake, projection-first finishes, family-specific weapon adapters, and structural review gates.
 - **v1.4.1** — CS2 hardening: explicit component coverage, a dedicated Glock-18 assembly contract, map-stripped blockout evidence, and stricter geometry-integrity checks.
 - **creature generator** — 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft geometry, ΔE00 colour gates.
+- **The Plugin Update (in review, PR #106)** — the domain registry, pull-based spec augmentation
+  with raise-only quality floors, the emission-target socket with provenance, per-plugin blocking
+  gates, and the img2 harness (`img2 install/add/doctor`). CS2 extracted into `plugin-cs2`; the
+  base names no domain. The "plugin ecosystem and API" originally slotted for v2.0, pulled forward.
 - **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
 
 **Next — one theme per release:**
@@ -314,7 +335,7 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v1.7 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
 - **v1.8 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
 - **v1.9 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
-- **v2.0 — The Procedural World Update**: multi-view reconstruction, procedural city generation, semantic world understanding, plugin ecosystem and API.
+- **v2.0 — The Procedural World Update**: multi-view reconstruction, procedural city generation, semantic world understanding.
 
 The arc: assets (v1.4–v1.5) → worlds (v1.6–v1.7) → production (v1.8–v1.9) → an AI game-asset platform that generates playable worlds from reference images (v2.0).
 
