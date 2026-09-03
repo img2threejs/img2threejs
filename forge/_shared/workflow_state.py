@@ -91,7 +91,6 @@ FINAL_STEPS: Final = (
     ("plugin-gates", "python3 forge/stage3_build/run_gates.py --workspace ."),
 )
 
-
 class WorkflowStateError(ValueError):
     pass
 
@@ -158,7 +157,8 @@ def new_state(
         "currentPass": "",
         "checklist": setup
         + [_step(*item, scope="pass") for item in pass_steps]
-        + [_step(*item, scope="final") for item in FINAL_STEPS],
+        + [_step(*item, scope="final") for item in FINAL_STEPS]
+        + [_step(*item, scope="rig") for item in ((domain.get("rigSteps") or ()) if domain else ())],
         "loops": {
             "perPass": {},
             "total": 0,
@@ -196,7 +196,7 @@ def validate_state(state: Any) -> dict[str, Any]:
         if entry["id"] in seen:
             raise WorkflowStateError(f"duplicate checklist step: {entry['id']}")
         seen.add(entry["id"])
-        if entry.get("scope") not in {"setup", "pass", "final"}:
+        if entry.get("scope") not in {"setup", "pass", "final", "rig"}:
             raise WorkflowStateError(f"invalid checklist scope for {entry['id']}")
         if entry.get("status") not in STEP_STATUSES:
             raise WorkflowStateError(f"invalid checklist status for {entry['id']}")
@@ -284,7 +284,15 @@ def next_entry(state: dict[str, Any]) -> dict[str, Any] | None:
             "command": "python3 forge/next.py --state .img2threejs/state.json {spec}",
         }
     final_pending = _pending(_entries(state, "final"))
-    return final_pending[0] if final_pending else None
+    if final_pending:
+        return final_pending[0]
+    # Stage R runs LAST, after the static model is complete and its coverage gates have passed:
+    # rigging is additive to a finished mesh, and binding a model whose parts are still moving
+    # would freeze geometry that has not settled. Dispatching it here is what makes the rig steps
+    # reachable at all -- a checklist entry no dispatcher returns is a step `next.py` never asks
+    # for, which is the same defect as a gate nothing invokes.
+    rig_pending = _pending(_entries(state, "rig"))
+    return rig_pending[0] if rig_pending else None
 
 
 def recompute(state: dict[str, Any]) -> None:
@@ -421,7 +429,7 @@ def status_payload(state: dict[str, Any]) -> dict[str, Any]:
     entry = next_entry(state)
     current_pass = str(state.get("currentPass") or "")
     loops = state["loops"]
-    visible_scopes = {"setup", "final"}
+    visible_scopes = {"setup", "final", "rig"}
     if current_pass != "complete":
         visible_scopes.add("pass")
     return {

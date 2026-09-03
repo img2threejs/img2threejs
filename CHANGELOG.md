@@ -33,6 +33,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and an unregistered profile fails loud naming what is available instead of quietly running as
   generic. `workflow_state.py` and `forge/state.py` now contain no domain name at all.
 
+**Theme: rigging may only ADD.** The 1.5.2 modules existed and nothing ever ran them; animation
+broke meshes because no step in the workflow forbade it and no gate could tell a rigged mesh from a
+damaged one. This closes the loop between the gates and the pipeline that is supposed to enforce them.
+
+### Added
+
+- **`animated-character` workflow profile** (now `forge/_shared/domains/animated_character.py` --
+  ported from the hardcoded `RIG_STEPS` into the domain registry when this branch merged v1.5.2;
+  the registry gained a `rigSteps` key, appended after the FINAL steps). Nine Stage R steps join the checklist: read the contract, read the rig from the
+  GLB, repair the mesh, freeze it, validate the payload, bind, verify parity, measure the clips, run
+  the gates. Every `forge/stage5_rig/` module was callable before this and nothing in the workflow
+  ever told anyone to call one — `next.py` walks the checklist, so a gate absent from the checklist
+  never runs, and a gate that never runs reports a clean verdict forever.
+- The Stage R order is enforced by `forge/tests/test_rig_workflow_steps.py`, not by convention.
+  Repair precedes the freeze; the freeze precedes every rig step; parity is verified after the bind.
+  Moving the freeze later would let a bind rewrite vertices and then certify the rewritten buffer,
+  so the manifest would attest to the damage instead of catching it.
+- **`forge/stage5_rig/mesh_parity.py`** — freeze the geometry, then prove it survived. Hashes are
+  taken over packed bytes rather than JSON text, so a formatter changing its mind is not a reported
+  change while a changed number cannot be formatted into a collision. `position`, `normal`, `uv` and
+  `index` are frozen; `skinIndex` and `skinWeight` are deliberately not, because adding them is the
+  entire legal purpose of rigging — freezing them would fail every successful rig and the gate would
+  be switched off within a day. A single nudged float is caught and located to the mesh, the
+  attribute, the element and both values.
+- **`forge/stage5_rig/glb_rig_reference.py`** — read the skeleton, the skin's joint ordering, the
+  inverse bind matrices and the clips FROM the GLB, and sample its own animation channels into the
+  payload `clip_features` consumes. Joint correspondence to a procedural skeleton is matched by
+  measured position, never by name, and reports `usable: false` when any joint on either side is
+  unmatched. A GLB's channels target its node indices and its `skinIndex` values address its joint
+  array; fed to a procedurally authored skeleton they index a different rig entirely.
+- **`runtime/scripts/export_mesh_buffers.mjs`** — raw geometry buffers, no `matrixWorld`.
+  `export_mesh_geometry.mjs` emits world space, which is correct for self-intersection and wrong for
+  parity in both directions: posing changes `matrixWorld` without touching a byte of the buffer, and
+  a real buffer edit cancelled by a compensating transform would read as unchanged.
+- **`docs/GLB_ANIMATED_CHARACTER_PROMPT.md`** — one copy-paste prompt carrying a subject from a GLB
+  to a rigged, animated, gate-cleared character in a single pass.
+
+### Fixed
+
+- `forge/stage5_rig/emit_rig.py` constructed `THREE.Skeleton` before `updateMatrixWorld`, so
+  `calculateInverses()` captured identity matrices, the rest pose never cancelled, and every vertex
+  sat displaced by its bone's offset. That failure compiles, binds, reports `bound: true` and
+  renders a corpse. The main factory emitter already ordered this correctly; only the Milestone-0
+  emitter did not.
+- `forge/stage3_build/generate_threejs_factory.py` now refuses to bake a geometry twice.
+  `applyMatrix4` mutates in place and is not idempotent, so a second pass applies the world matrix
+  squared and scatters the parts. It throws rather than skipping, because a silent skip would leave
+  a mesh in the wrong space and resurface later as a subtler misplacement.
+
+### Changed
+
+- `docs/pipelines/character-rigging-animation-1.5.2.md` §R0.1 carried a claim that did not
+  reproduce. It cited the Lee Sin rig for "clips target technical nodes that are not joints";
+  re-measured on that asset, **all 1,353 channels across all 11 clips target deform joints and zero
+  target technical nodes.** The rule stands — it is what keeps the skin's index space intact — but
+  it is now stated as the risk it guards against rather than as an observation, and
+  `deformVsTechnical` reports the real count per asset.
+
+## [1.5.2] — 2026-08-25
+
+**Theme: a clip that exists is not a clip that plays.** Rigging failures in 1.5.1 were not "the
+animation looks slightly wrong" — they were total and silent: eleven clips held actions, the mixer
+held state, buttons dispatched, nothing moved. Two separate bugs each produced a plausible scene
+with zero motion, and neither was visible in code review. This release turns the pipeline distilled
+from that build into executable modules and gates.
+
+### Added
+
+**The animation pipeline — `forge/stage5_rig/`**
+- `clip_features.py`: the §1 measurement vocabulary (duration, travel, rise, speed, handRange,
+  footRange, headRise, scaleDelta, poseReturn) sampled at N = 25, the §2 classifier, §3 naming with
+  the `inferred` honesty flag, and the §4 loop rule. `scaleDelta` is a tripwire, not a descriptor:
+  a non-zero value means the source rig scales joints, which changes what R2 may legally do to skin
+  weights, and it is surfaced before anything else proceeds.
+- **The loop rule is corrected, and the old one is pinned as a regression test.** 1.5.1 used "a clip
+  that neither travels nor rises can repeat seamlessly", which contradicted its own data —
+  `idle-gesture` travels 0.121H, six times the idle threshold, and is correctly loopable. Loop is
+  now `poseReturn ≤ 0.5°` **and** `‖hip(T) − hip(0)‖ ≤ 0.01H`. A host that cannot measure
+  `poseReturn` gets `loop = None`, never a defaulted `false` — "measured, does not loop" and
+  "nobody looked" are different answers.
+- `skin_conditioning.py`: proximity weight blending for characters built from overlapping parts.
+  Dense accumulation before mixing, buffered writes so the result is order-independent, a uniform
+  grid hash at one cell per radius (≤ 27 buckets per query), and interior vertices left
+  bit-identical. Coincidence-welding is kept as an executed negative result: it closes one crack and
+  leaves 28 frames cracked, because adjacent parts overlap rather than share a rim.
+- The R2 trade is stated wherever it runs rather than buried: blending closes holes (974 px in 30
+  blobs → 287 px in 15) and makes creases ~16% worse (31,316 px → 36,470 px). A hole shows the
+  background, a crease shows skin. A later stage must not "fix" the crease count by disabling it.
+- `action_design.py`: §R4 target bands, topology-driven chain resolution (arms, legs and spine
+  resolved without reading a single joint name), the medial/lateral gate that catches a mirrored
+  rig, gait as a phase machine with real stance/swing intervals, and `foot_slide` — the gate that
+  catches a gait reading as "floaty" or "skating" while being hard to name by eye.
+- `rig_gates.py`: the G1–G10 runner. **A gate whose input is absent reports `unevaluated`, never a
+  pass**, and any unevaluated gate makes the whole report not-ok.
+- `emit_animation_runtime.py`: emits the R1/R5 runtime as TypeScript — identity bind in attached
+  mode, display offset from mesh bounds alone, `refreshTickers()` for lazily-built characters, the
+  explode-offset order around the tick loop, and the controller contract. A clip whose loop was
+  never measured emits `LoopOnce` with a comment saying so, never a silent `LoopRepeat`.
+- `docs/pipelines/character-rigging-animation-1.5.2.md` (the derivation and the failure log),
+  `forge/stage5_rig/CONTRACT_1.5.2.md` (module map and payload shape) and
+  `grimoire/readiness/animation_contract.md` (the routing file read at Stage R).
+
+### Fixed
+
+- **§R4's limb bands were unsatisfiable as written, and the implementation proved it.** §1 defines
+  `handRange`/`footRange` as world-space ranges; under that definition a forward-travelling gait
+  gives `footRange ≈ travel` and `handRange ≈ travel + swing`, so no speed lands in the stated
+  `0.15H–0.25H` / `≈ travel/2` bands. The limb bands are hip-relative and now say so; the global
+  features stay world-space, the only frame the §2 classifier is meaningful in.
+- `footRange ≈ travel / 2` compared two different quantities: `travel / 2` is the step length
+  between alternating footfalls, `footRange` is a positional range. The `≈` is read as ±30%.
+
 ## [1.5.1] — 2026-08-22
 
 ### Added

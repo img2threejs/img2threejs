@@ -1,0 +1,20 @@
+[
+  {
+    "id": "image-analysis",
+    "title": "Analyze the image (agent vision, before any script)",
+    "command": "Read grimoire/intake/image_analysis.md and analyze {reference}",
+    "after": []
+  },
+  {
+    "id": "reference-suitability",
+    "title": "Record a pass, conditional, or reject verdict for the reference",
+    "command": "Read grimoire/intake/validation_rubric.md and record a pass, conditional, or reject verdict for {reference}",
+    "after": ["image-analysis"]
+  },
+  {
+    "id": "reference-admission",
+    "title": "Reference admission gate",
+    "command": "python3 forge/stage1_intake/check_reference_admission.py {reference}",
+    "after": ["reference-suitability"]
+  }
+]

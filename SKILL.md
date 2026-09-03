@@ -2,7 +2,7 @@
 name: img2threejs
 description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
 license: Apache-2.0
-version: 1.5.1
+version: 1.5.2
 ---
 
 # img2threejs — Image to procedural Three.js
@@ -62,7 +62,7 @@ Conversation context is disposable; `.img2threejs/state.json` is the local check
 Initialize once per reconstruction, then gate every step through it:
 
 ```bash
-python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|installed-domain> --spec object-sculpt-spec.json
+python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|character|animated-character|installed-domain> --spec object-sculpt-spec.json
 python3 forge/next.py --state .img2threejs/state.json [object-sculpt-spec.json]
 python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence <path>
 ```
@@ -73,12 +73,17 @@ python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence
 - Every completed step needs evidence; mark a non-applicable step `skipped` only with `--reason` —
   silent omission is forbidden. Loop counts derive from `reviewHistory` actions
   (`refine-spec`/`refine-code`), not agent memory. Defaults: 3 corrections per pass, 6 total.
-- A domain profile's steps, gates and reference material come from its **installed plugin**, not
-  from this checkout; with no plugin installed only `generic` is available and `forge/state.py init`
-  names what is. A profile adds mandatory gates without changing the core order -- a domain plugin
-  typically requires an authoritative classification, an intake manifest, and a machine-readable
-  domain review before AI review; `character` requires the character
-  contracts and landmark evidence. Every profile records suitability, projection applicability, and
+- A domain profile's steps, gates and reference material come from the **registry**: in-repo
+  modules (`character`, `animated-character`) and installed plugins register identically, and
+  `forge/state.py init` names what is available. A profile adds mandatory gates without changing
+  the core order -- a domain plugin typically requires an authoritative classification, an intake
+  manifest, and a machine-readable domain review before AI review; `character` requires the
+  character contracts and landmark evidence; `animated-character` adds all of `character` plus the
+  nine Stage R steps (`grimoire/readiness/animation_contract.md`). Pick it whenever the rig must
+  MOVE — on `character` the Stage R gates are absent and the build completes without ever running
+  them, which is how animation used to ship broken. Its order is load-bearing: repair the mesh,
+  freeze it, bind additively, then verify parity. Every profile records suitability, projection
+  applicability, and
   material-evidence applicability. The state file is a resumability index, not visual evidence:
   renders, specs, review history, and deterministic gates remain the authoritative artifacts.
 
@@ -294,6 +299,11 @@ attachment, material, detail inventory, rig payload, character track). In short:
   passes a straight cone occupying roughly the right cells.
 - Character builds validate the rig payload (`stage5_rig/validate_rig_payload.py`) before binding a
   `THREE.Skeleton`; it proves payload integrity only, never pose stress or likeness.
+- A rig that must MOVE runs the animation gates too (`grimoire/readiness/animation_contract.md`,
+  `stage5_rig/rig_gates.py`). A clip that exists is not a clip that plays: only G1
+  (`maxSampledBindingDelta <= 2^-23`) separates the two, and a gate whose input is missing reports
+  `unevaluated`, never a pass. Bind at IDENTITY in attached mode and take the display offset from
+  the mesh bounds alone; loop is decided by `poseReturn`, never by travel.
 - A domain plugin's review gate also runs against its versioned scene fixture.
 - Local state enforces 3 corrections per pass and 6 total by default; reaching either limit is a
   hard stop. `correction_loop.py` may stop earlier on repeated defects, oscillation, or plateau.

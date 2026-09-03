@@ -16,6 +16,8 @@ Optional keys, each defaulting to "contributes nothing":
     passSteps           ((step_id, command), ...) spliced into every correction pass
     passAnchorBefore    base step id to splice before; required when passSteps is non-empty
     specCollection      an extra local-evidence collection to search
+    rigSteps            ((step_id, command), ...) appended after the FINAL steps as the rig track;
+                        no anchor -- the rig phase always follows the terminal steps (v1.5.2)
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ _ALLOWED: Final = {
     "passSteps",
     "passAnchorBefore",
     "specCollection",
+    "rigSteps",
 }
 
 
@@ -134,7 +137,7 @@ def _installed_plugin_domains() -> list[tuple[Path, Any]]:
         # is resolved here, the same substitution the harness performs, so a checklist command a
         # plugin supplied is runnable from the workspace without the caller knowing where it lives.
         plugin_dir = str(declaration.parent)
-        for key in ("setupSteps", "passSteps"):
+        for key in ("setupSteps", "passSteps", "rigSteps"):
             if key in entry:
                 try:
                     entry[key] = tuple(

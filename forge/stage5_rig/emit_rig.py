@@ -281,6 +281,12 @@ export function createRigMilestone0() {
   // world space, which requires the root bone to be a child of the mesh, not
   // a sibling. Learned from createRiggedDragon.ts (`body.add(bones.root)`).
   mesh.add(root);
+  // The bones are now in REST position. updateMatrixWorld() before constructing the
+  // Skeleton is load-bearing: calculateInverses() reads each bone's CURRENT world matrix,
+  // and those inverses are what cancel the rest pose during skinning. Constructed before
+  // this call it captures identity matrices, the rest pose never cancels, and every
+  // vertex is displaced by its bone's offset at rest.
+  mesh.updateMatrixWorld(true);
   const skeleton = new THREE.Skeleton(BONE_IDS.map((id) => bones[id]));
   mesh.bindMode = THREE.AttachedBindMode;
   mesh.bind(skeleton);

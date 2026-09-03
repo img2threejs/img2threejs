@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "name": "img2threejs-lab",
+  "version": "0.0.1",
+  "description": "LAB ONLY. The img2threejs pipeline under experiment as plugin rows. Never install alongside the real skill.",
+  "capabilities": [{ "from": "image", "to": "threejs-code-lab" }],
+  "requires": { "harness": ">=0.2.0", "coreApi": 1 }
+}
