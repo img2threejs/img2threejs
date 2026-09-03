@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 broke meshes because no step in the workflow forbade it and no gate could tell a rigged mesh from a
 damaged one. This closes the loop between the gates and the pipeline that is supposed to enforce them.
 
-### Added
+### Added (rigging and animation workflow, merged from main)
 
 - **`animated-character` workflow profile** (now `forge/_shared/domains/animated_character.py` --
   ported from the hardcoded `RIG_STEPS` into the domain registry when this branch merged v1.5.2;

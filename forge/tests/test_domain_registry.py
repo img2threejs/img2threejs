@@ -41,9 +41,9 @@ class Registry(unittest.TestCase):
         # happens to have under ~/.img2 -- the old form of this test asserted the INSTALLED cs2
         # plugin and was green or red depending on the machine, which is what turned CI red.
         with self._temp_img2_home({}):
-            self.assertEqual(sorted(registered_domains()), ["character"])
+            self.assertEqual(sorted(registered_domains()), ["animated-character", "character"])
         with self._temp_img2_home({"fixture-plugin": {"id": "fixture-dom"}}):
-            self.assertEqual(sorted(registered_domains()), ["character", "fixture-dom"])
+            self.assertEqual(sorted(registered_domains()), ["animated-character", "character", "fixture-dom"])
 
     def test_an_unregistered_profile_fails_loud_and_names_what_is_available(self) -> None:
         with self.assertRaises(DomainRegistryError) as ctx:

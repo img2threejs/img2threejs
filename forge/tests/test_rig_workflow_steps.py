@@ -17,15 +17,39 @@ Pure Python 3.10+ stdlib.
 
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "_shared"))
 
+# Profiles resolve through the domain registry, which reads installed plugins from IMG2_HOME.
+# Pinned to an empty temp home so a developer's real ~/.img2 (malformed or colliding domain.json)
+# can never fail these tests -- the test_search_specs.py pattern.
+_TMP_HOME: tempfile.TemporaryDirectory | None = None
+_OLD_HOME: str | None = None
+
+
+def setUpModule() -> None:
+    global _TMP_HOME, _OLD_HOME
+    _TMP_HOME = tempfile.TemporaryDirectory()
+    _OLD_HOME = os.environ.get("IMG2_HOME")
+    os.environ["IMG2_HOME"] = _TMP_HOME.name
+
+
+def tearDownModule() -> None:
+    if _OLD_HOME is None:
+        os.environ.pop("IMG2_HOME", None)
+    else:
+        os.environ["IMG2_HOME"] = _OLD_HOME
+    if _TMP_HOME is not None:
+        _TMP_HOME.cleanup()
+
+from domains.animated_character import DOMAIN as ANIMATED_CHARACTER  # noqa: E402
 from workflow_state import (  # noqa: E402
-    RIG_STEPS,
     WorkflowStateError,
     new_state,
     next_entry,
@@ -46,7 +70,7 @@ class AnimatedCharacterProfile(unittest.TestCase):
         self.assertEqual(self.state["profile"], "animated-character")
 
     def test_every_rig_step_reaches_the_checklist(self) -> None:
-        self.assertEqual(rig_ids(self.state), [step_id for step_id, _command in RIG_STEPS])
+        self.assertEqual(rig_ids(self.state), [step_id for step_id, _command in ANIMATED_CHARACTER["rigSteps"]])
 
     def test_it_keeps_the_character_steps_too(self) -> None:
         """An animated character is still a character; the anatomy contract must not be lost."""
@@ -137,7 +161,7 @@ class TheDispatcherActuallyReachesThem(unittest.TestCase):
 
     def test_every_rig_step_is_actually_dispatched(self) -> None:
         dispatched, _state = self.drain("animated-character")
-        self.assertEqual(dispatched, [step_id for step_id, _command in RIG_STEPS])
+        self.assertEqual(dispatched, [step_id for step_id, _command in ANIMATED_CHARACTER["rigSteps"]])
 
     def test_the_build_is_not_complete_while_a_rig_step_is_pending(self) -> None:
         """The exact bug: `complete` was reached with all nine rig steps still pending."""
@@ -170,13 +194,13 @@ class TheDispatcherActuallyReachesThem(unittest.TestCase):
         """Invisible in status output is unreachable in practice: nobody knows to run them."""
         state = new_state("subject.glb", profile="animated-character", spec="spec.json")
         pending = status_payload(state)["pending"]
-        for step_id, _command in RIG_STEPS:
+        for step_id, _command in ANIMATED_CHARACTER["rigSteps"]:
             self.assertIn(step_id, pending)
 
 
 class StepsNameTheirTooling(unittest.TestCase):
     def setUp(self) -> None:
-        self.commands = dict(RIG_STEPS)
+        self.commands = dict(ANIMATED_CHARACTER["rigSteps"])
 
     def test_each_gate_step_names_the_script_that_runs_it(self) -> None:
         for step_id, script in (
