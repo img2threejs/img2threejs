@@ -443,7 +443,9 @@ class DenseEvidenceDocumentationTest(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertRegex(
                     path.read_text(encoding="utf-8").splitlines()[0],
-                    r"^> Last updated: 2026-09-01 \d{2}:\d{2}$",
+                    # the contract is "starts with a dated Last-updated line", not a
+                    # specific day: these files keep being updated after this feature
+                    r"^> Last updated: \d{4}-\d{2}-\d{2} \d{2}:\d{2}$",
                 )
 
     def test_public_docs_do_not_claim_trellis_generates_final_factory(self) -> None:

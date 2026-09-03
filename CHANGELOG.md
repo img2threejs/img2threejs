@@ -1,4 +1,4 @@
-> Last updated: 2026-09-02 00:05
+> Last updated: 2026-09-03 10:40
 
 # Changelog
 
@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `validate_sculpt_spec.py` that flags implausible parent-local offsets as quality warnings —
   errors under `--strict-quality` — so an object-frame spec is caught at validation time instead
   of rendering as floating parts.
+- Resolve reference PBR maps through a servable `url` only: the extractor's authoring-machine
+  `path` is provenance, and falling back to it produced textures that never loaded (every
+  material white). A map with a path and no url now takes the procedural route
+  (`test_reference_map_url.py`).
 - Emit instanced repetition-system geometry at the LOW tessellation tier: an instanced
   micro-part never deforms or subdivides, and hero-tier instances multiplied a curb ring of
   cubes into 44,928 triangles — half a diorama's budget (focused tests in

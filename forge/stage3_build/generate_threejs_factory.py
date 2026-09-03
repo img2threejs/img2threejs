@@ -3205,7 +3205,12 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
         "  const map = (maps as Record<string, unknown>)[channel];",
         "  if (!map || typeof map !== 'object') return null;",
         "  const record = map as Record<string, unknown>;",
-        "  const url = typeof record.url === 'string' && record.url.trim() ? record.url : record.path;",
+        # Only a servable `url` can back a texture. `path` is where the extractor wrote the
+        # evidence on the authoring machine -- provenance, never an asset the browser can
+        # fetch. Falling back to it produced a set of textures that never loaded, so every
+        # material rendered white (color forced to 0xffffff with roughness 1). A map with a
+        # path and no url is a deliberately unshipped map: take the procedural route.
+        "  const url = typeof record.url === 'string' && record.url.trim() ? record.url : null;",
         "  return typeof url === 'string' && url.trim() ? url : null;",
         "}",
         "",
