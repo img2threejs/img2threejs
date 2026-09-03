@@ -99,6 +99,24 @@ class Registry(unittest.TestCase):
                 )
         self.assertIn("declared twice", str(ctx.exception))
 
+    def test_a_broken_registry_degrades_the_state_cli_instead_of_killing_it(self) -> None:
+        """extract-animated-character D8: state.py builds its --profile choices from
+        registered_domains() at argparse-construction time, which every subcommand runs. A registry
+        collision (a plugin claiming an in-repo id) must degrade init's choices to generic-only,
+        not take `status`/`mark` down for every profile on the machine -- the same hazard shape
+        targets.py:14-19 documents avoiding."""
+        import subprocess
+        import sys as _sys
+        with self._temp_img2_home({"dupe": {"id": "character"}}):
+            env = dict(os.environ)
+            proc = subprocess.run(
+                [_sys.executable, str(ROOT.parent / "forge" / "state.py"), "init", "--help"],
+                capture_output=True, text=True, env=env, cwd=ROOT.parent,
+            )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("--profile {generic}", proc.stdout)
+        self.assertNotIn("declared twice", proc.stderr)
+
     @contextlib.contextmanager
     def _temp_img2_home(self, plugins: dict[str, dict]):
         """A disposable $IMG2_HOME holding exactly `plugins` ({registry_id: domain_entry})."""
