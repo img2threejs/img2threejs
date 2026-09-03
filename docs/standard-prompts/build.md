@@ -18,7 +18,7 @@ Rebuild the subject in this reference as a procedural Three.js model, using img2
 - Reference:      <ABSOLUTE_PATH_TO_IMAGE>
 - Subject name:   <SubjectName>
 - Demo id:        <subject-id>
-- Profile:        <character | animated-character | object>
+- Profile:        <character | animated-character (requires plugin-character installed) | object>
 - Real longest dimension: <e.g. 1.70 m>   # sanity-checks scale; never used to scale
 
 ## Step 0 — Can this subject be built at all?

@@ -212,6 +212,64 @@ class UninvolvedPluginRunsNone(RunGatesTestBase):
         self.assertEqual(results, {})
 
 
+class RigDomainsAreNotDueUntilTheRigTrackBegins(RunGatesTestBase):
+    """extract-animated-character D1: the gate sweep at plugin-gates (FINAL scope) runs before the
+    rig scope, and a rig domain's gate inputs are produced by rig steps -- participation on the
+    strength of done SETUP steps fired the blocking gate one whole phase early, against a payload
+    nothing had produced yet (machine-proven in review)."""
+
+    def _write_rig_domain(self, plugin_id: str) -> None:
+        (self.home / "plugins" / plugin_id / "domain.json").write_text(json.dumps({
+            "id": "rig-dom",
+            "setupSteps": [["rig-dom-setup", "Read {plugin_dir}/contract.md completely"]],
+            "setupAnchorBefore": "local-spec-search",
+            "rigSteps": [["rig-dom-track", "Run python3 {plugin_dir}/tools/track.py --payload p.json"]],
+        }), encoding="utf-8")
+
+    def _state_with(self, done_ids: list[str]) -> dict:
+        state = _action_ready_state(self.workspace, self.spec_path, profile="rig-dom")
+        for entry in state["checklist"]:
+            entry["status"] = "done" if entry["id"] in done_ids else "pending"
+        from workflow_state import save_state
+        save_state(self.workspace / ".img2threejs" / "state.json", state)
+        return state
+
+    def test_setup_steps_alone_do_not_involve_a_rig_domain(self):
+        _write_gated_plugin(
+            self.home, "rigged",
+            gate_body=PASS_GATE.format(gate_id="rigged-gate", plugin_id="rigged"),
+        )
+        self._write_rig_domain("rigged")
+        state = self._state_with(["rig-dom-setup", "action-ready"])
+        self.assertFalse(run_gates.plugin_contributed_a_step(state, "rigged", self.home))
+
+    def test_a_done_rig_step_makes_the_domain_due(self):
+        _write_gated_plugin(
+            self.home, "rigged",
+            gate_body=PASS_GATE.format(gate_id="rigged-gate", plugin_id="rigged"),
+        )
+        self._write_rig_domain("rigged")
+        state = self._state_with(["rig-dom-setup", "rig-dom-track", "action-ready"])
+        self.assertTrue(run_gates.plugin_contributed_a_step(state, "rigged", self.home))
+
+    def test_a_domain_without_rig_steps_keeps_the_old_rule(self):
+        _write_gated_plugin(
+            self.home, "plain",
+            gate_body=PASS_GATE.format(gate_id="plain-gate", plugin_id="plain"),
+        )
+        (self.home / "plugins" / "plain" / "domain.json").write_text(json.dumps({
+            "id": "plain-dom",
+            "setupSteps": [["plain-setup", "Read {plugin_dir}/contract.md completely"]],
+            "setupAnchorBefore": "local-spec-search",
+        }), encoding="utf-8")
+        state = _action_ready_state(self.workspace, self.spec_path, profile="plain-dom")
+        for entry in state["checklist"]:
+            entry["status"] = "done" if entry["id"] == "plain-setup" else "pending"
+        from workflow_state import save_state
+        save_state(self.workspace / ".img2threejs" / "state.json", state)
+        self.assertTrue(run_gates.plugin_contributed_a_step(state, "plain", self.home))
+
+
 class ParticipationLookupFailureFailsLoudNotOpen(RunGatesTestBase):
     """A DomainRegistryError during the participation check used to be swallowed as "uninvolved",
     which silently skipped a blocking gate whose domain steps had actually run -- fail-open in the

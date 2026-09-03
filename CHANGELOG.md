@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — BREAKING
 
+- **`animated-character` is served by the installed plugin-character** (`img2 add
+  img2threejs/plugin-character`, requires harness >= 0.2.3). The in-repo domain module is removed;
+  without the plugin the profile fails loud naming what is available, and an in-flight workspace is
+  refused while the provider is absent, resuming unchanged on reinstall. Persisted checklists do NOT
+  migrate: a workspace initialized before the switch keeps base `forge/stage5_rig/...` commands and
+  runs the base library copies -- re-init to adopt the plugin's steps. Gate participation is now
+  rig-aware: a domain declaring `rigSteps` is not due until its rig track begins, so the plugin-gates
+  sweep no longer fires a rig gate one phase early. `state.py` degrades to generic-only profile
+  choices when the registry itself is broken instead of dying for every profile.
+
 - **A domain is no longer inferred from the target's name.** `detect_cs2_intent` and its 17-keyword
   table (including bare `"fade"` and `"karambit"`) are removed, so a target called
   `"AK-47 | Redline"` or `"Karambit Doppler"` no longer identifies itself as CS2 — it resolves to the

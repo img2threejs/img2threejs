@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "_shared"))
 
-from domains import registered_domains  # noqa: E402
+from domains import DomainRegistryError, registered_domains  # noqa: E402
 from workflow_state import (  # noqa: E402
     WorkflowStateError,
     load_state,
@@ -29,7 +29,15 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--reference", required=True)
     # Choices come from the registry, so installing a domain makes its profile available here without
     # editing the base CLI. new_state() re-checks and names the available set on a bad value.
-    init.add_argument("--profile", choices=("generic", *sorted(registered_domains())), default="generic")
+    # Guarded: registered_domains() at argparse-construction time is exactly the shape targets.py
+    # documents avoiding -- a broken registry (e.g. a duplicate domain id during a half-applied
+    # extraction) must degrade THIS parser to generic-only choices, not kill `status`/`mark` for
+    # every profile on the machine. new_state() then reports the real registry error.
+    try:
+        profile_choices = ("generic", *sorted(registered_domains()))
+    except DomainRegistryError:
+        profile_choices = ("generic",)
+    init.add_argument("--profile", choices=profile_choices, default="generic")
     init.add_argument("--spec", default="")
     init.add_argument("--max-per-pass", type=int, default=3)
     init.add_argument("--max-total", type=int, default=6)

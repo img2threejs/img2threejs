@@ -109,6 +109,14 @@ def domain_step_ids(profile: str, home: Path) -> tuple[str, ...]:
     return setup + passes
 
 
+def domain_rig_step_ids(profile: str, home: Path) -> tuple[str, ...]:
+    """The rig-track step ids a domain declares, or () when it declares none."""
+    domain = domain_profile(profile)
+    if domain is None:
+        return ()
+    return tuple(step_id for step_id, _ in (domain.get("rigSteps") or ()))
+
+
 def domain_owner_plugin(profile: str, home: Path) -> str | None:
     """The registry plugin id that owns this domain profile, derived from the REGISTRY LAYOUT
     itself rather than assumed. Each installed plugin's domain declaration lives at
@@ -167,7 +175,16 @@ def plugin_contributed_a_step(state: dict[str, Any], plugin_id: str, home: Path)
     profile = state.get("profile")
     if profile and domain_owner_plugin(profile, home) == plugin_id:
         by_id = {entry["id"]: entry for entry in state.get("checklist", [])}
-        if any(
+        rig_ids = domain_rig_step_ids(profile, home)
+        if rig_ids:
+            # Rig-aware participation (extract-animated-character, D1): a domain that declares a
+            # rig track is not DUE until that track has begun. The gate sweep at plugin-gates runs
+            # in the FINAL scope, strictly before the rig scope, and a rig domain's gate inputs are
+            # produced by rig steps -- sweeping it on the strength of done SETUP steps fired the
+            # gate one whole phase early, against a payload nothing had produced yet.
+            if any(by_id.get(step_id, {}).get("status") == "done" for step_id in rig_ids):
+                return True
+        elif any(
             by_id.get(step_id, {}).get("status") == "done"
             for step_id in domain_step_ids(profile, home)
         ):

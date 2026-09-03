@@ -142,7 +142,12 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage1_intake/run_vision_adapter.py` | Invoke optional isolated SAM2, MediaPipe, and Depth Anything evidence adapters. |
 | `stage3_build/bake_projected_texture.py` | Emit a projection/UV-bake descriptor for photo-texture projection. |
 
-### Character rig — `stage5_rig/`
+### Character rig — `stage5_rig/` (library; the checklist authority is plugin-character)
+
+The `animated-character` checklist steps and the rigging gate are served by the installed
+plugin-character (`extract-animated-character`); the modules below remain in-repo as the library
+the emitters import (`rig_spec` in the factory) and as reference implementations with their own
+tests.
 
 | Script | Role |
 | --- | --- |
