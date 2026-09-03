@@ -146,6 +146,25 @@ class PipelineRoutingTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertNotIn("pipelineRouting", spec)
 
+    def test_cs2_contract_accepts_any_item_family(self) -> None:
+        # The knife-only family gate lived on in the base validator after cs2_manifest.py removed
+        # its four plugin-side copies -- every non-knife CS2 item failed strict validation with
+        # "requires the registered knife adapter". Found by a live MP9 run (test-e2e-02).
+        from forge.stage2_spec.validate_sculpt_spec import validate_cs2_contract
+
+        errors: list[str] = []
+        warnings: list[str] = []
+        spec = {
+            "cs2Intake": {
+                "itemFamily": "smg",
+                "route": "procedural-finish",
+                "exactnessTier": "metadata-assisted",
+            }
+        }
+        validate_cs2_contract(spec, errors, warnings)
+        self.assertNotIn("cs2Intake requires the registered knife adapter", errors)
+        self.assertEqual([e for e in errors if "knife" in e], [])
+
 
 if __name__ == "__main__":
     unittest.main()

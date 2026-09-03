@@ -861,8 +861,12 @@ def validate_cs2_contract(spec: dict[str, Any], errors: list[str], warnings: lis
         errors.append("cs2Intake.route must be a supported CS2 route")
     if tier not in CS2_EXACTNESS_TIERS:
         errors.append("cs2Intake.exactnessTier must be a supported exactness tier")
-    if intake.get("itemFamily") != "knife":
-        errors.append("cs2Intake requires the registered knife adapter")
+    # No family gate here. The base names no domain (SKILL.md, "Domain plugins"), and the CS2
+    # plugin serves any CS2 item: only the component *tree* is family-specific, and its absence is
+    # recorded as geometrySource=agent-inferred rather than making the spec invalid. This was the
+    # fifth place the knife-only restriction was enforced -- cs2_manifest.py removed the other four
+    # and says so in a comment -- but this copy lived in the base, so every non-knife CS2 item was
+    # still blocked at strict validation.
     if route == "reference-projection":
         camera = spec.get("referenceCamera")
         source = intake.get("deLitAlbedo") or intake.get("sourceImage")
