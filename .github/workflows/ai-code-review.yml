@@ -1,0 +1,60 @@
+name: AI Repository-Aware Code Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ai-code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # This workflow is intentionally advisory during the trial period.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Only the trusted base branch is checked out. Never replace this ref with
+      # github.event.pull_request.head.sha and never execute PR-controlled code here.
+      - name: Checkout trusted base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Run repository-aware AI review
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_REVIEW_API_KEY: ${{ secrets.AI_REVIEW_API_KEY }}
+          AI_REVIEW_BASE_URL: ${{ vars.AI_REVIEW_BASE_URL }}
+          AI_REVIEW_ENDPOINT: ${{ vars.AI_REVIEW_ENDPOINT }}
+          AI_REVIEW_CHAT_PATH: ${{ vars.AI_REVIEW_CHAT_PATH || '/chat/completions' }}
+          AI_REVIEW_MODEL: ${{ vars.AI_REVIEW_MODEL }}
+          AI_REVIEW_API_KEY_HEADER: ${{ vars.AI_REVIEW_API_KEY_HEADER || 'Authorization' }}
+          AI_REVIEW_API_KEY_PREFIX: ${{ vars.AI_REVIEW_API_KEY_PREFIX || 'Bearer' }}
+          AI_REVIEW_MAX_TOKENS: ${{ vars.AI_REVIEW_MAX_TOKENS || '3500' }}
+          AI_REVIEW_TIMEOUT: ${{ vars.AI_REVIEW_TIMEOUT || '90' }}
+        run: >-
+          python3 scripts/ai_pr_review.py
+          --repo "${{ github.repository }}"
+          --head-repo "${{ github.event.pull_request.head.repo.full_name }}"
+          --pr "${{ github.event.pull_request.number }}"
+          --base-sha "${{ github.event.pull_request.base.sha }}"
+          --head-sha "${{ github.event.pull_request.head.sha }}"
+          --workspace .
+          --output "$RUNNER_TEMP/ai-review.json"
+
+      - name: Upload review result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/ai-review.json
+          if-no-files-found: ignore
+          retention-days: 7
