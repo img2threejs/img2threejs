@@ -15,6 +15,7 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 [![Tooling](https://img.shields.io/badge/tooling-Python%203.10%2B%20stdlib-3776ab.svg)](forge)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Buy%20Me%20A%20Coffee-FFDD00.svg?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/hoainhowors)
 [![Scripts](https://img.shields.io/badge/scripts-forge%20%2F%20scripts-3776ab.svg)](scripts)
+[![Sponsored by MiniMax](https://img.shields.io/badge/Sponsored%20by-MiniMax-000000.svg?labelColor=1a1a1a&logo=MiniMax&logoColor=white)](https://platform.minimax.io/subscribe/token-plan)
 [![Sponsored by Atlas Cloud](https://img.shields.io/badge/Sponsored%20by-Atlas%20Cloud-000000.svg?labelColor=1a1a1a&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4NDUuOTUgNzkyIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNzEyLjA1LDU5NC4zTDQyMi45OCwxNS40NiwxMzMuOSw1OTQuM2wtOTEuMDEsMTgyLjI1YzU3LjE4LTM0LjU1LDExOS40OS02MS40LDE4NS40NC03OS40NSw2Mi4wMi0xNi45NywxMjcuMjQtMjYuMjEsMTk0LjY1LTI2LjIxLDM0LjY5LDAsNjguNzksMi40OSwxMDIuMTksNy4xOGwtNjUuNzItMTQxLjc2Yy0xOC42MS0zLjIzLTEwMS4yOC0zLjIzLTE2MS44Myw5Ljg0bDEyNS4zNi0yNzMuMTYsMTk0LjY1LDQyNC4xMmMuMzUuMS42OS4yMSwxLjAzLjMsNjUuNTcsMTguMDQsMTI3LjUzLDQ0Ljc4LDE4NC40MSw3OS4xNGwtOTEuMDEtMTgyLjI1WiIvPjwvc3ZnPg%3D%3D)](https://www.atlascloud.ai/console/coding-plan)
 
 <table align="center">
@@ -305,6 +306,16 @@ VietQR / MoMo / PayPal also work — see the [donate page](https://img2threejs.g
 ---
 
 ## Sponsors
+
+<a href="https://platform.minimax.io/subscribe/token-plan" target="_blank" rel="noopener noreferrer">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/sponsors/minimax-logomark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/sponsors/minimax-logomark.svg" />
+    <img alt="MiniMax" src="assets/sponsors/minimax-logomark.svg" width="120" height="100" />
+  </picture>
+</a>
+
+**[MiniMax](https://platform.minimax.io/subscribe/token-plan)** is a global AI foundation model company founded in early 2022, committed to advancing the frontiers of AI towards AGI under the mission "Intelligence with Everyone." MiniMax has independently developed a family of multimodal foundation models with strong code and agent capabilities plus ultra-long context processing — spanning text, audio, image, video, and music. The same company publishes [MiniMax Code](https://code.minimax.io), [MiniMax Design](https://design.minimax.io/), [MiniMax Audio](https://www.minimax.io/audio) and [Talkie](https://www.talkie-ai.com/), and serves a token-plan API platform for developers and enterprises at <https://platform.minimax.io/subscribe/token-plan>. Check the token plan for budget-friendly access to the M3, M2.7, M2.5, H3, Speech 2.8 and Music 3.0 model families.
 
 <a href="https://www.atlascloud.ai/console/coding-plan" target="_blank" rel="noopener noreferrer">
   <picture>
