@@ -145,6 +145,7 @@ class GradientEmission(unittest.TestCase):
 
 class EmittedSourceTypechecks(unittest.TestCase):
     def test_a_factory_with_hair_shading_typechecks(self) -> None:
+        import shutil  # noqa: PLC0415
         import subprocess  # noqa: PLC0415
 
         sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -159,7 +160,11 @@ class EmittedSourceTypechecks(unittest.TestCase):
         try:
             destination.write_text(source, encoding="utf-8")
             result = subprocess.run(
-                ["npx", "tsc", "--noEmit"], cwd=root, capture_output=True, text=True, check=False
+                [(shutil.which("npx") or "npx"), "tsc", "--noEmit"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         finally:

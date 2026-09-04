@@ -10,6 +10,7 @@ Run: python3 forge/tests/test_stand_proud_emission.py
 """
 import json
 import math
+import shutil
 import subprocess
 import sys
 import unittest
@@ -422,7 +423,7 @@ class EmittedSourceTypechecks(unittest.TestCase):
         try:
             destination.write_text(source, encoding="utf-8")
             result = subprocess.run(
-                ["npx", "tsc", "--noEmit"], cwd=root, capture_output=True, text=True, check=False
+                [(shutil.which("npx") or "npx"), "tsc", "--noEmit"], cwd=root, capture_output=True, text=True, check=False
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         finally:

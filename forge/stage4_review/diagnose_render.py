@@ -15,6 +15,12 @@ coordinates, which the pipeline does not yet track). This is a coarser signal
 than the plan's ideal, but per Risk R7, Tier 1 only needs to be discriminative
 enough to catch gross mismatches, not pixel-perfect — documented here rather
 than silently overclaimed.
+
+That limitation lifts when the viewer publishes per-part `samplePoints` in its
+part manifest: pass `--parts-manifest` and each component is measured from its
+own pixels instead of the whole render's clusters. Every entry says which method
+produced it, so a number from the coarse path can never be mistaken for the
+precise one.
 """
 
 from __future__ import annotations
@@ -182,10 +188,64 @@ def bilateral_symmetry_error(mask: list[bool], size: int = MASK_GRID_SIZE) -> fl
     return mismatches / total if total else 0.0
 
 
-def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> dict[str, Any]:
-    """Compares each component's colorMaterialRecipe against the render's overall
-    dominant Lab-space color clusters (see module docstring for the per-component-
-    region scope limitation). Returns per-recipe delta-E and a pass/fail summary."""
+# Fewer sample points than this and a part's median colour is not evidence about the part: a
+# handful of pixels on a 2 mm pin ring is mostly antialiasing against whatever sits behind it.
+MIN_PART_SAMPLES = 12
+
+
+def median_lab(labs: list[tuple[float, float, float]]) -> tuple[float, float, float]:
+    """Per-channel median; robust to the minority of samples that land on an occluding part."""
+    channels: list[float] = []
+    for axis in range(3):
+        values = sorted(lab[axis] for lab in labs)
+        channels.append(values[len(values) // 2])
+    return (channels[0], channels[1], channels[2])
+
+
+def load_part_samples(manifest_path: Path) -> dict[str, list[tuple[int, int]]]:
+    """Per-part screen-space sample points from a viewer part manifest.
+
+    The manifest is the same runtime dump `check_part_coverage.py` reads. When the viewer
+    also publishes `samplePoints` per part -- render-pixel [x, y] positions of that part's
+    front-facing, unoccluded vertices under the capture camera -- the colour check can read
+    the part's OWN pixels instead of guessing from the whole render's dominant clusters, which
+    a part covering 0.3% of the frame (a brass collar, a printed border) can never form.
+    Both `id` and `name` key the same list so either side of the spec/model naming resolves.
+    """
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    samples: dict[str, list[tuple[int, int]]] = {}
+    parts = payload.get("parts", []) if isinstance(payload, dict) else []
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        points = part.get("samplePoints")
+        if not isinstance(points, list):
+            continue
+        cleaned = [
+            (int(point[0]), int(point[1]))
+            for point in points
+            if isinstance(point, (list, tuple))
+            and len(point) >= 2
+            and all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in point[:2])
+        ]
+        for key in (part.get("id"), part.get("name")):
+            if isinstance(key, str) and key.strip():
+                samples[key] = cleaned
+    return samples
+
+
+def per_part_color_delta(
+    recipes: list[dict[str, Any]],
+    render_path: Path,
+    part_samples: dict[str, list[tuple[int, int]]] | None = None,
+) -> dict[str, Any]:
+    """Compare each component's colorMaterialRecipe against the render.
+
+    With `part_samples` (see `load_part_samples`) a recipe whose component has at least
+    MIN_PART_SAMPLES visible points is measured from those points' median Lab. Everything
+    else keeps the original behaviour -- the nearest of the render's dominant clusters --
+    and every entry records which method produced its number.
+    """
     if not recipes:
         return {"checked": 0, "maxDeltaE": 0.0, "perComponent": []}
     width, height, pixels, _warnings = load_image(render_path)
@@ -203,10 +263,32 @@ def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> di
         except (ValueError, IndexError):
             continue
         expected_lab = srgb_to_lab((r, g, b))
-        best_delta = min((lab_distance(expected_lab, c["center"]) for c in clusters), default=999.0)
-        results.append({"componentId": recipe.get("componentId"), "deltaE": round(best_delta, 2)})
+        component_id = recipe.get("componentId")
+        points = (part_samples or {}).get(str(component_id), []) if component_id is not None else []
+        sampled: list[tuple[float, float, float]] = []
+        for x, y in points:
+            if 0 <= x < width and 0 <= y < height:
+                sr, sg, sb, _sa = pixels[y * width + x]
+                sampled.append(srgb_to_lab((sr, sg, sb)))
+        if len(sampled) >= MIN_PART_SAMPLES:
+            best_delta = lab_distance(expected_lab, median_lab(sampled))
+            method = "part-samples"
+        else:
+            best_delta = min((lab_distance(expected_lab, c["center"]) for c in clusters), default=999.0)
+            method = "global-cluster"
+        results.append({
+            "componentId": component_id,
+            "deltaE": round(best_delta, 2),
+            "method": method,
+            "sampleCount": len(sampled),
+        })
     max_delta = max((entry["deltaE"] for entry in results), default=0.0)
-    return {"checked": len(results), "maxDeltaE": round(max_delta, 2), "perComponent": results}
+    return {
+        "checked": len(results),
+        "maxDeltaE": round(max_delta, 2),
+        "sampledComponents": sum(1 for entry in results if entry["method"] == "part-samples"),
+        "perComponent": results,
+    }
 
 
 def render_hash(render_path: Path) -> str:
@@ -230,6 +312,7 @@ def run_tier1(
     render_path: Path,
     spec_path: Path | None = None,
     pass_id: str | None = None,
+    parts_manifest: Path | None = None,
 ) -> dict[str, Any]:
     reference_mask, reference_mask_warnings = load_mask(reference_path)
     render_mask, render_mask_warnings = load_mask(render_path)
@@ -274,7 +357,8 @@ def run_tier1(
             for component in spec.get("componentTree", [])
             if isinstance(component, dict) and isinstance(component.get("colorMaterialRecipe"), dict)
         ]
-        color_report = per_part_color_delta(recipes, render_path)
+        part_samples = load_part_samples(parts_manifest) if parts_manifest else None
+        color_report = per_part_color_delta(recipes, render_path, part_samples)
         gated = color_is_gated(pass_id)
         color_report["gated"] = gated
         checks["colorDelta"] = color_report
@@ -318,6 +402,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--out-spec", type=Path, help="Write the spec with the recorded result to this path")
     parser.add_argument("--map-stripped-scene", type=Path, help="Write a scene JSON with material maps disabled")
     parser.add_argument("--map-stripped-render", type=Path, help="Existing unlit/map-stripped render evidence")
+    parser.add_argument(
+        "--parts-manifest",
+        type=Path,
+        help="Viewer part manifest (the check_part_coverage.py dump) whose parts carry samplePoints; "
+             "per-part colour is then read from each part's own pixels instead of global clusters",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
@@ -332,6 +422,7 @@ def main(argv: list[str]) -> int:
             args.render.expanduser().resolve(),
             spec_path,
             args.pass_id,
+            args.parts_manifest.expanduser().resolve() if args.parts_manifest else None,
         )
         if args.pass_id == "blockout":
             if not args.map_stripped_render:

@@ -26,6 +26,7 @@ Pure Python 3.10+ stdlib on this side. No pip installs.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -105,7 +106,7 @@ def compile_generated_module(generated: str, work_dir: Path) -> tuple[subprocess
     source.write_text(generated, encoding="utf-8")
     result = subprocess.run(
         [
-            "npx", "tsc", "--target", "ES2020", "--module", "NodeNext", "--moduleResolution", "NodeNext",
+            (shutil.which("npx") or "npx"), "tsc", "--target", "ES2020", "--module", "NodeNext", "--moduleResolution", "NodeNext",
             "--strict", "--skipLibCheck", "--noUnusedLocals", "--noUnusedParameters",
             "--outDir", str(build_dir), str(source),
         ],

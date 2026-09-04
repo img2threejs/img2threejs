@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -51,7 +52,7 @@ class ShowcaseTscSmokeTest(unittest.TestCase):
 
     def _run_tsc(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["npx", "tsc", "--noEmit"],
+            [(shutil.which("npx") or "npx"), "tsc", "--noEmit"],
             cwd=self.showcase_root,
             capture_output=True,
             text=True,

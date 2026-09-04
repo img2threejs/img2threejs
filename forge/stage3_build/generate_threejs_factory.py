@@ -1004,9 +1004,31 @@ function polygonizeSdf(descriptor: SdfDescriptor): THREE.BufferGeometry {
     }
   }
 
+  // UVs: dominant-axis planar projection at world scale (one tile per unit).
+  //
+  // Surface nets produce no parameterisation, and a textured material on a geometry with NO `uv`
+  // attribute is not merely untextured: three.js derives the tangent frame for `normalMap` from
+  // screen-space UV derivatives, which are zero for a constant UV, so the perturbed normal is NaN
+  // and the whole surface shades black. Measured on the widebody coupe: the implicit body shell
+  // rendered pitch black next to correctly-lit extruded panels of the SAME material, with
+  // outward, unit-length normals -- the geometry was right and the missing attribute was the
+  // defect. Projecting along each vertex's dominant normal axis keeps texel density stable in
+  // world units and matches the `textureProjection.mode: "triplanar"` intent the spec declares;
+  // the seams where the dominant axis flips are a texture discontinuity, never a shading one.
+  const uvs: number[] = [];
+  for (let i = 0; i < positions.length; i += 3) {
+    const ax = Math.abs(normals[i]);
+    const ay = Math.abs(normals[i + 1]);
+    const az = Math.abs(normals[i + 2]);
+    if (ax >= ay && ax >= az) uvs.push(positions[i + 2], positions[i + 1]);
+    else if (ay >= az) uvs.push(positions[i], positions[i + 2]);
+    else uvs.push(positions[i], positions[i + 1]);
+  }
+
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeBoundingSphere();
   return geometry;

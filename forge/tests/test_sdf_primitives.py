@@ -15,6 +15,13 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "implicit_character_torso_limb.json"
 
 
+def _esbuild(showcase: Path) -> str:
+    """npm writes both an extensionless shell script and an .exe/.cmd into .bin; only the
+    latter is executable by CreateProcess, so let which() pick the right one per platform."""
+    bin_dir = showcase / "node_modules" / ".bin"
+    return shutil.which("esbuild", path=str(bin_dir)) or str(bin_dir / "esbuild")
+
+
 def import_forge_modules():
     module_names = ("generate_threejs_factory", "validate_sculpt_spec")
     original_modules = {name: sys.modules.pop(name, None) for name in module_names}
@@ -298,7 +305,7 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
         entry = work / "factory.ts"
         entry.write_text(source, encoding="utf-8")
         subprocess.run(
-            [str(showcase / "node_modules" / ".bin" / "esbuild"), str(entry), "--bundle",
+            [_esbuild(showcase), str(entry), "--bundle",
              "--format=esm", "--platform=node", "--external:three",
              f"--outfile={work / 'factory.mjs'}", "--log-level=error"],
             check=True, capture_output=True, text=True, cwd=showcase,
@@ -315,6 +322,7 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
             "model.traverse((o) => { if (o.isMesh && !out) { const g = o.geometry;\n"
             "  out = { positions: Array.from(g.getAttribute('position').array),\n"
             "          normals: Array.from(g.getAttribute('normal').array),\n"
+            "          uvs: g.getAttribute('uv') ? Array.from(g.getAttribute('uv').array) : null,\n"
             "          indices: Array.from(g.getIndex().array) }; } });\n"
             "console.log(JSON.stringify(out));\n",
             encoding="utf-8",
@@ -422,6 +430,30 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
             self.assertGreater(dot, 0.0, "normal points into the solid")
             checked += 1
         self.assertGreater(checked, 100)
+
+    def test_emits_finite_world_scale_uvs_for_texturing(self):
+        """A textured material on a geometry with no `uv` attribute shades BLACK, not untextured.
+
+        three.js builds the normal-map tangent frame from screen-space UV derivatives; with no
+        attribute the UV is constant, the derivative is zero, and the perturbed normal is NaN.
+        Measured on the widebody coupe: the implicit body shell rendered pitch black beside
+        correctly lit extruded panels of the same material, with outward unit normals. The
+        polygonizer therefore has to emit a parameterisation itself. It projects along each
+        vertex's dominant normal axis at world scale, so a sphere of radius 0.6 must land every
+        UV inside [-0.6, 0.6] and both coordinates must vary (a constant UV is the defect again).
+        """
+        mesh = self._mesh(self.SPHERE)
+        uvs = mesh["uvs"]
+        self.assertIsNotNone(uvs, "polygonizer emitted no uv attribute")
+        self.assertEqual(len(uvs) * 3, len(mesh["positions"]) * 2, "one uv pair per vertex")
+        radius = self.SPHERE["primitives"][0]["radius"]
+        us = uvs[0::2]
+        vs = uvs[1::2]
+        for value in uvs:
+            self.assertTrue(math.isfinite(value))
+            self.assertLessEqual(abs(value), radius + 1e-6)
+        self.assertGreater(max(us) - min(us), radius, "u does not vary across the surface")
+        self.assertGreater(max(vs) - min(vs), radius, "v does not vary across the surface")
 
 
 if __name__ == "__main__":
