@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**The Character Update, finished — targets v2.1.** The base `character` domain joins
+**The Character Split — targets v2.1.** The base `character` domain joins
 `plugin-character`, so the base names no domain and the v2.0 plugin split closes.
 
 - The in-repo `character` domain is removed; `plugin-character` (already serving
@@ -30,8 +30,8 @@ domains — ships as its own major, pulled forward from the original Procedural 
 - **`cs2` is served by the installed `plugin-cs2`** (`img2 add img2threejs/plugin-cs2`, requires
   harness >= 0.2.1). The in-repo domain module is removed; without the plugin the profile fails loud
   naming what is available, and an in-flight workspace is refused while the provider is absent,
-  resuming unchanged on reinstall. Domain coherence is enforced by the plugin's
-  `validate_cs2_contract` reviewer gate, not the base.
+  resuming unchanged on reinstall. Domain coherence is still enforced by the base's
+  `validate_cs2_contract`; the plugin ships its own blocking `cs2-review` gate.
 
 - **`animated-character` is served by the installed plugin-character** (`img2 add
   img2threejs/plugin-character`, requires harness >= 0.2.3). The in-repo domain module is removed;
