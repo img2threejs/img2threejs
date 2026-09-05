@@ -328,7 +328,20 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     try:
-        raise SystemExit(main(sys.argv[1:]))
+        _shared_dir = next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )
+        if str(_shared_dir) not in sys.path:
+            sys.path.insert(0, str(_shared_dir))
+        from cli_run import run_entry  # noqa: E402
+    except (ImportError, StopIteration, NameError):
+        def run_entry(main_fn):
+            return main_fn(sys.argv[1:])
+
+    try:
+        raise SystemExit(run_entry(main))
     except SystemExit as exit_error:
         if isinstance(exit_error.code, str):
             print(exit_error.code, file=sys.stderr)
