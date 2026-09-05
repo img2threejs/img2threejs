@@ -383,7 +383,8 @@ infer the shape from the reference, as for any other object.
 ### The img2 harness
 
 Plugins are installed and managed by the `img2` harness
-([img2threejs/img2](https://github.com/img2threejs/img2)), a separate stdlib-only CLI. This skill
+([img2threejs/img2](https://github.com/img2threejs/img2)), a separate dependency-free CLI (Node
+launcher, Python core). This skill
 never installs anything itself: when `state.py init` names a profile as unavailable, name the
 `img2 add` command that installs it and stop — never vendor domain logic instead.
 
