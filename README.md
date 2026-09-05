@@ -324,12 +324,12 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v1.4 — The Weapon Update** — CS2 image-matched reconstruction: provenance-aware intake, projection-first finishes, family-specific weapon adapters, and structural review gates.
 - **v1.4.1** — CS2 hardening: explicit component coverage, a dedicated Glock-18 assembly contract, map-stripped blockout evidence, and stricter geometry-integrity checks.
 - **creature generator** — 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft geometry, ΔE00 colour gates.
+- **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
 - **v2.0 — The Plugin Update** — the domain registry, pull-based spec augmentation
   with raise-only quality floors, the emission-target socket with provenance, per-plugin blocking
   gates, and the img2 harness (`img2 install/add/doctor`). CS2 extracted into `plugin-cs2`,
   `animated-character` served by `plugin-character`; the base names no domain. The "plugin
   ecosystem and API" originally slotted for the Procedural World bundle, shipped first as its own major.
-- **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
 
 **Next — one theme per release:**
 - **v2.1 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
