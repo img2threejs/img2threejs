@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import errno
 import importlib.util
 import json
 import os
@@ -96,6 +97,30 @@ def make_record():
 def write_jsonl(path, records):
     rows = (json.dumps(record, ensure_ascii=False, sort_keys=True) for record in records)
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def require_symlink_privilege() -> None:
+    """Skip the calling test when the OS refuses to create symlinks.
+
+    Windows requires Developer Mode or administrator rights to create symbolic
+    links (WinError 1314). The rejection logic under test is unchanged — only
+    the FIXTURE cannot be built on such a machine. CI on Linux/macOS runs these
+    tests for real; enabling Windows Developer Mode lets them run here too.
+    """
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        target = Path(temporary_directory) / "target"
+        target.write_text("x", encoding="utf-8")
+        link = Path(temporary_directory) / "link"
+        try:
+            link.symlink_to(target)
+        except OSError as error:
+            if getattr(error, "winerror", None) == 1314 or error.errno in (errno.EPERM, errno.EACCES, errno.EINVAL):
+                raise unittest.SkipTest(
+                    f"cannot create symlinks on this machine ({error}); the symlink-rejection "
+                    "behavior still runs on CI — enable Windows Developer Mode or run as admin "
+                    "to exercise it locally"
+                ) from error
+            raise
 
 
 def make_profile(
@@ -504,6 +529,7 @@ class SourceIngestionTest(unittest.TestCase):
         self.assertEqual([document.file_path for document in documents], ["visible.md"])
 
     def test_symlink_source_file_is_rejected_without_indexing_target(self):
+        require_symlink_privilege()
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             source_root = root / "specs"
@@ -521,6 +547,7 @@ class SourceIngestionTest(unittest.TestCase):
         self.assertFalse(cache_exists)
 
     def test_symlink_source_root_is_rejected_without_indexing_target(self):
+        require_symlink_privilege()
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             secret_root = root / "secret"
@@ -913,6 +940,7 @@ class CliOutputTest(unittest.TestCase):
         )
 
     def test_symlinked_cache_parent_returns_structured_cache_failure(self):
+        require_symlink_privilege()
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             cli = write_cli_fixture(root)
