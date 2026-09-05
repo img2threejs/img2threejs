@@ -43,6 +43,15 @@ material/PBR evidence decision. A non-applicable conditional gate must be skippe
 `stage1_intake/probe_image.py <image>` — image type, dimensions, aspect ratio, obvious technical
 issues. Metadata only; not a substitute for visual inspection.
 
+## reconstruct-reference-motion manifest gate
+
+`skills/reconstruct-reference-motion/scripts/validate_motion_manifest.py <manifest.json> [--json]`
+validates the companion video/image-sequence measurement hand-off. It blocks sampled analysis from
+passing an every-frame request, out-of-frame source coordinates, mixed-up feature equivalence,
+single-view overconfidence without calibration, unsynchronized comparisons, and implementation
+readiness without stable-interval and annotated-frame evidence. It packages evidence only; agent
+vision must still inspect the annotated frames and source motion.
+
 ## stage2_spec/new_pre_spec_assessment.py
 `stage2_spec/new_pre_spec_assessment.py "Name" [--image IMG] [--complexity simple|moderate|complex|ultra-complex] --out assessment.json [--force]`
 Emits a pre-spec assessment + `qualityContract` skeleton. Refine `--complexity` after looking at

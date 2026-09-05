@@ -162,6 +162,9 @@ Gates      Run --strict-quality, and do not advance a pass until the side-by-sid
 
 Useful additions depending on the subject:
 
+- **A video or image-sequence reference** — `Measure the exact interval at native resolution and
+  frame rate first. Separate camera, geometry, material, reflection, and overlay motion with the
+  reconstruct-reference-motion companion skill before editing the model.`
 - **A specific person or character** — `Maximize likeness: fit the parametric template to the landmarks, de-light and camera-match the reference, then project it. Tell me which regions are inferred.`
 - **An animal or creature** — `This is a creature, not a humanoid — use the quadruped body plan and the body-unit proportion system.`
 - **A saturated anodized or candy finish** — `The coat is candy-coat, not gem-metal. Keep the hue; do not let the environment steal it.`
