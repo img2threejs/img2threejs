@@ -139,7 +139,18 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
    profile with `forge/state.py init --profile <id>`. With no plugins installed, `generic`,
    and `character` are available; a profile whose plugin is missing (`cs2`, `animated-character`) fails
    loud naming what is installed, never silently downgrades. `img2 remove <id>` reverses cleanly.
-   Writing your own plugin: the harness repo's `docs/WRITING_A_PLUGIN.md`.
+
+   **Official plugins:**
+
+   | Plugin | Adds | Install |
+   |---|---|---|
+   | [plugin-cs2](https://github.com/img2threejs/plugin-cs2) | `cs2` profile — CS2 weapon-skin reconstruction: family adapters, finish rules, domain review gate | `img2 add img2threejs/plugin-cs2` |
+   | [plugin-character](https://github.com/img2threejs/plugin-character) | `animated-character` profile — everything `character` has plus the Stage R rigging/animation gates | `img2 add img2threejs/plugin-character` |
+   | [plugin-img2glb](https://github.com/img2threejs/plugin-img2glb) | `image → glb` emission target via the hosted TRELLIS space | `img2 add img2threejs/plugin-img2glb` |
+   | [plugin-hello-cube](https://github.com/img2threejs/plugin-hello-cube) | minimal reference plugin — copy it to write your own | `img2 add img2threejs/plugin-hello-cube` |
+
+   Writing your own: the harness repo's
+   [docs/WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
 
 3. **Invoke** — in Claude Code, attach or point to an object image and run:
 
