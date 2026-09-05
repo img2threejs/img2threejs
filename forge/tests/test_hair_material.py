@@ -148,7 +148,7 @@ class EmittedSourceTypechecks(unittest.TestCase):
         import subprocess  # noqa: PLC0415
 
         sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from showcase_test_support import showcase_root  # noqa: PLC0415
+        from showcase_test_support import NPX, showcase_root  # noqa: PLC0415
 
         root = showcase_root()
         destination = root / "src" / "__hair_material_smoke__.ts"
@@ -159,7 +159,7 @@ class EmittedSourceTypechecks(unittest.TestCase):
         try:
             destination.write_text(source, encoding="utf-8")
             result = subprocess.run(
-                ["npx", "tsc", "--noEmit"], cwd=root, capture_output=True, text=True, check=False
+                [NPX, "tsc", "--noEmit"], cwd=root, capture_output=True, text=True, check=False
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         finally:

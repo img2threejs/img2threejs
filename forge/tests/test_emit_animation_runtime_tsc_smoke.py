@@ -21,9 +21,9 @@ import unittest
 from pathlib import Path
 
 if __package__:
-    from .showcase_test_support import showcase_root
+    from .showcase_test_support import NPX, showcase_root
 else:
-    from showcase_test_support import showcase_root
+    from showcase_test_support import NPX, showcase_root
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "stage5_rig"))
@@ -50,7 +50,7 @@ class EmitAnimationRuntimeTscSmokeTest(unittest.TestCase):
 
     def _run_tsc(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["npx", "tsc", "--noEmit"],
+            [NPX, "tsc", "--noEmit"],
             cwd=self.showcase_root,
             capture_output=True,
             text=True,

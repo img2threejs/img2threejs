@@ -14,18 +14,15 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import shutil
 import struct
-import subprocess
 import sys
-import tempfile
 import zlib
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
-from jpeg import UnsupportedJpeg, decode_jpeg, is_jpeg  # noqa: E402
+from image_codec import decode_cache_key, load_image  # noqa: E402
 
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -84,87 +81,6 @@ def median_color(samples: list[tuple[int, int, int]]) -> tuple[int, int, int]:
     )  # type: ignore[return-value]
 
 
-def read_png(path: Path) -> tuple[int, int, list[tuple[int, int, int, int]]]:
-    data = path.read_bytes()
-    if not data.startswith(PNG_SIGNATURE):
-        raise ValueError("not a PNG file")
-    cursor = len(PNG_SIGNATURE)
-    width = height = bit_depth = color_type = None
-    idat = bytearray()
-    interlace = 0
-    while cursor + 8 <= len(data):
-        length = struct.unpack(">I", data[cursor : cursor + 4])[0]
-        chunk_type = data[cursor + 4 : cursor + 8]
-        chunk_data = data[cursor + 8 : cursor + 8 + length]
-        cursor += 12 + length
-        if chunk_type == b"IHDR":
-            width, height, bit_depth, color_type, _, _, interlace = struct.unpack(">IIBBBBB", chunk_data)
-        elif chunk_type == b"IDAT":
-            idat.extend(chunk_data)
-        elif chunk_type == b"IEND":
-            break
-    if width is None or height is None or bit_depth != 8 or interlace != 0:
-        raise ValueError("unsupported PNG; expected 8-bit non-interlaced image")
-    channels_by_type = {0: 1, 2: 3, 4: 2, 6: 4}
-    if color_type not in channels_by_type:
-        raise ValueError("unsupported PNG color type; convert to RGB/RGBA first")
-    channels = channels_by_type[color_type]
-    row_bytes = width * channels
-    raw = zlib.decompress(bytes(idat))
-    rows: list[bytearray] = []
-    offset = 0
-    previous = bytearray(row_bytes)
-    for _ in range(height):
-        filter_type = raw[offset]
-        offset += 1
-        row = bytearray(raw[offset : offset + row_bytes])
-        offset += row_bytes
-        for index in range(row_bytes):
-            left = row[index - channels] if index >= channels else 0
-            up = previous[index]
-            up_left = previous[index - channels] if index >= channels else 0
-            if filter_type == 1:
-                row[index] = (row[index] + left) & 0xFF
-            elif filter_type == 2:
-                row[index] = (row[index] + up) & 0xFF
-            elif filter_type == 3:
-                row[index] = (row[index] + ((left + up) // 2)) & 0xFF
-            elif filter_type == 4:
-                predictor = paeth_predictor(left, up, up_left)
-                row[index] = (row[index] + predictor) & 0xFF
-            elif filter_type != 0:
-                raise ValueError(f"unsupported PNG filter {filter_type}")
-        rows.append(row)
-        previous = row
-    pixels: list[tuple[int, int, int, int]] = []
-    for row in rows:
-        for x in range(width):
-            base = x * channels
-            if color_type == 0:
-                gray = row[base]
-                pixels.append((gray, gray, gray, 255))
-            elif color_type == 2:
-                pixels.append((row[base], row[base + 1], row[base + 2], 255))
-            elif color_type == 4:
-                gray = row[base]
-                pixels.append((gray, gray, gray, row[base + 1]))
-            elif color_type == 6:
-                pixels.append((row[base], row[base + 1], row[base + 2], row[base + 3]))
-    return width, height, pixels
-
-
-def paeth_predictor(a: int, b: int, c: int) -> int:
-    p = a + b - c
-    pa = abs(p - a)
-    pb = abs(p - b)
-    pc = abs(p - c)
-    if pa <= pb and pa <= pc:
-        return a
-    if pb <= pc:
-        return b
-    return c
-
-
 def write_png_rgb(path: Path, width: int, height: int, rgb: bytes) -> None:
     if len(rgb) != width * height * 3:
         raise ValueError("RGB payload has the wrong size")
@@ -189,31 +105,29 @@ def write_png_rgb(path: Path, width: int, height: int, rgb: bytes) -> None:
     )
 
 
-def load_image(path: Path) -> tuple[int, int, list[tuple[int, int, int, int]], list[str]]:
-    warnings: list[str] = []
-    try:
-        return (*read_png(path), warnings)
-    except Exception as direct_error:
-        jpeg_bytes = path.read_bytes()
-        if is_jpeg(jpeg_bytes):
-            try:
-                return (*decode_jpeg(jpeg_bytes), warnings)
-            except UnsupportedJpeg as unsupported:
-                warnings.append(f"{path.name} needs an external converter: {unsupported}")
-        sips = shutil.which("sips")
-        if not sips:
-            raise ValueError(
-                f"could not decode {path.name} as PNG and macOS sips is unavailable: {direct_error}"
-            ) from direct_error
-        with tempfile.TemporaryDirectory() as tmpdir:
-            converted = Path(tmpdir) / "converted.png"
-            command = [sips, "-s", "format", "png", str(path), "--out", str(converted)]
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
-            if result.returncode != 0:
-                raise ValueError(result.stderr.strip() or result.stdout.strip() or "sips conversion failed")
-            warnings.append("source image was converted to PNG with macOS sips before pixel extraction")
-            width, height, pixels = read_png(converted)
-            return width, height, pixels, warnings
+# Mask cache. The decode itself is cached in _shared/image_codec (one decode per
+# file per process, shared by every caller); this caches the full-resolution
+# foreground mask derived from it, so the Divine Eye's silhouette/luma/colour
+# paths stop rebuilding the same mask. Masks are shared — treat them as read-only.
+_MASK_CACHE: dict[
+    tuple[str, int, int],
+    tuple[int, int, list[bool], dict[str, Any], tuple[str, ...]],
+] = {}
+
+
+def foreground_mask_for_path(
+    path: Path,
+) -> tuple[int, int, list[bool], dict[str, Any], list[str]]:
+    """Cached build_foreground_mask for a whole image, keyed like the decode cache."""
+    key = decode_cache_key(path)
+    cached = _MASK_CACHE.get(key)
+    if cached is not None:
+        width, height, mask, meta, cached_warnings = cached
+        return width, height, mask, dict(meta), list(cached_warnings)
+    width, height, pixels, _warnings = load_image(path)
+    mask, meta, warnings = build_foreground_mask(width, height, pixels)
+    _MASK_CACHE[key] = (width, height, mask, dict(meta), tuple(warnings))
+    return width, height, mask, dict(meta), list(warnings)
 
 
 def sample_corner_background(
@@ -246,8 +160,8 @@ def build_foreground_mask(
     pixels: list[tuple[int, int, int, int]],
 ) -> tuple[list[bool], dict[str, Any], list[str]]:
     warnings: list[str] = []
-    alpha_values = [pixel[3] for pixel in pixels]
-    transparent_fraction = sum(1 for alpha in alpha_values if alpha < 245) / max(1, len(alpha_values))
+    transparent_count = sum(1 for pixel in pixels if pixel[3] < 245)
+    transparent_fraction = transparent_count / max(1, len(pixels))
     background, background_noise = sample_corner_background(width, height, pixels)
     threshold = max(24.0, background_noise * 2.4)
     mask: list[bool] = []
@@ -255,12 +169,29 @@ def build_foreground_mask(
         for red, green, blue, alpha in pixels:
             mask.append(alpha > 24)
     else:
+        # color_distance/saturation/srgb_luma inlined: three function calls per
+        # pixel dominated the Divine Eye profile at full resolution. Comparing
+        # squared distance against a squared threshold avoids the sqrt without
+        # changing any verdict (both sides non-negative, threshold >= 24).
+        bg_red, bg_green, bg_blue = background
+        threshold_squared = threshold * threshold
         for red, green, blue, alpha in pixels:
-            rgb = (red, green, blue)
-            distance = color_distance(rgb, background)
-            sat = saturation(rgb)
-            luma = srgb_luma(rgb)
-            mask.append(alpha > 16 and (distance > threshold or (sat > 0.16 and luma < 0.94)))
+            if alpha > 16:
+                dr = red - bg_red
+                dg = green - bg_green
+                db = blue - bg_blue
+                distance_squared = dr * dr + dg * dg + db * db
+                high = red if red > green else green
+                if blue > high:
+                    high = blue
+                low = red if red < green else green
+                if blue < low:
+                    low = blue
+                sat = 0.0 if high <= 0 else (high - low) / high
+                luma = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255.0
+                mask.append(distance_squared > threshold_squared or (sat > 0.16 and luma < 0.94))
+            else:
+                mask.append(False)
     coverage = sum(1 for value in mask if value) / max(1, len(mask))
     if coverage < 0.035:
         warnings.append("foreground mask is tiny; material extraction is likely unreliable")
@@ -840,4 +771,19 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    import sys
+    from pathlib import Path
+
+    try:
+        sys.path.insert(0, str(next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )))
+        from cli_run import run_entry
+    except (ImportError, StopIteration):
+        # vendored/fixture copies without the forge runtime: run bare, no pipe handling
+        def run_entry(main_fn, argv=None):
+            return main_fn(sys.argv[1:] if argv is None else argv)
+
+    raise SystemExit(run_entry(main))

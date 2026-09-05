@@ -8,16 +8,24 @@ from typing import Any, TextIO
 
 def _pipeline(spec: dict[str, Any] | None) -> tuple[str, int, str, str]:
     if not isinstance(spec, dict):
-        return "unknown", 0, "spec not loaded", "forge/next.py <spec>"
+        return "unknown", 0, "spec not loaded", _SPEC_IS_OUTPUT_HINT
     pipeline = spec.get("sculptPipeline")
     if not isinstance(pipeline, dict):
-        return "unknown", 0, "sculptPipeline is missing", "forge/next.py <spec>"
+        # Point at the actual first step. "forge/next.py <spec>" here was circular: the
+        # caller IS next.py, and next.py does not author specs — it consumes them.
+        return "unknown", 0, "sculptPipeline is missing", _SPEC_IS_OUTPUT_HINT
     current = str(pipeline.get("currentPass") or "unknown")
     completed = pipeline.get("completedPasses", [])
     count = len(completed) if isinstance(completed, list) else 0
     reason = str(pipeline.get("blockedReason") or "none")
     next_command = "none (pipeline complete)" if current == "complete" else "forge/next.py <spec>"
     return current, count, reason, next_command
+
+
+_SPEC_IS_OUTPUT_HINT = (
+    "the spec is produced by earlier stages, not consumed — start with "
+    "python3 forge/state.py init --reference <image> --profile <generic|character|animated-character|cs2> --spec <path>"
+)
 
 
 def emit_status(spec: dict[str, Any] | None = None, *, next_command: str | None = None, stream: TextIO = sys.stdout) -> None:

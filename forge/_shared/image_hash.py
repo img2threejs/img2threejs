@@ -56,15 +56,23 @@ def to_grayscale_downsampled(
         return [[0.0] * size for _ in range(size)]
     out = [[0.0] * size for _ in range(size)]
     counts = [[0] * size for _ in range(size)]
-    for idx, (r, g, b, _a) in enumerate(pixels):
-        x = idx % width
-        y = idx // width
-        if y >= height:
-            break
-        sx = min(size - 1, x * size // width)
-        sy = min(size - 1, y * size // height)
-        out[sy][sx] += 0.2126 * r + 0.7152 * g + 0.0722 * b
-        counts[sy][sx] += 1
+    # Row traversal + precomputed cell maps: per-pixel divmod dominated the pHash
+    # profile on full-resolution references. Same cells in the same order, same sums.
+    col_cell = [min(size - 1, x * size // width) for x in range(width)]
+    row_cell = [min(size - 1, y * size // height) for y in range(height)]
+    idx = 0
+    for y in range(height):
+        sy = row_cell[y]
+        out_row = out[sy]
+        count_row = counts[sy]
+        for x in range(width):
+            if idx >= len(pixels):
+                break
+            r, g, b, _a = pixels[idx]
+            idx += 1
+            sx = col_cell[x]
+            out_row[sx] += 0.2126 * r + 0.7152 * g + 0.0722 * b
+            count_row[sx] += 1
     for sy in range(size):
         for sx in range(size):
             c = counts[sy][sx]

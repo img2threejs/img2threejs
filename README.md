@@ -180,6 +180,10 @@ python3 forge/stage3_build/generate_threejs_factory.py spec.json --out src/creat
 The factory generator repeats the strict-quality gate and is fail-closed: on failure it returns
 `BLOCKED` with the spec artifact, failure metrics, causes, and next action, and does not write a
 factory. `--allow-nonstrict` is only for explicit legacy test fixtures, never production output.
+Output is split by default: `src/createObjectModel.ts` imports only `three` (factory, lights,
+camera framing), while the presentation-only surface (environment, DOF/bloom composer, orbit
+controls) lands in a sibling `createObjectModel.harness.ts` — pass `--single-file` for the
+historical one-file layout.
 
 ### Copy-paste prompts for the GLB-reference route
 

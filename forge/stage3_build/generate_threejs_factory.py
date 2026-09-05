@@ -4046,6 +4046,51 @@ def generate(spec: dict[str, Any], pass_id: str) -> str:
     return "\n".join(lines)
 
 
+# Presentation-only surface (RoomEnvironment/PMREM environment, DOF+bloom
+# composer, orbit controls). In split output these move OUT of the model file so
+# a scene can embed the reconstructed model without importing the whole
+# postprocessing stack; --single-file keeps the historical one-file layout.
+_HARNESS_FUNCTION_SUFFIXES = ("Environment", "PresentationComposer", "InspectControls")
+
+
+def split_factory_source(rendered: str, type_name: str) -> tuple[str, str]:
+    """Split one rendered factory into (model_source, harness_source).
+
+    The model file imports only 'three' and keeps the types, the model factory,
+    look-dev lights, camera framing and renderer configuration. The harness file
+    carries the three presentation-only functions plus the jsm imports that exist
+    only for them. Both halves are cut verbatim out of the single-file rendering
+    (comments travel with their function), so --single-file and the split emit
+    the same code — the split only changes where it lives.
+    """
+    lines = rendered.split("\n")
+    harness_blocks: list[list[str]] = []
+    for suffix in _HARNESS_FUNCTION_SUFFIXES:
+        marker = f"export function create{type_name}{suffix}("
+        index = next((i for i, line in enumerate(lines) if line.startswith(marker)), None)
+        if index is None:
+            raise ValueError(f"generated factory is missing the {suffix} harness function")
+        start = index
+        while start > 0 and lines[start - 1].startswith("//"):
+            start -= 1
+        end = next(i for i in range(index, len(lines)) if lines[i] == "}")
+        if end + 1 < len(lines) and lines[end + 1] == "":
+            end += 1  # take the separator blank line with the block
+        harness_blocks.append(lines[start : end + 1])
+        del lines[start : end + 1]
+    jsm_lines = [line for line in lines if line.startswith("import ") and "three/examples/jsm/" in line]
+    model_lines = [line for line in lines if line not in jsm_lines]
+    if not jsm_lines or not model_lines:
+        raise ValueError("generated factory has an unexpected import header")
+    harness_header = [model_lines[0], *jsm_lines, ""]
+    # Each cut block already carries its trailing blank separator line (the last
+    # one ends with the file's trailing newline), so blocks concatenate directly.
+    harness_parts: list[str] = [line for block in harness_blocks for line in block]
+    model_source = "\n".join(model_lines)
+    harness_source = "\n".join(harness_header + harness_parts)
+    return model_source, harness_source
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("spec", type=Path)
@@ -4055,6 +4100,19 @@ def main(argv: list[str]) -> int:
         help="Build pass to generate. Defaults to the current unlocked sculptPipeline pass.",
     )
     parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "--single-file",
+        action="store_true",
+        help=(
+            "write one self-contained .ts (model + presentation harness), the historical "
+            "layout; by default the model is split from the presentation harness"
+        ),
+    )
+    parser.add_argument(
+        "--harness-out",
+        type=Path,
+        help="override the derived <model-stem>.harness.ts path (split mode only)",
+    )
     parser.add_argument(
         "--allow-nonstrict",
         action="store_true",
@@ -4091,8 +4149,21 @@ def main(argv: list[str]) -> int:
     if gaps:
         parser.error(f"build pass {pass_id!r} needs spec refinement: {'; '.join(gaps)}")
     output = args.out.expanduser().resolve()
-    if output.exists() and not args.force:
-        parser.error(f"{output} already exists; use --force to overwrite")
+    harness_output: Path | None = None
+    if args.single_file:
+        if args.harness_out:
+            parser.error("--harness-out only applies in split mode (drop --single-file)")
+        if output.exists() and not args.force:
+            parser.error(f"{output} already exists; use --force to overwrite")
+    else:
+        harness_output = (
+            args.harness_out.expanduser().resolve()
+            if args.harness_out
+            else output.with_name(f"{output.stem}.harness.ts")
+        )
+        for candidate in (output, harness_output):
+            if candidate.exists() and not args.force:
+                parser.error(f"{candidate} already exists; use --force to overwrite")
     output.parent.mkdir(parents=True, exist_ok=True)
     try:
         rendered = generate(spec, pass_id)
@@ -4102,10 +4173,35 @@ def main(argv: list[str]) -> int:
             f"implementation yet in geometry_for() — refine-spec to a supported primitive "
             f"or implement it before generating this component"
         )
-    output.write_text(rendered, encoding="utf-8")
+    if args.single_file:
+        output.write_text(rendered, encoding="utf-8")
+        print(output)
+        return 0
+    type_name = pascal_case(str(spec.get("targetName") or "Procedural Object"))
+    model_source, harness_source = split_factory_source(rendered, type_name)
+    output.write_text(model_source, encoding="utf-8")
     print(output)
+    if harness_output is not None:
+        harness_output.parent.mkdir(parents=True, exist_ok=True)
+        harness_output.write_text(harness_source, encoding="utf-8")
+        print(harness_output)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    import sys
+    from pathlib import Path
+
+    try:
+        sys.path.insert(0, str(next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )))
+        from cli_run import run_entry
+    except (ImportError, StopIteration):
+        # vendored/fixture copies without the forge runtime: run bare, no pipe handling
+        def run_entry(main_fn, argv=None):
+            return main_fn(sys.argv[1:] if argv is None else argv)
+
+    raise SystemExit(run_entry(main))

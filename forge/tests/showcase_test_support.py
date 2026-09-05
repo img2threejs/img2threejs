@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import os
+import shutil
 import unittest
 from pathlib import Path
+
+# On Windows npx is npx.cmd and CreateProcess does not apply PATHEXT, so a bare
+# "npx" in a subprocess argv list fails with FileNotFoundError. Resolve the real
+# executable once; tests that shell out to tsc must use this instead of "npx".
+NPX = shutil.which("npx") or "npx"
 
 
 def showcase_root() -> Path:

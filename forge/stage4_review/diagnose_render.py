@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage1_intake"))
-from extract_pbr_evidence import build_foreground_mask, load_image  # noqa: E402
+from extract_pbr_evidence import foreground_mask_for_path, load_image  # noqa: E402
 from extract_part_color_recipe import lab_distance, lab_kmeans_palette, srgb_to_lab  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage3_build"))
@@ -111,8 +111,7 @@ def largest_component(mask: list[bool], size: int) -> tuple[list[bool], float]:
 
 def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], list[str]]:
     """Return the resized foreground mask and extraction warnings."""
-    width, height, pixels, _warnings = load_image(png_path)
-    mask, _diag, mask_warnings = build_foreground_mask(width, height, pixels)
+    width, height, mask, _meta, mask_warnings = foreground_mask_for_path(png_path)
     resized: list[bool] = []
     for y in range(size):
         sy = min(height - 1, int(y * height / size))
@@ -189,7 +188,7 @@ def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> di
     if not recipes:
         return {"checked": 0, "maxDeltaE": 0.0, "perComponent": []}
     width, height, pixels, _warnings = load_image(render_path)
-    mask, _diag, _warn = build_foreground_mask(width, height, pixels)
+    _mw, _mh, mask, _diag, _warn = foreground_mask_for_path(render_path)
     foreground_lab = [srgb_to_lab((r, g, b)) for (r, g, b, _a), keep in zip(pixels, mask) if keep]
     clusters = lab_kmeans_palette(foreground_lab, k=min(5, max(1, len(recipes))))
     results = []
@@ -353,4 +352,19 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    import sys
+    from pathlib import Path
+
+    try:
+        sys.path.insert(0, str(next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )))
+        from cli_run import run_entry
+    except (ImportError, StopIteration):
+        # vendored/fixture copies without the forge runtime: run bare, no pipe handling
+        def run_entry(main_fn, argv=None):
+            return main_fn(sys.argv[1:] if argv is None else argv)
+
+    raise SystemExit(run_entry(main))

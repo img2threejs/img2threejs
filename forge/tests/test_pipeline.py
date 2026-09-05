@@ -313,6 +313,8 @@ class PipelineTest(unittest.TestCase):
         # Plan 1.3 F.3/F.4: previously-missing MeshPhysicalMaterial properties and the
         # environment map must both appear in the generated code (codegen-output test,
         # not a rendering test — fully automatable per the plan's acceptance criteria).
+        # Split layout: material properties live in the model file; the environment
+        # helper is presentation surface and lives in the harness file.
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
         out = self.dir / "createObjectModel.ts"
         r = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out)
@@ -322,9 +324,10 @@ class PipelineTest(unittest.TestCase):
                      "ior:", "attenuationDistance:", "anisotropy:", "anisotropyRotation:",
                      "specularIntensity:", "specularColor:", "emissive:", "emissiveIntensity:"):
             self.assertIn(prop, ts, f"missing material property in generated code: {prop}")
-        self.assertIn("import { RoomEnvironment }", ts)
-        self.assertIn("PMREMGenerator", ts)
-        self.assertIn("Environment(renderer: THREE.WebGLRenderer)", ts)
+        harness = (out.parent / f"{out.stem}.harness.ts").read_text()
+        self.assertIn("import { RoomEnvironment }", harness)
+        self.assertIn("PMREMGenerator", harness)
+        self.assertIn("Environment(renderer: THREE.WebGLRenderer)", harness)
 
     def test_generate_factory_emits_ws5_pbr_constraints_and_dense_maps(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
@@ -369,20 +372,20 @@ class PipelineTest(unittest.TestCase):
     def test_generate_factory_emits_presentation_composer_only(self):
         # Plan 1.3 §3.2c / R-POSTFX: DOF+bloom live in a SEPARATE presentation composer
         # (opt-in via options), never wired into the model factory itself — the Eye's
-        # evaluation render must stay post-fx-free. Codegen-output test.
+        # evaluation render must stay post-fx-free. Codegen-output test. Split layout
+        # makes the separation physical: the composer lives in the harness file only.
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
         out = self.dir / "createObjectModel.ts"
         r = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out)
         self.assertEqual(r.returncode, 0, r.stderr)
         ts = out.read_text()
-        self.assertIn("PresentationComposer", ts)
-        self.assertIn("EffectComposer", ts)
-        self.assertIn("BokehPass", ts)
-        self.assertIn("UnrealBloomPass", ts)
-        self.assertIn("R-POSTFX", ts)
+        harness = (out.parent / f"{out.stem}.harness.ts").read_text()
+        for marker in ("PresentationComposer", "EffectComposer", "BokehPass", "UnrealBloomPass", "R-POSTFX"):
+            self.assertIn(marker, harness, f"missing from harness: {marker}")
+            self.assertNotIn(marker, ts, f"postprocessing leaked into the model file: {marker}")
         # the composer must be gated on options.dof / options.bloom (opt-in, not forced)
-        self.assertIn("if (options.dof)", ts)
-        self.assertIn("if (options.bloom)", ts)
+        self.assertIn("if (options.dof)", harness)
+        self.assertIn("if (options.bloom)", harness)
 
     def test_generate_factory_builds_real_extrude_lathe_tube_geometry(self):
         # Plan 1.3 F.5: the original bug — primitive: "extrude" (e.g. a knife blade
@@ -876,14 +879,15 @@ class PipelineTest(unittest.TestCase):
         self.assertTrue(finish["needsEnvironment"])
         # authored CS2 seed is no worse than the object baseline: normal validate passes
         self.assertEqual(run("stage2_spec/validate_sculpt_spec.py", self.spec).returncode, 0)
-        # factory generates and emits the code-generated environment helper
+        # factory generates and emits the code-generated environment helper (harness
+        # file — the environment is presentation surface, not model geometry)
         out = self.dir / "createCs2Model.ts"
         r = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out)
         self.assertEqual(r.returncode, 0, r.stderr)
-        ts = out.read_text()
-        self.assertIn("Environment", ts)
-        self.assertIn("RoomEnvironment", ts)
-        self.assertIn("PMREMGenerator", ts)
+        harness = (out.parent / f"{out.stem}.harness.ts").read_text()
+        self.assertIn("Environment", harness)
+        self.assertIn("RoomEnvironment", harness)
+        self.assertIn("PMREMGenerator", harness)
 
     def test_cs2_track_skipped_for_objects(self):
         run("stage2_spec/new_sculpt_spec.py", "Crate", "--out", self.spec)

@@ -185,4 +185,19 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import sys
+    from pathlib import Path
+
+    try:
+        sys.path.insert(0, str(next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )))
+        from cli_run import run_entry
+    except (ImportError, StopIteration):
+        # vendored/fixture copies without the forge runtime: run bare, no pipe handling
+        def run_entry(main_fn, argv=None):
+            return main_fn(sys.argv[1:] if argv is None else argv)
+
+    raise SystemExit(run_entry(main))

@@ -297,8 +297,12 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
         work.mkdir(parents=True, exist_ok=True)
         entry = work / "factory.ts"
         entry.write_text(source, encoding="utf-8")
+        # On Windows node_modules/.bin/esbuild is a shell wrapper; resolve the
+        # platform binary via PATHEXT so CreateProcess gets a real executable.
+        esbuild_bin = shutil.which("esbuild", path=str(showcase / "node_modules" / ".bin"))
+        assert esbuild_bin, "esbuild binary not found in showcase node_modules/.bin"
         subprocess.run(
-            [str(showcase / "node_modules" / ".bin" / "esbuild"), str(entry), "--bundle",
+            [esbuild_bin, str(entry), "--bundle",
              "--format=esm", "--platform=node", "--external:three",
              f"--outfile={work / 'factory.mjs'}", "--log-level=error"],
             check=True, capture_output=True, text=True, cwd=showcase,
