@@ -108,6 +108,20 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
 
 ---
 
+## Glass Logo Studio (web app)
+
+`web/` contains a Nuxt 4 app that turns any uploaded logo, icon or image into a true-to-size 3D
+glass model in the browser: trace the silhouette, extrude it in millimetres with a rounded bevel,
+render it with a refractive glass material, and export GLB / STL / PNG.
+
+```bash
+cd web && pnpm install && pnpm dev
+```
+
+See [web/README.md](web/README.md) for how the trace and glass pipeline work.
+
+---
+
 ## Quick start
 
 1. **Install** — place this folder in your skills directory:
