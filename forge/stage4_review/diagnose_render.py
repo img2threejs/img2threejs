@@ -182,10 +182,25 @@ def bilateral_symmetry_error(mask: list[bool], size: int = MASK_GRID_SIZE) -> fl
     return mismatches / total if total else 0.0
 
 
+PIXEL_EVIDENCE_DELTA_E = 15.0
+PIXEL_EVIDENCE_MIN_FRACTION = 0.0025
+
+
 def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> dict[str, Any]:
     """Compares each component's colorMaterialRecipe against the render's overall
     dominant Lab-space color clusters (see module docstring for the per-component-
-    region scope limitation). Returns per-recipe delta-E and a pass/fail summary."""
+    region scope limitation). Returns per-recipe delta-E and a pass/fail summary.
+
+    Small-part fallback: the k-means palette seeds its centroids from luminance
+    quantiles, so a hue-distinct part covering little area (a teal arc, a logo, a
+    gem) can never win a centroid against a dominant material at similar
+    luminance — the cluster comparison then reports a large delta even though the
+    recipe's color is plainly present in the render. Per Risk R7 this check only
+    needs to catch gross mismatches, so a recipe also passes when at least
+    PIXEL_EVIDENCE_MIN_FRACTION of foreground pixels sit within
+    PIXEL_EVIDENCE_DELTA_E of it: direct pixel evidence, reported per component
+    as pixelEvidenceFraction, with clusterDeltaE preserving the raw cluster
+    distance for the record."""
     if not recipes:
         return {"checked": 0, "maxDeltaE": 0.0, "perComponent": []}
     width, height, pixels, _warnings = load_image(render_path)
@@ -204,7 +219,17 @@ def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> di
             continue
         expected_lab = srgb_to_lab((r, g, b))
         best_delta = min((lab_distance(expected_lab, c["center"]) for c in clusters), default=999.0)
-        results.append({"componentId": recipe.get("componentId"), "deltaE": round(best_delta, 2)})
+        entry: dict[str, Any] = {"componentId": recipe.get("componentId"), "clusterDeltaE": round(best_delta, 2)}
+        if best_delta > COLOR_DELTA_E_THRESHOLD and foreground_lab:
+            supporting = sum(
+                1 for sample in foreground_lab if lab_distance(expected_lab, sample) <= PIXEL_EVIDENCE_DELTA_E
+            )
+            fraction = supporting / len(foreground_lab)
+            entry["pixelEvidenceFraction"] = round(fraction, 5)
+            if fraction >= PIXEL_EVIDENCE_MIN_FRACTION:
+                best_delta = PIXEL_EVIDENCE_DELTA_E
+        entry["deltaE"] = round(best_delta, 2)
+        results.append(entry)
     max_delta = max((entry["deltaE"] for entry in results), default=0.0)
     return {"checked": len(results), "maxDeltaE": round(max_delta, 2), "perComponent": results}
 
