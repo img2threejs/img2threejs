@@ -73,7 +73,14 @@ def main(argv: list[str]) -> int:
 
     if spec_path is None:
         if local_state is None:
-            parser.error("spec is required unless --state points to an initialized pre-spec workflow")
+            # Bare invocation must still be runnable guidance, not an argparse usage
+            # dead end: the spec is an OUTPUT of the earlier stages, not an input, so
+            # say where the pipeline actually starts.
+            print("next.py reports the next command for an existing workflow; you gave neither a spec nor --state.")
+            print("resume an existing checklist:  python3 forge/next.py --state .img2threejs/state.json")
+            print("start a new workflow:           python3 forge/state.py init --reference <image> --profile <generic|character|animated-character|cs2> --spec <path>")
+            print("then run:                       python3 forge/next.py --state .img2threejs/state.json")
+            return 2
         payload = status_payload(local_state)
         emit_local_state(payload)
         return 3 if payload["status"] == "stopped" else 0
@@ -99,6 +106,14 @@ def main(argv: list[str]) -> int:
         return 0
 
     emit_status(spec)
+    if not isinstance(spec.get("sculptPipeline"), dict):
+        # A spec without sculptPipeline is a placeholder, not an authored spec. Reporting a
+        # "current pass" here contradicted the blocked banner above it: one line said the
+        # pipeline is missing, the next said the pass is blockout. The spec is an OUTPUT of
+        # intake/assessment/refine-spec — say that, and point at the actual first step.
+        print("spec has no sculptPipeline: this file is a placeholder, not an authored spec.")
+        print("next command: python3 forge/state.py init --reference <image> --profile <generic|character|animated-character|cs2> --spec <path>")
+        return 2
     if current == "complete":
         print("pipeline: complete")
         return 0
@@ -113,4 +128,19 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    import sys
+    from pathlib import Path
+
+    try:
+        sys.path.insert(0, str(next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )))
+        from cli_run import run_entry
+    except (ImportError, StopIteration):
+        # vendored/fixture copies without the forge runtime: run bare, no pipe handling
+        def run_entry(main_fn, argv=None):
+            return main_fn(sys.argv[1:] if argv is None else argv)
+
+    raise SystemExit(run_entry(main))
