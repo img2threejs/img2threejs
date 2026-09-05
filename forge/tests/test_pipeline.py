@@ -9,6 +9,7 @@ Run: python3 forge/tests/test_pipeline.py   (from skill root)
   or: python3 -m unittest discover -s forge/tests
 """
 import json
+import runpy
 import struct
 import subprocess
 import sys
@@ -611,6 +612,21 @@ class PipelineTest(unittest.TestCase):
                 "--render", self.render, "--out", cmp, "--json")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(cmp.exists() and cmp.stat().st_size > 0)
+
+    def test_comparison_sheet_preserves_wide_image_endpoints(self):
+        resize_contain = runpy.run_path(
+            str(SCRIPTS / "stage4_review" / "make_comparison_sheet.py")
+        )["resize_contain"]
+        pixels = [
+            (255, 0, 0, 255),
+            (0, 255, 0, 255),
+            (0, 255, 0, 255),
+            (0, 0, 255, 255),
+        ]
+        panel = resize_contain(4, 1, pixels, 4, 4)
+        self.assertEqual(panel[4], (255, 0, 0))
+        self.assertEqual(panel[7], (0, 0, 255))
+        self.assertEqual(panel[0], (238, 238, 238))
 
     def test_append_review_gate_and_record(self):
         run("stage2_spec/new_sculpt_spec.py", "Oak", "--out", self.spec)
