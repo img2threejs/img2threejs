@@ -47,7 +47,7 @@ from diagnose_render import (  # noqa: E402
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage1_intake"))
-from extract_pbr_evidence import build_foreground_mask, load_image  # noqa: E402
+from extract_pbr_evidence import foreground_mask_for_path, load_image  # noqa: E402
 
 from objectness import objectness_similarity  # noqa: E402  (stdlib OSIM-lite, same dir)
 
@@ -82,7 +82,7 @@ def _banded_median_lab(png_path: Path, axis: str, bands: int) -> list[tuple[floa
     """Median CIELAB per foreground-masked band along the axis (axis 'u'=x, 'v'=y).
     Colour-aware (not luma) — used only by hue_zone_parity, which is report-only until calibrated."""
     width, height, pixels, _ = load_image(png_path)
-    mask, _meta, _warn = build_foreground_mask(width, height, pixels)
+    _mw, _mh, mask, _meta, _warn = foreground_mask_for_path(png_path)
     span = width if axis == "u" else height
     band = max(1, span // bands)
     # Subsample on a coarse grid (≤ COLOR_SAMPLE px/axis) so full-res references stay O(fast) —
@@ -122,7 +122,7 @@ def _foreground_hsv_stats(png_path: Path) -> tuple[float, float]:
     import colorsys
     import math as _m
     width, height, pixels, _ = load_image(png_path)
-    mask, _meta, _warn = build_foreground_mask(width, height, pixels)
+    _mw, _mh, mask, _meta, _warn = foreground_mask_for_path(png_path)
     sx = max(1, width // COLOR_SAMPLE)
     sy = max(1, height // COLOR_SAMPLE)
     sc = ss = wsum = sat_sum = 0.0
@@ -189,14 +189,21 @@ def load_luma(png_path: Path, size: int) -> list[float]:
     width, height, pixels, _warn = load_image(png_path)
     acc = [0.0] * (size * size)
     cnt = [0] * (size * size)
-    for idx, (r, g, b, _a) in enumerate(pixels):
-        x = idx % width
-        y = idx // width
-        if y >= height:
-            break
-        cell = min(size - 1, y * size // height) * size + min(size - 1, x * size // width)
-        acc[cell] += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
-        cnt[cell] += 1
+    # Row traversal + precomputed cell maps: per-pixel divmod dominated the profile
+    # on full-resolution references. Same cells in the same order, bit-exact sums.
+    col_cell = [min(size - 1, x * size // width) for x in range(width)]
+    row_cell = [min(size - 1, y * size // height) for y in range(height)]
+    idx = 0
+    for y in range(height):
+        row_offset = row_cell[y] * size
+        for x in range(width):
+            if idx >= len(pixels):
+                return [acc[i] / cnt[i] if cnt[i] else 0.0 for i in range(size * size)]
+            r, g, b, _a = pixels[idx]
+            idx += 1
+            cell = row_offset + col_cell[x]
+            acc[cell] += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+            cnt[cell] += 1
     return [acc[i] / cnt[i] if cnt[i] else 0.0 for i in range(size * size)]
 
 
@@ -458,4 +465,19 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    import sys
+    from pathlib import Path
+
+    try:
+        sys.path.insert(0, str(next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )))
+        from cli_run import run_entry
+    except (ImportError, StopIteration):
+        # vendored/fixture copies without the forge runtime: run bare, no pipe handling
+        def run_entry(main_fn, argv=None):
+            return main_fn(sys.argv[1:] if argv is None else argv)
+
+    raise SystemExit(run_entry(main))

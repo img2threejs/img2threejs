@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage1_intake"))
-from extract_pbr_evidence import build_foreground_mask, load_image  # noqa: E402
+from extract_pbr_evidence import foreground_mask_for_path, load_image  # noqa: E402
 
 GRID = 96   # canonical square the object bbox is resampled to
 CELLS = 8   # CELLS x CELLS spatial cells
@@ -76,7 +76,7 @@ def descriptor(path: str | Path) -> list[float]:
     """HOG-like descriptor of the object's foreground, canonicalised for pose/scale/bg."""
     w, h, pixels, _ = load_image(Path(path))
     gray = _to_gray(pixels)
-    mask, _diag, _warn = build_foreground_mask(w, h, pixels)
+    _mw, _mh, mask, _diag, _warn = foreground_mask_for_path(Path(path))
     x0, y0, x1, y1 = _bbox(mask, w, h)
     # pad the bbox so the object's silhouette contour (its strongest shape cue) lands
     # INSIDE the resampled grid — a solid object cropped flush would otherwise put its
@@ -140,4 +140,19 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import sys
+    from pathlib import Path
+
+    try:
+        sys.path.insert(0, str(next(
+            parent / "forge" / "_shared"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "forge" / "_shared" / "cli_run.py").is_file()
+        )))
+        from cli_run import run_entry
+    except (ImportError, StopIteration):
+        # vendored/fixture copies without the forge runtime: run bare, no pipe handling
+        def run_entry(main_fn, argv=None):
+            return main_fn(sys.argv[1:] if argv is None else argv)
+
+    raise SystemExit(run_entry(main))
