@@ -12,9 +12,9 @@ import unittest
 from pathlib import Path
 
 if __package__:
-    from .showcase_test_support import showcase_root
+    from .showcase_test_support import NPX, showcase_root
 else:
-    from showcase_test_support import showcase_root
+    from showcase_test_support import NPX, showcase_root
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,7 +53,7 @@ def compile_generated_module(generated: str, work_dir: Path) -> tuple[subprocess
     source.write_text(generated, encoding="utf-8")
     result = subprocess.run(
         [
-            "npx", "tsc", "--target", "ES2020", "--module", "NodeNext", "--moduleResolution", "NodeNext",
+            NPX, "tsc", "--target", "ES2020", "--module", "NodeNext", "--moduleResolution", "NodeNext",
             "--strict", "--skipLibCheck", "--noUnusedLocals", "--noUnusedParameters", "--outDir", str(build_dir), str(source),
         ],
         cwd=showcase_root(),

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage2_spec"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage3_build"))
 
 from generate_threejs_factory import generate, stand_proud_ring_stack  # noqa: E402
-from showcase_test_support import showcase_root  # noqa: E402
+from showcase_test_support import NPX, showcase_root  # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "stand_proud_hair_on_head.json"
 
@@ -422,7 +422,7 @@ class EmittedSourceTypechecks(unittest.TestCase):
         try:
             destination.write_text(source, encoding="utf-8")
             result = subprocess.run(
-                ["npx", "tsc", "--noEmit"], cwd=root, capture_output=True, text=True, check=False
+                [NPX, "tsc", "--noEmit"], cwd=root, capture_output=True, text=True, check=False
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         finally:

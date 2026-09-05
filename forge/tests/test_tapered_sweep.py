@@ -270,9 +270,13 @@ class SweepWindingFacesOutward(unittest.TestCase):
         entry = work / "factory.ts"
         entry.write_text(source, encoding="utf-8")
         module = work / "factory.mjs"
+        # On Windows node_modules/.bin/esbuild is a shell wrapper; resolve the
+        # platform binary via PATHEXT so CreateProcess gets a real executable.
+        esbuild_bin = shutil.which("esbuild", path=str(showcase / "node_modules" / ".bin"))
+        assert esbuild_bin, "esbuild binary not found in showcase node_modules/.bin"
         subprocess.run(
             [
-                str(showcase / "node_modules" / ".bin" / "esbuild"),
+                esbuild_bin,
                 str(entry),
                 "--bundle", "--format=esm", "--platform=node", "--external:three",
                 f"--outfile={module}", "--log-level=error",

@@ -16,7 +16,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from showcase_test_support import showcase_root
+from showcase_test_support import NPX, showcase_root
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "subdivision_cage.json"
@@ -111,7 +111,7 @@ def compile_generated_module(
     source.write_text(generated + export_statement, encoding="utf-8")
     result = subprocess.run(
         [
-            "npx",
+            NPX,
             "tsc",
             "--target",
             "ES2020",
