@@ -1,5 +1,11 @@
 # GLB animated-character prompt
 
+> **Checklist authority note (extract-animated-character, 2026-09-03):** the `animated-character`
+> profile is served by the installed **plugin-character** (`img2 add img2threejs/plugin-character`);
+> its `domain.json` owns the rig-step order and invokes the plugin's `tools/` ports. The
+> `forge/stage5_rig/...` commands below remain runnable as the base LIBRARY the emitters use, but
+> the checklist runs the plugin's copies -- when the two disagree, the plugin is the authority.
+
 One copy-paste prompt that carries a subject from a GLB reference to a **rigged, animated,
 gate-cleared** procedural Three.js character, for img2threejs 1.5.2 and later.
 

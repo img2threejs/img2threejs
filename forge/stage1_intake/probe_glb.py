@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 import struct
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -23,10 +24,17 @@ try:
 except ImportError:  # pragma: no cover - direct script execution
     from semantic_decomposition import assess_semantic_decomposition
 
+# The container parse (magic/version/chunk table) is shared with the emission-target socket's tier-1
+# GLB verification (task 3.6, establish-the-emission-target-contract) -- it lives in
+# forge/_shared/glb_container.py rather than here, because this module also imports the
+# intake-domain semantic_decomposition machinery the export side has no use for and should not have
+# to pull in as a "drop-in". Same package-relative/direct-script dual import as above.
+try:
+    from .._shared.glb_container import GLB_MAGIC, parse_glb
+except ImportError:  # pragma: no cover - direct script execution
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_shared"))
+    from glb_container import GLB_MAGIC, parse_glb  # noqa: E402
 
-GLB_MAGIC = b"glTF"
-JSON_CHUNK = 0x4E4F534A
-BIN_CHUNK = 0x004E4942
 MAX_FALLBACK_BOUND_SAMPLES = 1_000_000
 
 
@@ -36,66 +44,6 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _chunk_type_name(chunk_type: int) -> str:
-    try:
-        return chunk_type.to_bytes(4, "little").decode("ascii", errors="replace")
-    except OverflowError:
-        return hex(chunk_type)
-
-
-def parse_glb(path: Path) -> tuple[dict[str, Any], bytes, dict[str, Any]]:
-    data = path.read_bytes()
-    if len(data) < 12:
-        raise ValueError("GLB is shorter than the 12-byte header")
-    magic, version, declared_length = struct.unpack_from("<4sII", data, 0)
-    if magic != GLB_MAGIC:
-        raise ValueError("file does not start with the glTF binary magic")
-    if version != 2:
-        raise ValueError(f"unsupported GLB version {version}; expected 2")
-    if declared_length != len(data):
-        raise ValueError(f"header length {declared_length} does not match file size {len(data)}")
-
-    cursor = 12
-    json_payload: bytes | None = None
-    bin_payload = b""
-    chunks: list[dict[str, Any]] = []
-    while cursor < len(data):
-        if cursor + 8 > len(data):
-            raise ValueError("truncated GLB chunk header")
-        chunk_length, chunk_type = struct.unpack_from("<II", data, cursor)
-        cursor += 8
-        end = cursor + chunk_length
-        if end > len(data):
-            raise ValueError("GLB chunk extends beyond the declared file")
-        payload = data[cursor:end]
-        cursor = end
-        chunks.append({"type": _chunk_type_name(chunk_type), "bytes": chunk_length})
-        if chunk_type == JSON_CHUNK:
-            if json_payload is not None:
-                raise ValueError("GLB contains more than one JSON chunk")
-            json_payload = payload.rstrip(b" \t\r\n\x00")
-        elif chunk_type == BIN_CHUNK:
-            if bin_payload:
-                raise ValueError("GLB contains more than one BIN chunk")
-            bin_payload = payload
-
-    if json_payload is None:
-        raise ValueError("GLB has no JSON chunk")
-    try:
-        document = json.loads(json_payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError(f"GLB JSON chunk is invalid: {exc}") from exc
-    if not isinstance(document, dict):
-        raise ValueError("GLB JSON root must be an object")
-    return document, bin_payload, {
-        "version": version,
-        "declaredLength": declared_length,
-        "jsonChunkBytes": len(json_payload),
-        "binChunkBytes": len(bin_payload),
-        "chunks": chunks,
-    }
 
 
 def _buffer_view_bytes(document: dict[str, Any], bin_payload: bytes, view_index: int) -> bytes:

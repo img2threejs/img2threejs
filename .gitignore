@@ -69,4 +69,28 @@ docs/prompts/
 # session ids, which must never reach the public skill.
 docs/WS_*_HANDOVER_*.md
 docs/PR_DISTILLED.md
-_img2_local.py
+
+# A run invoked from the repo root, rather than from work/ or .screenshot/, drops its artifacts here
+# instead of inside a directory the rules above already cover -- so the same class of file escapes
+# every one of them. These are the names the pipeline writes at the working root: reference crops,
+# per-pass renders and comparison sheets, the de-lighting pair, the intake/assessment/spec JSONs, the
+# detail-inventory and material-evidence sheets, and the generated factory. All outputs, never inputs.
+# Root-anchored so a legitimately committed file deeper in the tree is unaffected.
+/reference_*.png
+/render_*.png
+/comparison_*.png
+/delight_*.png
+/delight_report*.json
+/admission.json
+/assessment.json
+/probe.json
+/di.json
+/object-sculpt-spec.json
+/reference-camera.json
+/detail-inventory/
+/material-evidence/
+/src/
+
+# Written by the harness when it points a checkout at a temp core: one line holding an absolute path
+# under /var/folders, dead the moment that temp dir is reaped. Machine-local by construction.
+/_img2_local.py

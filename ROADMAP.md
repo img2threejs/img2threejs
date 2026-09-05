@@ -18,6 +18,7 @@ can plan around.
 | v1.4 | Weapon Pipeline | 2026-07-25–26 | CS2 image-matched reconstruction, provenance-aware intake and local search, projection-first finishes, family-specific adapters, structural review and component-coverage gates |
 | v1.5 | The Character Update | 2026-08-12 | Skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, `tapered-sweep`, material pipeline with a blocking acceptance gate, resumable workflow state |
 | v1.5.2 | Character rigging & animation | 2026-08-25 | Clip measurement vocabulary and classifier, corrected loop rule (poseReturn, not travel), proximity weight blending, topology-driven chain resolution, foot-contact gate, and the G1-G10 gate suite where an unmeasured gate reports `unevaluated` rather than a pass |
+| v2.0 | The Plugin Update — plugin ecosystem & API | 2026-09-05 | Domain registry (`forge/_shared/domains/`), pull-based spec augmentation with raise-only quality floors, emission-target socket with provenance, per-plugin blocking gates, the img2 harness (`install/add/doctor/sync/capabilities`); CS2 extracted into `plugin-cs2`, `animated-character` served by `plugin-character`, the base names no domain. Pulled forward from the original Procedural World bundle |
 
 ### v1.2 — Humanoid character generator
 
@@ -81,20 +82,22 @@ judgment is spent only where a script cannot decide.
 | v1.3 | Quality & efficiency (Divine Eye) | Shipped | Deterministic review harness, input-integrity and geometry-truth gates, projection-first texture/material analysis, CIEDE2000 colour math |
 | v1.4 | Weapon Pipeline | Shipped | CS2 image-matched reconstruction, provenance-aware intake, projection-first finishes, family-specific adapters, structural and component-coverage gates |
 | v1.5 | Character Pipeline | Shipped | Component-derived skeleton bound to `SkinnedMesh` geometry · geodesic skinning · hair subsystem across all five stages · chirality gates · interior-difference review · `tapered-sweep` · material pipeline · resumable workflow state. Not shipped: `hairProfile` compiler, IK, pose-sweep gating, clothing |
-| **v1.6** | Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
-| **v1.7** | Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
-| **v1.8** | Animation Pipeline | Move assets into production | Auto rigging · auto skin weights · Mixamo compatibility · facial rig · lip-sync preparation · animation-ready exports |
-| **v1.9** | AI Studio | Cut the manual work | Web UI · drag & drop workflow · batch processing · visual prompt builder · project management · cloud rendering · public showcase integration |
-| **v2.0** | Procedural World Generation | Whole worlds from reference images | Multi-view reconstruction · large scene generation · semantic world understanding · procedural city generation · interior reconstruction · multi-agent generation pipeline · plugin ecosystem & API |
+| v2.0 | The Plugin Update | Shipped | Domain registry · pull-based spec augmentation with raise-only floors · emission-target socket · per-plugin blocking gates · img2 harness · CS2 and animated-character extracted into installed plugins |
+| **v2.1** | Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
+| **v2.2** | Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
+| **v2.3** | Animation Pipeline | Move assets into production | Auto rigging · auto skin weights · Mixamo compatibility · facial rig · lip-sync preparation · animation-ready exports |
+| **v2.4** | AI Studio | Cut the manual work | Web UI · drag & drop workflow · batch processing · visual prompt builder · project management · cloud rendering · public showcase integration |
+| **v3.0** | Procedural World Generation | Whole worlds from reference images | Multi-view reconstruction · large scene generation · semantic world understanding · procedural city generation · interior reconstruction · multi-agent generation pipeline |
 
 ### Release names
 
 - **v1.5 — The Character Update**
-- **v1.6 — The Environment Update**
-- **v1.7 — The Game Pipeline Update**
-- **v1.8 — The Animation Update**
-- **v1.9 — The AI Studio Update**
-- **v2.0 — The Procedural World Update**
+- **v2.0 — The Plugin Update**
+- **v2.1 — The Environment Update**
+- **v2.2 — The Game Pipeline Update**
+- **v2.3 — The Animation Update**
+- **v2.4 — The AI Studio Update**
+- **v3.0 — The Procedural World Update**
 
 ## Version details
 
@@ -135,7 +138,21 @@ expression work beyond the morph-target emitter, and clothing. Hair dynamics and
 are out of scope permanently — a single image carries no motion, and this pipeline emits no textures
 or alpha.
 
-### v1.6 — The Environment Update
+### v2.0 — The Plugin Update
+
+*Shipped 2026-09-05.*
+
+The plugin ecosystem became the product's spine rather than a line item in a far-future bundle. A
+domain registry (`forge/_shared/domains/`) makes profiles pluggable: in-repo modules and installed
+plugins register identically, `--profile` choices derive from what is actually present, and an
+unregistered profile fails loud naming what is available. CS2 moved out of the base into
+`plugin-cs2`; `animated-character` is served by `plugin-character`; the base names no domain and
+infers none from a target's name. Specs pull augmentation from plugins with raise-only quality
+floors, emission targets are a provenance-tracked socket, and each plugin brings its own blocking
+gates. The `img2` harness (`install / add / remove / list / doctor / sync / capabilities`) owns
+installation and drift detection across agent hosts.
+
+### v2.1 — The Environment Update
 
 The unit of reconstruction grows from one object to a scene. Buildings, rooms, and streets become
 buildable subjects; trees and vegetation get procedural treatment suited to code-only generation;
@@ -143,20 +160,20 @@ and generation becomes terrain-aware, so objects sit in a scene rather than floa
 Multi-object reconstruction lands here: one reference image, several subjects, correct relative
 placement and scale.
 
-### v1.7 — The Game Pipeline Update
+### v2.2 — The Game Pipeline Update
 
 Assets stop being Three.js-only. First-class exporters for Unity and Unreal, a Blender bridge, and
 improved FBX / OBJ / glTF output make a generated model something you can drop into an existing
 production pipeline. LOD generation and collision-mesh generation cover the two things every engine
 asks for and no image-to-3D tool ships by default.
 
-### v1.8 — The Animation Update
+### v2.3 — The Animation Update
 
 Rigging becomes automatic: skeleton generation, skin weights, and a facial rig, with Mixamo
 compatibility so existing animation libraries apply without hand work. Lip-sync preparation and
 animation-ready exports close the gap between "a model exists" and "a character performs".
 
-### v1.9 — The AI Studio Update
+### v2.4 — The AI Studio Update
 
 The pipeline gets a front door for people who don't live in a terminal: a web UI with a
 drag-and-drop workflow, batch processing for more than one asset at a time, a visual prompt builder,
@@ -164,27 +181,29 @@ project management, and cloud rendering. Public showcase integration wires the s
 the [live gallery](https://img2threejs-showcase.pages.dev/), so publishing a result is a button
 rather than a pull request.
 
-### v2.0 — The Procedural World Update
+### v3.0 — The Procedural World Update
 
 Multi-view reconstruction removes the single-image blind-side limit that has bounded every prior
 version. Large scene generation, semantic world understanding, procedural city generation, and
 interior reconstruction combine into a pipeline that produces a place rather than a prop, driven by
-a multi-agent generation pipeline. A plugin ecosystem and public API make the whole thing
-extensible by other people.
+a multi-agent generation pipeline — all riding the plugin ecosystem and API that shipped in v2.0.
 
 ## The long view
 
 **Phase 1 (v1.4–v1.5) — Assets.** Build high-quality individual assets: weapons, props, characters.
 
-**Phase 2 (v1.6–v1.7) — Worlds.** Build environments and game-ready content: buildings, vegetation,
+**Phase 1.5 (v2.0) — Ecosystem.** The plugin architecture shipped ahead of schedule: domains,
+emission targets, gates, and augmentation are extension points other people can build on.
+
+**Phase 2 (v2.1–v2.2) — Worlds.** Build environments and game-ready content: buildings, vegetation,
 streets, export pipelines.
 
-**Phase 3 (v1.8–v1.9) — Production.** Turn generated assets into production-ready content: rigging,
+**Phase 3 (v2.3–v2.4) — Production.** Turn generated assets into production-ready content: rigging,
 animation, Blender, Unity, Unreal, and a web platform.
 
-**Phase 4 (v2.0) — AI game-asset platform.** Generate entire playable worlds from reference images:
-multi-view understanding, procedural world generation, AI planning, a full ecosystem, and
-extensible APIs and plugins.
+**Phase 4 (v3.0) — AI game-asset platform.** Generate entire playable worlds from reference images:
+multi-view understanding, procedural world generation, and AI planning, all riding the v2.0
+plugin ecosystem.
 
 ## Known gaps (deep-research audit — 2026-07-22)
 
@@ -195,10 +214,10 @@ latent bug.
 
 | # | Gap | Status / plan | Priority |
 |---|---|---|---|
-| G1 | SkinnedMesh + Bones + Morph targets (organic deform, facial expression) | Roadmap **v1.8 — Animation** (rig-ready topology prepared in v1.5) | deferred |
-| G2 | glTF / GLB export + AnimationMixer (engine portability) | Roadmap **v1.7 — Game Pipeline** | deferred |
+| G1 | SkinnedMesh + Bones + Morph targets (organic deform, facial expression) | Roadmap **v2.3 — Animation** (rig-ready topology prepared in v1.5) | deferred |
+| G2 | glTF / GLB export + AnimationMixer (engine portability) | Roadmap **v2.2 — Game Pipeline** | deferred |
 | G3 | ~~**InstancedMesh — real latent bug**: `instanced-cluster` has no `geometry_for()` branch; repetition systems emit a hand-rolled `Mesh` clone loop~~ | **Closed.** `geometry_for()` resolves the cluster's base primitive and the repetition emitter builds `new THREE.InstancedMesh(geo, mat, count)`; `test_repetition_system_scale.py` verifies placement by reading matrices back through `InstancedMesh.getMatrixAt` composed with `cluster.matrixWorld`, not by matching source strings | — |
-| G4 | UV unwrapping / atlas, normal+AO baking (high→low), LOD, BVH; procedural-UV seams stretch at primitive joins | Partial today (procedural cyl/triplanar UV + height→normal). Baking and LOD land in **v1.7** | med |
+| G4 | UV unwrapping / atlas, normal+AO baking (high→low), LOD, BVH; procedural-UV seams stretch at primitive joins | Partial today (procedural cyl/triplanar UV + height→normal). Baking and LOD land in **v2.2** | med |
 | G5 | WebGPURenderer + TSL node materials | Deferred — architecture, not render quality | low |
 | G6 | Topology / retopology / CSG boolean-merge (clean welded mesh for skinning) | Feeds **v1.5** rigging-ready topology; `three-bvh-csg` is for export/skinning, not static-prop quality | low |
 

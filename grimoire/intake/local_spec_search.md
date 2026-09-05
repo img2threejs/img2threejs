@@ -4,7 +4,7 @@ After image analysis and before writing or refining a spec, local evidence is a 
 not an optional memory lookup, whenever the request needs domain-specific anatomy, PBR, wear,
 geometry, runtime, or physics specifications.
 
-The pre-spec command automatically runs BM25, chooses `cs2` for CS2 targets and `core_3d`
+The pre-spec command automatically runs BM25, chooses the collection a resolved domain contributes, or `core_3d`,
 otherwise, and writes a `localSpecSearch` evidence bundle into the assessment:
 
 ```
@@ -21,8 +21,8 @@ For extra focused retrieval, the direct CLI remains available:
 python3 forge/stage1_intake/search_specs.py "<query>" --collection <collection> --limit 3 --snippet-chars 250 --json
 ```
 
-For CS2, include the anatomical and the colloquial name, for example
-`--spec-query "safety ring finger ring"` or `search_specs.py "roughness matte" --collection cs2`.
+For a domain corpus, include the anatomical and the colloquial name, for example
+`--spec-query "safety ring finger ring"`, or query the collection directly with `search_specs.py`. A domain corpus ships with the plugin that serves it.
 Expand queries with object names,
 component names, material/finish terms, behavior terms, and known aliases; retry focused
 alternatives when the first result is incomplete. Build the spec from returned evidence and do

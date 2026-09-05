@@ -25,6 +25,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_shared"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage2_spec"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stage3_build"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from showcase_test_support import showcase_root  # noqa: E402
 
 import generate_threejs_factory  # noqa: E402
 from generate_threejs_factory import _DEFAULT_TAPERED_SWEEP, geometry_for  # noqa: E402
@@ -259,7 +262,7 @@ class SweepWindingFacesOutward(unittest.TestCase):
         node = shutil.which("node")
         if node is None:
             self.fail("node is required to execute the emitted sweep builder")
-        showcase = ROOT.parent / "img2threejs-showcase"
+        showcase = showcase_root()
         if not (showcase / "node_modules" / "three").is_dir():
             self.skipTest(f"three is not installed at {showcase / 'node_modules' / 'three'}")
         source = generate_threejs_factory.generate(_sweep_spec(sweep), "blockout")

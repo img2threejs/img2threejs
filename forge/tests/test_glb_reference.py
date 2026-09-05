@@ -151,5 +151,27 @@ class GlbReferenceProbeTest(unittest.TestCase):
             )
 
 
+class GlbContainerRefusesDuplicateBinChunks(unittest.TestCase):
+    """`parse_glb` promises to refuse more than one BIN chunk; the duplicate check must be a
+    seen-flag, not payload truthiness -- a zero-length first BIN chunk is falsy and let a second
+    one through."""
+
+    def test_a_second_bin_chunk_after_an_empty_one_is_refused(self) -> None:
+        from forge._shared.glb_container import parse_glb
+
+        payload = json.dumps({"asset": {"version": "2.0"}}).encode("utf-8")
+        payload += b" " * ((4 - len(payload) % 4) % 4)
+        chunks = struct.pack("<II", len(payload), 0x4E4F534A) + payload
+        chunks += struct.pack("<II", 0, 0x004E4942)
+        chunks += struct.pack("<II", 4, 0x004E4942) + b"\x00\x00\x00\x00"
+        blob = struct.pack("<4sII", b"glTF", 2, 12 + len(chunks)) + chunks
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "double-bin.glb"
+            path.write_bytes(blob)
+            with self.assertRaises(ValueError) as ctx:
+                parse_glb(path)
+        self.assertIn("more than one BIN chunk", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

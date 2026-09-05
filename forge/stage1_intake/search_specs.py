@@ -85,7 +85,7 @@ class CliNamespace(argparse.Namespace):
     def __init__(self) -> None:
         super().__init__()
         self.query: list[str] = []
-        self.collection: str = "cs2"
+        self.collection: str = "core_3d"
         self.limit: int = 3
         self.snippet_chars: int = 250
         self.reindex: bool = False
@@ -97,7 +97,7 @@ def _parse_options(argv: Sequence[str]) -> CliOptions:
         description="Search registered specification collections with local BM25."
     )
     _ = parser.add_argument("query", nargs="*", help="Search terms")
-    _ = parser.add_argument("--collection", default="cs2")
+    _ = parser.add_argument("--collection", default="core_3d")
     _ = parser.add_argument("--limit", type=int, default=3)
     _ = parser.add_argument(
         "--snippet-chars",
@@ -179,7 +179,7 @@ def main(argv: Sequence[str]) -> int:
         options = _parse_options(argv)
     except CliArgumentError as error:
         return _emit_error(
-            ErrorContext("", "cs2", json_requested),
+            ErrorContext("", "core_3d", json_requested),
             CliFailure("invalid_arguments", str(error), 2),
         )
 

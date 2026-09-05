@@ -12,8 +12,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from feature_acceptance_policy import feature_gate_failures
-from cs2_review import load_review_scene
 from status_banner import emit_status
+
+
+def _review_scene_fixture_id(scene_path: Path) -> object:
+    """Read the fixture id a review scene declares.
+
+    Deliberately a plain JSON read and one field. This used to import a domain plugin's
+    `load_review_scene`, which validated that plugin's own scene schema -- the base pipeline reaching
+    into a plugin by module name, and a base run breaking when the plugin was absent. The schema is
+    the plugin's business and its own gate already enforces it; all this needs is the id, to check
+    that the report being attached and the scene being cited are the same fixture.
+    """
+    payload = json.loads(scene_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"--review-scene-json must be a JSON object: {scene_path}")
+    return payload.get("fixtureId")
 
 
 VALID_ACTIONS = {"continue", "refine-spec", "refine-code", "request-input", "stop"}
@@ -234,12 +248,14 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--review-viewpoints-json", help="JSON array or file containing review viewpoint labels")
     parser.add_argument("--force-out-of-order", action="store_true", help="Record deliberate re-review outside the unlocked pass")
     parser.add_argument(
-        "--cs2-review-json",
-        help="Machine-readable CS2 review report JSON or a JSON file path",
+        "--domain-review-json",
+        "--cs2-review-json",  # accepted for specs and runs authored before domains were extracted
+        dest="domain_review_json",
+        help="Machine-readable review report from a domain plugin's review gate, JSON or a file path",
     )
     parser.add_argument(
         "--review-scene-json",
-        help="Versioned CS2 review-scene metadata JSON used to validate the report",
+        help="Versioned review-scene metadata JSON used to validate the report",
     )
     parser.add_argument(
         "--require-screenshot-files",
@@ -343,22 +359,21 @@ def main(argv: list[str]) -> int:
                     + ", ".join(missing_layers)
                 )
 
-    cs2_review = load_json_argument(args.cs2_review_json, "--cs2-review-json")
-    if cs2_review is not None:
-        if not isinstance(cs2_review, dict):
-            raise ValueError("--cs2-review-json must be a JSON object")
+    domain_review = load_json_argument(args.domain_review_json, "--domain-review-json")
+    if domain_review is not None:
+        if not isinstance(domain_review, dict):
+            raise ValueError("--domain-review-json must be a JSON object")
         if args.review_scene_json:
             scene_path = Path(args.review_scene_json).expanduser()
             if not scene_path.is_file():
                 raise FileNotFoundError(f"--review-scene-json does not exist: {scene_path}")
-            scene = load_review_scene(scene_path)
-            expected = scene.get("fixtureId")
-            if cs2_review.get("reviewScene", {}).get("fixtureId") != expected:
-                raise ValueError("CS2 review report does not match --review-scene-json")
-        if args.action == "continue" and cs2_review.get("verdict") != "pass":
+            expected = _review_scene_fixture_id(scene_path)
+            if domain_review.get("reviewScene", {}).get("fixtureId") != expected:
+                raise ValueError("the domain review report does not match --review-scene-json")
+        if args.action == "continue" and domain_review.get("verdict") != "pass":
             raise ValueError(
-                "CS2 review gate is blocking continuation: "
-                + ", ".join(str(item) for item in cs2_review.get("failedGates", []))
+                "the domain review gate is blocking continuation: "
+                + ", ".join(str(item) for item in domain_review.get("failedGates", []))
             )
 
     entry = {
@@ -390,8 +405,11 @@ def main(argv: list[str]) -> int:
         missing = sorted(required - set(viewpoints))
         if missing and args.action == "continue":
             raise ValueError("review evidence is missing axial viewpoints: " + ", ".join(missing))
-    if cs2_review is not None:
-        entry["cs2Review"] = cs2_review
+    if domain_review is not None:
+        # domainReview is the field going forward; cs2Review stays alongside it so a spec written
+        # before the extraction still validates and so nothing that reads the old key breaks.
+        entry["domainReview"] = domain_review
+        entry["cs2Review"] = domain_review
     if args.pass_id in VISUAL_PASS_IDS and args.action == "continue":
         feature_failures = feature_gate_failures(spec, entry, args.pass_id)
         if feature_failures:

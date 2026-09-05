@@ -2,14 +2,18 @@
 name: img2threejs
 description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
 license: Apache-2.0
-version: 1.5.2
+version: 2.0.0
 ---
 
 # img2threejs — Image to procedural Three.js
 
 Rebuild the object visible in a reference image as a **code-only** procedural Three.js model,
 gated by a staged sculpting pipeline and an AI-vision self-correction loop. This is
-reconstruction-by-code, **not** photogrammetry, mesh extraction, or downloaded art packs.
+reconstruction-by-code, **not** photogrammetry, mesh extraction, or downloaded art packs. That
+promise governs how the model is *built* — it says nothing about which file formats it can
+subsequently be *exported* to; an explicitly-selected emission target (`--target <kind>`) is a
+terminal, whole-artifact transform of the already-built model, verified to its own stated limit,
+never a second way to build one.
 
 Agent-agnostic: works under Claude Code, Codex, or OpenCode. Wherever this doc says "agent
 vision" or "agent browser tool", use whatever the host provides — native image reading, a
@@ -58,7 +62,7 @@ Conversation context is disposable; `.img2threejs/state.json` is the local check
 Initialize once per reconstruction, then gate every step through it:
 
 ```bash
-python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|cs2|character|animated-character> --spec object-sculpt-spec.json
+python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|character|installed-domain> --spec object-sculpt-spec.json
 python3 forge/next.py --state .img2threejs/state.json [object-sculpt-spec.json]
 python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence <path>
 ```
@@ -69,13 +73,17 @@ python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence
 - Every completed step needs evidence; mark a non-applicable step `skipped` only with `--reason` —
   silent omission is forbidden. Loop counts derive from `reviewHistory` actions
   (`refine-spec`/`refine-code`), not agent memory. Defaults: 3 corrections per pass, 6 total.
-- Profiles add mandatory gates without changing the core order: `cs2` requires classification,
-  manifest, and a machine-readable CS2 review before AI review; `character` requires the character
-  contracts and landmark evidence; `animated-character` adds all of `character` plus the nine Stage R
-  steps (`grimoire/readiness/animation_contract.md`). Pick it whenever the rig must MOVE — on
-  `character` the Stage R gates are absent and the build completes without ever running them, which
-  is how animation used to ship broken. Its order is load-bearing: repair the mesh, freeze it, bind
-  additively, then verify parity. Every profile records suitability, projection applicability, and
+- A domain profile's steps, gates and reference material come from the **registry**: in-repo
+  modules (`character`) and installed plugins (`cs2`, `animated-character` from plugin-character) register identically, and
+  `forge/state.py init` names what is available. A profile adds mandatory gates without changing
+  the core order -- a domain plugin typically requires an authoritative classification, an intake
+  manifest, and a machine-readable domain review before AI review; `character` requires the
+  character contracts and landmark evidence; `animated-character` (requires the installed plugin-character) adds all of `character` plus the
+  nine Stage R steps (`grimoire/readiness/animation_contract.md`). Pick it whenever the rig must
+  MOVE — on `character` the Stage R gates are absent and the build completes without ever running
+  them, which is how animation used to ship broken. Its order is load-bearing: repair the mesh,
+  freeze it, bind additively, then verify parity. Every profile records suitability, projection
+  applicability, and
   material-evidence applicability. The state file is a resumability index, not visual evidence:
   renders, specs, review history, and deterministic gates remain the authoritative artifacts.
 
@@ -84,7 +92,7 @@ python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence
 - one image path / screenshot / URL / attached image (if missing or unreadable, ask)
 - intended use: prop, game object, hero render, playable/destructible object, animation rig
   (default: real-time browser prop with interactive performance)
-- for a CS2 request, an authoritative classification record (family/subtype and evidence refs) or
+- when a domain plugin serves the item, whatever authoritative record its intake step requires, or
   an explicit request for the user/vision provider to supply one; heuristic detection alone is not
   enough to select a geometry adapter
 
@@ -102,14 +110,15 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
 1a. **Local Spec Search** — after image analysis, before writing or refining a spec, pull local
     domain evidence (anatomy/PBR/wear/geometry/runtime/physics) rather than inventing it:
     `python3 forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --out assessment.json`
-    (auto-runs BM25, auto-picks `cs2`/`core_3d` collection, writes a `localSpecSearch` bundle that
+    (auto-runs BM25 over the `core_3d` collection, or the collection a declared domain contributes
+    -- the collection is NEVER guessed from the target name; writes a `localSpecSearch` bundle that
     `new_sculpt_spec.py --assessment` carries into the spec). Full query-expansion recipe
     (bilingual terms, focused `search_specs.py` retrieval, cache rules):
     `grimoire/intake/local_spec_search.md`. MUST read it before retrying an incomplete or
     domain-specific query.
-1b. **CS2 intake manifest** — for a CS2 request, create and validate `cs2-intake.json` before
+1b. **Domain intake** — when a domain plugin serves the item, complete its intake steps before
     pre-spec authoring (admission, heuristic signal, classification, family/route resolution).
-    MUST read `grimoire/intake/cs2_intake_contract.md` completely before creating the manifest or
+    MUST read the contract its step names, completely, before creating the manifest or
     running pre-spec assessment.
 1c. **Optional fidelity evidence adapters** — only when they improve an observed weak point; the
     stdlib core remains authoritative. Thin/complex masks → local SAM2; character face/pose →
@@ -122,19 +131,19 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
 2. **Pre-Spec Assessment Gate** — classify + score complexity + write the quality contract:
    `forge/stage2_spec/new_pre_spec_assessment.py "Name" --image <img> --complexity <simple|moderate|complex|ultra-complex> --out assessment.json`. Rules: `grimoire/intake/quality_contract.md`.
    Set `objectClass.primaryDomain` (`object` | `character` | `hybrid`) and fill the seeded
-   `detailInventory` (its `targetMinDetails` scales with complexity). **Supported CS2 knife skins
-   and Glock-18 assets**: always pass `--cs2`, which defaults the complexity tier to `ultra-complex`
-   (`targetMinDetails` 16, floor 9) — the finish/wear/hardware is the item, so CS2 is held to the
+   `detailInventory` (its `targetMinDetails` scales with complexity). A domain plugin may **raise**
+   these floors through its augmentation -- the merge clamps, so a plugin can never lower one
+   (a skin's finish/wear/hardware IS the item, so such a domain is held to the
    top fidelity bar. Author procedural GEOMETRY but route the FINISH through the projection path in
    step 2c — a procedural finish for a patterned skin (Doppler/Gamma/Marble/Fade) reads visibly
-   wrong against the reference. Finish routes + rulebook: `grimoire/build/cs2_finishes.md`;
-   optional exact-texture acquisition: `grimoire/intake/cs2_texture_acquisition.md`.
+   wrong against the reference. A domain plugin ships its own finish rulebook and texture-acquisition
+   guide; read what its checklist steps name.
 2b. **Detail inventory** (do not skip for detailed subjects) — scan zones and enumerate every
    identity-defining small detail (gloss, bevel, fasteners, linework, contours, stains):
    `forge/stage1_intake/build_detail_inventory.py <image> --mode grid-3x3 --out-dir <dir> --out di.json`.
    Each detail MUST map to a `component.localFeatures` or `material.localOverrides` entry — never
    prose only. Taxonomy + 3D-term recipes: `grimoire/intake/detail_inventory.md`.
-2c. **Projection-first fidelity** (characters AND reference-matched surfaces — supported CS2 skins,
+2c. **Projection-first fidelity** (characters AND reference-matched surfaces — painted skins,
    decals, painted patterns) — when the goal is matching a specific reference's surface, put the
    photo's own pixels on the mesh instead of approximating them procedurally. This is the single
    biggest fidelity lever; a procedural material for a patterned surface is the #1 reconstruction
@@ -142,7 +151,7 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    characters): solve the camera (`stage1_intake/solve_camera_pose.py` → `referenceCamera`),
    **de-light** the reference (`stage1_intake/delight_albedo.py`, hard requirement — de-lighting is
    what makes projection safe), then project the de-lit crop and bake it into UVs
-   (`stage3_build/bake_projected_texture.py --mesh-id <id>`). For a CS2 skin the projected de-lit
+   (`stage3_build/bake_projected_texture.py --mesh-id <id>`). For a painted skin the projected de-lit
    crop IS the finish — no procedural Doppler material. For characters, first capture landmarks
    (`stage1_intake/extract_landmarks.py --out anatomy.json`), fill `preSpecAssessment.anatomy`,
    route `grimoire/character/reconstruction.md`. A single view cannot show hidden sides — report
@@ -161,7 +170,7 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    the spec names a reference image, and names anything the corpus does not supply rather than
    interpolating it.
 3. Author the spec from the assessment:
-   `forge/stage2_spec/new_sculpt_spec.py "Name" --image <img> --assessment assessment.json --manifest cs2-intake.json --out object-sculpt-spec.json`.
+   `forge/stage2_spec/new_sculpt_spec.py "Name" --image <img> --assessment assessment.json --augmentation spec-augmentation.json --domain <profile> --out object-sculpt-spec.json` (the checklist step carries the resolved flags).
    Replace generic starter `featureReviewTargets` with the object's real identity-defining
    systems (≤5 critical, ≤3 important per pass); for characters add `anatomy-proportion`,
    `face-landmark-placement`, `pose-silhouette`, `outfit-and-palette`. Use 3D-graphics terms only
@@ -227,11 +236,12 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    `forge/stage4_review/make_comparison_sheet.py --reference <img> --render <shot> --out cmp.png --json`.
 10. Record the review (overall + per-layer + per-feature scores + decision):
     `forge/stage4_review/append_review.py object-sculpt-spec.json --pass-id <pass> --fidelity <0-1> --action <continue|refine-spec|refine-code|request-input|stop> --summary "..." --render-screenshot <shot> --comparison-image cmp.png --ai-vision-score <0-1> --layer-scores-json '{...}' --feature-reviews-json <f.json> --in-place`.
-    For the CS2 family path, produce the versioned report first with
-    `forge/stage4_review/cs2_review.py --manifest cs2-intake.json --metrics cs2-review-inputs.json --scene forge/tests/fixtures/knife_review_scene.json --out cs2-review.json`
-    and attach it with `--cs2-review-json cs2-review.json --review-scene-json forge/tests/fixtures/knife_review_scene.json`.
+    When a domain plugin contributes a review gate, produce its versioned report first with
+    the command that plugin's review step names, then attach it with
+    `--domain-review-json <report>.json --review-scene-json <the plugin's scene fixture>`. The
+    checklist step carries the resolved paths.
     A failed family, painted-region, projection-coverage, critical-detail, or orbit gate blocks
-    `continue` even when the global score passes. See `docs/cs2/review-gates.md`.
+    `continue` even when the global score passes. See the plugin's own review-gate documentation.
 11. Sync pipeline state after manual review edits, record checklist evidence, then re-run the local
     state gate before another correction or pass:
     `forge/stage3_build/orchestrate_passes.py sync object-sculpt-spec.json --in-place`
@@ -269,7 +279,7 @@ schema in `docs/specs/render-profile.v2.schema.json` (+ example; fail-closed val
 
 Before any visual review or `continue` decision, MUST read the full gate-by-gate contract in
 `grimoire/review/gates_reference.md` (Divine Eye, VLM rescue, multi-angle, interior difference,
-chirality, hair, CS2 review, bounded correction, Divine Eye fitting, screenshot feedback, assembly,
+chirality, hair, domain review, bounded correction, Divine Eye fitting, screenshot feedback, assembly,
 attachment, material, detail inventory, rig payload, character track). In short:
 
 - Validate references first (`grimoire/intake/validation_rubric.md`, `check_reference_admission.py`).
@@ -289,12 +299,14 @@ attachment, material, detail inventory, rig payload, character track). In short:
   passes a straight cone occupying roughly the right cells.
 - Character builds validate the rig payload (`stage5_rig/validate_rig_payload.py`) before binding a
   `THREE.Skeleton`; it proves payload integrity only, never pose stress or likeness.
-- A rig that must MOVE runs the animation gates too (`grimoire/readiness/animation_contract.md`,
-  `stage5_rig/rig_gates.py`). A clip that exists is not a clip that plays: only G1
+- A rig that must MOVE runs the animation gates too (`grimoire/readiness/animation_contract.md`;
+  the checklist steps and gate come from the installed plugin-character -- `stage5_rig/` remains in
+  this repo as the emitter's library, not the checklist authority). A clip that exists is not a
+  clip that plays: only G1
   (`maxSampledBindingDelta <= 2^-23`) separates the two, and a gate whose input is missing reports
   `unevaluated`, never a pass. Bind at IDENTITY in attached mode and take the display offset from
   the mesh bounds alone; loop is decided by `poseReturn`, never by travel.
-- CS2 builds also run `cs2_review.py` against the versioned scene fixture.
+- A domain plugin's review gate also runs against its versioned scene fixture.
 - Local state enforces 3 corrections per pass and 6 total by default; reaching either limit is a
   hard stop. `correction_loop.py` may stop earlier on repeated defects, oscillation, or plateau.
 - `continue` requires a render + comparison sheet + AI-vision score ≥ threshold, every critical
@@ -354,24 +366,19 @@ measurements and non-goals: `docs/HAIR_PIPELINE.md`. The hard rules:
 - `plane-card` is rejected for hair (needs an alpha texture this skill cannot emit).
 - Hair is rigidly parented, never smooth-skinned (the geodesic field runs through the skull).
 
-## CS2 image-matched rule
+## Domain plugins
 
-For a CS2 item, the target is observable agreement between the supplied image and the rendered
-item: silhouette, proportions, edge profile, hardware layout, coating colour, pattern placement,
-wear, roughness response, and camera framing. Every decision must be traceable to evidence or be
-labelled as an approximation.
+A domain plugin makes a run exact where this pipeline would otherwise infer. It contributes its own
+checklist steps and gates, and publishes a `spec-augmentation.json` that this pipeline pulls at
+`spec-authoring`. With no plugin serving the item, nothing here changes: author the skeleton and
+infer the shape from the reference, as for any other object.
 
-The initial CS2 family boundary covers supported **knife** subtypes and the **Glock-18** pistol
-adapter. Rifle, SMG, sniper, heavy, glove, unsupported pistol, and unknown knife subtypes must stop
-with `unsupported-family` or `unsupported-subtype`; they must not receive another family's component
-tree as a generic fallback.
-
-The full layer contract (what each layer owns, must emit, and must never decide alone), the CS2
-intake order, and the surface/review rule live in `grimoire/intake/cs2_intake_contract.md` — step
-1b already requires reading it completely before intake state can advance. The canonical hand-off
-is `cs2-intake.json` (`schemaVersion: 1`, states `proceed | request-input | fallback | rejected |
-unsupported-family | unsupported-subtype`); write it atomically, preserve unknown provider fields
-under `extensions`, and never let a fallback erase prior evidence.
+- The steps a plugin contributes appear in the checklist with their own ids and resolved paths. Read
+  what each step names -- a plugin ships its own contract, and it governs its own domain.
+- A plugin may **raise** this pipeline's quality floors and can never lower one; the merge clamps.
+- A plugin that does not serve an item publishes no augmentation. That is not an error and not a
+  blocked run: it is the generic path, and the reconstruction proceeds by inference.
+- This pipeline names no domain. If a rule is domain-specific, it lives in that domain's plugin.
 
 ## Forge Runtime Contracts
 

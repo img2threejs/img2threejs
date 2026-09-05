@@ -4,7 +4,7 @@ Use this reference **first**, before `probe_image.py` and before the pre-spec as
 exists because the agent tends to glance at the whole image once and jump straight to code,
 skipping the disciplined observation that every later gate depends on. This is a **generic,
 object-agnostic** protocol — it applies to any subject (prop, tool, weapon, vehicle part,
-botanical, mechanical, character). Domain tracks (CS2 skins, characters) are specializations
+botanical, mechanical, character). Domain tracks (catalogued skins, characters) are specializations
 layered *after* this pass, not replacements for it.
 
 ## The Rule
@@ -115,8 +115,9 @@ this protocol IS the raw material for `new_pre_spec_assessment.py` and `build_de
 This generic pass runs for every subject. When Layer 1 identifies a specialized domain, layer its
 extra rules on top **without** skipping any generic layer:
 
-- **CS2 weapon/knife/glove skins** → `grimoire/build/cs2_finishes.md` (finish style, float, paint
-  seed, view-dependent environment) and `grimoire/intake/cs2_texture_acquisition.md`.
+- **A catalogued skin or finish** → the serving plugin's own finish rulebook (finish style, wear, seed, paint
+  view-dependent environment) and its texture-acquisition guide. Both ship with that plugin; with
+  none installed, infer the finish from the reference.
 - **Characters / hybrids** → `grimoire/character/reconstruction.md` (head-units, landmarks,
   proportion lock).
 

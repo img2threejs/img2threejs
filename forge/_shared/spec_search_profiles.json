@@ -29,21 +29,6 @@
     }
   },
   "collections": {
-    "cs2": {
-      "source_roots": [],
-      "optional_source_roots": [
-        "docs/cs2/",
-        "docs/cs2-anatomy/"
-      ],
-      "distilled_records": [
-        "docs/specs/vocabulary/cs2.jsonl",
-        "docs/specs/vocabulary/cs2_reconstruction.jsonl",
-        "docs/specs/vocabulary/core_3d.jsonl",
-        "docs/specs/vocabulary/core_3d_reconstruction.jsonl"
-      ],
-      "documentation": "docs/specs/vocabulary/README.md",
-      "cache": ".cache/spec-search/cs2.json"
-    },
     "core_3d": {
       "source_roots": [],
       "optional_source_roots": [],

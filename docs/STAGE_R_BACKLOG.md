@@ -1,5 +1,11 @@
 # Stage R backlog — what is missing, in the order it should be closed
 
+> **Checklist authority note (extract-animated-character, 2026-09-03):** the `animated-character`
+> profile is served by the installed **plugin-character** (`img2 add img2threejs/plugin-character`);
+> its `domain.json` owns the rig-step order and invokes the plugin's `tools/` ports. The
+> `forge/stage5_rig/...` commands below remain runnable as the base LIBRARY the emitters use, but
+> the checklist runs the plugin's copies -- when the two disagree, the plugin is the authority.
+
 Distilled from building the 1.5.2 rigging and animation pipeline. Every claim here was verified by
 running something, not by reading; where a claim could not be verified it says so.
 

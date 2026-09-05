@@ -560,7 +560,11 @@ VISUAL_PASS_IDS = {
     "lighting-pass",
     "interaction-pass",
 }
-VALID_PIPELINE_PASS_IDS = VISUAL_PASS_IDS | {"optimization-pass"}
+# proportion-lock and feature-placement are shipped by the base's own character build-pass
+# template (new_sculpt_spec.py: make_character_build_passes); they are legal pipeline passes but
+# NOT visual passes -- their acceptance is gated by domain checks (e.g. humanoid_proportions), not
+# by the render/comparison/vision gate, so they join the union here rather than VISUAL_PASS_IDS.
+VALID_PIPELINE_PASS_IDS = VISUAL_PASS_IDS | {"optimization-pass", "proportion-lock", "feature-placement"}
 ATTACHMENT_ROLES = {
     "appendage",
     "branch",
@@ -827,7 +831,7 @@ def validate_cs2_view_dependent_environment(spec: dict[str, Any], errors: list[s
     failure, not a quality nit. The code-generated default environment always exists unless
     explicitly disabled (cs2Finish.environmentAvailable = false), so this only fires as the
     last-resort guard described in design.md, never on the default image-only path.
-    See grimoire/build/cs2_finishes.md."""
+    See the CS2 domain plugin's finish rulebook."""
     materials = [m for m in spec.get("materials", []) if isinstance(m, dict)]
     view_dependent = [m for m in materials if m.get("needsEnvironment") is True]
     if not view_dependent:
@@ -840,7 +844,7 @@ def validate_cs2_view_dependent_environment(spec: dict[str, Any], errors: list[s
             f"material(s) {names} are view-dependent and need an environment map (scene.environment) "
             "or they render muddy, but cs2Finish.environmentAvailable is false -- enable the "
             "code-generated default environment or supply a user HDRI before generating "
-            "(see grimoire/build/cs2_finishes.md)"
+            "(see the CS2 domain plugin's finish rulebook)"
         )
 
 
@@ -857,8 +861,12 @@ def validate_cs2_contract(spec: dict[str, Any], errors: list[str], warnings: lis
         errors.append("cs2Intake.route must be a supported CS2 route")
     if tier not in CS2_EXACTNESS_TIERS:
         errors.append("cs2Intake.exactnessTier must be a supported exactness tier")
-    if intake.get("itemFamily") != "knife":
-        errors.append("cs2Intake requires the registered knife adapter")
+    # No family gate here. The base names no domain (SKILL.md, "Domain plugins"), and the CS2
+    # plugin serves any CS2 item: only the component *tree* is family-specific, and its absence is
+    # recorded as geometrySource=agent-inferred rather than making the spec invalid. This was the
+    # fifth place the knife-only restriction was enforced -- cs2_manifest.py removed the other four
+    # and says so in a comment -- but this copy lived in the base, so every non-knife CS2 item was
+    # still blocked at strict validation.
     if route == "reference-projection":
         camera = spec.get("referenceCamera")
         source = intake.get("deLitAlbedo") or intake.get("sourceImage")
@@ -895,8 +903,14 @@ def validate_pipeline_routing_contract(spec: dict[str, Any], errors: list[str]) 
         errors.append("character-v1.5 routing cannot carry cs2Intake")
     if routing_track == "character-v1.5" and object_class.get("primaryDomain") not in {"character", "hybrid"}:
         errors.append("character-v1.5 routing requires the character template")
-    if routing_track == "weapon-v1.4" and not legacy_cs2 and object_class.get("cs2") is not True:
-        errors.append("weapon-v1.4 routing requires the CS2 weapon template")
+    # There is deliberately no domain requirement on weapon-v1.4. This used to read
+    #   if routing_track == "weapon-v1.4" and not legacy_cs2 and object_class.get("cs2") is not True
+    # which was wrong twice over: weapon-v1.4 is the weapon *shape* template, keyed by classified
+    # kind, and CS2 is a finish/material domain that rides the generic hard-surface path
+    # (apply_cs2_template sets primaryDomain="object"). Because weapon-v1.4 was also the fallback for
+    # every unrecognised kind, the check meant a plain sword could pass strict validation only by
+    # being labelled a CS2 skin. A domain's own coherence is already enforced by
+    # validate_cs2_contract, which runs whenever the spec carries that domain's intake.
 
 
 def validate_materials(spec: dict[str, Any], errors: list[str], warnings: list[str]) -> set[str]:
@@ -2119,6 +2133,10 @@ def validate_build_passes(spec: dict[str, Any], errors: list[str], warnings: lis
             continue
         if pass_id in ids:
             errors.append(f"duplicate buildPasses id {pass_id!r}")
+        if pass_id not in VALID_PIPELINE_PASS_IDS:
+            errors.append(
+                f"buildPasses[{index}].id {pass_id!r} must be one of: {', '.join(sorted(VALID_PIPELINE_PASS_IDS))}"
+            )
         ids.append(pass_id)
         for field in ("goal",):
             value = item.get(field)
@@ -2196,6 +2214,13 @@ def validate_sculpt_pipeline(
     else:
         validate_string_array(pass_order, "sculptPipeline.passOrder", errors)
         pass_order_ids = [str(value) for value in pass_order] if isinstance(pass_order, list) else build_pass_ids
+        if isinstance(pass_order, list):
+            for index, pass_id in enumerate(pass_order_ids):
+                if pass_id not in VALID_PIPELINE_PASS_IDS:
+                    errors.append(
+                        f"sculptPipeline.passOrder[{index}] {pass_id!r} must be one of: "
+                        f"{', '.join(sorted(VALID_PIPELINE_PASS_IDS))}"
+                    )
     if build_pass_ids and pass_order_ids and pass_order_ids != build_pass_ids:
         warnings.append("sculptPipeline.passOrder differs from buildPasses order; sync the pipeline before generation")
     current = pipeline.get("currentPass")

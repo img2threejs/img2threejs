@@ -14,6 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "implicit_character_torso_limb.json"
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from showcase_test_support import showcase_root  # noqa: E402
+
 
 def import_forge_modules():
     module_names = ("generate_threejs_factory", "validate_sculpt_spec")
@@ -286,7 +290,7 @@ class ImplicitSurfaceIsSmooth(unittest.TestCase):
         node = shutil.which("node")
         if node is None:
             self.fail("node is required to execute the emitted polygonizer")
-        showcase = Path(__file__).resolve().parents[2].parent / "img2threejs-showcase"
+        showcase = showcase_root()
         if not (showcase / "node_modules" / "three").is_dir():
             self.skipTest(f"three is not installed at {showcase / 'node_modules' / 'three'}")
         spec = load_fixture()

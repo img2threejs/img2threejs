@@ -50,6 +50,11 @@ class Bm25Settings(TypedDict):
 
 
 class CollectionProfile(TypedDict):
+    # Root that this collection's relative paths resolve against. Empty means the project root, which
+    # is every base collection. A collection contributed by an installed plugin sets it to that
+    # plugin's directory, so the containment check below applies unchanged -- just to a second root
+    # the harness registry vouched for, instead of an arbitrary absolute path in a config file.
+    content_root: str
     source_roots: list[str]
     optional_source_roots: list[str]
     distilled_records: list[str]
@@ -486,6 +491,41 @@ def _profile_cache_path(mapping: dict[str, JsonValue], path: Path) -> str:
     return configured
 
 
+
+def _installed_collection_profiles() -> list[tuple[Path, dict, str]]:
+    """Collections contributed by installed plugins, each with the root its paths resolve against.
+
+    Reads the harness registry rather than globbing the plugins directory, so a checkout left behind
+    by a removed plugin contributes nothing. Paths inside a contributed collection stay RELATIVE and
+    are resolved against that plugin's directory, which keeps the containment check in
+    _configured_project_path intact -- a contributed path still cannot escape its own root.
+    """
+    home = Path(os.environ.get("IMG2_HOME") or Path.home() / ".img2")
+    registry = home / "plugins.json"
+    if not registry.is_file():
+        return []
+    try:
+        rows = json.loads(registry.read_text(encoding="utf-8")).get("plugins") or []
+    except (OSError, json.JSONDecodeError):
+        return []
+    out: list[tuple[Path, dict, str]] = []
+    for row in rows:
+        plugin_id = (row or {}).get("id")
+        if not plugin_id:
+            continue
+        plugin_dir = home / "plugins" / plugin_id
+        profile = plugin_dir / "spec_search_profile.json"
+        if not profile.is_file():
+            continue
+        try:
+            raw = json.loads(profile.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise _profile_error(profile, "invalid JSON profile") from error
+        collections = raw.get("collections")
+        if isinstance(collections, dict):
+            out.append((profile, collections, str(plugin_dir)))
+    return out
+
 def load_profiles(path: Path | None = None) -> dict[str, CollectionProfile]:
     profile_path = _DEFAULT_PROFILES_PATH if path is None else path
     try:
@@ -525,7 +565,17 @@ def load_profiles(path: Path | None = None) -> dict[str, CollectionProfile]:
         "k1": _profile_number(bm25_raw, "k1", profile_path),
         "b": _profile_number(bm25_raw, "b", profile_path),
     }
-    collections = _mapping(root.get("collections"), profile_path, "collections")
+    collections = dict(_mapping(root.get("collections"), profile_path, "collections"))
+    # A domain plugin contributes its evidence corpus the same way it contributes steps: the base
+    # pulls it. Without this a plugin's vocabulary sits on disk unread and a domain run silently
+    # searches only the generic corpus -- the quality loss is invisible, which is the worst kind.
+    plugin_roots: dict[str, str] = {}
+    for source, contributed, plugin_dir in _installed_collection_profiles():
+        for name, entry in contributed.items():
+            if name in collections:
+                raise _profile_error(source, f"collection {name!r} is already defined; refusing to override it")
+            collections[name] = entry
+            plugin_roots[name] = plugin_dir
     parsed: dict[str, CollectionProfile] = {}
     for name in sorted(collections):
         collection = _mapping(collections[name], profile_path, f"collections.{name}")
@@ -536,6 +586,8 @@ def load_profiles(path: Path | None = None) -> dict[str, CollectionProfile]:
             for term in sorted(term_aliases_mapping)
         }
         parsed[name] = {
+            # Base collections live in the project; a plugin's collection overrides this below.
+            "content_root": "",
             "source_roots": _profile_string_list(collection, "source_roots", profile_path),
             "optional_source_roots": _profile_string_list(
                 collection,
@@ -553,6 +605,8 @@ def load_profiles(path: Path | None = None) -> dict[str, CollectionProfile]:
             "bm25": bm25,
             "term_aliases": term_aliases,
         }
+        if name in plugin_roots:
+            parsed[name]["content_root"] = plugin_roots[name]
     return parsed
 
 
@@ -1198,6 +1252,18 @@ def _hidden_source(relative: Path) -> bool:
     return any(part.startswith(".") or part == "__pycache__" for part in relative.parts)
 
 
+
+def _content_root(request: IndexRequest) -> Path:
+    """Root that this collection's relative paths resolve against.
+
+    Test the string, not the Path. `Path("")` is `PosixPath(".")`, which is truthy, so an
+    or-fallback on the Path silently resolves every base collection against the current working
+    directory instead of the project root -- and the symptom surfaces two steps away, as a source
+    file "not found" in a fixture that is plainly there.
+    """
+    configured = request.profile.get("content_root")
+    return Path(configured) if configured else request.project_root
+
 def _configured_project_path(
     request: IndexRequest,
     configured: str,
@@ -1206,10 +1272,11 @@ def _configured_project_path(
     if relative.is_absolute() or ".." in relative.parts:
         raise SourceIngestionError(
             path=relative,
-            reason="configured source path must be relative and stay within project_root",
+            reason="configured source path must be relative and stay within its content root",
         )
-    candidate = request.project_root / relative
-    current = request.project_root
+    root = _content_root(request)
+    candidate = root / relative
+    current = root
     for part in relative.parts:
         current /= part
         try:
@@ -1244,7 +1311,7 @@ def _configured_sources(request: IndexRequest) -> list[ConfiguredSource]:
         for path in _source_tree_files(root, optional=optional):
             if path.suffix.casefold() not in allowed:
                 continue
-            source_path = path.relative_to(request.project_root)
+            source_path = path.relative_to(_content_root(request))
             source_key = source_path.as_posix()
             sources[source_key] = ConfiguredSource(
                 path=path,
@@ -1264,7 +1331,7 @@ def _configured_sources(request: IndexRequest) -> list[ConfiguredSource]:
             raise SourceIngestionError(path=path, reason="symbolic links are not allowed")
         if not stat.S_ISREG(record_mode):
             raise SourceIngestionError(path=path, reason="configured distilled record source is not a file")
-        source_path = path.relative_to(request.project_root)
+        source_path = path.relative_to(_content_root(request))
         source_key = source_path.as_posix()
         sources[source_key] = ConfiguredSource(
             path=path,

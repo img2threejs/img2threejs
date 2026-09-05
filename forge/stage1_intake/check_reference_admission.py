@@ -21,6 +21,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from extract_pbr_evidence import build_foreground_mask, load_image  # noqa: E402
+from probe_image import probe  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 from image_hash import hamming, phash_from_image  # noqa: E402
@@ -172,6 +173,13 @@ def main(argv: list[str]) -> int:
         help="comma-separated pHashes (ints) of already-admitted references, for duplicate detection",
     )
     parser.add_argument("--json", action="store_true", help="emit the verdict as JSON")
+    # --out publishes the verdict as a workspace artifact so a later step -- including one
+    # contributed by a domain plugin -- can consume it instead of recomputing admission.
+    parser.add_argument("--out", type=Path, help="also write the verdict JSON here")
+    # This step is where the base pipeline establishes the technical facts about a reference, so it
+    # publishes the probe alongside its verdict. A later step -- including one contributed by a
+    # domain plugin, which may not import forge.* -- consumes these instead of re-deriving them.
+    parser.add_argument("--probe-out", type=Path, help="also write the image probe JSON here")
     args = parser.parse_args(argv)
 
     against: list[int] = []
@@ -189,6 +197,11 @@ def main(argv: list[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    for target, payload in ((args.out, verdict), (args.probe_out, probe(args.image.expanduser().resolve()) if args.probe_out else None)):
+        if target is None:
+            continue
+        target.expanduser().parent.mkdir(parents=True, exist_ok=True)
+        target.expanduser().write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     if args.json:
         print(json.dumps(verdict, indent=2, ensure_ascii=False))
     else:

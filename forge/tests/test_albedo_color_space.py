@@ -12,6 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "forge" / "_shared"))
 sys.path.insert(0, str(ROOT / "forge" / "stage2_spec"))
 sys.path.insert(0, str(ROOT / "forge" / "stage3_build"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from showcase_test_support import showcase_root  # noqa: E402
 
 import generate_threejs_factory as generator  # noqa: E402
 
@@ -82,7 +85,7 @@ class AlbedoColorSpace(unittest.TestCase):
           right: [right.r, right.g, right.b],
         }));
         """
-        showcase = ROOT.parent / "img2threejs-showcase"
+        showcase = showcase_root()
         if not (showcase / "node_modules" / "three").is_dir():
             self.skipTest(
                 "three is not installed at "

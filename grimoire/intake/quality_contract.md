@@ -35,16 +35,13 @@ Map total judgment to:
 - `complex`: many parts, repeated systems, multiple materials, several hierarchy levels
 - `ultra-complex`: dense organic/mechanical/architectural structure where fidelity depends on deep hierarchy and repeated microstructure
 
-### CS2 items: ultra-complex by default
+### A domain plugin may raise these floors
 
-A CS2 weapon/knife/glove skin always carries more identity-defining detail (finish/gradient
-pattern, wear layer, hardware, stitching, fasteners, engraving) than a generic object at the
-same structural complexity tier — the skin *is* the point of the item. So `--cs2` **defaults
-the complexity tier to `ultra-complex`** (`targetMinDetails` 16): the CS2 track is held to the
-top fidelity bar regardless of how simple the bare geometry looks, and `--strict-quality` then
-blocks code generation until those details are enumerated. If `--complexity` is set lower by
-hand, `targetMinDetails` still never drops below the **9** floor. Pass `--cs2` to
-`forge/stage2_spec/new_pre_spec_assessment.py` to apply this automatically.
+A domain whose identity lives in its surface -- a painted skin, a printed pattern, a finish -- carries
+more identity-defining detail than a generic object at the same structural tier. Such a plugin
+publishes higher floors in its spec augmentation, and the merge applies them RAISE-ONLY: it can lift
+`complexity.tier`, `targetMinDetails` and `minimumSpecDepth`, and can never lower one. `targetMinDetails`
+never drops below the **9** floor whatever a plugin proposes.
 
 ## Quality Contract
 

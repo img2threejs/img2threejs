@@ -1,5 +1,11 @@
 # Stage R test plan — does the animation pipeline still break meshes?
 
+> **Checklist authority note (extract-animated-character, 2026-09-03):** the `animated-character`
+> profile is served by the installed **plugin-character** (`img2 add img2threejs/plugin-character`);
+> its `domain.json` owns the rig-step order and invokes the plugin's `tools/` ports. The
+> `forge/stage5_rig/...` commands below remain runnable as the base LIBRARY the emitters use, but
+> the checklist runs the plugin's copies -- when the two disagree, the plugin is the authority.
+
 A runbook for img2threejs 1.5.2, written to **falsify** the fix rather than confirm it.
 
 **Status of what it tests:** the Stage R modules are unit-tested (1343 tests, `OK (skipped=30)`) and

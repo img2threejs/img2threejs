@@ -18,7 +18,7 @@ The acceptance score always comes from the agent's own vision inspecting the com
   requires `--spec` and `--material-id` together, and `--in-place` requires both.
 ## state.py and next.py
 
-- `state.py init --state .img2threejs/state.json --reference IMG [--profile generic|cs2|character]`
+- `state.py init --state .img2threejs/state.json --reference IMG [--profile generic|<installed-domain>]`
   creates the local mandatory checklist. It refuses to overwrite existing state.
 - `state.py status --state .img2threejs/state.json [--json]` reports the current step and loop limits.
 - `state.py mark STEP... --state .img2threejs/state.json --evidence PATH` records completed evidence.
@@ -30,9 +30,9 @@ Defaults are 3 `refine-spec`/`refine-code` decisions per pass and 6 total. These
 not targets; stop earlier on success, repeated defects, oscillation, or plateau.
 
 The pass checklist is executable in dependency order: generate, render, Tier 1, multi-angle,
-`orchestrate_passes.py check`, profile-specific review, AI review, then sync. The CS2 profile runs:
+`orchestrate_passes.py check`, profile-specific review, AI review, then sync. A domain plugin inserts its own review before the AI review; the checklist names it.
 
-`stage4_review/cs2_review.py --manifest cs2-intake.json --metrics cs2-review-inputs.json --scene forge/tests/fixtures/knife_review_scene.json --out cs2-review.json`
+a domain plugin's review tool, with its manifest, metrics and scene fixture (the plugin's review checklist step carries the resolved paths)
 
 The character profile requires the reconstruction/likeness contracts, landmark evidence, and an
 explicit stylized-versus-projection route decision before pre-spec authoring.

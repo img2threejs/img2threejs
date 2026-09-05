@@ -55,9 +55,10 @@ REQUIRED_STRING_FIELDS = (
     "observation_status",
 )
 REQUIRED_LIST_FIELDS = ("aliases", "constraints", "measurements", "source_refs", "evidence_refs", "assumptions")
+# cs2.jsonl moved to the CS2 domain plugin, which asserts its own records. A base checkout holds
+# only the generic corpus.
 DISTILLED_RECORD_PATHS = (
     ROOT / "docs/specs/vocabulary/core_3d.jsonl",
-    ROOT / "docs/specs/vocabulary/cs2.jsonl",
 )
 DISTILLED_RECORD_FIELDS = frozenset((*REQUIRED_STRING_FIELDS, *REQUIRED_LIST_FIELDS, "confidence"))
 
@@ -235,6 +236,16 @@ def run_cli_fixture(
     )
     environment = os.environ.copy()
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    # An empty IMG2_HOME. load_profiles() merges collections contributed by installed plugins, so
+    # without this a base-behaviour test inherits whatever the developer happens to have installed --
+    # and this fixture defines its own "cs2" collection, which then collides with the CS2 plugin's.
+    # Machine-dependent test outcomes are worse than the coupling they reveal.
+    environment["IMG2_HOME"] = str(root / ".img2-empty")
+    # This fixture's profile defines only the "cs2" collection, and these tests are about snippets,
+    # caching and error shapes -- not about which collection the CLI defaults to. Name it explicitly
+    # so they stop depending on that default, which is now "core_3d".
+    if "--collection" not in arguments:
+        arguments = ("--collection", "cs2", *arguments)
     return subprocess.run(
         [sys.executable, str(cli), *arguments],
         cwd=root,
@@ -356,16 +367,16 @@ class DistilledRecordTest(unittest.TestCase):
     def test_reviewed_bilingual_records_are_complete_and_source_backed(self):
         records_by_path = {path: load_contract_fixture(path) for path in DISTILLED_RECORD_PATHS}
         core_records = records_by_path[DISTILLED_RECORD_PATHS[0]]
-        cs2_records = records_by_path[DISTILLED_RECORD_PATHS[1]]
         all_records = [record for records in records_by_path.values() for record in records]
 
         self.assertGreaterEqual(len(core_records), 12)
-        self.assertGreaterEqual(len(cs2_records), 8)
         self.assertEqual(len({record["record_id"] for record in all_records}), len(all_records))
         self.assertTrue(all(set(record) <= DISTILLED_RECORD_FIELDS for record in all_records))
         self.assertTrue(all(record["source_refs"] for record in all_records))
 
         aliases = {alias.casefold() for record in all_records for alias in record["aliases"]}
+        # Karambit anatomy (safety ring, pommel) and the wear pair live in the CS2 corpus, which the
+        # plugin now owns and asserts. Everything below is in the generic corpus, verified against it.
         self.assertTrue(
             {
                 "socket",
@@ -374,12 +385,6 @@ class DistilledRecordTest(unittest.TestCase):
                 "điểm xoay",
                 "roughness",
                 "độ thô",
-                "wear",
-                "hao mòn",
-                "safety ring",
-                "vòng ngón",
-                "pommel",
-                "chuôi cuối",
                 "attachment",
                 "gắn kết",
             }.issubset(aliases)
@@ -392,10 +397,6 @@ class DistilledRecordTest(unittest.TestCase):
                 "grimoire/readiness/action_rigging.md",
                 "grimoire/readiness/joint_attachment.md",
                 "grimoire/intake/image_analysis.md",
-                "docs/cs2/3D_Technical_Mapping.json",
-                "docs/cs2/3D_Vocabulary_CS2.json",
-                "docs/cs2/distill.md",
-                "docs/cs2-anatomy/knives.md",
             }.issubset(source_paths)
         )
 
@@ -441,15 +442,6 @@ class TokenizerTest(unittest.TestCase):
 
 
 class SourceIngestionTest(unittest.TestCase):
-    def test_profile_loader_exposes_cs2_cache_and_documentation(self):
-        profile = load_profiles()["cs2"]
-
-        self.assertEqual(profile["cache"], ".cache/spec-search/cs2.json")
-        self.assertEqual(profile["documentation"], "docs/specs/vocabulary/README.md")
-        self.assertEqual(profile["encoding"], "utf-8")
-        self.assertEqual(profile["source_roots"], [])
-        self.assertEqual(profile["optional_source_roots"], ["docs/cs2/", "docs/cs2-anatomy/"])
-
     def test_profile_loader_rejects_malformed_and_unknown_collections(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             malformed_profile = Path(temporary_directory) / "profiles.json"
@@ -922,9 +914,15 @@ class CliOutputTest(unittest.TestCase):
             (root / ".cache" / "spec-search").symlink_to(outside, target_is_directory=True)
 
             result = subprocess.run(
-                [sys.executable, str(cli), "needle", "--json"],
+                # Names the collection for the same reason run_cli_fixture does: this fixture defines
+                # only "cs2", and the test is about the cache failure, not the CLI's default.
+                [sys.executable, str(cli), "--collection", "cs2", "needle", "--json"],
                 cwd=root,
-                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                # Empty IMG2_HOME for the same reason run_cli_fixture sets one: this test builds
+                # its own subprocess, so it would otherwise inherit the developer's installed
+                # plugins and collide with this fixture's "cs2" collection.
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1",
+                     "IMG2_HOME": str(root / ".img2-empty")},
                 capture_output=True,
                 text=True,
                 check=False,

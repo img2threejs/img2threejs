@@ -82,7 +82,7 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(spec["schemaVersion"], "2.1")
         self.assertEqual(spec["targetName"], "Oak")
 
-    def test_cs2_assessment_embeds_local_spec_search_results(self):
+    def test_assessment_embeds_local_spec_search_results(self):
         r = run(
             "stage2_spec/new_pre_spec_assessment.py",
             "Karambit Fade",
@@ -92,7 +92,8 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         assessment = json.loads(self.assessment.read_text())
         search = assessment["localSpecSearch"]
-        self.assertEqual(search["collection"], "cs2")
+        # The cs2 collection ships with the CS2 plugin; a base checkout searches the generic one.
+        self.assertEqual(search["collection"], "core_3d")
         self.assertEqual(search["query"], "Karambit Fade")
         self.assertGreater(len(search["matches"]), 0)
         self.assertTrue(search["matches"][0]["source_refs"])
@@ -108,7 +109,7 @@ class PipelineTest(unittest.TestCase):
         )
         self.assertEqual(r.returncode, 0, r.stderr)
         spec = json.loads(self.spec.read_text())
-        self.assertEqual(spec["localSpecSearch"]["collection"], "cs2")
+        self.assertEqual(spec["localSpecSearch"]["collection"], "core_3d")
         self.assertTrue(spec["localSpecSearch"]["matches"])
 
     def test_generic_assessment_uses_generic_spec_collection(self):
@@ -863,144 +864,79 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("createPersonModel", ts)
         self.assertIn('meshes["head"]', ts)
 
-    def test_cs2_anodized_finish_and_environment(self):
-        # Author a Doppler-style (anodized-multicolored) CS2 skin, image-first.
-        run("stage2_spec/new_sculpt_spec.py", "Karambit Doppler", "--cs2",
-            "--finish-style", "anodized-multicolored", "--out", self.spec)
+    def test_character_template_survives_an_augmentation_file(self):
+        """Both contributions apply; neither silences the other.
+
+        These two blocks used to be joined by an `elif`: a character run handed an augmentation
+        file skipped `apply_character_template` entirely, so the emitted spec lost `rig` and still
+        exited 0 -- the silent data loss PR #106's review demonstrated by diffing the same
+        assessment run with and without an augmentation. This pins the fix from both sides.
+        """
+        aug = self.dir / "spec-augmentation.json"
+        aug.write_text(
+            json.dumps(
+                {
+                    "kind": "spec-augmentation-v1",
+                    "provenance": {"provider": "fixture", "version": "0.0.1"},
+                    "specSections": {"fixtureSection": {"marker": True}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--augmentation", aug, "--out", self.spec)
         spec = json.loads(self.spec.read_text())
-        finish = next(m for m in spec["materials"] if m["id"] == "skin-finish")
-        # view-dependent PBR: high metalness, low roughness, strong environment
-        self.assertGreaterEqual(finish["metalness"]["base"], 0.9)
-        self.assertLessEqual(finish["roughness"]["base"], 0.15)
-        self.assertGreaterEqual(spec["envMapIntensity"], 1.5)
-        self.assertTrue(finish["needsEnvironment"])
-        # authored CS2 seed is no worse than the object baseline: normal validate passes
-        self.assertEqual(run("stage2_spec/validate_sculpt_spec.py", self.spec).returncode, 0)
-        # factory generates and emits the code-generated environment helper
-        out = self.dir / "createCs2Model.ts"
-        r = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out)
+        self.assertIn("rig", spec, "the character template was skipped: `rig` is missing")
+        self.assertIn("fixtureSection", spec, "the augmentation merge was skipped")
+        self.assertEqual(spec["specAugmentation"]["provider"], "fixture")
+
+    def test_a_domain_run_with_a_missing_augmentation_fails_loud(self):
+        """02-how-it-works draws the missing-provider case as FAIL LOUD; the code must match.
+
+        Before this test, a resolved --domain whose spec-augmentation.json was absent (emit step
+        failed, or an actor:agent step skipped) silently wrote the generic skeleton and exited 0 --
+        a whole run could finish with no domain contribution and nobody would know.
+        """
+        r = run(
+            "stage2_spec/new_sculpt_spec.py", "Knife",
+            "--domain", "fixturedom",
+            "--augmentation", self.dir / "does-not-exist.json",
+            "--out", self.spec,
+        )
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("does-not-exist.json", r.stderr)
+        self.assertIn("fixturedom", r.stderr)
+        self.assertFalse(self.spec.exists(), "no generic skeleton may be written for a failed domain run")
+
+    def test_a_generic_run_still_skips_a_missing_augmentation(self):
+        r = run(
+            "stage2_spec/new_sculpt_spec.py", "Crate",
+            "--augmentation", self.dir / "does-not-exist.json",
+            "--out", self.spec,
+        )
         self.assertEqual(r.returncode, 0, r.stderr)
-        ts = out.read_text()
-        self.assertIn("Environment", ts)
-        self.assertIn("RoomEnvironment", ts)
-        self.assertIn("PMREMGenerator", ts)
+        self.assertTrue(self.spec.exists())
 
     def test_cs2_track_skipped_for_objects(self):
         run("stage2_spec/new_sculpt_spec.py", "Crate", "--out", self.spec)
         spec = json.loads(self.spec.read_text())
         self.assertNotIn("skin-finish", {m["id"] for m in spec["materials"]})
 
-    def test_cs2_intent_autodetected_from_target_name(self):
+    def test_a_domain_looking_target_name_is_not_auto_detected(self):
+        # Declared breaking change. The base used to infer the CS2 domain from the target's name
+        # (a " | " separator, or any of 17 keywords including bare "fade" and "karambit"). That is
+        # name-similarity resolution, which PLUGIN_CONTRACT.md section 13 forbids, so it is gone: a
+        # domain now has to be declared, not guessed from what the thing is called.
         r = run("stage2_spec/new_pre_spec_assessment.py", "Karambit | Doppler", "--out", self.assessment)
         self.assertEqual(r.returncode, 0, r.stderr)
         payload = json.loads(self.assessment.read_text())
-        self.assertTrue(payload["preSpecAssessment"]["objectClass"]["cs2"])
+        self.assertNotIn("domain", payload["preSpecAssessment"]["objectClass"])
+        self.assertEqual(payload["localSpecSearch"]["collection"], "core_3d")
 
-    def test_cs2_defaults_to_ultra_complex(self):
-        # CS2 is held to the top fidelity bar: --cs2 (or autodetected intent) defaults the tier to
-        # ultra-complex (targetMinDetails 16) in both the assessment and the authored spec.
-        r = run("stage2_spec/new_pre_spec_assessment.py", "Karambit | Doppler", "--out", self.assessment)
+    def test_a_declared_domain_is_still_honoured(self):
+        r = run("stage2_spec/new_pre_spec_assessment.py", "Karambit Doppler", "--cs2", "--out", self.assessment)
         self.assertEqual(r.returncode, 0, r.stderr)
-        pre = json.loads(self.assessment.read_text())["preSpecAssessment"]
-        self.assertEqual(pre["complexity"]["tier"], "ultra-complex")
-        self.assertEqual(pre["detailInventory"]["targetMinDetails"], 16)
-        run("stage2_spec/new_sculpt_spec.py", "Karambit Doppler", "--cs2", "--out", self.spec)
-        spec_pre = json.loads(self.spec.read_text())["preSpecAssessment"]
-        self.assertEqual(spec_pre["complexity"]["tier"], "ultra-complex")
-        self.assertEqual(spec_pre["detailInventory"]["targetMinDetails"], 16)
-        # an explicit lower --complexity still honors the 9 detail floor
-        r2 = run("stage2_spec/new_pre_spec_assessment.py", "Bayonet skin", "--cs2",
-                 "--complexity", "simple", "--out", self.assessment, "--force")
-        self.assertEqual(r2.returncode, 0, r2.stderr)
-        low = json.loads(self.assessment.read_text())["preSpecAssessment"]
-        self.assertEqual(low["detailInventory"]["targetMinDetails"], 9)
-
-    def test_cs2_identity_precedence_flags_conflict(self):
-        # skin name implies anodized-multicolored (Doppler); vision disagrees with patina.
-        run("stage2_spec/new_sculpt_spec.py", "Item", "--cs2", "--skin-name", "Karambit Doppler",
-            "--vision-finish-style", "patina", "--vision-confidence", "0.9", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
-        self.assertEqual(spec["cs2Finish"]["finishStyle"], "anodized-multicolored")
-        unknowns = spec["preSpecAssessment"]["unknownsToResolveBeforeImplementation"]
-        self.assertTrue(any("conflict" in u.lower() for u in unknowns))
-
-    def test_cs2_float_and_paint_seed_drive_wear_and_placement(self):
-        run("stage2_spec/new_sculpt_spec.py", "Karambit", "--cs2", "--finish-style", "patina",
-            "--float", "0.7", "--paint-seed", "12345", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
-        finish = next(m for m in spec["materials"] if m["id"] == "skin-finish")
-        self.assertFalse(finish["wear"]["approximated"])
-        self.assertGreater(finish["wear"]["edgeWear"], 0.5)
-        self.assertEqual(finish["patternPlacement"]["paintSeed"], 12345)
-        self.assertFalse(finish["patternPlacement"]["approximated"])
-
-    def test_cs2_view_dependent_finish_blocked_without_environment(self):
-        run("stage2_spec/new_sculpt_spec.py", "Karambit Doppler", "--cs2",
-            "--finish-style", "anodized-multicolored", "--no-environment", "--out", self.spec)
-        r = run("stage2_spec/validate_sculpt_spec.py", self.spec)
-        self.assertNotEqual(r.returncode, 0)
-        self.assertIn("environment", r.stdout.lower())
-
-    def test_fetch_cs2_metadata_resolves_and_flags_ambiguity(self):
-        index = self.dir / "skins.json"
-        index.write_text(json.dumps([
-            {"name": "Karambit | Doppler (Phase 1)", "weapon": {"name": "Karambit"}, "paint_index": 415,
-             "min_float": 0.0, "max_float": 0.08, "rarity": {"name": "Covert"}, "image": "https://example.test/1.png"},
-            {"name": "Karambit | Doppler (Phase 2)", "weapon": {"name": "Karambit"}, "paint_index": 419,
-             "min_float": 0.0, "max_float": 0.08, "rarity": {"name": "Covert"}, "image": "https://example.test/2.png"},
-        ]))
-        # ambiguous without --phase
-        r = run("stage1_intake/fetch_cs2_metadata.py", "--weapon", "Karambit", "--skin", "Doppler",
-                 "--index-file", index)
-        self.assertNotEqual(r.returncode, 0)
-        self.assertIn("ambiguous", r.stderr.lower())
-        # disambiguated with --phase
-        out = self.dir / "metadata.json"
-        r = run("stage1_intake/fetch_cs2_metadata.py", "--weapon", "Karambit", "--skin", "Doppler",
-                 "--phase", "Phase 2", "--index-file", index, "--out", out)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        record = json.loads(out.read_text())
-        self.assertEqual(record["paintIndex"], 419)
-
-    def test_fetch_cs2_metadata_paint_index_disambiguates_identical_names(self):
-        # The real CSGO-API lists every Doppler phase under the SAME name, differing only by
-        # paint_index -- so --phase (a name substring) cannot pick one, but --paint-index can.
-        index = self.dir / "skins.json"
-        # paint_index is a STRING in the real CSGO-API dataset -- match must handle that
-        index.write_text(json.dumps([
-            {"name": "★ Karambit | Doppler", "weapon": {"name": "Karambit"}, "paint_index": "418",
-             "min_float": 0.0, "max_float": 0.08, "rarity": {"name": "Covert"}, "image": "https://example.test/418.png"},
-            {"name": "★ Karambit | Doppler", "weapon": {"name": "Karambit"}, "paint_index": "419",
-             "min_float": 0.0, "max_float": 0.08, "rarity": {"name": "Covert"}, "image": "https://example.test/419.png"},
-        ]))
-        # --phase "Phase 2" is not in these identical names at all -> no match, cannot help here
-        no_match = run("stage1_intake/fetch_cs2_metadata.py", "--weapon", "Karambit", "--skin", "Doppler",
-                       "--phase", "Phase 2", "--index-file", index)
-        self.assertNotEqual(no_match.returncode, 0)
-        self.assertIn("no match", no_match.stderr.lower())
-        # without --phase the two collide -> ambiguous, and the error lists each paint_index to pick from
-        amb = run("stage1_intake/fetch_cs2_metadata.py", "--weapon", "Karambit", "--skin", "Doppler",
-                  "--index-file", index)
-        self.assertNotEqual(amb.returncode, 0)
-        self.assertIn("paint_index=419", amb.stderr)
-        # --paint-index picks exactly one
-        out = self.dir / "meta.json"
-        r = run("stage1_intake/fetch_cs2_metadata.py", "--weapon", "Karambit", "--skin", "Doppler",
-                "--paint-index", "419", "--index-file", index, "--out", out)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(str(json.loads(out.read_text())["paintIndex"]), "419")
-
-    def test_locate_cs2_vpk_returns_not_found_when_absent(self):
-        r = run("stage1_intake/locate_cs2_vpk.py", "--root", self.dir, "--json")
-        self.assertEqual(r.returncode, 1)
-        self.assertFalse(json.loads(r.stdout)["found"])
-
-    def test_extract_cs2_textures_falls_back_without_vpk_or_binary(self):
-        r = run("stage1_intake/extract_cs2_textures.py", "--out", self.dir / "cs2_textures", "--json")
-        self.assertEqual(r.returncode, 1)
-        result = json.loads(r.stdout)
-        self.assertEqual(result["status"], "fallback")
-        self.assertIn("no local CS2 VPK", result["reason"])
+        payload = json.loads(self.assessment.read_text())
+        self.assertEqual(payload["preSpecAssessment"]["objectClass"]["domain"], "cs2")
 
     def test_cs2_textures_gitignored_and_never_tracked(self):
         gitignore = (SKILL / ".gitignore").read_text()

@@ -9,7 +9,7 @@
 Quality-gated, animation-ready, and deliberately token-efficient — reconstruction-by-code, not photogrammetry, mesh extraction, or downloaded art packs.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.5.2-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](CHANGELOG.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Runtime](https://img.shields.io/badge/runtime-Three.js-000000.svg)](https://threejs.org)
 [![Tooling](https://img.shields.io/badge/tooling-Python%203.10%2B%20stdlib-3776ab.svg)](forge)
@@ -90,8 +90,8 @@ It runs under Claude Code, Codex, or OpenCode. It is agent-agnostic: wherever th
 - **Detail-first analysis.** Before code generation the pipeline enumerates a `detailInventory` of identity-defining small details (gloss, bevel/rounding, screws/rivets, engraved or painted linework, contours, stains and wear). Every detail must map to a real component or material entry, and a strict-quality gate blocks generation until the inventory is complete. Taxonomy: `grimoire/intake/detail_inventory.md`.
 - **Maximum likeness for a specific person or character.** An opt-in projection-first path fits a parametric template to image landmarks, de-lights the photo, camera-matches the render, and projects the reference onto the mesh. A single image cannot guarantee 100 percent likeness, so the pipeline reports per-region confidence and asks for more views when it matters. Details: `grimoire/character/likeness_maximization.md`.
 - **Multi-view silhouette carving.** An opt-in `geometryDescriptor.visualHull` intersects at least two deterministic orthographic binary silhouettes into a bounded, welded voxel mesh. It records unseen areas as low-confidence rather than inventing hidden detail. Schema and runtime check: `grimoire/scripts.md`.
-- **CS2 weapon review gates.** Knife and Glock-18 routes use family-specific component contracts. The review records exactness tier, family identity, painted-region and projection coverage, per-region confidence, approximation notes, and versioned review-scene metadata; component-coverage and map-stripped blockout gates prevent a convincing texture from standing in for real structure. See [`docs/cs2/review-gates.md`](docs/cs2/review-gates.md).
-- **Resumable local workflow.** `forge/state.py` records an ordered, evidence-backed intake/pass checklist for generic, character, and CS2 profiles. `forge/next.py --state` resumes from that checklist while the existing spec, render, and review gates remain authoritative.
+- **CS2 weapon review gates.** Knife and Glock-18 routes use family-specific component contracts. The review records exactness tier, family identity, painted-region and projection coverage, per-region confidence, approximation notes, and versioned review-scene metadata; component-coverage and map-stripped blockout gates prevent a convincing texture from standing in for real structure. Ships with the CS2 domain plugin; see its `docs/cs2/review-gates.md`.
+- **Resumable local workflow.** `forge/state.py` records an ordered, evidence-backed intake/pass checklist for the generic profile and every registered domain (in-repo `character`, plus installed domain plugins such as CS2 and `animated-character` from plugin-character). `forge/next.py --state` resumes from that checklist while the existing spec, render, and review gates remain authoritative.
 - **Material reference pipeline.** Every visible material region can be cropped, analyzed, resolved against the versioned Three.js material registry, fitted into `ObjectSculptSpec`, rendered from controlled camera views, and accepted only after a per-region comparison gate. See [`docs/materials/README.md`](docs/materials/README.md).
 - **Python-assisted browser rendering.** Python may orchestrate camera batches, hashes, manifests, and deterministic diagnostics, but the target browser Three.js route remains the rendering authority. See [`grimoire/build/python_threejs_render_bridge.md`](grimoire/build/python_threejs_render_bridge.md).
 
@@ -124,7 +124,24 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
    ~/.codex/skills/img2threejs  -> <your checkout>
    ```
 
-2. **Invoke** — in Claude Code, attach or point to an object image and run:
+2. **Add domain plugins (optional)** — domain knowledge (CS2 skins today) lives in installed
+   plugins, not in this checkout. Install the [img2 harness](https://github.com/img2threejs/img2)
+   once, then add plugins to it:
+
+   ```bash
+   npx github:img2threejs/img2 install   # ~/.img2, the plugin registry, and an `img2` launcher
+   img2 add img2threejs/plugin-cs2       # clone @ newest tag, pin SHA, link host skills
+   img2 doctor                           # fail-loud static audit of every installed plugin
+   ```
+
+   An installed domain plugin contributes its own checklist steps, evidence collection, spec
+   augmentation (quality floors merge raise-only), and a blocking review gate — and registers its
+   profile with `forge/state.py init --profile <id>`. With no plugins installed, `generic`,
+   and `character` are available; a profile whose plugin is missing (`cs2`, `animated-character`) fails
+   loud naming what is installed, never silently downgrades. `img2 remove <id>` reverses cleanly.
+   Writing your own plugin: the harness repo's `docs/WRITING_A_PLUGIN.md`.
+
+3. **Invoke** — in Claude Code, attach or point to an object image and run:
 
    ```
    /img2threejs Rebuild this object as a Three.js model, keep the proportions, angles, and colours.
@@ -132,7 +149,7 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
 
    That is enough: the skill classifies the subject, runs the detail inventory, and gates every pass on its own.
 
-3. **Follow the pipeline** — the skill validates the image, writes an assessment and spec, generates the factory pass by pass, and shows you a side-by-side comparison at each step until the render matches.
+4. **Follow the pipeline** — the skill validates the image, writes an assessment and spec, generates the factory pass by pass, and shows you a side-by-side comparison at each step until the render matches.
 
    For a multi-session reconstruction, create a local state index first:
 
@@ -243,7 +260,6 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `stage4_review/material_gate.py` | Block material-pass until registry, crop, render, compatibility, and comparison evidence passes. |
 | `stage4_review/make_comparison_sheet.py` | Package one reference-vs-render sheet for review. |
 | `stage4_review/append_review.py` | Record a per-pass review: scores, decision, evidence. |
-| `stage4_review/cs2_review.py` | Evaluate the blocking CS2 knife review contract and versioned scene thresholds. |
 | `_shared/feature_acceptance_policy.py` | Internal helper enforcing per-feature score thresholds. |
 | `stage1_intake/build_detail_inventory.py` | Slice the reference into zones and scaffold a detail inventory. |
 | `stage1_intake/extract_landmarks.py` | Overlay a landmark grid and scaffold an anatomy block for characters. |
@@ -308,16 +324,21 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v1.4 — The Weapon Update** — CS2 image-matched reconstruction: provenance-aware intake, projection-first finishes, family-specific weapon adapters, and structural review gates.
 - **v1.4.1** — CS2 hardening: explicit component coverage, a dedicated Glock-18 assembly contract, map-stripped blockout evidence, and stricter geometry-integrity checks.
 - **creature generator** — 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft geometry, ΔE00 colour gates.
+- **v2.0 — The Plugin Update** — the domain registry, pull-based spec augmentation
+  with raise-only quality floors, the emission-target socket with provenance, per-plugin blocking
+  gates, and the img2 harness (`img2 install/add/doctor`). CS2 extracted into `plugin-cs2`,
+  `animated-character` served by `plugin-character`; the base names no domain. The "plugin
+  ecosystem and API" originally slotted for the Procedural World bundle, shipped first as its own major.
 - **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
 
 **Next — one theme per release:**
-- **v1.6 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
-- **v1.7 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
-- **v1.8 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
-- **v1.9 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
-- **v2.0 — The Procedural World Update**: multi-view reconstruction, procedural city generation, semantic world understanding, plugin ecosystem and API.
+- **v2.1 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
+- **v2.2 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
+- **v2.3 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
+- **v2.4 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
+- **v3.0 — The Procedural World Update**: multi-view reconstruction, procedural city generation, semantic world understanding.
 
-The arc: assets (v1.4–v1.5) → worlds (v1.6–v1.7) → production (v1.8–v1.9) → an AI game-asset platform that generates playable worlds from reference images (v2.0).
+The arc: assets (v1.4–v1.5) → the plugin ecosystem (v2.0) → worlds (v2.1–v2.2) → production (v2.3–v2.4) → an AI game-asset platform that generates playable worlds from reference images (v3.0).
 
 **→ Full roadmap** — per-version detail, the four-phase long view, and the tracked capability gaps: **[ROADMAP.md](ROADMAP.md)**. Technical specification: [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
 

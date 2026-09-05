@@ -5,16 +5,56 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] — 2026-09-05
+
+**The Plugin Update.** The plugin ecosystem — domain registry, img2 harness, plugin-served
+domains — ships as its own major, pulled forward from the original Procedural World bundle.
+
+### Changed — BREAKING
+
+- **`animated-character` is served by the installed plugin-character** (`img2 add
+  img2threejs/plugin-character`, requires harness >= 0.2.3). The in-repo domain module is removed;
+  without the plugin the profile fails loud naming what is available, and an in-flight workspace is
+  refused while the provider is absent, resuming unchanged on reinstall. Persisted checklists do NOT
+  migrate: a workspace initialized before the switch keeps base `forge/stage5_rig/...` commands and
+  runs the base library copies -- re-init to adopt the plugin's steps. Gate participation is now
+  rig-aware: a domain declaring `rigSteps` is not due until its rig track begins, so the plugin-gates
+  sweep no longer fires a rig gate one phase early. `state.py` degrades to generic-only profile
+  choices when the registry itself is broken instead of dying for every profile.
+
+- **A domain is no longer inferred from the target's name.** `detect_cs2_intent` and its 17-keyword
+  table (including bare `"fade"` and `"karambit"`) are removed, so a target called
+  `"AK-47 | Redline"` or `"Karambit Doppler"` no longer identifies itself as CS2 — it resolves to the
+  generic `core_3d` evidence collection like any other object. Declare the domain instead; `--cs2`
+  and `--profile cs2` are unchanged. Name similarity is not a legitimate resolution input
+  (`PLUGIN_CONTRACT.md` §13), and the old heuristic silently applied CS2's quality floors and
+  evidence collection to anything whose name happened to contain one of those words.
+- The local-spec-search collection now defaults to `core_3d` rather than `cs2`. That step runs on
+  every profile, so every generic run was previously searching a domain corpus by default.
+- `objectClass.cs2: true` is replaced by `objectClass.domain: "<id>"`. Specs authored before this
+  change carry the old field.
+- `weapon-v1.4` no longer requires a CS2 marker to pass strict validation. It is the weapon *shape*
+  template, keyed by classified kind, and CS2 is a finish/material domain riding the generic
+  hard-surface path — so requiring the marker meant a plain sword could pass only by being labelled a
+  CS2 skin. Domain coherence is still enforced by `validate_cs2_contract`.
+
+### Added
+
+- `forge/_shared/domains/` — a domain registry. Each module declares one `DOMAIN` mapping
+  contributing checklist steps, a splice anchor, and an evidence collection; registration is by
+  presence, so the base pipeline holds no list of domain names. `--profile` choices derive from it,
+  and an unregistered profile fails loud naming what is available instead of quietly running as
+  generic. `workflow_state.py` and `forge/state.py` now contain no domain name at all.
 
 **Theme: rigging may only ADD.** The 1.5.2 modules existed and nothing ever ran them; animation
 broke meshes because no step in the workflow forbade it and no gate could tell a rigged mesh from a
 damaged one. This closes the loop between the gates and the pipeline that is supposed to enforce them.
 
-### Added
+### Added (rigging and animation workflow, merged from main)
 
-- **`animated-character` workflow profile** (`forge/_shared/workflow_state.py` `RIG_STEPS`,
-  `forge/state.py`). Nine Stage R steps join the checklist: read the contract, read the rig from the
+- **`animated-character` workflow profile** (now `forge/_shared/domains/animated_character.py` --
+  ported from the hardcoded `RIG_STEPS` into the domain registry when this branch merged v1.5.2;
+  the registry gained a `rigSteps` key, appended after the FINAL steps). Nine Stage R steps join the checklist: read the contract, read the rig from the
   GLB, repair the mesh, freeze it, validate the payload, bind, verify parity, measure the clips, run
   the gates. Every `forge/stage5_rig/` module was callable before this and nothing in the workflow
   ever told anyone to call one — `next.py` walks the checklist, so a gate absent from the checklist

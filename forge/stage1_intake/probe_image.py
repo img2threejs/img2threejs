@@ -156,11 +156,17 @@ def probe(path: Path) -> dict:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image", type=Path)
+    # --out lets a later step consume this as an artifact instead of re-probing the image itself.
+    parser.add_argument("--out", type=Path, help="also write the probe JSON here")
     args = parser.parse_args(argv)
     path = args.image.expanduser().resolve()
     if not path.exists():
         parser.error(f"{path} does not exist")
-    print(json.dumps(probe(path), indent=2, ensure_ascii=False))
+    payload = json.dumps(probe(path), indent=2, ensure_ascii=False)
+    if args.out:
+        args.out.expanduser().parent.mkdir(parents=True, exist_ok=True)
+        args.out.expanduser().write_text(payload + "\n", encoding="utf-8")
+    print(payload)
     return 0
 
 
