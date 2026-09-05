@@ -5,12 +5,33 @@ All notable changes to **img2threejs** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**The Character Split — targets v2.1.** The base `character` domain joins
+`plugin-character`, so the base names no domain and the v2.0 plugin split closes.
+
+- The in-repo `character` domain is removed; `plugin-character` (already serving
+  `animated-character`) carries the full character workflow — anatomy, hair, materials, Stage R
+  rig and animation.
+- The seam is hardened: pass-id enforcement at the validation site, the inbound base-to-plugin
+  import is broken, and the contract gains a clause forbidding the base from importing plugin
+  code.
+- Acceptance rule: the character build keeps emitting the same Three.js output for the same
+  input across the move. The partition of every character/rig-named line as base mechanism or
+  domain content is written down *before* any file moves.
+
 ## [2.0.0] — 2026-09-05
 
 **The Plugin Update.** The plugin ecosystem — domain registry, img2 harness, plugin-served
 domains — ships as its own major, pulled forward from the original Procedural World bundle.
 
 ### Changed — BREAKING
+
+- **`cs2` is served by the installed `plugin-cs2`** (`img2 add img2threejs/plugin-cs2`, requires
+  harness >= 0.2.1). The in-repo domain module is removed; without the plugin the profile fails loud
+  naming what is available, and an in-flight workspace is refused while the provider is absent,
+  resuming unchanged on reinstall. Domain coherence is still enforced by the base's
+  `validate_cs2_contract`; the plugin ships its own blocking `cs2-review` gate.
 
 - **`animated-character` is served by the installed plugin-character** (`img2 add
   img2threejs/plugin-character`, requires harness >= 0.2.3). The in-repo domain module is removed;
@@ -103,6 +124,11 @@ damaged one. This closes the loop between the gates and the pipeline that is sup
   target technical nodes.** The rule stands — it is what keeps the skin's index space intact — but
   it is now stated as the risk it guards against rather than as an observation, and
   `deformVsTechnical` reports the real count per asset.
+
+### Known limits at this release
+
+- The base skill still names the `character` domain (`forge/_shared/domains/character.py`).
+  Full extraction — anatomy, hair, materials — lands in v2.1 and closes the v2.0 split.
 
 ## [1.5.2] — 2026-08-25
 

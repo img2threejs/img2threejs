@@ -380,6 +380,22 @@ infer the shape from the reference, as for any other object.
   blocked run: it is the generic path, and the reconstruction proceeds by inference.
 - This pipeline names no domain. If a rule is domain-specific, it lives in that domain's plugin.
 
+### The img2 harness
+
+Plugins are installed and managed by the `img2` harness
+([img2threejs/img2](https://github.com/img2threejs/img2)), a separate dependency-free CLI (Node
+launcher, Python core). This skill
+never installs anything itself: when `state.py init` names a profile as unavailable, name the
+`img2 add` command that installs it and stop — never vendor domain logic instead.
+
+```bash
+img2 add img2threejs/plugin-<id> --ref <tag>      # install a plugin at a tag (e.g. plugin-cs2)
+img2 doctor                                       # what each host resolves: base-skill path + version, plugin gates
+img2 capabilities --from-kind image --to-kind glb # which installed plugin serves an edge
+```
+
+Setup and the full CLI reference live in the README quick-start and the harness repo's docs.
+
 ## Forge Runtime Contracts
 
 Subdivision runtime tests compile generated TypeScript against the showcase checkout. Set

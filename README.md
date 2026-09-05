@@ -139,7 +139,18 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
    profile with `forge/state.py init --profile <id>`. With no plugins installed, `generic`,
    and `character` are available; a profile whose plugin is missing (`cs2`, `animated-character`) fails
    loud naming what is installed, never silently downgrades. `img2 remove <id>` reverses cleanly.
-   Writing your own plugin: the harness repo's `docs/WRITING_A_PLUGIN.md`.
+
+   **Official plugins:**
+
+   | Plugin | Adds | Install |
+   |---|---|---|
+   | [plugin-cs2](https://github.com/img2threejs/plugin-cs2) | `cs2` profile — CS2 weapon-skin reconstruction: family adapters, finish rules, domain review gate | `img2 add img2threejs/plugin-cs2` |
+   | [plugin-character](https://github.com/img2threejs/plugin-character) | `animated-character` profile — everything `character` has plus the Stage R rigging/animation gates | `img2 add img2threejs/plugin-character` |
+   | [plugin-img2glb](https://github.com/img2threejs/plugin-img2glb) | `image → glb` emission target via the hosted TRELLIS space | `img2 add img2threejs/plugin-img2glb` |
+   | [plugin-hello-cube](https://github.com/img2threejs/plugin-hello-cube) | minimal reference plugin — copy it to write your own | `img2 add img2threejs/plugin-hello-cube` |
+
+   Writing your own: the harness repo's
+   [docs/WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
 
 3. **Invoke** — in Claude Code, attach or point to an object image and run:
 
@@ -324,21 +335,22 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v1.4 — The Weapon Update** — CS2 image-matched reconstruction: provenance-aware intake, projection-first finishes, family-specific weapon adapters, and structural review gates.
 - **v1.4.1** — CS2 hardening: explicit component coverage, a dedicated Glock-18 assembly contract, map-stripped blockout evidence, and stricter geometry-integrity checks.
 - **creature generator** — 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft geometry, ΔE00 colour gates.
+- **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
 - **v2.0 — The Plugin Update** — the domain registry, pull-based spec augmentation
   with raise-only quality floors, the emission-target socket with provenance, per-plugin blocking
   gates, and the img2 harness (`img2 install/add/doctor`). CS2 extracted into `plugin-cs2`,
   `animated-character` served by `plugin-character`; the base names no domain. The "plugin
   ecosystem and API" originally slotted for the Procedural World bundle, shipped first as its own major.
-- **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
 
 **Next — one theme per release:**
-- **v2.1 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
-- **v2.2 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
-- **v2.3 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
-- **v2.4 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
+- **v2.1 — The Character Split**: the in-repo `character` domain joins `plugin-character`, so the base names no domain and the v2.0 plugin split closes.
+- **v2.2 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
+- **v2.3 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
+- **v2.4 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
+- **v2.5 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
 - **v3.0 — The Procedural World Update**: multi-view reconstruction, procedural city generation, semantic world understanding.
 
-The arc: assets (v1.4–v1.5) → the plugin ecosystem (v2.0) → worlds (v2.1–v2.2) → production (v2.3–v2.4) → an AI game-asset platform that generates playable worlds from reference images (v3.0).
+The arc: assets (v1.4–v1.5) → the plugin ecosystem (v2.0–v2.1) → worlds (v2.2–v2.3) → production (v2.4–v2.5) → an AI game-asset platform that generates playable worlds from reference images (v3.0).
 
 **→ Full roadmap** — per-version detail, the four-phase long view, and the tracked capability gaps: **[ROADMAP.md](ROADMAP.md)**. Technical specification: [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
 
