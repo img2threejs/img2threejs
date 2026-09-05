@@ -384,22 +384,16 @@ infer the shape from the reference, as for any other object.
 
 Plugins are installed and managed by the `img2` harness
 ([img2threejs/img2](https://github.com/img2threejs/img2)), a separate stdlib-only CLI. This skill
-never installs anything itself: when `state.py init` names a needed profile as unavailable, that is
-a missing plugin — name the `img2 add` command and stop, rather than vendoring domain logic.
+never installs anything itself: when `state.py init` names a profile as unavailable, name the
+`img2 add` command that installs it and stop — never vendor domain logic instead.
 
 ```bash
-img2 install                                      # one-time: clone the harness, wire agent hosts
 img2 add img2threejs/plugin-<id> --ref <tag>      # install a plugin at a tag (e.g. plugin-cs2)
-img2 list                                         # installed plugins: id, version, ref, sha
-img2 doctor                                       # per-host base-skill path + SKILL.md version, plugin gates
-img2 sync --check                                 # drift between canonical copies and host links
+img2 doctor                                       # what each host resolves: base-skill path + version, plugin gates
 img2 capabilities --from-kind image --to-kind glb # which installed plugin serves an edge
 ```
 
-- `animated-character` requires the installed plugin-character and harness >= 0.2.3.
-- Installed plugins live under `~/.img2/plugins/<id>` and appear to each agent host as the
-  `img2-<id>` skill; the harness owns those links, and `img2 doctor` is the authority on what any
-  host actually resolves.
+Setup and the full CLI reference live in the README quick-start and the harness repo's docs.
 
 ## Forge Runtime Contracts
 
