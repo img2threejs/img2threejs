@@ -343,13 +343,14 @@ For the script-by-script reference and the full list of output artifacts, see [d
   ecosystem and API" originally slotted for the Procedural World bundle, shipped first as its own major.
 
 **Next — one theme per release:**
-- **v2.1 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
-- **v2.2 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
-- **v2.3 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
-- **v2.4 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
+- **v2.1 — The Character Split**: the in-repo `character` domain joins `plugin-character`, so the base names no domain and the v2.0 plugin split closes.
+- **v2.2 — The Environment Update**: buildings, rooms, streets, vegetation, terrain-aware and multi-object reconstruction.
+- **v2.3 — The Game Pipeline Update**: Unity and Unreal exporters, a Blender bridge, LOD and collision-mesh generation.
+- **v2.4 — The Animation Update**: auto rigging, auto skin weights, Mixamo compatibility, facial rig.
+- **v2.5 — The AI Studio Update**: web UI, batch processing, visual prompt builder, cloud rendering.
 - **v3.0 — The Procedural World Update**: multi-view reconstruction, procedural city generation, semantic world understanding.
 
-The arc: assets (v1.4–v1.5) → the plugin ecosystem (v2.0) → worlds (v2.1–v2.2) → production (v2.3–v2.4) → an AI game-asset platform that generates playable worlds from reference images (v3.0).
+The arc: assets (v1.4–v1.5) → the plugin ecosystem (v2.0–v2.1) → worlds (v2.2–v2.3) → production (v2.4–v2.5) → an AI game-asset platform that generates playable worlds from reference images (v3.0).
 
 **→ Full roadmap** — per-version detail, the four-phase long view, and the tracked capability gaps: **[ROADMAP.md](ROADMAP.md)**. Technical specification: [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
 

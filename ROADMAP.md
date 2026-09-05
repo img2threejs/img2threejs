@@ -83,20 +83,22 @@ judgment is spent only where a script cannot decide.
 | v1.4 | Weapon Pipeline | Shipped | CS2 image-matched reconstruction, provenance-aware intake, projection-first finishes, family-specific adapters, structural and component-coverage gates |
 | v1.5 | Character Pipeline | Shipped | Component-derived skeleton bound to `SkinnedMesh` geometry · geodesic skinning · hair subsystem across all five stages · chirality gates · interior-difference review · `tapered-sweep` · material pipeline · resumable workflow state. Not shipped: `hairProfile` compiler, IK, pose-sweep gating, clothing |
 | v2.0 | The Plugin Update | Shipped | Domain registry · pull-based spec augmentation with raise-only floors · emission-target socket · per-plugin blocking gates · img2 harness · CS2 and animated-character extracted into installed plugins |
-| **v2.1** | Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
-| **v2.2** | Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
-| **v2.3** | Animation Pipeline | Move assets into production | Auto rigging · auto skin weights · Mixamo compatibility · facial rig · lip-sync preparation · animation-ready exports |
-| **v2.4** | AI Studio | Cut the manual work | Web UI · drag & drop workflow · batch processing · visual prompt builder · project management · cloud rendering · public showcase integration |
+| **v2.1** | Character plugin split | Finish the v2.0 split | Round out the v2.0 plugin split: extract the in-repo `character` domain into `plugin-character`, so the base names no domain. CS2 and the full character workflow (anatomy + rig) then ship entirely from external plugins. |
+| **v2.2** | Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
+| **v2.3** | Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
+| **v2.4** | Animation Pipeline | Move assets into production | Auto rigging · auto skin weights · Mixamo compatibility · facial rig · lip-sync preparation · animation-ready exports |
+| **v2.5** | AI Studio | Cut the manual work | Web UI · drag & drop workflow · batch processing · visual prompt builder · project management · cloud rendering · public showcase integration |
 | **v3.0** | Procedural World Generation | Whole worlds from reference images | Multi-view reconstruction · large scene generation · semantic world understanding · procedural city generation · interior reconstruction · multi-agent generation pipeline |
 
 ### Release names
 
 - **v1.5 — The Character Update**
 - **v2.0 — The Plugin Update**
-- **v2.1 — The Environment Update**
-- **v2.2 — The Game Pipeline Update**
-- **v2.3 — The Animation Update**
-- **v2.4 — The AI Studio Update**
+- **v2.1 — The Character Split**
+- **v2.2 — The Environment Update**
+- **v2.3 — The Game Pipeline Update**
+- **v2.4 — The Animation Update**
+- **v2.5 — The AI Studio Update**
 - **v3.0 — The Procedural World Update**
 
 ## Version details
@@ -152,7 +154,26 @@ floors, emission targets are a provenance-tracked socket, and each plugin brings
 gates. The `img2` harness (`install / add / remove / list / doctor / sync / capabilities`) owns
 installation and drift detection across agent hosts.
 
-### v2.1 — The Environment Update
+### v2.1 — The Character Split
+
+v2.0 left one slice unfinished on purpose: two domains had to stay in-repo so the plugin seam would
+have two consumers from day one; `cs2` and `animated-character` moved out, `character` stayed.
+v2.1 closes that loop. `character` joins `plugin-character`, whose existing job — Stage R rig and
+animation for the `animated-character` profile — folds into the same plugin as the anatomy track.
+After this release the base names no domain, finally true without qualification.
+
+The acceptance rule is that the character build keeps emitting the same Three.js output for the same
+input across the move. Each line of character anatomy, hair, and material logic is classified as
+either base mechanism (driven by spec data the plugin supplies) or domain content (leaves with the
+plugin); only then does any file move. The seam itself is hardened at the same time: the pass-id
+set the base already enumerates is enforced at the validation site, the one file the base still
+imported into the leaving set is broken, and the contract gains a clause forbidding that reverse
+direction.
+
+Out of scope: new character features, CS2 changes, environment, game pipeline, animation, AI
+studio, and the procedural world bundle — those stay owned by v2.2–v2.5 and v3.0.
+
+### v2.2 — The Environment Update
 
 The unit of reconstruction grows from one object to a scene. Buildings, rooms, and streets become
 buildable subjects; trees and vegetation get procedural treatment suited to code-only generation;
@@ -160,20 +181,20 @@ and generation becomes terrain-aware, so objects sit in a scene rather than floa
 Multi-object reconstruction lands here: one reference image, several subjects, correct relative
 placement and scale.
 
-### v2.2 — The Game Pipeline Update
+### v2.3 — The Game Pipeline Update
 
 Assets stop being Three.js-only. First-class exporters for Unity and Unreal, a Blender bridge, and
 improved FBX / OBJ / glTF output make a generated model something you can drop into an existing
 production pipeline. LOD generation and collision-mesh generation cover the two things every engine
 asks for and no image-to-3D tool ships by default.
 
-### v2.3 — The Animation Update
+### v2.4 — The Animation Update
 
 Rigging becomes automatic: skeleton generation, skin weights, and a facial rig, with Mixamo
 compatibility so existing animation libraries apply without hand work. Lip-sync preparation and
 animation-ready exports close the gap between "a model exists" and "a character performs".
 
-### v2.4 — The AI Studio Update
+### v2.5 — The AI Studio Update
 
 The pipeline gets a front door for people who don't live in a terminal: a web UI with a
 drag-and-drop workflow, batch processing for more than one asset at a time, a visual prompt builder,
@@ -192,13 +213,13 @@ a multi-agent generation pipeline — all riding the plugin ecosystem and API th
 
 **Phase 1 (v1.4–v1.5) — Assets.** Build high-quality individual assets: weapons, props, characters.
 
-**Phase 1.5 (v2.0) — Ecosystem.** The plugin architecture shipped ahead of schedule: domains,
+**Phase 1.5 (v2.0–v2.1) — Ecosystem.** The plugin architecture shipped ahead of schedule: domains,
 emission targets, gates, and augmentation are extension points other people can build on.
 
-**Phase 2 (v2.1–v2.2) — Worlds.** Build environments and game-ready content: buildings, vegetation,
+**Phase 2 (v2.2–v2.3) — Worlds.** Build environments and game-ready content: buildings, vegetation,
 streets, export pipelines.
 
-**Phase 3 (v2.3–v2.4) — Production.** Turn generated assets into production-ready content: rigging,
+**Phase 3 (v2.4–v2.5) — Production.** Turn generated assets into production-ready content: rigging,
 animation, Blender, Unity, Unreal, and a web platform.
 
 **Phase 4 (v3.0) — AI game-asset platform.** Generate entire playable worlds from reference images:
@@ -214,10 +235,10 @@ latent bug.
 
 | # | Gap | Status / plan | Priority |
 |---|---|---|---|
-| G1 | SkinnedMesh + Bones + Morph targets (organic deform, facial expression) | Roadmap **v2.3 — Animation** (rig-ready topology prepared in v1.5) | deferred |
-| G2 | glTF / GLB export + AnimationMixer (engine portability) | Roadmap **v2.2 — Game Pipeline** | deferred |
+| G1 | SkinnedMesh + Bones + Morph targets (organic deform, facial expression) | Roadmap **v2.4 — Animation** (rig-ready topology prepared in v1.5) | deferred |
+| G2 | glTF / GLB export + AnimationMixer (engine portability) | Roadmap **v2.3 — Game Pipeline** | deferred |
 | G3 | ~~**InstancedMesh — real latent bug**: `instanced-cluster` has no `geometry_for()` branch; repetition systems emit a hand-rolled `Mesh` clone loop~~ | **Closed.** `geometry_for()` resolves the cluster's base primitive and the repetition emitter builds `new THREE.InstancedMesh(geo, mat, count)`; `test_repetition_system_scale.py` verifies placement by reading matrices back through `InstancedMesh.getMatrixAt` composed with `cluster.matrixWorld`, not by matching source strings | — |
-| G4 | UV unwrapping / atlas, normal+AO baking (high→low), LOD, BVH; procedural-UV seams stretch at primitive joins | Partial today (procedural cyl/triplanar UV + height→normal). Baking and LOD land in **v2.2** | med |
+| G4 | UV unwrapping / atlas, normal+AO baking (high→low), LOD, BVH; procedural-UV seams stretch at primitive joins | Partial today (procedural cyl/triplanar UV + height→normal). Baking and LOD land in **v2.3** | med |
 | G5 | WebGPURenderer + TSL node materials | Deferred — architecture, not render quality | low |
 | G6 | Topology / retopology / CSG boolean-merge (clean welded mesh for skinning) | Feeds **v1.5** rigging-ready topology; `three-bvh-csg` is for export/skinning, not static-prop quality | low |
 
