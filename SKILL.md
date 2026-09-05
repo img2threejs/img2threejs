@@ -193,7 +193,12 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    The generator is fail-closed: `strict-quality` must pass before it writes any factory, and a
    future `--pass-id` fails until prior passes are reviewed `continue`. If blocked, preserve the
    `BLOCKED` artifact and refine the subject-specific spec; do not substitute a generic template.
-   The local state adds `--force` only for a new pass or `refine-spec`; `refine-code` edits the
+   By default the output is split: `createObjectModel.ts` imports only `three` (types, factory,
+   look-dev lights, camera framing, renderer config) and a sibling
+   `createObjectModel.harness.ts` carries the presentation-only surface (RoomEnvironment/PMREM
+   environment, DOF+bloom composer, orbit controls) so a host scene can embed the model without
+   the postprocessing stack. Pass `--single-file` for the historical one-file layout. The local
+   state adds `--force` only for a new pass or `refine-spec`; `refine-code` edits the
    current artifact without regenerating it. Before overwriting, carry valid hand refinement back
    into the spec; generated code must not be the only copy of reconstruction decisions.
 6a. **Hitting a triangle budget.** `performanceBudget.targetTriangles` selects a tessellation tier
