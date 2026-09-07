@@ -8,13 +8,14 @@ AI-vision call. `orchestrate_passes.py` refuses to unlock the comparison-sheet
 step until a passing tier1Result exists for the current render's hash
 (Workstream D).
 
-Known scope limitation: per_part_color_delta compares the render's OVERALL
-dominant color clusters against each component's colorMaterialRecipe, not a
-true per-component cropped region (that would need per-component render-crop
-coordinates, which the pipeline does not yet track). This is a coarser signal
-than the plan's ideal, but per Risk R7, Tier 1 only needs to be discriminative
-enough to catch gross mismatches, not pixel-perfect — documented here rather
-than silently overclaimed.
+Scope of the per-part color check: a component whose material-region analysis mapped a
+reference crop onto it is scored on that region — the reference's own pixels there against
+the render's pixels in the same place. A component without such evidence falls back to
+comparing its authored recipe against the render's OVERALL dominant color clusters, which
+cannot resolve a small chromatically distinct part in a multi-material scene (a pixel-exact
+reconstruction of one such reference scores 50 delta-E against a 20 threshold on that basis).
+The verdict records how many components were scored each way rather than presenting one
+number as if it had a single meaning.
 """
 
 from __future__ import annotations
@@ -33,6 +34,12 @@ from extract_part_color_recipe import lab_distance, lab_kmeans_palette, srgb_to_
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage3_build"))
 from orchestrate_passes import DEFAULT_PASS_ORDER, load_spec  # noqa: E402
 from geometry_integrity import measure_geometry_integrity  # noqa: E402
+from reference_mask_artifact import (  # noqa: E402
+    MASK_SOURCE_ARTIFACT,
+    MASK_SOURCE_HEURISTIC,
+    ReferenceMaskArtifact,
+    load_reference_mask_artifact,
+)
 from status_banner import emit_status, load_optional_spec  # noqa: E402
 
 
@@ -61,6 +68,8 @@ SCALE_DELTA_THRESHOLD = 0.08
 SYMMETRY_ERROR_THRESHOLD = 0.10
 COLOR_DELTA_E_THRESHOLD = 20.0  # generous vs. the JND (~2-3) to tolerate render/photo lighting gaps
 MASK_GRID_SIZE = 224
+REGION_PALETTE_K = 3       # clusters per material region: the material, its shading, one intruder
+REGION_SAMPLE_CAP = 3000   # pixels sampled per region; a stride keeps full-res references cheap
 
 
 def mask_is_inverted(warnings: list[str]) -> bool:
@@ -109,10 +118,17 @@ def largest_component(mask: list[bool], size: int) -> tuple[list[bool], float]:
     return filtered, discarded
 
 
-def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], list[str]]:
-    """Return the resized foreground mask and extraction warnings."""
-    width, height, pixels, _warnings = load_image(png_path)
-    mask, _diag, mask_warnings = build_foreground_mask(width, height, pixels)
+def condition_mask(
+    mask: list[bool],
+    width: int,
+    height: int,
+    size: int = MASK_GRID_SIZE,
+) -> tuple[list[bool], list[str]]:
+    """Reduce a full-resolution foreground mask to the scoring grid, keeping the largest blob.
+
+    Every mask that reaches a silhouette signal passes through here, whatever produced it, so a
+    heuristic mask and an adapter mask are always compared on identically conditioned grids.
+    """
     resized: list[bool] = []
     for y in range(size):
         sy = min(height - 1, int(y * height / size))
@@ -120,13 +136,42 @@ def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], l
             sx = min(width - 1, int(x * width / size))
             resized.append(mask[sy * width + sx])
     filtered, discarded = largest_component(resized, size)
+    warnings: list[str] = []
     if discarded > 0.02:
-        mask_warnings = list(mask_warnings) + [
+        warnings.append(
             f"{discarded:.1%} of foreground cells lie outside the largest connected blob and were "
             "excluded from the bounding box; if the subject really has separated parts in this "
             "projection, they are not being measured"
-        ]
-    return filtered, mask_warnings
+        )
+    return filtered, warnings
+
+
+def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], list[str]]:
+    """Return the resized heuristic foreground mask and extraction warnings."""
+    width, height, pixels, _warnings = load_image(png_path)
+    mask, _diag, mask_warnings = build_foreground_mask(width, height, pixels)
+    filtered, grid_warnings = condition_mask(mask, width, height, size)
+    return filtered, list(mask_warnings) + grid_warnings
+
+
+def load_reference_mask(
+    reference_path: Path,
+    size: int = MASK_GRID_SIZE,
+) -> tuple[list[bool], list[str], str, ReferenceMaskArtifact | None]:
+    """Reference-side mask, named: (mask, warnings, source, artifact-or-None).
+
+    The workspace's published segmentation artifact wins when it authenticates; otherwise the
+    corner heuristic, unchanged. An artifact that is present but cannot be authenticated raises
+    (see reference_mask_artifact) rather than degrading to the heuristic behind the score. The
+    RENDER side never comes through here: a render's backdrop is uniform, which is exactly the
+    case the heuristic is right about.
+    """
+    artifact = load_reference_mask_artifact(reference_path)
+    if artifact is None:
+        mask, warnings = load_mask(reference_path, size)
+        return mask, warnings, MASK_SOURCE_HEURISTIC, None
+    mask, grid_warnings = condition_mask(artifact.full, artifact.width, artifact.height, size)
+    return mask, list(artifact.warnings) + grid_warnings, MASK_SOURCE_ARTIFACT, artifact
 
 
 def silhouette_iou(reference_mask: list[bool], render_mask: list[bool]) -> float:
@@ -182,31 +227,216 @@ def bilateral_symmetry_error(mask: list[bool], size: int = MASK_GRID_SIZE) -> fl
     return mismatches / total if total else 0.0
 
 
-def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> dict[str, Any]:
-    """Compares each component's colorMaterialRecipe against the render's overall
-    dominant Lab-space color clusters (see module docstring for the per-component-
-    region scope limitation). Returns per-recipe delta-E and a pass/fail summary."""
-    if not recipes:
-        return {"checked": 0, "maxDeltaE": 0.0, "perComponent": []}
-    width, height, pixels, _warnings = load_image(render_path)
-    mask, _diag, _warn = build_foreground_mask(width, height, pixels)
-    foreground_lab = [srgb_to_lab((r, g, b)) for (r, g, b, _a), keep in zip(pixels, mask) if keep]
-    clusters = lab_kmeans_palette(foreground_lab, k=min(5, max(1, len(recipes))))
-    results = []
-    for recipe in recipes:
-        dominant = recipe.get("dominantAlbedo")
-        if not isinstance(dominant, str):
+def recipe_albedo_lab(recipe: dict[str, Any]) -> tuple[float, float, float] | None:
+    """Parse `colorMaterialRecipe.dominantAlbedo` ("rgba(r, g, b, a)") into Lab, or None."""
+    dominant = recipe.get("dominantAlbedo")
+    if not isinstance(dominant, str):
+        return None
+    try:
+        rgb_text = dominant[dominant.index("(") + 1 : dominant.index(")")]
+        red, green, blue = (int(float(part.strip())) for part in rgb_text.split(",")[:3])
+    except (ValueError, IndexError):
+        return None
+    return srgb_to_lab((red, green, blue))
+
+
+def current_region_crops(spec: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
+    """componentId -> {regionId: crop} for the regions the CURRENT analysis maps to that part.
+
+    `apply_material_analysis` appends to a component's `materialRegions` on every run and
+    replaces `materialPipeline.regions` wholesale, so the accumulated list holds superseded
+    bounding boxes and regions that were later re-labelled onto a different component. Reading
+    the pipeline as the mapping and letting the last appended entry win per region keeps the
+    crop that the latest analysis actually produced; a spec with no pipeline block (an older
+    profile) falls back to the component's own list.
+    """
+    pipeline = spec.get("materialPipeline")
+    mapped: set[tuple[str, str]] | None = None
+    if isinstance(pipeline, dict) and isinstance(pipeline.get("regions"), list):
+        mapped = {
+            (str(entry.get("componentId")), str(entry.get("regionId")))
+            for entry in pipeline["regions"]
+            if isinstance(entry, dict)
+        }
+    crops_by_component: dict[str, dict[str, dict[str, Any]]] = {}
+    for component in spec.get("componentTree", []):
+        if not isinstance(component, dict):
             continue
-        try:
-            rgb_text = dominant[dominant.index("(") + 1 : dominant.index(")")]
-            r, g, b = (int(float(part.strip())) for part in rgb_text.split(",")[:3])
-        except (ValueError, IndexError):
+        component_id = str(component.get("id"))
+        crops: dict[str, dict[str, Any]] = {}
+        for entry in component.get("materialRegions") or []:
+            if not isinstance(entry, dict):
+                continue
+            region_id = str(entry.get("regionId"))
+            if mapped is not None and (component_id, region_id) not in mapped:
+                continue
+            crop = entry.get("crop")
+            if isinstance(crop, dict) and isinstance(crop.get("bbox"), dict):
+                crops[region_id] = crop
+        if crops:
+            crops_by_component[component_id] = crops
+    return crops_by_component
+
+
+def _region_box(
+    crop: dict[str, Any],
+    component_id: str,
+    region_id: str,
+    reference_path: Path,
+    reference_width: int,
+    reference_height: int,
+) -> tuple[int, int, int, int]:
+    """Validate a region crop against the reference being scored and return its bbox.
+
+    Evidence cut from a different image cannot say anything about this reference, and a gate
+    that quietly downgraded such a component to the whole-frame cluster comparison would hide
+    broken evidence behind a plausible number. Broken evidence stops the run instead.
+    """
+    source_width = crop.get("sourceWidth")
+    source_height = crop.get("sourceHeight")
+    if (source_width, source_height) != (reference_width, reference_height):
+        raise ValueError(
+            f"material region {region_id!r} on component {component_id!r} was cut from a "
+            f"{source_width}x{source_height} image but the scored reference {reference_path} is "
+            f"{reference_width}x{reference_height}; re-run the workspace's material region "
+            "analysis so the evidence describes this reference"
+        )
+    bbox = crop["bbox"]
+    try:
+        x0 = int(bbox["x"])
+        y0 = int(bbox["y"])
+        box_width = int(bbox["width"])
+        box_height = int(bbox["height"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f"material region {region_id!r} on component {component_id!r} has an unreadable "
+            f"crop bbox {bbox!r}"
+        ) from exc
+    if (box_width <= 0 or box_height <= 0 or x0 < 0 or y0 < 0
+            or x0 + box_width > reference_width or y0 + box_height > reference_height):
+        raise ValueError(
+            f"material region {region_id!r} on component {component_id!r} has bbox "
+            f"({x0}, {y0}, {box_width}, {box_height}) outside the "
+            f"{reference_width}x{reference_height} reference"
+        )
+    return x0, y0, box_width, box_height
+
+
+def _region_palette(
+    width: int,
+    height: int,
+    pixels: list[tuple[int, int, int, int]],
+    box: tuple[int, int, int, int],
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
+) -> list[dict[str, Any]]:
+    """Lab clusters of one region's pixels, subsampled to a bounded cost.
+
+    Both sides of a region comparison go through this same routine, so a render that IS the
+    reference scores exactly zero — the property that makes the gate reachable at all.
+    """
+    x0, y0, box_width, box_height = box
+    x0 = int(x0 * scale_x)
+    y0 = int(y0 * scale_y)
+    box_width = max(1, int(box_width * scale_x))
+    box_height = max(1, int(box_height * scale_y))
+    stride = max(1, int(((box_width * box_height) / REGION_SAMPLE_CAP) ** 0.5))
+    samples: list[tuple[float, float, float]] = []
+    for y in range(y0, min(height, y0 + box_height), stride):
+        for x in range(x0, min(width, x0 + box_width), stride):
+            red, green, blue, alpha = pixels[y * width + x]
+            if alpha >= 16:
+                samples.append(srgb_to_lab((red, green, blue)))
+    return lab_kmeans_palette(samples, REGION_PALETTE_K)
+
+
+def per_part_color_delta(
+    spec: dict[str, Any],
+    render_path: Path,
+    reference_path: Path,
+) -> dict[str, Any]:
+    """Per-part colour fidelity, on the most honest basis each component's evidence allows.
+
+    A component whose material-region analysis mapped a reference crop onto it is scored where
+    that part actually lives: the crop's own reference pixels against the render's pixels in the
+    same place, so the number moves when that part's colour is wrong and reaches zero when the
+    render reproduces the reference. Everything else keeps the whole-frame cluster comparison,
+    which cannot resolve a small chromatically distinct part in a multi-material scene and is
+    reported as such. The two counts are recorded so a score always names its basis.
+
+    Region sampling reads the render at the reference's coordinates, which assumes the render is
+    the reference-view capture — the same assumption the silhouette-IoU gate beside it makes, and
+    a wrong-view render fails that gate on the same inputs.
+    """
+    components = [
+        component for component in spec.get("componentTree", [])
+        if isinstance(component, dict) and isinstance(component.get("colorMaterialRecipe"), dict)
+    ]
+    if not components:
+        return {"checked": 0, "maxDeltaE": 0.0, "perComponent": [], "regionBasis": 0, "clusterBasis": 0}
+    region_crops = current_region_crops(spec)
+    render_width, render_height, render_pixels, _warnings = load_image(render_path)
+    reference: tuple[int, int, list[tuple[int, int, int, int]]] | None = None
+    clusters: list[dict[str, Any]] | None = None
+    results: list[dict[str, Any]] = []
+    for component in components:
+        component_id = str(component.get("id"))
+        recipe = component["colorMaterialRecipe"]
+        crops = region_crops.get(component_id)
+        label = recipe.get("componentId") or component_id
+        if crops:
+            if reference is None:
+                ref_width, ref_height, ref_pixels, _ref_warnings = load_image(reference_path)
+                reference = (ref_width, ref_height, ref_pixels)
+            ref_width, ref_height, ref_pixels = reference
+            scale_x = render_width / ref_width
+            scale_y = render_height / ref_height
+            worst: dict[str, Any] | None = None
+            for region_id, crop in crops.items():
+                box = _region_box(crop, component_id, region_id, reference_path, ref_width, ref_height)
+                expected = _region_palette(ref_width, ref_height, ref_pixels, box)
+                rendered = _region_palette(render_width, render_height, render_pixels, box, scale_x, scale_y)
+                if not expected or not rendered:
+                    continue
+                match = min(rendered, key=lambda entry: lab_distance(expected[0]["center"], entry["center"]))
+                delta = lab_distance(expected[0]["center"], match["center"])
+                if worst is None or delta > worst["deltaE"]:
+                    # The matched cluster's share is recorded because the nearest-cluster rule
+                    # can match a small patch inside the region; a low share is the reader's
+                    # warning that the part passed on a minority of its own pixels.
+                    worst = {
+                        "componentId": label,
+                        "deltaE": round(delta, 2),
+                        "basis": "region",
+                        "regionId": region_id,
+                        "matchedClusterShare": round(match["share_pct"], 3),
+                    }
+            if worst is not None:
+                results.append(worst)
+                continue
+        expected_lab = recipe_albedo_lab(recipe)
+        if expected_lab is None:
             continue
-        expected_lab = srgb_to_lab((r, g, b))
+        if clusters is None:
+            mask, _diag, _warn = build_foreground_mask(render_width, render_height, render_pixels)
+            foreground_lab = [
+                srgb_to_lab((r, g, b)) for (r, g, b, _a), keep in zip(render_pixels, mask) if keep
+            ]
+            clusters = lab_kmeans_palette(foreground_lab, k=min(5, max(1, len(components))))
         best_delta = min((lab_distance(expected_lab, c["center"]) for c in clusters), default=999.0)
-        results.append({"componentId": recipe.get("componentId"), "deltaE": round(best_delta, 2)})
+        results.append({
+            "componentId": label,
+            "deltaE": round(best_delta, 2),
+            "basis": "cluster",
+        })
     max_delta = max((entry["deltaE"] for entry in results), default=0.0)
-    return {"checked": len(results), "maxDeltaE": round(max_delta, 2), "perComponent": results}
+    return {
+        "checked": len(results),
+        "maxDeltaE": round(max_delta, 2),
+        "perComponent": results,
+        "regionBasis": sum(1 for entry in results if entry["basis"] == "region"),
+        "clusterBasis": sum(1 for entry in results if entry["basis"] == "cluster"),
+    }
 
 
 def render_hash(render_path: Path) -> str:
@@ -231,7 +461,9 @@ def run_tier1(
     spec_path: Path | None = None,
     pass_id: str | None = None,
 ) -> dict[str, Any]:
-    reference_mask, reference_mask_warnings = load_mask(reference_path)
+    reference_mask, reference_mask_warnings, reference_mask_source, _artifact = (
+        load_reference_mask(reference_path)
+    )
     render_mask, render_mask_warnings = load_mask(render_path)
     mask_warnings = (
         [f"reference: {w}" for w in reference_mask_warnings]
@@ -269,19 +501,21 @@ def run_tier1(
 
     if spec_path is not None:
         spec = load_spec(spec_path)
-        recipes = [
-            component["colorMaterialRecipe"]
-            for component in spec.get("componentTree", [])
-            if isinstance(component, dict) and isinstance(component.get("colorMaterialRecipe"), dict)
-        ]
-        color_report = per_part_color_delta(recipes, render_path)
+        color_report = per_part_color_delta(spec, render_path, reference_path)
         gated = color_is_gated(pass_id)
         color_report["gated"] = gated
         checks["colorDelta"] = color_report
         if gated and color_report["maxDeltaE"] > COLOR_DELTA_E_THRESHOLD:
+            over = [
+                entry for entry in color_report["perComponent"]
+                if entry["deltaE"] > COLOR_DELTA_E_THRESHOLD
+            ]
+            worst = max(over, key=lambda entry: entry["deltaE"])
             failures.append(
                 f"max per-part color delta-E {color_report['maxDeltaE']} exceeds "
-                f"threshold {COLOR_DELTA_E_THRESHOLD}"
+                f"threshold {COLOR_DELTA_E_THRESHOLD} "
+                f"(worst {worst['componentId']} on the {worst['basis']} basis; "
+                f"{len(over)} of {color_report['checked']} parts over threshold)"
             )
         geometry = spec.get("builtGeometry") or spec.get("geometry")
         if isinstance(geometry, dict):
@@ -294,6 +528,9 @@ def run_tier1(
         "checks": checks,
         "failures": failures,
         "maskWarnings": mask_warnings,
+        # Which ruler cut the reference silhouette. Without it a recorded verdict cannot be
+        # compared with any other verdict on the same bytes.
+        "referenceMaskSource": reference_mask_source,
         "renderHash": render_hash(render_path),
         "passId": pass_id,
     }

@@ -41,6 +41,7 @@ from diagnose_render import (  # noqa: E402
     bbox_of,
     bilateral_symmetry_error,
     load_mask,
+    load_reference_mask,
     mask_is_inverted,
     proportion_delta,
     silhouette_iou,
@@ -77,12 +78,17 @@ HUE_ZONE_DELTA_E = 2.3   # per-band CIEDE2000 "same hue zone" tolerance (Context
 HUE_ZONE_BANDS = 8       # bands sampled along the axis for hue_zone_parity
 COLOR_SAMPLE = 160       # coarse per-axis subsample cap for colour helpers (perf on full-res refs)
 
-
-def _banded_median_lab(png_path: Path, axis: str, bands: int) -> list[tuple[float, float, float] | None]:
+def _banded_median_lab(png_path: Path, axis: str, bands: int,
+                       mask_override: list[bool] | None = None) -> list[tuple[float, float, float] | None]:
     """Median CIELAB per foreground-masked band along the axis (axis 'u'=x, 'v'=y).
-    Colour-aware (not luma) — used only by hue_zone_parity, which is report-only until calibrated."""
+    Colour-aware (not luma) — used only by hue_zone_parity, which is report-only until calibrated.
+    mask_override carries the validated reference-mask artifact so every reference-side mask in
+    this module names the same source; None keeps the heuristic (always the case render-side)."""
     width, height, pixels, _ = load_image(png_path)
-    mask, _meta, _warn = build_foreground_mask(width, height, pixels)
+    if mask_override is not None:
+        mask = mask_override
+    else:
+        mask, _meta, _warn = build_foreground_mask(width, height, pixels)
     span = width if axis == "u" else height
     band = max(1, span // bands)
     # Subsample on a coarse grid (≤ COLOR_SAMPLE px/axis) so full-res references stay O(fast) —
@@ -117,12 +123,15 @@ def _banded_median_lab(png_path: Path, axis: str, bands: int) -> list[tuple[floa
     return out
 
 
-def _foreground_hsv_stats(png_path: Path) -> tuple[float, float]:
+def _foreground_hsv_stats(png_path: Path, mask_override: list[bool] | None = None) -> tuple[float, float]:
     """Saturation-weighted mean (hueDeg, saturation) over the foreground. Colour-aware."""
     import colorsys
     import math as _m
     width, height, pixels, _ = load_image(png_path)
-    mask, _meta, _warn = build_foreground_mask(width, height, pixels)
+    if mask_override is not None:
+        mask = mask_override
+    else:
+        mask, _meta, _warn = build_foreground_mask(width, height, pixels)
     sx = max(1, width // COLOR_SAMPLE)
     sy = max(1, height // COLOR_SAMPLE)
     sc = ss = wsum = sat_sum = 0.0
@@ -145,11 +154,12 @@ def _foreground_hsv_stats(png_path: Path) -> tuple[float, float]:
     return mean_hue, mean_sat
 
 
-def specular_wash(reference_png: Path, render_png: Path) -> dict[str, Any]:
+def specular_wash(reference_png: Path, render_png: Path,
+                  reference_mask: list[bool] | None = None) -> dict[str, Any]:
     """Detect the envMap/metalness 'hue theft': the render desaturates a saturated reference AND
     drifts its hue toward cyan (~180°). Report-only — advisory, never a gate (lighting legitimately
     shifts hue). Returns {satRatio, hueDriftDeg, towardCyan, flagged}. (Context Part 3.2)."""
-    ref_hue, ref_sat = _foreground_hsv_stats(reference_png)
+    ref_hue, ref_sat = _foreground_hsv_stats(reference_png, reference_mask)
     ren_hue, ren_sat = _foreground_hsv_stats(render_png)
     sat_ratio = (ren_sat / ref_sat) if ref_sat > 1e-6 else 1.0
     # circular hue drift toward cyan (180°): did the render move closer to 180 than the reference?
@@ -167,11 +177,12 @@ def specular_wash(reference_png: Path, render_png: Path) -> dict[str, Any]:
 
 
 def hue_zone_parity(reference_png: Path, render_png: Path, axis: str = "u",
-                    bands: int = HUE_ZONE_BANDS) -> float:
+                    bands: int = HUE_ZONE_BANDS,
+                    reference_mask: list[bool] | None = None) -> float:
     """Fraction of along-axis bands whose median colour matches the reference within CIEDE2000
     ≤ HUE_ZONE_DELTA_E. Catches "purple rendered blue" that luma/structure signals miss.
     Report-only (no ensemble weight) until calibrated on the labeled corpus."""
-    ref = _banded_median_lab(reference_png, axis, bands)
+    ref = _banded_median_lab(reference_png, axis, bands, reference_mask)
     ren = _banded_median_lab(render_png, axis, bands)
     matched = 0
     counted = 0
@@ -281,7 +292,10 @@ def tonal_parity(ref: list[float], ren: list[float], bins: int = 16) -> float:
 
 def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
     """Run all deterministic signals and combine into a verdict + routing action."""
-    ref_mask, ref_mask_warnings = load_mask(reference_png)
+    # Reference side: the same loader the official tier-1 verdict uses, so both scorers can only
+    # ever agree about which mask they measured. Render side stays heuristic.
+    ref_mask, ref_mask_warnings, ref_mask_source, ref_artifact = load_reference_mask(reference_png)
+    ref_full_mask = ref_artifact.full if ref_artifact is not None else None
     ren_mask, ren_mask_warnings = load_mask(render_png)
     ref_luma = load_luma(reference_png, LUMA_SIZE)
     ren_luma = load_luma(render_png, LUMA_SIZE)
@@ -324,11 +338,13 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
     # weighted ensemble until calibrated on the labeled corpus. Catches "purple→blue" that
     # every luma/structure signal above is blind to. Graceful: degrades to None on error.
     try:
-        hue_zone: float | None = hue_zone_parity(reference_png, render_png)
+        hue_zone: float | None = hue_zone_parity(reference_png, render_png,
+                                                 reference_mask=ref_full_mask)
     except Exception:
         hue_zone = None
     try:
-        spec_wash: dict[str, Any] | None = specular_wash(reference_png, render_png)
+        spec_wash: dict[str, Any] | None = specular_wash(reference_png, render_png,
+                                                         reference_mask=ref_full_mask)
     except Exception:
         spec_wash = None
 
@@ -429,6 +445,10 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
         "weights": {k: w for k, (_s, w) in soft.items()},
         "reference": str(reference_png.resolve()),
         "render": str(render_png.resolve()),
+        # Which ruler produced this score. Without it a fidelity number is ambiguous about the
+        # silhouette it was measured against.
+        "referenceMaskSource": ref_mask_source,
+        "referenceMaskArtifact": str(ref_artifact.path) if ref_artifact is not None else None,
         "note": "deterministic ensemble; zero VLM/token. hueZoneParity is REPORT-ONLY (colour-aware, "
                 "CIEDE2000) — not yet in the weighted fidelity; promote after corpus calibration. "
                 "VLM layer (§3.4) runs only if this passes.",
@@ -451,6 +471,9 @@ def main(argv: list[str]) -> int:
     else:
         print(f"{result['verdict'].upper()} → {result['action']}  fidelity={result['fidelity']} "
               f"(target {result['fidelityTarget']})")
+        if result["referenceMaskArtifact"]:
+            print(f"  reference mask: {result['referenceMaskSource']} "
+                  f"({result['referenceMaskArtifact']})")
         for f in result["hardGateFailures"]:
             print(f"  HARD: {f}")
     # exit 0 only on a clean pass; non-zero otherwise so a pipeline can gate on it.

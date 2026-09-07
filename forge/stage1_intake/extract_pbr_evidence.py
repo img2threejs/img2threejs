@@ -220,24 +220,39 @@ def sample_corner_background(
     width: int,
     height: int,
     pixels: list[tuple[int, int, int, int]],
-) -> tuple[tuple[int, int, int], float]:
+) -> list[tuple[tuple[int, int, int], float]]:
+    """Describe the background as one (median colour, noise) pair per image corner.
+
+    Noise is the spread of a corner around its OWN median, so a corner-to-corner
+    lighting gradient no longer registers as background noise: pooling the four
+    corners would fold that gradient into the spread and inflate every threshold
+    derived from it. Corners with no opaque samples are dropped; when no corner
+    yields samples at all the neutral white/zero-noise pair keeps the degenerate
+    case identical to a fully-empty pooled sample.
+    """
     radius = max(3, min(width, height) // 40)
-    samples: list[tuple[int, int, int]] = []
     corner_ranges = [
         (0, radius, 0, radius),
         (width - radius, width, 0, radius),
         (0, radius, height - radius, height),
         (width - radius, width, height - radius, height),
     ]
+    corners: list[tuple[tuple[int, int, int], float]] = []
     for x0, x1, y0, y1 in corner_ranges:
+        samples: list[tuple[int, int, int]] = []
         for y in range(max(0, y0), min(height, y1)):
             for x in range(max(0, x0), min(width, x1)):
                 red, green, blue, alpha = pixels[y * width + x]
                 if alpha > 16:
                     samples.append((red, green, blue))
-    background = median_color(samples)
-    noise = percentile([color_distance(sample, background) for sample in samples], 0.75, 0.0)
-    return background, noise
+        if not samples:
+            continue
+        median = median_color(samples)
+        noise = percentile([color_distance(sample, median) for sample in samples], 0.75, 0.0)
+        corners.append((median, noise))
+    if not corners:
+        return [(median_color([]), 0.0)]
+    return corners
 
 
 def build_foreground_mask(
@@ -248,19 +263,29 @@ def build_foreground_mask(
     warnings: list[str] = []
     alpha_values = [pixel[3] for pixel in pixels]
     transparent_fraction = sum(1 for alpha in alpha_values if alpha < 245) / max(1, len(alpha_values))
-    background, background_noise = sample_corner_background(width, height, pixels)
-    threshold = max(24.0, background_noise * 2.4)
+    corners = sample_corner_background(width, height, pixels)
+    # Each corner carries its own tolerance; a pixel is background only while it sits
+    # inside at least one of them, so the two ends of a lit gradient stay background
+    # without either end's tolerance having to span the distance between them.
+    corner_thresholds = [(median, max(24.0, noise * 2.4)) for median, noise in corners]
+    background = median_color([median for median, _ in corners])
+    background_noise = max(noise for _, noise in corners)
     mask: list[bool] = []
     if transparent_fraction > 0.03:
         for red, green, blue, alpha in pixels:
             mask.append(alpha > 24)
     else:
         for red, green, blue, alpha in pixels:
+            if alpha <= 16:
+                mask.append(False)
+                continue
             rgb = (red, green, blue)
-            distance = color_distance(rgb, background)
-            sat = saturation(rgb)
-            luma = srgb_luma(rgb)
-            mask.append(alpha > 16 and (distance > threshold or (sat > 0.16 and luma < 0.94)))
+            clears_every_corner = all(
+                color_distance(rgb, median) > threshold for median, threshold in corner_thresholds
+            )
+            mask.append(
+                clears_every_corner or (saturation(rgb) > 0.16 and srgb_luma(rgb) < 0.94)
+            )
     coverage = sum(1 for value in mask if value) / max(1, len(mask))
     if coverage < 0.035:
         warnings.append("foreground mask is tiny; material extraction is likely unreliable")

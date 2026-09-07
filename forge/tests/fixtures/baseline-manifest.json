@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "$comment": [
+    "The quality baseline manifest. It is EMPTY on purpose: the repository ships no",
+    "reference images, and the baseline is meaningless without licensed ones.",
+    "See docs/quality-baseline.md for how to populate it.",
+    "",
+    "`references[]` entries:",
+    "  id           stable identifier, kebab-case",
+    "  path         relative to this manifest, under baseline-references/",
+    "  sha256       content hash; recomputed and cross-checked on every sweep",
+    "  subjectClass one of object | character | hybrid | built-environment",
+    "  licence      the terms under which this image may be redistributed",
+    "",
+    "`runs[]` entries:",
+    "  referenceId  must name a references[] id",
+    "  runIndex     0-based; run one reference at least three times so spread is measured",
+    "  renderPath   relative to this manifest",
+    "",
+    "`environment` is produced by baseline.environment_record(). Any null field is",
+    "also listed in `unresolved`, and a baseline with unresolved fields is refused",
+    "for comparison rather than silently compared."
+  ],
+  "environment": {
+    "skillVersion": null,
+    "threeVersion": null,
+    "browserBuild": null,
+    "lockfileSha256": null,
+    "unresolved": ["browserBuild", "lockfileSha256", "skillVersion", "threeVersion"]
+  },
+  "references": [],
+  "runs": []
+}
