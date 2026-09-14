@@ -92,6 +92,21 @@ class CliNamespace(argparse.Namespace):
         self.json_output: bool = False
 
 
+def _ensure_utf8_stdio() -> None:
+    """Pin stdio to UTF-8 so non-ASCII queries and snippets print on any console.
+
+    Sources, caches, and payloads in this pipeline are UTF-8, but print() encodes
+    with the console codec (for example cp1252 on Windows, or whatever
+    PYTHONIOENCODING selects). Reconfiguring keeps the ensure_ascii=False output
+    intact instead of raising UnicodeEncodeError on the first non-ASCII character.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            with contextlib.suppress(Exception):
+                reconfigure(encoding="utf-8")
+
+
 def _parse_options(argv: Sequence[str]) -> CliOptions:
     parser = argparse.ArgumentParser(
         description="Search registered specification collections with local BM25."
@@ -174,6 +189,7 @@ def _emit_error(context: ErrorContext, failure: CliFailure) -> int:
 
 
 def main(argv: Sequence[str]) -> int:
+    _ensure_utf8_stdio()
     json_requested = "--json" in argv
     try:
         options = _parse_options(argv)
