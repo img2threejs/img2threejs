@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage2_spec"))
 from feature_acceptance_policy import feature_gate_failures
 from status_banner import emit_status
+from validate_sculpt_spec import is_textureless
 
 
 DEFAULT_PASS_ORDER = [
@@ -409,6 +411,14 @@ def material_pass_gaps(spec: dict[str, Any]) -> list[str]:
     if quality_first_enabled(spec):
         for material in materials:
             if material.get("qualityTier") == "utility":
+                continue
+            # Same exemption as validate_sculpt_spec's quality-first bar: a material that declares
+            # -- with evidence -- that its subject carries no texture detail is not held to the
+            # texture-channel bar. The declaration is hard-validated there, so it cannot be taken
+            # without evidence and cannot coexist with any texture-authoring field. Without this
+            # skip the two bars disagree: such a spec passes --strict-quality yet can never enter
+            # material-pass, and every later pass stays locked behind it.
+            if is_textureless(material):
                 continue
             gaps.extend(quality_first_material_gaps(spec, material))
     return gaps

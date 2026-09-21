@@ -20,6 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
 
+### Fixed
+
+- **`material-pass` honours the `textureless` declaration.** The quality-first material bar is
+  implemented twice: `validate_sculpt_spec.py` exempts a declared-textureless material (with the
+  rationale in its docstring), but the copy in `orchestrate_passes.py::material_pass_gaps` did
+  not. A spec whose materials are declared textureless therefore passed `--strict-quality` yet
+  could never enter `material-pass`, and every later pass stayed locked behind it
+  (`passGateMode: locked-sequential`). The pass gate now applies the same exemption, from the
+  same `is_textureless` predicate, so the two bars cannot disagree again. Regression tests in
+  `forge/tests/test_textureless_material.py` cover both the exemption and the control case.
+
 ## [2.0.0] — 2026-09-05
 
 **The Plugin Update.** The plugin ecosystem — domain registry, img2 harness, plugin-served

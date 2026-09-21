@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "forge" / "stage2_spec"))
 
 sys.path.insert(0, str(ROOT / "forge" / "stage3_build"))
 
+from orchestrate_passes import material_pass_gaps  # noqa: E402
 from validate_sculpt_spec import (  # noqa: E402
     is_textureless,
     validate_look_dev_targets,
@@ -204,6 +205,39 @@ def _minimal_spec():
             }
         ],
     }
+
+
+class TheMaterialPassGateHonoursTheDeclaration(unittest.TestCase):
+    """The quality-first material bar lives in two places. validate_sculpt_spec exempts a
+    declared-textureless material; orchestrate_passes must exempt it identically, or a spec
+    that passes --strict-quality can never enter material-pass and every later pass stays
+    locked behind it."""
+
+    def _spec(self, textureless: bool) -> dict:
+        material = {
+            "id": "flat",
+            "colorVariation": {"palette": ["#6C7D96", "#14263D"], "pattern": "flat"},
+            "roughness": {"base": 0.55},
+            "localOverrides": [{"id": "band", "channel": "albedo"}],
+        }
+        if textureless:
+            material["textureless"] = {
+                "declared": True,
+                "evidence": ["full-object view: flat vector fill, no surface detail"],
+            }
+        return {
+            "sourceImage": "reference.png",
+            "lookDevTargets": {"qualityPriority": "reference-fidelity", "materialPass": {}},
+            "materials": [material],
+        }
+
+    def test_a_declared_material_does_not_block_material_pass(self):
+        self.assertEqual(material_pass_gaps(self._spec(textureless=True)), [])
+
+    def test_an_undeclared_material_still_hits_the_texture_channel_bar(self):
+        gaps = material_pass_gaps(self._spec(textureless=False))
+        self.assertTrue(gaps, "control: without the declaration the bar must still apply")
+        self.assertTrue(any("textureResolution" in g for g in gaps), gaps)
 
 
 if __name__ == "__main__":
