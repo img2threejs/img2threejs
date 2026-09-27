@@ -91,6 +91,15 @@ FINAL_STEPS: Final = (
     ("plugin-gates", "python3 forge/stage3_build/run_gates.py --workspace ."),
 )
 
+# #125: rig-aware participation prevents the FINAL sweep above from firing a rig gate before
+# the rig track has produced its evidence. The base therefore owns one terminal re-sweep that is
+# appended only when a domain declares rigSteps. It deliberately uses the existing "rig" scope:
+# the dispatcher already runs that scope after FINAL, so no schema migration or plugin-controlled
+# terminal hook is needed.
+POST_RIG_STEPS: Final = (
+    ("post-rig-plugin-gates", "python3 forge/stage3_build/run_gates.py --workspace ."),
+)
+
 class WorkflowStateError(ValueError):
     pass
 
@@ -149,6 +158,8 @@ def new_state(
     if domain is not None:
         setup = _splice(setup, domain.get("setupSteps"), domain.get("setupAnchorBefore"), profile, scope="setup")
         pass_steps = _splice_raw(pass_steps, domain.get("passSteps"), domain.get("passAnchorBefore"), profile)
+    rig_steps = (domain.get("rigSteps") or ()) if domain else ()
+    post_rig_steps = POST_RIG_STEPS if rig_steps else ()
     state = {
         "schemaVersion": SCHEMA_VERSION,
         "status": "active",
@@ -158,7 +169,8 @@ def new_state(
         "checklist": setup
         + [_step(*item, scope="pass") for item in pass_steps]
         + [_step(*item, scope="final") for item in FINAL_STEPS]
-        + [_step(*item, scope="rig") for item in ((domain.get("rigSteps") or ()) if domain else ())],
+        + [_step(*item, scope="rig") for item in rig_steps]
+        + [_step(*item, scope="rig") for item in post_rig_steps],
         "loops": {
             "perPass": {},
             "total": 0,
