@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Gate execution (D9, tasks 4.1-4.3, `establish-the-emission-target-contract`).
 
-**Hook point (proposed, per the lead's invitation to propose rather than guess silently):** a new
-`FINAL_STEPS` row, `"plugin-gates"`, appended after `"emission-target"` -- not auto-chained inside
-`emit_target.py` itself. Every other checklist step in this pipeline (`build-current-pass`,
-`render-capture`, ...) is a distinct command the agent invokes one at a time, never auto-triggered
-by the step before it; gate execution follows that same discipline. This still satisfies "gates run
-after domain steps complete" (a FINAL step runs only once every setup/pass step is done) and "as
-part of the emission-target step's post-run" in the sense that it is the very next thing the
-checklist asks for, immediately following target selection -- just not chained in-process.
+**Hook points:** the base owns a `FINAL_STEPS` row, `"plugin-gates"`, appended after
+`"emission-target"`, and -- for a domain that declares `rigSteps` -- a second base-owned
+`"post-rig-plugin-gates"` row appended after those rig steps. Neither is auto-chained inside
+another command. Every checklist row is a distinct command the agent invokes one at a time.
+
+The second sweep exists because rig-aware participation deliberately keeps a rig plugin out of the
+FINAL sweep until its rig track has produced evidence. Appending the re-sweep in the base, rather
+than exposing a plugin-controlled terminal hook, preserves the same ordering discipline while
+allowing a blocking rig gate to enforce the completed rig.
 
 The runner argv is constructed here in Python (task 4.1) -- reusing `_img2_home()`, no `img2`
 binary at runtime -- and mirrors `img2.mjs`'s `gateRunnerArgv` (`bin/img2.mjs:807-809`) exactly: the
@@ -178,10 +179,10 @@ def plugin_contributed_a_step(state: dict[str, Any], plugin_id: str, home: Path)
         rig_ids = domain_rig_step_ids(profile, home)
         if rig_ids:
             # Rig-aware participation (extract-animated-character, D1): a domain that declares a
-            # rig track is not DUE until that track has begun. The gate sweep at plugin-gates runs
-            # in the FINAL scope, strictly before the rig scope, and a rig domain's gate inputs are
-            # produced by rig steps -- sweeping it on the strength of done SETUP steps fired the
-            # gate one whole phase early, against a payload nothing had produced yet.
+            # rig track is not DUE until that track has begun. The first plugin-gates sweep runs in
+            # FINAL, strictly before rig evidence exists; workflow_state appends the base-owned
+            # post-rig-plugin-gates row after all declared rig steps, where this condition becomes
+            # true and the gate can enforce the finished rig.
             if any(by_id.get(step_id, {}).get("status") == "done" for step_id in rig_ids):
                 return True
         elif any(
