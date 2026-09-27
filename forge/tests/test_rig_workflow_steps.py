@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "_shared"))
 
 from workflow_state import (  # noqa: E402
+    POST_RIG_STEPS,
     WorkflowStateError,
     new_state,
     next_entry,
@@ -41,6 +42,7 @@ FIXTURE_RIG_STEPS = [
     ["fix-rig-mid", "Run python3 {plugin_dir}/tools/mid.py --out mid.json"],
     ["fix-rig-last", "Run python3 {plugin_dir}/tools/last.py --payload p.json"],
 ]
+POST_RIG_GATE_ID = POST_RIG_STEPS[0][0]
 
 _TMP_HOME: tempfile.TemporaryDirectory | None = None
 _OLD_HOME: str | None = None
@@ -89,7 +91,13 @@ class RigDomainProfile(unittest.TestCase):
         self.assertEqual(self.state["profile"], "rig-fixture-dom")
 
     def test_every_declared_rig_step_reaches_the_checklist(self) -> None:
-        self.assertEqual(rig_ids(self.state), [step_id for step_id, _ in FIXTURE_RIG_STEPS])
+        self.assertEqual(
+            rig_ids(self.state)[:-1],
+            [step_id for step_id, _ in FIXTURE_RIG_STEPS],
+        )
+
+    def test_base_owned_gate_sweep_is_last_in_the_rig_scope(self) -> None:
+        self.assertEqual(rig_ids(self.state)[-1], POST_RIG_GATE_ID)
 
     def test_it_keeps_the_setup_contribution_too(self) -> None:
         ids = [step["id"] for step in self.state["checklist"]]
@@ -140,7 +148,29 @@ class TheDispatcherActuallyReachesThem(unittest.TestCase):
 
     def test_every_rig_step_is_actually_dispatched(self) -> None:
         dispatched, _state = self.drain("rig-fixture-dom")
-        self.assertEqual(dispatched, [step_id for step_id, _ in FIXTURE_RIG_STEPS])
+        self.assertEqual(
+            dispatched,
+            [step_id for step_id, _ in FIXTURE_RIG_STEPS] + [POST_RIG_GATE_ID],
+        )
+
+    def test_post_rig_gate_sweep_blocks_completion_until_it_runs(self) -> None:
+        state = new_state("subject.glb", profile="rig-fixture-dom", spec="spec.json")
+        state["currentPass"] = "complete"
+        for step in state["checklist"]:
+            if step["id"] != POST_RIG_GATE_ID:
+                step["status"] = "done"
+        recompute(state)
+
+        self.assertEqual(state["status"], "active")
+        self.assertEqual(next_entry(state)["id"], POST_RIG_GATE_ID)
+        self.assertEqual(
+            next_entry(state)["command"],
+            "python3 forge/stage3_build/run_gates.py --workspace .",
+        )
+
+        next_entry(state)["status"] = "done"
+        recompute(state)
+        self.assertEqual(state["status"], "complete")
 
     def test_the_build_is_not_complete_while_a_rig_step_is_pending(self) -> None:
         """The exact bug this suite exists for: `complete` reached with rig steps still pending."""
@@ -155,8 +185,8 @@ class TheDispatcherActuallyReachesThem(unittest.TestCase):
 
     def test_rig_steps_come_after_the_final_scope(self) -> None:
         """Rigging is additive to a finished mesh; binding one whose parts still move freezes
-        geometry that has not settled. This ordering is also why gate participation is rig-aware
-        (run_gates.py): the plugin-gates sweep in FINAL runs before any rig step can produce."""
+        geometry that has not settled. The FINAL plugin-gates sweep therefore runs before rigging,
+        while the base-owned post-rig sweep is the last rig-scope row."""
         dispatched, _state = self.drain("rig-fixture-dom")
         state = new_state("subject.glb", profile="rig-fixture-dom", spec="spec.json")
         order = [step["scope"] for step in state["checklist"]]
