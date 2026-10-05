@@ -679,7 +679,7 @@
       ],
       "limitations": [
         "No maps by construction, so sheen is the entire woven cue available.",
-        "Enabling sheen DARKENS this material's own diffuse base by 0.157 x effective sheen strength (sheenEnergyComp, meshphysical.glsl.js:205). Author the base colour brighter by 1/(1-darkening) or the render lands darker than the reference at every non-grazing angle.",
+        "Enabling sheen DARKENS this material's own diffuse base by 0.157 x effective sheen strength (sheenEnergyComp, meshphysical.glsl.js:205). Author the base colour brighter by 1/(1-darkening) or the render lands darker than the reference at every non-grazing angle. Set sheenEnergyCompensated: true once compensated; the validator holds the darkening advisory as a quality gate until then.",
         "Large folds and hems belong in geometry, per fabric.woven-matte. A code-only profile cannot fake them with a normal map.",
         "A garment shell with an open hem, cuff or collar must set side to DoubleSide; three defaults to FrontSide and culls the backfaces, so the opening renders as a hole.",
         "Not calibrated against a reference render."
@@ -691,7 +691,7 @@
       "colorPrior": {
         "sheenColor": {
           "default": "#f2ece2",
-          "note": "REQUIRED whenever sheen > 0. sheen and sheenColor are multiplied into ONE uniform before upload (WebGLMaterials.js:408), so they are a single degree of freedom -- extract the tint, keep sheen as an authored strength."
+          "note": "REQUIRED whenever sheen > 0. sheen and sheenColor are multiplied into ONE uniform before upload (WebGLMaterials.js:408) -- extract the tint, keep sheen as an authored strength. Co-declaring both is correct authorship and is reported as information, never as a quality gate."
         }
       }
     },
