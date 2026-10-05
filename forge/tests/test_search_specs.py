@@ -252,6 +252,9 @@ def run_cli_fixture(
         env=environment,
         capture_output=True,
         text=True,
+        # The CLI pins its stdio to UTF-8 (see _ensure_utf8_stdio), so decode as
+        # UTF-8 explicitly instead of inheriting the developer console's codec.
+        encoding="utf-8",
         check=False,
     )
 
@@ -1005,6 +1008,31 @@ class CliOutputTest(unittest.TestCase):
         self.assertEqual(repeated.returncode, 0, repeated.stderr)
         self.assertTrue(cached.stdout.strip())
         self.assertEqual(cached.stdout, repeated.stdout)
+
+    def test_unicode_output_survives_non_utf8_stdout(self):
+        # Refs #139: with a legacy stdout codec the CLI must still emit UTF-8 and
+        # exit 0 instead of raising UnicodeEncodeError on the first non-ASCII byte.
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            cli = write_cli_fixture(root)
+            environment = os.environ.copy()
+            environment["PYTHONDONTWRITEBYTECODE"] = "1"
+            environment["IMG2_HOME"] = str(root / ".img2-empty")
+            environment["PYTHONIOENCODING"] = "ascii"
+            result = subprocess.run(
+                [sys.executable, str(cli), "--collection", "cs2", "roughness", "nhám", "--json"],
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("nhám", payload["query"])
+        self.assertTrue(payload["matches"])
 
     def test_validation_and_profile_errors_have_documented_codes(self):
         scenarios = (
