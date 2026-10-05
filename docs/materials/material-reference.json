@@ -1559,6 +1559,95 @@
       ]
     },
     {
+      "id": "coating.metallic-paint",
+      "aliases": [
+        "metallic paint",
+        "car paint",
+        "automotive paint"
+      ],
+      "family": "coating",
+      "subtype": "metallic-flake-paint",
+      "finish": "gloss",
+      "model": "coated-dielectric",
+      "recipeBasis": "inferred-starting-prior",
+      "renderPrior": {
+        "metalness": {
+          "default": 0.0,
+          "range": [
+            0.0,
+            0.0
+          ]
+        },
+        "roughness": {
+          "default": 0.32,
+          "range": [
+            0.2,
+            0.5
+          ]
+        },
+        "clearcoat": {
+          "default": 1.0,
+          "range": [
+            0.8,
+            1.0
+          ]
+        },
+        "clearcoatRoughness": {
+          "default": 0.05,
+          "range": [
+            0.02,
+            0.15
+          ]
+        },
+        "ior": {
+          "default": 1.5,
+          "range": [
+            1.35,
+            1.65
+          ]
+        }
+      },
+      "requiredMaps": [
+        "map",
+        "roughnessMap",
+        "normalMap"
+      ],
+      "optionalMaps": [
+        "clearcoatMap",
+        "clearcoatRoughnessMap",
+        "metalnessMap"
+      ],
+      "visualCues": [
+        "glinting metallic flakes under a deep clearcoat",
+        "colour travel with viewing angle",
+        "diffuse base colour under a separate glossy coat"
+      ],
+      "confusableWith": [
+        "coating.painted-metal",
+        "metal.gold",
+        "plastic.glossy"
+      ],
+      "validationViews": [
+        "albedo-unlit",
+        "neutral-studio",
+        "grazing",
+        "environment-reflection",
+        "reference-beauty"
+      ],
+      "limitations": [
+        "Flake sparkle only resolves with micro-normal or roughness variation and direct light; a flat normalMap reads as plain gloss paint",
+        "Intact film is dielectric; chips exposing substrate need a separate region or mask"
+      ],
+      "sourceRefs": [
+        "three.mesh-physical",
+        "three.pmrem",
+        "gltf.2",
+        "khronos.gltf-pbr",
+        "adobe.pbr-guide-2",
+        "google.filament-pbr"
+      ]
+    },
+    {
       "id": "plastic.glossy",
       "aliases": [
         "glossy plastic",

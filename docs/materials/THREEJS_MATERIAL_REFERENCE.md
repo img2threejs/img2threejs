@@ -58,6 +58,7 @@ against the admitted component crops.
 | Brass/bronze | 1 | 0.30 | — | yellow-brown conductor response |
 | Gold | 1 | 0.22 | — | yellow reflected energy, not yellow diffuse paint |
 | Painted/coated metal | 0 | 0.45 | clearcoat 0.75 | dielectric paint; metallic chips need a mask/region |
+| Metallic car paint | 0 | 0.32 | clearcoat 1.0, flake micro-normal | metallic sparkle at grazing; dielectric film under clear |
 | Glossy plastic | 0 | 0.28 | clearcoat 0.20, IOR 1.5 | neutral specular over coloured diffuse body |
 | Matte plastic | 0 | 0.68 | IOR 1.5 | broad highlight; molded/stipple microstructure |
 | Matte rubber | 0 | 0.88 | IOR 1.48 | weak broad highlight with grip microtexture |
