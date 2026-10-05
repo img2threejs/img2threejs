@@ -91,7 +91,7 @@ Concrete Three.js material/geometry approach per `detailInventory` kind. Cross-r
 ## Character Geometry And Material Recipes
 
 Use these when `objectClass.primaryDomain` is `character` or `hybrid`. Pair with
-`grimoire/character/reconstruction.md` for proportion/landmark data.
+plugin-character's `grimoire/character/reconstruction.md` for proportion/landmark data.
 
 - head: sphere or ellipsoid scaled to the measured head-unit, then displaced/tapered toward
   the reference face shape (jaw width, chin point, cheek fullness) rather than left spherical.

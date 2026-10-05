@@ -35,15 +35,34 @@ class Registry(unittest.TestCase):
     def test_generic_resolves_to_no_domain(self) -> None:
         self.assertIsNone(domain_profile("generic"))
 
-    def test_both_registry_sources_register_hermetically(self) -> None:
-        # A seam with one consumer is a rename, so both sources are exercised: the in-repo module,
-        # and an installed plugin's domain.json. Neither half may depend on what this machine
-        # happens to have under ~/.img2 -- the old form of this test asserted the INSTALLED cs2
-        # plugin and was green or red depending on the machine, which is what turned CI red.
+    def test_the_repo_ships_no_domain_of_its_own(self) -> None:
+        """After the character extraction the in-repo source is EMPTY, by design.
+
+        That is the property worth pinning, because it is the one that decays: a domain module
+        dropped back into the package would work, silently, and the base would quietly own a domain
+        again. `registered_domains()` with an empty home returning `{}` is the assertion that
+        cannot be satisfied by a repo that kept one.
+        """
         with self._temp_img2_home({}):
-            self.assertEqual(sorted(registered_domains()), ["character"])
-        with self._temp_img2_home({"fixture-plugin": {"id": "fixture-dom"}}):
-            self.assertEqual(sorted(registered_domains()), ["character", "fixture-dom"])
+            self.assertEqual(registered_domains(), {})
+        package = Path(domains.__file__).resolve().parent
+        self.assertEqual([p.name for p in package.glob("*.py") if p.name != "__init__.py"], [])
+
+    def test_two_installed_plugins_register_through_the_same_mechanism(self) -> None:
+        """D9: the seam keeps two consumers, and neither is in this repo.
+
+        This test used to exercise "the in-repo module AND an installed plugin", on the reasoning
+        that a seam with one consumer is a rename rather than an abstraction. The reasoning holds;
+        the in-repo half is gone. So both consumers are installed plugins now -- which is a stronger
+        form of the same claim, since two providers arriving by the same path with no in-repo
+        special case is exactly what "the base pipeline does not change either way" means.
+        """
+        with self._temp_img2_home({"plugin-a": {"id": "alpha-dom"},
+                                   "plugin-b": {"id": "beta-dom"}}):
+            registered = registered_domains()
+            self.assertEqual(sorted(registered), ["alpha-dom", "beta-dom"])
+            self.assertEqual(registered["alpha-dom"]["id"], "alpha-dom")
+            self.assertEqual(domain_profile("beta-dom")["id"], "beta-dom")
 
     def test_an_unregistered_profile_fails_loud_and_names_what_is_available(self) -> None:
         with self.assertRaises(DomainRegistryError) as ctx:
@@ -87,35 +106,88 @@ class Registry(unittest.TestCase):
         self.assertIn("passAnchorBefore", str(ctx.exception))
 
     def test_two_providers_claiming_one_id_is_ambiguous(self) -> None:
-        # Collides with the in-repo `character` module rather than an installed plugin, so the
-        # refusal is provable on a machine with nothing installed. IMG2_HOME is pinned empty for
-        # the same reason: a real installation must not be able to add a second collision path.
-        with self._temp_img2_home({}):
+        # Collided with the in-repo `character` module until that module left. Two INSTALLED
+        # plugins claiming one id is now both the realistic case and the only expressible one,
+        # and it is the case that matters: two plugins is how a collision actually reaches a user.
+        with self._temp_img2_home({"first": {"id": "contested"}, "second": {"id": "contested"}}):
             with self.assertRaises(DomainRegistryError) as ctx:
-                self._with_temp_domain(
-                    "dupe",
-                    'DOMAIN = {"id": "character"}',
-                    registered_domains,
-                )
+                registered_domains()
+        self.assertIn("declared twice", str(ctx.exception))
+        self.assertIn("contested", str(ctx.exception))
+
+    def test_an_installed_plugin_colliding_with_an_in_repo_module_is_still_refused(self) -> None:
+        # There is no in-repo domain to collide with today, so the path is exercised with a
+        # temporary one. Deleted alongside the last in-repo domain it would have been an untested
+        # branch in `claim()`, live for whoever adds the next one.
+        with self._temp_img2_home({"plugin": {"id": "inrepo-clash"}}):
+            with self.assertRaises(DomainRegistryError) as ctx:
+                self._with_temp_domain("clash", 'DOMAIN = {"id": "inrepo-clash"}', registered_domains)
         self.assertIn("declared twice", str(ctx.exception))
 
-    def test_a_broken_registry_degrades_the_state_cli_instead_of_killing_it(self) -> None:
-        """extract-animated-character D8: state.py builds its --profile choices from
-        registered_domains() at argparse-construction time, which every subcommand runs. A registry
-        collision (a plugin claiming an in-repo id) must degrade init's choices to generic-only,
-        not take `status`/`mark` down for every profile on the machine -- the same hazard shape
-        targets.py:14-19 documents avoiding."""
+    def test_a_broken_registry_does_not_kill_the_state_cli(self) -> None:
+        """`state.py` used to build `--profile` choices from `registered_domains()` at
+        argparse-construction time, which every subcommand runs -- so a registry collision could
+        take `status` and `mark` down for every profile on the machine. It was guarded by degrading
+        the choices to generic-only.
+
+        The guard is now the absence of the hazard: there is no `choices=`, so the parser never
+        touches the registry (see `state.py`, and D8's other half at 3.3a). `--help` must still
+        work with a registry that cannot be read, and it must not print a choices list at all --
+        that list was the thing that made a bad profile unanswerable, naming an availability set
+        from which "your plugin is missing" and "this profile no longer exists" look identical.
+        """
         import subprocess
         import sys as _sys
-        with self._temp_img2_home({"dupe": {"id": "character"}}):
-            env = dict(os.environ)
+        with self._temp_img2_home({"a": {"id": "contested"}, "b": {"id": "contested"}}):
             proc = subprocess.run(
                 [_sys.executable, str(ROOT.parent / "forge" / "state.py"), "init", "--help"],
-                capture_output=True, text=True, env=env, cwd=ROOT.parent,
+                capture_output=True, text=True, env=dict(os.environ), cwd=ROOT.parent,
             )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("--profile {generic}", proc.stdout)
         self.assertNotIn("declared twice", proc.stderr)
+        self.assertNotIn("--profile {", proc.stdout)
+
+    def test_a_bad_profile_is_answered_by_the_registry_not_by_argparse(self) -> None:
+        """One bad profile used to give two different answers: `init` printed argparse's
+        `invalid choice: 'x' (choose from ...)`, while `resume` went through
+        `validate_state -> domain_profile` and printed a message naming the missing provider and
+        the remedy. Same question, two answers, only one of them useful."""
+        import subprocess
+        import sys as _sys
+        with self._temp_img2_home({}), tempfile.TemporaryDirectory() as work:
+            proc = subprocess.run(
+                [_sys.executable, str(ROOT.parent / "forge" / "state.py"), "init",
+                 "--reference", "ref.png", "--profile", "character",
+                 "--state", str(Path(work) / "state.json")],
+                capture_output=True, text=True, env=dict(os.environ), cwd=ROOT.parent,
+            )
+        self.assertNotEqual(proc.returncode, 0)
+        output = proc.stdout + proc.stderr
+        self.assertNotIn("invalid choice", output)
+        self.assertIn("no installed provider serves profile 'character'", output)
+
+    def test_a_withdrawn_profile_names_its_successor_and_the_remedy(self) -> None:
+        """`domain-step-contribution`: a refusal must name the withdrawn identifier, name its
+        successor and state the remedy. The plain "no installed provider" message does none of
+        those -- and its advice, "install the domain plugin that provides it", cannot succeed for
+        a withdrawn id, since obeying it installs the current plugin and reproduces the message."""
+        with self._temp_img2_home({}):
+            with self.assertRaises(DomainRegistryError) as ctx:
+                domain_profile("animated-character")
+        message = str(ctx.exception)
+        self.assertIn("animated-character", message)
+        self.assertIn("withdrawn", message)
+        self.assertIn("'character'", message)
+        self.assertIn("--profile character", message)
+
+    def test_a_withdrawn_profile_says_so_even_when_its_successor_is_installed(self) -> None:
+        # The successor being present changes the wording ("is served by" rather than "was replaced
+        # by") but must never turn the refusal into a resolution: silently routing a withdrawn id
+        # to its successor would hide the withdrawal from every script that still names it.
+        with self._temp_img2_home({"character": {"id": "character"}}):
+            with self.assertRaises(DomainRegistryError) as ctx:
+                domain_profile("animated-character")
+        self.assertIn("is served by 'character'", str(ctx.exception))
 
     @contextlib.contextmanager
     def _temp_img2_home(self, plugins: dict[str, dict]):

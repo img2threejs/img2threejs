@@ -18,7 +18,7 @@ can plan around.
 | v1.4 | Weapon Pipeline | 2026-07-25–26 | CS2 image-matched reconstruction, provenance-aware intake and local search, projection-first finishes, family-specific adapters, structural review and component-coverage gates |
 | v1.5 | The Character Update | 2026-08-12 | Skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, `tapered-sweep`, material pipeline with a blocking acceptance gate, resumable workflow state |
 | v1.5.2 | Character rigging & animation | 2026-08-25 | Clip measurement vocabulary and classifier, corrected loop rule (poseReturn, not travel), proximity weight blending, topology-driven chain resolution, foot-contact gate, and the G1-G10 gate suite where an unmeasured gate reports `unevaluated` rather than a pass |
-| v2.0 | The Plugin Update — plugin ecosystem & API | 2026-09-05 | Domain registry (`forge/_shared/domains/`), pull-based spec augmentation with raise-only quality floors, emission-target socket with provenance, per-plugin blocking gates, the img2 harness (`install/add/doctor/sync/capabilities`); CS2 extracted into `plugin-cs2`, `animated-character` served by `plugin-character`, the base names no domain. Pulled forward from the original Procedural World bundle |
+| v2.0 | The Plugin Update — plugin ecosystem & API | 2026-09-05 | Domain registry (`forge/_shared/domains/`), pull-based spec augmentation with raise-only quality floors, emission-target socket with provenance, per-plugin blocking gates, the img2 harness (`install/add/doctor/sync/capabilities`); CS2 extracted into `plugin-cs2`, `character` served by `plugin-character`, the base names no domain. Pulled forward from the original Procedural World bundle |
 
 ### v1.2 — Humanoid character generator
 
@@ -82,7 +82,7 @@ judgment is spent only where a script cannot decide.
 | v1.3 | Quality & efficiency (Divine Eye) | Shipped | Deterministic review harness, input-integrity and geometry-truth gates, projection-first texture/material analysis, CIEDE2000 colour math |
 | v1.4 | Weapon Pipeline | Shipped | CS2 image-matched reconstruction, provenance-aware intake, projection-first finishes, family-specific adapters, structural and component-coverage gates |
 | v1.5 | Character Pipeline | Shipped | Component-derived skeleton bound to `SkinnedMesh` geometry · geodesic skinning · hair subsystem across all five stages · chirality gates · interior-difference review · `tapered-sweep` · material pipeline · resumable workflow state. Not shipped: `hairProfile` compiler, IK, pose-sweep gating, clothing |
-| v2.0 | The Plugin Update | Shipped | Domain registry · pull-based spec augmentation with raise-only floors · emission-target socket · per-plugin blocking gates · img2 harness · CS2 and animated-character extracted into installed plugins |
+| v2.0 | The Plugin Update | Shipped | Domain registry · pull-based spec augmentation with raise-only floors · emission-target socket · per-plugin blocking gates · img2 harness · CS2 and character extracted into installed plugins |
 | **v2.1** | Character plugin split | Finish the v2.0 split | Round out the v2.0 plugin split: extract the in-repo `character` domain into `plugin-character`, so the base names no domain. CS2 and the full character workflow (anatomy + rig) then ship entirely from external plugins. |
 | **v2.2** | Environment Pipeline | Build scenes, not just objects | Buildings · rooms · streets · trees & vegetation · terrain-aware generation · multi-object reconstruction |
 | **v2.3** | Game Pipeline | Game-ready assets | Unity exporter · Unreal exporter · Blender bridge · FBX / OBJ / glTF improvements · LOD generation · collision mesh generation |
@@ -148,7 +148,7 @@ The plugin ecosystem became the product's spine rather than a line item in a far
 domain registry (`forge/_shared/domains/`) makes profiles pluggable: in-repo modules and installed
 plugins register identically, `--profile` choices derive from what is actually present, and an
 unregistered profile fails loud naming what is available. CS2 moved out of the base into
-`plugin-cs2`; `animated-character` is served by `plugin-character`; the base names no domain and
+`plugin-cs2`; `character` is served by `plugin-character`; the base names no domain and
 infers none from a target's name. Specs pull augmentation from plugins with raise-only quality
 floors, emission targets are a provenance-tracked socket, and each plugin brings its own blocking
 gates. The `img2` harness (`install / add / remove / list / doctor / sync / capabilities`) owns
@@ -157,9 +157,9 @@ installation and drift detection across agent hosts.
 ### v2.1 — The Character Split
 
 v2.0 left one slice unfinished on purpose: two domains had to stay in-repo so the plugin seam would
-have two consumers from day one; `cs2` and `animated-character` moved out, `character` stayed.
+have two consumers from day one; `cs2` moved out first, then `character` -- the base now ships none.
 v2.1 closes that loop. `character` joins `plugin-character`, whose existing job — Stage R rig and
-animation for the `animated-character` profile — folds into the same plugin as the anatomy track.
+animation for the `character` profile — folds into the same plugin as the anatomy track.
 After this release the base names no domain, finally true without qualification.
 
 The acceptance rule is that the character build keeps emitting the same Three.js output for the same

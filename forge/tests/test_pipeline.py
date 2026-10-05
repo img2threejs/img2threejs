@@ -693,18 +693,10 @@ class PipelineTest(unittest.TestCase):
         strict = run("stage2_spec/validate_sculpt_spec.py", self.spec, "--strict-quality")
         self.assertNotIn("detailInventory", strict.stdout + strict.stderr)
 
-    def test_character_gate_requires_anatomy(self):
-        spec = self._fresh_spec("moderate")
-        spec["preSpecAssessment"]["objectClass"]["primaryDomain"] = "character"
-        self.spec.write_text(json.dumps(spec))
-        strict = run("stage2_spec/validate_sculpt_spec.py", self.spec, "--strict-quality")
-        self.assertIn("anatomy.applies is not true", strict.stdout + strict.stderr)
-
-    def test_character_track_skipped_for_objects(self):
-        # primaryDomain unassessed/object must not trigger character warnings.
-        self._fresh_spec("moderate")
-        strict = run("stage2_spec/validate_sculpt_spec.py", self.spec, "--strict-quality")
-        self.assertNotIn("anatomy.applies", strict.stdout + strict.stderr)
+    # `test_character_gate_requires_anatomy` and `test_character_track_skipped_for_objects` were
+    # the two halves of `validate_character_track`, which left with the template it gated. Their
+    # successor is `test_strict_validation_says_nothing_about_anatomy_for_any_spec` below: one
+    # assertion now covers both, because the base says nothing about anatomy for ANY spec.
 
     def test_new_upgrade_scripts_help(self):
         for script in ("stage1_intake/build_detail_inventory.py", "stage1_intake/extract_landmarks.py",
@@ -764,128 +756,105 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(out.exists() and out.stat().st_size > 0)
 
-    # ---- v1.2 character generator ----
+    # ---- what the base still owns once the character template is a plugin's ----
+    #
+    # Five tests stood here that drove `new_sculpt_spec.py --character` and asserted the humanoid
+    # tree, its accessories, its digits, its parent chain and its palette. The flag and the template
+    # are plugin-character's now, and those five assertions moved there with their subject
+    # (`tests/test_character_authoring_oracle.py`) rather than being deleted to make this suite
+    # green -- each is named there, in the same words, against the same frozen spec these produced.
+    #
+    # What stays here is what the BASE does, which is a different and smaller thing: author a
+    # generic skeleton, and merge whatever a provider publishes.
 
-    def test_character_flag_builds_humanoid_tree(self):
-        # Plan 1.5: the default character template is a general humanoid, not a hardcoded bust
-        # of one reference person -- it must include a lower body and full arms, and must NOT
-        # include that person's specific traits (glasses/headphones/chest decal) unless the
-        # caller opts in with --accessories. See new_sculpt_spec.py make_character_component_tree.
-        run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
-        ids = {c["id"] for c in spec["componentTree"]}
-        for part in (
-            "root", "head", "abdomen", "chest", "neck", "hair",  # spine is two segments (US-001)
-            "pelvis", "thigh-l", "shin-l", "foot-l",  # lower body
-            "upper-arm-l", "forearm-l", "hand-l",  # full arm, not a single "arm-l" capsule
-            "eye-l", "eye-cavity-l",  # eyes as recessed cavities, not brows alone
-        ):
-            self.assertIn(part, ids)
-        for accessory in ("glasses-frame-l", "hp-band", "shirt-decal"):
-            self.assertNotIn(accessory, ids)
-        # Plan 1.5 WS-E: now that a non-uniformly-scaled parent can no longer distort a
-        # nested child (generate_threejs_factory.py bakes dimensions into geometry, not the
-        # pivot Group's scale), the template authors a REAL parent chain instead of flattening
-        # every part onto "root". Anatomically sensible parents, not a flat list.
-        by_id = {c["id"]: c for c in spec["componentTree"]}
-        expected_parents = {
-            # US-001 split the single torso into abdomen + chest so the waist can flex, and
-            # parented the spine to the pelvis. The pelvis is now the only root-parented body
-            # part, which is also what made derive_character_rig's hand-picked bone root and its
-            # torso joint exception unnecessary.
-            "pelvis": "root", "abdomen": "pelvis", "chest": "abdomen",
-            "neck": "chest", "head": "neck",
-            # US-002 inserted a clavicle between chest and upper arm so the shoulder can shrug
-            # and the arm's rotation origin sits on the joint instead of inside the ribcage.
-            "clavicle-l": "chest", "upper-arm-l": "clavicle-l",
-            "forearm-l": "upper-arm-l", "hand-l": "forearm-l",
-            "thigh-l": "pelvis", "shin-l": "thigh-l", "foot-l": "shin-l",
-            "hair": "head", "eye-l": "head", "eye-cavity-l": "head",
-        }
-        for child_id, expected_parent in expected_parents.items():
-            self.assertEqual(by_id[child_id]["parent"], expected_parent,
-                              f"{child_id} should be parented on {expected_parent!r}")
-        # not every part is nested this deep -- confirm the tree isn't secretly still flat
-        non_root_parents = {c["parent"] for c in spec["componentTree"] if c["id"] != "root"}
-        self.assertTrue(non_root_parents - {"root"}, "componentTree is still flattened onto root")
-        # distinct per-part colors (skin vs hair vs shirt), not a single fallback
-        colors = {m["id"]: m.get("color") for m in spec["materials"] if m["id"] in ("skin", "hair", "shirt")}
-        self.assertEqual(len({colors["skin"], colors["hair"], colors["shirt"]}), 3)
-        # palette has >= 2 entries so the generator does not fall back to beige
-        for m in spec["materials"]:
-            if m["id"] in ("skin", "hair", "shirt"):
-                self.assertGreaterEqual(len(m.get("colorVariation", {}).get("palette", [])), 2)
+    def test_a_character_assessment_alone_no_longer_authors_a_humanoid(self):
+        """The behaviour change, pinned from the side that changed.
 
-    def test_character_accessories_flag_restores_bust_traits(self):
-        run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--accessories",
-            "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
-        ids = {c["id"] for c in spec["componentTree"]}
-        for accessory in ("glasses-frame-l", "hp-band", "shirt-decal"):
-            self.assertIn(accessory, ids)
-
-    def test_digits_are_baseline_not_a_flag(self):
-        """US-003 replaced the `--fingers` flag with real digits in the default template.
-
-        The flag added ONE box called "fingers-l" plus one called "thumb-l" — a mitten, opt-in.
-        A humanoid that cannot curl a finger is not finished, so five digits of three phalanges
-        each are now baseline and the flag is gone. This asserts both halves: the digits exist
-        without any flag, and the old mitten ids do not come back.
+        `primaryDomain: "character"` used to auto-enable the in-repo template, so this assessment
+        produced a 61-component humanoid. The base now knows nothing about characters: the content
+        arrives through domain resolution and an augmentation artifact. Asserting the OLD behaviour
+        is gone matters more than asserting the new one, because a half-applied extraction that
+        left the template reachable would look identical from the outside.
         """
-        run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--out", self.spec)
-        spec = json.loads(self.spec.read_text())
-        ids = {c["id"] for c in spec["componentTree"]}
-        for side in ("l", "r"):
-            for digit in ("thumb", "index", "middle", "ring", "little"):
-                for phalanx in (1, 2, 3):
-                    self.assertIn(f"{digit}-{side}-{phalanx}", ids)
-        self.assertNotIn("fingers-l", ids)
-        self.assertNotIn("thumb-l", ids)
-        by_id = {c["id"]: c for c in spec["componentTree"]}
-        self.assertEqual(by_id["middle-l-1"]["parent"], "hand-l")
-        self.assertEqual(by_id["middle-l-2"]["parent"], "middle-l-1")
-        self.assertEqual(by_id["middle-l-3"]["parent"], "middle-l-2")
-
-    def test_character_autodetect_from_domain(self):
-        run("stage2_spec/new_pre_spec_assessment.py", "Person", "--complexity", "complex", "--out", self.assessment)
+        run("stage2_spec/new_pre_spec_assessment.py", "Person", "--complexity", "complex",
+            "--out", self.assessment)
         a = json.loads(self.assessment.read_text())
         a["preSpecAssessment"]["objectClass"]["primaryDomain"] = "character"
         self.assessment.write_text(json.dumps(a))
-        run("stage2_spec/new_sculpt_spec.py", "Person", "--assessment", self.assessment, "--out", self.spec)
+        run("stage2_spec/new_sculpt_spec.py", "Person", "--assessment", self.assessment,
+            "--out", self.spec)
         spec = json.loads(self.spec.read_text())
-        self.assertIn("head", {c["id"] for c in spec["componentTree"]})
+        ids = {c["id"] for c in spec["componentTree"]}
+        self.assertNotIn("head", ids, "the base still authors a humanoid; the template did not leave")
+        self.assertNotIn("rig", spec)
 
-    def test_character_factory_generates(self):
-        run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--out", self.spec)
+    def test_the_character_flags_are_gone_rather_than_ignored(self):
+        """The withdrawn attempt's exact defect was the reverse: the flag went, a reader stayed.
+
+        argparse refusing the flag is the honest answer. Accepting and ignoring it would let a
+        script that passed `--character` keep exiting 0 while producing a generic spec.
+        """
+        for flag in ("--character", "--accessories"):
+            r = run("stage2_spec/new_sculpt_spec.py", "Person", flag, "--out", self.spec)
+            self.assertNotEqual(r.returncode, 0, f"{flag} was accepted")
+            self.assertIn("unrecognized arguments", r.stderr)
+
+    def test_strict_validation_says_nothing_about_anatomy_for_any_spec(self):
+        """`validate_character_track` left with the template it gated.
+
+        It warned when `primaryDomain` was character and `anatomy.applies` was not true. The base
+        has no view on anatomy now, and the requirement did not evaporate -- it moved to the
+        producer: plugin-character's emit step refuses to build without measured anatomy or an
+        explicit `--style-heads`. Asserted for a character-labelled spec specifically, since that
+        is the one that used to warn.
+
+        THAT SENTENCE WAS NOT TRUE WHEN IT WAS FIRST WRITTEN. A code review measured the producer
+        and found `emit_spec_augmentation.py` exiting 0 with no anatomy at all, authoring a full
+        default humanoid -- so the check existed in NEITHER repo, under a disposition asserting it
+        had moved. It is true now (plugin-character `tests/test_spec_augmentation_artifact.py`,
+        `TheAnatomyGate`), and the incident is recorded here rather than quietly corrected: a
+        disposition is a claim about another repo, and this suite cannot verify one. Writing it
+        down is not the same as checking it.
+        """
+        spec = self._fresh_spec("moderate")
+        spec["preSpecAssessment"]["objectClass"]["primaryDomain"] = "character"
+        self.spec.write_text(json.dumps(spec))
+        strict = run("stage2_spec/validate_sculpt_spec.py", self.spec, "--strict-quality")
+        self.assertNotIn("anatomy", strict.stdout + strict.stderr)
+
+    def test_the_factory_emits_a_skeleton_for_any_spec_carrying_bones(self):
+        """Re-expressed from `test_character_factory_generates`, whose spec came from the flag.
+
+        It now reads the frozen spec the emission oracle captured, which is both a real 49-bone
+        humanoid and, more to the point, an artifact that ARRIVED rather than one this repo built --
+        which is the shape every rig reaching the factory has after this change.
+        """
+        frozen = Path(__file__).resolve().parent / "fixtures" / "oracle-character" / "spec.json"
+        self.spec.write_text(frozen.read_text(encoding="utf-8"))
         out = self.dir / "createCharacterModel.ts"
         r = run("stage3_build/generate_threejs_factory.py", self.spec, "--out", out)
         self.assertEqual(r.returncode, 0, r.stderr)
         ts = out.read_text()
-        self.assertIn("createPersonModel", ts)
         self.assertIn('meshes["head"]', ts)
+        self.assertIn("THREE.SkinnedMesh", ts)
 
-    def test_character_template_survives_an_augmentation_file(self):
-        """Both contributions apply; neither silences the other.
+    def test_an_augmentation_is_the_only_path_a_domain_has(self):
+        """Re-expressed from `test_character_template_survives_an_augmentation_file`.
 
-        These two blocks used to be joined by an `elif`: a character run handed an augmentation
-        file skipped `apply_character_template` entirely, so the emitted spec lost `rig` and still
-        exited 0 -- the silent data loss PR #106's review demonstrated by diffing the same
-        assessment run with and without an augmentation. This pins the fix from both sides.
+        The two contributions it guarded -- an in-repo template and the merge -- were once joined by
+        an `elif`, so any run handed an augmentation file silently skipped the template and the
+        emitted spec lost `rig` while exiting 0 (PR #106 review, finding 4). There is one branch
+        now, which is the durable fix: the bug class has nowhere left to hide. What still needs
+        pinning is that the remaining branch actually runs.
         """
         aug = self.dir / "spec-augmentation.json"
-        aug.write_text(
-            json.dumps(
-                {
-                    "kind": "spec-augmentation-v1",
-                    "provenance": {"provider": "fixture", "version": "0.0.1"},
-                    "specSections": {"fixtureSection": {"marker": True}},
-                }
-            ),
-            encoding="utf-8",
-        )
-        run("stage2_spec/new_sculpt_spec.py", "Person", "--character", "--augmentation", aug, "--out", self.spec)
+        aug.write_text(json.dumps({
+            "kind": "spec-augmentation-v1",
+            "provenance": {"provider": "fixture", "version": "0.0.1"},
+            "specSections": {"fixtureSection": {"marker": True}},
+        }), encoding="utf-8")
+        run("stage2_spec/new_sculpt_spec.py", "Person", "--augmentation", aug, "--out", self.spec)
         spec = json.loads(self.spec.read_text())
-        self.assertIn("rig", spec, "the character template was skipped: `rig` is missing")
         self.assertIn("fixtureSection", spec, "the augmentation merge was skipped")
         self.assertEqual(spec["specAugmentation"]["provider"], "fixture")
 

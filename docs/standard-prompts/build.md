@@ -1,6 +1,6 @@
 # Build — reference image to a gated procedural model
 
-The reconstruction route. This is the file `GLB_ANIMATED_CHARACTER_PROMPT.md` delegates its
+The reconstruction route. This is the file `GLB_CHARACTER_RIG_PROMPT.md` delegates its
 Stages 1–3 to.
 
 **The one thing that makes this prompt not block:** the forge scripts *scaffold*, they do not
@@ -18,7 +18,7 @@ Rebuild the subject in this reference as a procedural Three.js model, using img2
 - Reference:      <ABSOLUTE_PATH_TO_IMAGE>
 - Subject name:   <SubjectName>
 - Demo id:        <subject-id>
-- Profile:        <character | animated-character (requires plugin-character installed) | object>
+- Profile:        <character (requires plugin-character installed) | object>
 - Real longest dimension: <e.g. 1.70 m>   # sanity-checks scale; never used to scale
 
 ## Step 0 — Can this subject be built at all?

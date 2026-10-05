@@ -91,6 +91,8 @@ def base_spec(component: dict, material: dict | None = None) -> dict:
     }
 
 
+FROZEN_SPEC = Path(__file__).resolve().parent / "fixtures" / "oracle-character" / "spec.json"
+
 class RecessedFeatureGateTest(unittest.TestCase):
     def test_role_name_id_tokens_are_detected(self) -> None:
         self.assertTrue(component_is_recessed_feature({"role": "eye-socket"}))
@@ -459,23 +461,17 @@ class RegressionSafetyTest(unittest.TestCase):
         the design: a rule tightened against the cavity must not start rejecting the
         eyeball half too, since neither is optional -- one recesses, the other fills it.
         This pins that contract so a future change on either side is caught here."""
-        with tempfile.TemporaryDirectory() as directory:
-            spec_path = Path(directory) / "spec.json"
-            result = subprocess.run(
-                [sys.executable, str(ROOT / "stage2_spec" / "new_sculpt_spec.py"),
-                 "Person", "--character", "--out", str(spec_path)],
-                capture_output=True, text=True,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        # The fixture came from `new_sculpt_spec.py --character` until that template moved to
+        # plugin-character. It is the frozen spec now: identical bytes, and no subprocess.
+        spec = json.loads(FROZEN_SPEC.read_text(encoding="utf-8"))
 
         eye_cavities = [c for c in spec["componentTree"] if str(c.get("id", "")).startswith("eye-cavity")]
         eyeballs = [
             c for c in spec["componentTree"]
             if str(c.get("id", "")).startswith("eye-") and not str(c.get("id", "")).startswith("eye-cavity")
         ]
-        self.assertTrue(eye_cavities, "expected new_sculpt_spec.py --character to author eye-cavity components")
-        self.assertTrue(eyeballs, "expected new_sculpt_spec.py --character to author the eyeball detail components")
+        self.assertTrue(eye_cavities, "the frozen humanoid fixture lost its eye-cavity components")
+        self.assertTrue(eyeballs, "the frozen humanoid fixture lost its eyeball detail components")
         for component in eye_cavities:
             self.assertTrue(component_is_recessed_feature(component), component)
             self.assertEqual(component.get("topologyClass"), "implicit", component)

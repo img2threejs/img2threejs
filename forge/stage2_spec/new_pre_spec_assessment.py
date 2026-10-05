@@ -172,7 +172,6 @@ def make_payload(
     complexity: str,
     is_cs2: bool = False,
     manifest: dict | None = None,
-    is_character: bool = False,
 ) -> PreSpecPayload:
     assessment = make_pre_spec_assessment(target_name)
     contract = make_quality_contract()
@@ -211,19 +210,6 @@ def make_payload(
             )
         else:
             routing = resolve_pipeline_routing(legacy_cs2=True)
-    elif is_character and is_cs2:
-        routing = resolve_pipeline_routing(
-            explicit_track="character-v1.5",
-            classification={
-                "kind": "weapon",
-                "confidence": 1.0,
-                "evidenceRefs": ["pipeline-routing:explicit:weapon-v1.4"],
-                "provider": "pipeline-routing-cli",
-                "version": "1",
-            },
-        )
-    elif is_character:
-        routing = resolve_pipeline_routing(explicit_track="character-v1.5")
     elif is_cs2:
         routing = resolve_pipeline_routing(explicit_track="weapon-v1.4")
     else:
@@ -271,7 +257,6 @@ def main(argv: list[str]) -> int:
              f"never below the {CS2_DETAIL_MINIMUM} floor even if --complexity is set lower.",
     )
     parser.add_argument("--manifest", type=Path, help="CS2 intake manifest")
-    parser.add_argument("--character", action="store_true", help="Use the character-v1.5 authoring track")
     parser.add_argument(
         "--collection",
         help="Spec-search collection; defaults to the resolved domain's collection, else core_3d. "
@@ -311,7 +296,6 @@ def main(argv: list[str]) -> int:
         complexity,
         is_cs2,
         manifest,
-        args.character,
     )
     collection = select_spec_collection(args.collection, args.domain)
     try:

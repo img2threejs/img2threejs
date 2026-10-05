@@ -1912,19 +1912,21 @@ def component_uses_dense_height_maps(component: dict[str, Any]) -> bool:
     )
 
 
-BONE_TRACK_DOMAINS = {"character", "hybrid"}
-
-
 def rig_is_bone_track(spec: dict[str, Any]) -> bool:
-    """PLAN_1.5 §8: route on the EXISTING `objectClass.primaryDomain`, no new routing field.
+    """Route on the PAYLOAD: a spec with bones gets a skeleton, whatever domain authored it.
 
-    `object` stays on the pivot track, which §8 says is "not replaced" and stays the default.
-    So this returns False for it and `emit_rig_hierarchy()` emits nothing whatsoever -- an
-    object spec's generated source must remain byte-identical to its pre-plan output.
+    This used to also require `objectClass.primaryDomain` in {"character", "hybrid"}, which was
+    PLAN_1.5 §8's "route on the existing field, add no new routing field". The domain half is gone
+    with the character extraction, and dropping it is a real behaviour change, not a simplification:
+    a spec carrying `rig.bones` with `primaryDomain: "object"` went from emitting NOTHING to
+    emitting a full skeleton. `test_rig_hierarchy_emission.py` owns that change by name.
+
+    It is the right way round. `rig` is plugin-contributable, so any domain may now author bones,
+    and a domain-name allow-list here would have meant the base deciding which domains are allowed
+    to have skeletons -- exactly what the registry exists to stop. A spec with no bones still emits
+    nothing whatsoever, so the pivot track is untouched and an object spec without a rig stays
+    byte-identical to its pre-plan output.
     """
-    object_class = (spec.get("preSpecAssessment") or {}).get("objectClass") or {}
-    if object_class.get("primaryDomain") not in BONE_TRACK_DOMAINS:
-        return False
     rig = spec.get("rig")
     return isinstance(rig, dict) and bool(rig.get("bones"))
 
@@ -1942,9 +1944,10 @@ def emit_rig_hierarchy(spec: dict[str, Any]) -> list[str]:
 
     Two things that are easy to get wrong here:
 
-    - `jointPos` in the spec is **model space** (see `derive_character_rig`'s docstring). A
-      `THREE.Bone`'s position is parent-local, so each bone's offset is its own joint minus its
-      parent's joint; the root keeps its model-space joint unchanged.
+    - `jointPos` in the spec is **model space** (see `derive_character_rig` in plugin-character's
+      `tools/character_spec_template.py`). A `THREE.Bone`'s position is parent-local, so each
+      bone's offset is its own joint minus its parent's joint; the root keeps its model-space
+      joint unchanged.
     - Bones are emitted **parents first**. The spec's bone list is sorted by `(has-parent, id)`,
       so `foot-l` precedes `shin-l` alphabetically — emitting in list order would parent a bone
       to one that does not exist yet. This walks the tree rather than trusting list order.
@@ -2028,16 +2031,15 @@ def _rig_pose_lines(
 ) -> list[str]:
     """Move the authored pose from the component pivots onto the BONES.
 
-    `apply_character_pose` writes `component.transform.rotation`, which drives the component's
+    A domain's pose step writes `component.transform.rotation`, which drives the component's
     pivot `Group`. Once a body segment is a `SkinnedMesh` its geometry has been baked to model
     space and reparented to `root`, so the pivot no longer reaches it — the pose has to be
     re-expressed as bone rotations or it disappears from the render.
 
     That substitution is exact rather than approximate because a bone's origin IS its
-    component's pivot origin: `derive_character_rig` takes each `jointPos` from the component's
-    proximal end, which is what the spine split in `make_character_component_tree` exists to
-    guarantee, and the bone parent chain mirrors the component parent chain. Same origin, same
-    parent frame, same euler order — so the same euler triple produces the same rotation.
+    component's pivot origin: a rig derivation takes each `jointPos` from the component's proximal
+    end, and the bone parent chain mirrors the component parent chain. Same origin, same parent
+    frame, same euler order — so the same euler triple produces the same rotation.
 
     **Applied after `bind()`, never before.** These rotations are the pose, not the bind pose;
     setting them before the `Skeleton` is constructed would bake the pose in as rest and nothing

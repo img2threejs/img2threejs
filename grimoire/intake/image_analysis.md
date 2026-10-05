@@ -118,7 +118,7 @@ extra rules on top **without** skipping any generic layer:
 - **A catalogued skin or finish** → the serving plugin's own finish rulebook (finish style, wear, seed, paint
   view-dependent environment) and its texture-acquisition guide. Both ship with that plugin; with
   none installed, infer the finish from the reference.
-- **Characters / hybrids** → `grimoire/character/reconstruction.md` (head-units, landmarks,
+- **Characters / hybrids** → plugin-character's `grimoire/character/reconstruction.md` (head-units, landmarks,
   proportion lock).
 
 The generic protocol decides *what is there*; the domain doc decides *how that class is

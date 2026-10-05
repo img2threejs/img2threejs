@@ -17,7 +17,7 @@ centre far enough away makes any bounded set look like a thin annulus, so `radiu
 be driven arbitrarily low and is not evidence of curvature on its own. What separates a hook from a
 cone is the ANGULAR SPAN subtended at the fitted centre — a straight segment subtends a span that
 shrinks as the fitted centre recedes, while a real hook holds a large span at a centre close to it.
-The gate therefore requires span AND a bounded centre distance, and `forge/tests/test_swept_arc.py`
+The gate therefore requires span AND a bounded centre distance, and `forge/tests/test_region_and_arc_gates.py`
 runs a straight cone through it to prove it fails.
 
 Exit codes: 0 clean, 1 gate failure, 2 error.

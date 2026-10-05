@@ -74,17 +74,20 @@ python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence
   silent omission is forbidden. Loop counts derive from `reviewHistory` actions
   (`refine-spec`/`refine-code`), not agent memory. Defaults: 3 corrections per pass, 6 total.
 - A domain profile's steps, gates and reference material come from the **registry**: in-repo
-  modules (`character`) and installed plugins (`cs2`, `animated-character` from plugin-character) register identically, and
+  modules (none today) and installed plugins (`cs2`, `character`) register identically, and
   `forge/state.py init` names what is available. A profile adds mandatory gates without changing
   the core order -- a domain plugin typically requires an authoritative classification, an intake
-  manifest, and a machine-readable domain review before AI review; `character` requires the
-  character contracts and landmark evidence; `animated-character` (requires the installed plugin-character) adds all of `character` plus the
-  nine Stage R steps (`grimoire/readiness/animation_contract.md`). Pick it whenever the rig must
-  MOVE — on `character` the Stage R gates are absent and the build completes without ever running
-  them, which is how animation used to ship broken. Its order is load-bearing: repair the mesh,
-  freeze it, bind additively, then verify parity. Every profile records suitability, projection
-  applicability, and
-  material-evidence applicability. The state file is a resumability index, not visual evidence:
+  manifest, and a machine-readable domain review before AI review; `character` is served entirely
+  by the installed plugin-character -- the character contracts, the landmark evidence, the humanoid
+  sculpt spec and its derived rig, and the nine Stage R rig steps. Without that plugin the profile
+  fails loud naming what is available, rather than quietly building a generic object. There is ONE
+  character profile and it always carries the rig steps; a static build skips a rig step with a
+  recorded reason, which the checklist already supports. The separate animated profile that used to
+  omit the Stage R gates is withdrawn, because omitting them is how animation shipped broken in
+  1.5.1: a gate absent from the checklist never runs, and a gate that never runs reports clean
+  forever. The rig order is load-bearing -- repair the mesh, freeze it, bind additively, then verify
+  parity. Every profile records suitability, projection applicability, and material-evidence
+  applicability. The state file is a resumability index, not visual evidence:
   renders, specs, review history, and deterministic gates remain the authoritative artifacts.
 
 ## Required Inputs
@@ -147,25 +150,30 @@ Full flags: `grimoire/scripts.md`. Never let a script *score* visuals — that i
    decals, painted patterns) — when the goal is matching a specific reference's surface, put the
    photo's own pixels on the mesh instead of approximating them procedurally. This is the single
    biggest fidelity lever; a procedural material for a patterned surface is the #1 reconstruction
-   failure. Recipe (`grimoire/character/likeness_maximization.md` — its two levers generalize past
+   failure. Recipe (plugin-character's `grimoire/character/likeness_maximization.md` — its two levers generalize past
    characters): solve the camera (`stage1_intake/solve_camera_pose.py` → `referenceCamera`),
    **de-light** the reference (`stage1_intake/delight_albedo.py`, hard requirement — de-lighting is
    what makes projection safe), then project the de-lit crop and bake it into UVs
    (`stage3_build/bake_projected_texture.py --mesh-id <id>`). For a painted skin the projected de-lit
    crop IS the finish — no procedural Doppler material. For characters, first capture landmarks
    (`stage1_intake/extract_landmarks.py --out anatomy.json`), fill `preSpecAssessment.anatomy`,
-   route `grimoire/character/reconstruction.md`. A single view cannot show hidden sides — report
+   route plugin-character's `grimoire/character/reconstruction.md`. A single view cannot show hidden sides — report
    per-region confidence and request more views when it matters.
    Character sub-routes, in order — decide what parts exist before shaping any, and shape the head
    before the hair that sits on it:
-   - **Parts** — `grimoire/character/structure_decomposition.md`
-   - **Head** — `grimoire/character/head_construction.md` (what the likeness gate reads against)
+   - **Parts** — plugin-character's `grimoire/character/structure_decomposition.md`
+   - **Head** — plugin-character's `grimoire/character/head_construction.md` (what the likeness gate reads against)
+
+   These four pages ship with plugin-character, not with this skill; the `character-contract-read`
+   checklist step names them `{plugin_dir}`-relative. The two HAIR pages stay here.
    - **Hair** — `grimoire/character/stylized_hair_threejs.md` + parameter contract in
      `grimoire/character/threejs_hair_parameter_contract.json`. Lock topology only after the
      silhouette review passes: material tuning cannot repair wrong lock topology.
 2d. **Reference-free humanoid** — a generic figure with no reference image has nothing to measure,
    so fill anatomy from public canon:
-   `forge/stage2_spec/humanoid_proportions.py <spec> --style-heads 8 --in-place`. It writes
+   plugin-character's `tools/emit_spec_augmentation.py --style-heads 8 --out spec-augmentation.json`,
+   merged at `spec-authoring`. (Was `forge/stage2_spec/humanoid_proportions.py --in-place`; the
+   canon moved with the template it feeds, and it contributes rather than writes.) It records
    `anatomy.source: "canon-table"` so canon is never mistaken for measurement, refuses to run when
    the spec names a reference image, and names anything the corpus does not supply rather than
    interpolating it.

@@ -23,6 +23,8 @@ def conforming_build_passes() -> list:
     ]
 
 
+FROZEN_SPEC = Path(__file__).resolve().parent / "fixtures" / "oracle-character" / "spec.json"
+
 class UnknownPassIdentifierIsRefused(unittest.TestCase):
     """Scenario: An unknown pass identifier is refused."""
 
@@ -117,7 +119,7 @@ class ThePermittedSetHasExactlyOneAuthority(unittest.TestCase):
         self.assertTrue(any("custom-domain-pass" in error for error in errors), errors)
 
 
-class TheBaseCharacterTemplateIsLegal(unittest.TestCase):
+class AHumanoidSpecIsLegal(unittest.TestCase):
     """Regression, not a spec scenario: proportion-lock and feature-placement are the base's own
     character-track pass ids (new_sculpt_spec.py make_character_build_passes), shipped since v1.2.
     They must validate cleanly, not merely be tolerated by a special case, or a later cleanup of
@@ -130,16 +132,15 @@ class TheBaseCharacterTemplateIsLegal(unittest.TestCase):
     are separate sets and this validator only enforces the latter.
     """
 
-    def test_character_template_build_passes_and_pass_order_validate_cleanly(self):
-        with tempfile.TemporaryDirectory() as directory:
-            out = Path(directory) / "spec.json"
-            result = subprocess.run(
-                [sys.executable, str(ROOT / "forge" / "stage2_spec" / "new_sculpt_spec.py"),
-                 "Person", "--character", "--out", str(out)],
-                capture_output=True, text=True,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            spec = json.loads(out.read_text())
+    def test_a_humanoid_spec_s_build_passes_and_pass_order_validate_cleanly(self):
+        """The fixture was built by `new_sculpt_spec.py --character`; that template is a plugin's
+        now, so it reads the frozen spec instead — the same bytes, captured before anything moved.
+
+        The subject here is the BASE's pass-identifier validator, which has not moved. A frozen
+        artifact is the better fixture for it: it models what a rig-carrying spec actually is after
+        this change, something that ARRIVED rather than something this repo built."""
+        spec = json.loads(FROZEN_SPEC.read_text(encoding="utf-8"))
+        self.assertTrue(spec.get("buildPasses"), "the fixture lost its build passes")
         errors, _warnings = vss.validate_spec(spec)
         self.assertEqual(errors, [])
 

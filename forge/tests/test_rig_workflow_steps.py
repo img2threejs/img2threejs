@@ -47,23 +47,37 @@ _OLD_HOME: str | None = None
 
 
 def setUpModule() -> None:
-    """Pin IMG2_HOME to a scratch home carrying ONE fixture plugin that declares a rig domain --
-    the registry's plugin path, which is how the real animated-character now arrives."""
+    """Pin IMG2_HOME to a scratch home carrying TWO fixture plugins, the registry's plugin path.
+
+    Two, not one, and both installed rather than in-repo: after the character extraction there is
+    no in-repo domain left, so "a domain with rig steps" and "a domain without them" must both be
+    expressible through the same mechanism or the second case has no subject. `setup-fixture-dom`
+    is what `profile="character"` used to stand in for here -- and it is the better subject, since
+    the property is about the mechanism and naming a real domain made it read as that domain's.
+    """
     global _TMP_HOME, _OLD_HOME
     _TMP_HOME = tempfile.TemporaryDirectory()
     home = Path(_TMP_HOME.name)
-    plugin_dir = home / "plugins" / "rig-fixture"
-    plugin_dir.mkdir(parents=True)
-    (home / "plugins.json").write_text(json.dumps({
-        "version": 1,
-        "plugins": [{"id": "rig-fixture", "repo": "x", "ref": "v1", "resolvedSha": "sha", "addedAt": "2026-01-01"}],
-    }), encoding="utf-8")
-    (plugin_dir / "domain.json").write_text(json.dumps({
-        "id": "rig-fixture-dom",
-        "setupSteps": [["fixture-contract-read", "Read {plugin_dir}/contract.md completely"]],
-        "setupAnchorBefore": "local-spec-search",
-        "rigSteps": FIXTURE_RIG_STEPS,
-    }), encoding="utf-8")
+    rows = []
+    for plugin_id, domain in (
+        ("rig-fixture", {
+            "id": "rig-fixture-dom",
+            "setupSteps": [["fixture-contract-read", "Read {plugin_dir}/contract.md completely"]],
+            "setupAnchorBefore": "local-spec-search",
+            "rigSteps": FIXTURE_RIG_STEPS,
+        }),
+        ("setup-fixture", {
+            "id": "setup-fixture-dom",
+            "setupSteps": [["setup-fixture-read", "Read {plugin_dir}/other.md completely"]],
+            "setupAnchorBefore": "local-spec-search",
+        }),
+    ):
+        plugin_dir = home / "plugins" / plugin_id
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "domain.json").write_text(json.dumps(domain), encoding="utf-8")
+        rows.append({"id": plugin_id, "repo": "x", "ref": "v1", "resolvedSha": "sha",
+                     "addedAt": "2026-01-01"})
+    (home / "plugins.json").write_text(json.dumps({"version": 1, "plugins": rows}), encoding="utf-8")
     _OLD_HOME = os.environ.get("IMG2_HOME")
     os.environ["IMG2_HOME"] = str(home)
 
@@ -95,9 +109,14 @@ class RigDomainProfile(unittest.TestCase):
         ids = [step["id"] for step in self.state["checklist"]]
         self.assertIn("fixture-contract-read", ids)
 
-    def test_a_plain_character_build_gets_no_rig_steps(self) -> None:
-        """Rigging is opt-in. A static character must not be blocked on animation gates."""
-        self.assertEqual(rig_ids(new_state("subject.png", profile="character")), [])
+    def test_a_domain_declaring_no_rig_steps_gets_none(self) -> None:
+        """Rigging is opt-in; a domain that contributes setup steps and no rig steps gets none.
+
+        Spelled `profile="character"` while an in-repo `character` domain existed. It does not, and
+        the fixture domain is the better subject anyway: this is a property of the MECHANISM, and
+        naming a real domain made it look like a property of that domain.
+        """
+        self.assertEqual(rig_ids(new_state("subject.png", profile="setup-fixture-dom")), [])
 
     def test_profiles_without_rig_steps_get_none(self) -> None:
         self.assertEqual(rig_ids(new_state("subject.png", profile="generic")), [])
@@ -164,8 +183,8 @@ class TheDispatcherActuallyReachesThem(unittest.TestCase):
                         min(i for i, s in enumerate(order) if s == "rig"))
         self.assertTrue(dispatched)
 
-    def test_a_plain_character_build_still_completes(self) -> None:
-        dispatched, state = self.drain("character")
+    def test_a_build_with_no_rig_steps_still_completes(self) -> None:
+        dispatched, state = self.drain("setup-fixture-dom")
         self.assertEqual(dispatched, [])
         self.assertEqual(state["status"], "complete")
 
@@ -178,12 +197,12 @@ class TheDispatcherActuallyReachesThem(unittest.TestCase):
 
 
 class InstalledPluginOrderIsCheckedWhenPresent(unittest.TestCase):
-    """The canonical animated-character order lives in the installed plugin's domain.json (the
+    """The canonical rig order lives in the installed plugin's domain.json (the
     plugin's own suite pins it with a two-file pin). This base-side check reads the REAL installed
     declaration when one exists, so the load-bearing sequence stays checkable from here without
     making the base depend on the plugin."""
 
-    def test_installed_animated_character_order_invariants(self) -> None:
+    def test_installed_rig_order_invariants(self) -> None:
         home = Path(os.environ.get("IMG2_REAL_HOME") or Path.home() / ".img2")
         declaration = home / "plugins" / "character" / "domain.json"
         if not declaration.is_file():
@@ -198,17 +217,76 @@ class InstalledPluginOrderIsCheckedWhenPresent(unittest.TestCase):
 
 
 class SetupStepAssetsAgreement(unittest.TestCase):
-    """The plugin's animated-character setupSteps reference these base assets verbatim and
-    base-relative (its static-character half stays in-repo). Doctor cannot file-check domain rows,
-    so THIS is the enforcement point: renaming either asset must fail here, not in a user's run."""
+    """Every BASE-relative path an installed plugin's setupSteps name must exist in this checkout.
 
-    def test_the_referenced_setup_assets_exist(self) -> None:
-        for rel in (
-            "grimoire/character/reconstruction.md",
-            "grimoire/character/likeness_maximization.md",
-            "forge/stage1_intake/extract_landmarks.py",
-        ):
-            self.assertTrue((ROOT.parent / rel).is_file(), rel)
+    Doctor cannot file-check domain rows, so this is the enforcement point: renaming a base asset a
+    plugin depends on must fail here, not in a user's run.
+
+    It used to enumerate three paths by hand, two of them `grimoire/character/*.md`. Those pages are
+    plugin-character's now and its step names them `{plugin_dir}`-relative, which this check must
+    NOT follow -- a `{plugin_dir}` path belongs to the plugin's own suite, and resolving it here
+    against the base would be the same category error in reverse. So the list is derived from the
+    declaration rather than transcribed: whatever base-relative paths the installed plugins name,
+    those are what this checks. Hand-transcription is what made the old version assert the existence
+    of files this change deletes.
+    """
+
+    @staticmethod
+    def _looks_like_a_base_asset(token: str) -> bool:
+        """A path with a file extension whose first segment is a directory THIS repo ships.
+
+        Both halves are load-bearing, and each was added after a false positive:
+
+          `family/subtype`  cs2 prose, no extension -- a slash is not a path.
+          `runtime/scripts/export_mesh_buffers.mjs`  plugin-character's mesh-freeze step. It has an
+                extension, and `runtime/` is not a directory here: the file is not in this repo at
+                all. That is a REAL defect, and deliberately not this check's -- a base-asset
+                agreement cannot speak for a path the base never had. It belongs to the plugin's own
+                declaration test and to the A11 capture, where it is recorded as a blocker.
+        """
+        first = token.split("/", 1)[0]
+        return bool(Path(token).suffix) and (ROOT.parent / first).is_dir()
+
+    def _base_relative_paths(self) -> list[tuple[str, str]]:
+        home = Path(os.environ.get("IMG2_REAL_HOME") or Path.home() / ".img2")
+        registry = home / "plugins.json"
+        if not registry.is_file():
+            return []
+        out = []
+        for row in json.loads(registry.read_text(encoding="utf-8")).get("plugins") or []:
+            declaration = home / "plugins" / (row or {}).get("id", "") / "domain.json"
+            if not declaration.is_file():
+                continue
+            entry = json.loads(declaration.read_text(encoding="utf-8"))
+            for key in ("setupSteps", "passSteps", "rigSteps"):
+                for _step_id, command in entry.get(key, []):
+                    for token in command.split():
+                        token = token.strip("(),")
+                        if (not token.startswith("{") and token[:1].isalpha()
+                                and self._looks_like_a_base_asset(token)):
+                            out.append((row["id"], token))
+        return out
+
+    def test_every_base_relative_path_an_installed_plugin_names_exists(self) -> None:
+        named = self._base_relative_paths()
+        if not named:
+            self.skipTest("no installed plugin declares a domain; nothing to check from here")
+        for plugin_id, rel in named:
+            self.assertTrue((ROOT.parent / rel).exists(), f"{plugin_id} names {rel}, which is missing")
+
+    def test_the_asset_the_character_domain_still_depends_on_is_here(self) -> None:
+        # One base asset survives the extraction as a plugin dependency: the landmark extractor.
+        # Named explicitly so that its deletion fails here even with no plugin installed.
+        self.assertTrue((ROOT.parent / "forge/stage1_intake/extract_landmarks.py").is_file())
+
+    def test_the_moved_grimoire_pages_are_gone_from_the_base(self) -> None:
+        # The other half of the same agreement, and the half that catches a half-applied move: if
+        # these come back, two checkouts own the same pages and only one of them is read.
+        for rel in ("grimoire/character/reconstruction.md",
+                    "grimoire/character/likeness_maximization.md",
+                    "grimoire/character/structure_decomposition.md",
+                    "grimoire/character/head_construction.md"):
+            self.assertFalse((ROOT.parent / rel).exists(), f"{rel} is still in the base")
 
 
 if __name__ == "__main__":

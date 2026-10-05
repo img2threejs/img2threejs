@@ -1,6 +1,6 @@
 # Stage R backlog — what is missing, in the order it should be closed
 
-> **Checklist authority note (extract-animated-character, 2026-09-03):** the `animated-character`
+> **Checklist authority note (extract-character-sculpt-into-the-plugin, 2026-09-13):** the `character`
 > profile is served by the installed **plugin-character** (`img2 add img2threejs/plugin-character`);
 > its `domain.json` owns the rig-step order and invokes the plugin's `tools/` ports. The
 > `forge/stage5_rig/...` commands below remain runnable as the base LIBRARY the emitters use, but
@@ -9,7 +9,7 @@
 Distilled from building the 1.5.2 rigging and animation pipeline. Every claim here was verified by
 running something, not by reading; where a claim could not be verified it says so.
 
-Companion documents: `STAGE_R_TEST_PLAN.md` (how to test), `GLB_ANIMATED_CHARACTER_PROMPT.md` (how to
+Companion documents: `STAGE_R_TEST_PLAN.md` (how to test), `GLB_CHARACTER_RIG_PROMPT.md` (how to
 run), `pipelines/character-rigging-animation-1.5.2.md` (why each rule exists).
 
 ---
@@ -99,7 +99,7 @@ that mistake at higher cost.
 
 ---
 
-**V-2 · Run one character end to end through `animated-character`**
+**V-2 · Run one character end to end through `character`**
 
 *Why* — the decisive test of the whole pipeline. Three outcomes, all valuable: the gate catches it
 (machinery works), the gate misses it (names the missing gate — the most valuable result), or nothing
@@ -254,7 +254,7 @@ Until then they stay documented as starting values, never constants.
 
 *Why* — verified: the fastlane worktree is `version: 1.5.1` and its `stage5_rig/` holds only the four
 pre-1.5.2 files. The two branches are **mutually exclusive**; `--profile glb` and
-`--profile animated-character` cannot currently be combined.
+`--profile character` cannot currently be combined.
 
 *Done when* — one branch offers both profiles and the combined suite is green.
 

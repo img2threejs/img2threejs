@@ -1,0 +1,15 @@
+{
+  "applies": true,
+  "faceLandmarks": {
+    "eyeLine": 0.45,
+    "mouthLine": 0.74,
+    "noseBase": 0.62
+  },
+  "proportions": {
+    "hipWidth": 1.7,
+    "legs": 3.6,
+    "shoulderWidth": 2.3,
+    "torso": 2.2
+  },
+  "styleHeads": 8
+}

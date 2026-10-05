@@ -25,6 +25,41 @@ ARTIFACT_KIND: Final = "spec-augmentation-v1"
 
 BASE_OWNED: Final = frozenset({"qualityContract", "preSpecAssessment", "pipelineRouting", "sourceImage", "targetName", "localSpecSearch"})
 
+# The authority ruling: for each spec section the base knows of, WHETHER a plugin may author it and
+# WHY. It sits here rather than in a design document because the reasoning is about this deny-list
+# and drifts from it otherwise.
+#
+# IT IS NOT AN ALLOW-LIST, and must never become one. The merge still admits a section named nowhere
+# below -- that is the deny-list property this module's docstring defends, and a third-party domain
+# contributing a section the base has never heard of is the mechanism working, not a gap. What the
+# ruling buys is that a section the base HAS thought about carries the thinking: `rig` is admitted
+# opaquely on purpose and re-checked afterwards, which is a decision, and without it written down the
+# next reader sees only that the validator happens to run.
+#
+# A provider may assert its own sections appear here (plugin-character's
+# tests/test_spec_augmentation_artifact.py does), which is a check on the base having ruled, not a
+# gate on the plugin.
+SECTION_AUTHORITY: Final = {
+    "componentTree": "PLUGIN. The domain's own decomposition. The base has no view on how many parts "
+                     "a character or a rifle has; it validates shape, not anatomy.",
+    "rig": "PLUGIN, then re-checked. Admitted opaquely -- the base cannot judge a skeleton it did "
+           "not design -- but validate_rig_admission's five checks run on it afterwards, because "
+           "opaque admission of a structure stage5 will bind vertices to is not the same as "
+           "unchecked admission.",
+    "materials": "PLUGIN. Material ids and their physics are domain vocabulary. The base's own "
+                 "generic default is replaced wholesale, so a provider that wants it must carry it.",
+    "buildPasses": "PLUGIN. The pass list is the domain's build order.",
+    "featureReviewTargets": "PLUGIN. Which features get scored, and against what, is domain "
+                            "knowledge; the SCORES stay base-owned via qualityContract.",
+    "sculptPipeline": "PLUGIN, with a base remainder. The provider sets passOrder and currentPass; "
+                      "passGateMode, completedPasses, lastCompletedPass, blockedReason and "
+                      "nextRequiredEvidence are gate state the base advances. Because the section is "
+                      "assigned wholesale, a provider MUST carry those five forward or the merge "
+                      "drops them -- there is no per-key fallback, deliberately: a partial section "
+                      "would make 'wholesale' untrue for one key and true for the rest.",
+    **{key: "BASE. In BASE_OWNED; the merge refuses it." for key in sorted(BASE_OWNED)},
+}
+
 # assessmentPatch keys whose values carry guarded content (the domain marker, the raise-only detail
 # floor). Named once, like BASE_OWNED: a future guarded key is added here, and the loop's shape
 # guard picks it up without a second edit site.

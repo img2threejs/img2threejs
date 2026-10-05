@@ -137,6 +137,10 @@ Goal: add a first-class character track that reconstructs a humanoid matching th
 
 ### 5.2 New reference: `grimoire/character/reconstruction.md`
 
+> Moved to plugin-character by `extract-character-sculpt-into-the-plugin` (2026-09-13). This
+> section is the record of what 1.5 added and is not rewritten; the page itself now ships with
+> the plugin.
+
 - Proportion system in head-units, with a style axis: realistic ~7.5 heads, stylized ~5-6, figurine/chibi 2-3. Record measured ratios from the image (head : torso : legs, shoulder width, hip width).
 - Facial landmark layout: eye line near vertical mid-head, eye spacing, nose base, mouth line, hairline, ear top/bottom. Store normalized coordinates.
 - Pose / skeleton: neck, shoulders, elbows, wrists, hips, knees, ankles; match the silhouette and limb angles.

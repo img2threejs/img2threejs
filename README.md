@@ -86,12 +86,12 @@ It runs under Claude Code, Codex, or OpenCode. It is agent-agnostic: wherever th
 
 ### Subjects and detail accuracy
 
-- **Objects and characters.** Each subject is classified `object`, `character`, or `hybrid`. Objects follow the hard-surface pipeline; characters route through an anatomy-aware track (head-unit proportions, facial landmarks, pose) documented in `grimoire/character/reconstruction.md`.
+- **Objects and characters.** Each subject is classified `object`, `character`, or `hybrid`. Objects follow the hard-surface pipeline; characters route through an anatomy-aware track (head-unit proportions, facial landmarks, pose) documented in plugin-character's `grimoire/character/reconstruction.md` (installed at `~/.img2/plugins/character/`).
 - **Detail-first analysis.** Before code generation the pipeline enumerates a `detailInventory` of identity-defining small details (gloss, bevel/rounding, screws/rivets, engraved or painted linework, contours, stains and wear). Every detail must map to a real component or material entry, and a strict-quality gate blocks generation until the inventory is complete. Taxonomy: `grimoire/intake/detail_inventory.md`.
-- **Maximum likeness for a specific person or character.** An opt-in projection-first path fits a parametric template to image landmarks, de-lights the photo, camera-matches the render, and projects the reference onto the mesh. A single image cannot guarantee 100 percent likeness, so the pipeline reports per-region confidence and asks for more views when it matters. Details: `grimoire/character/likeness_maximization.md`.
+- **Maximum likeness for a specific person or character.** An opt-in projection-first path fits a parametric template to image landmarks, de-lights the photo, camera-matches the render, and projects the reference onto the mesh. A single image cannot guarantee 100 percent likeness, so the pipeline reports per-region confidence and asks for more views when it matters. Details: plugin-character's `grimoire/character/likeness_maximization.md`.
 - **Multi-view silhouette carving.** An opt-in `geometryDescriptor.visualHull` intersects at least two deterministic orthographic binary silhouettes into a bounded, welded voxel mesh. It records unseen areas as low-confidence rather than inventing hidden detail. Schema and runtime check: `grimoire/scripts.md`.
-- **CS2 weapon review gates.** Knife and Glock-18 routes use family-specific component contracts. The review records exactness tier, family identity, painted-region and projection coverage, per-region confidence, approximation notes, and versioned review-scene metadata; component-coverage and map-stripped blockout gates prevent a convincing texture from standing in for real structure. Ships with the CS2 domain plugin; see its `docs/cs2/review-gates.md`.
-- **Resumable local workflow.** `forge/state.py` records an ordered, evidence-backed intake/pass checklist for the generic profile and every registered domain (in-repo `character`, plus installed domain plugins such as CS2 and `animated-character` from plugin-character). `forge/next.py --state` resumes from that checklist while the existing spec, render, and review gates remain authoritative.
+- **CS2 weapon review gates.** Knife and Glock-18 routes use family-specific component contracts. The review records exactness tier, family identity, painted-region and projection coverage, per-region confidence, approximation notes, and versioned review-scene metadata; component-coverage and map-stripped blockout gates prevent a convincing texture from standing in for real structure. Ships with the CS2 domain plugin; see plugin-cs2's `docs/cs2/review-gates.md`.
+- **Resumable local workflow.** `forge/state.py` records an ordered, evidence-backed intake/pass checklist for the generic profile and every registered domain (all of them installed plugins now: `cs2` and `character`). `forge/next.py --state` resumes from that checklist while the existing spec, render, and review gates remain authoritative.
 - **Material reference pipeline.** Every visible material region can be cropped, analyzed, resolved against the versioned Three.js material registry, fitted into `ObjectSculptSpec`, rendered from controlled camera views, and accepted only after a per-region comparison gate. See [`docs/materials/README.md`](docs/materials/README.md).
 - **Python-assisted browser rendering.** Python may orchestrate camera batches, hashes, manifests, and deterministic diagnostics, but the target browser Three.js route remains the rendering authority. See [`grimoire/build/python_threejs_render_bridge.md`](grimoire/build/python_threejs_render_bridge.md).
 
@@ -137,7 +137,7 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
    An installed domain plugin contributes its own checklist steps, evidence collection, spec
    augmentation (quality floors merge raise-only), and a blocking review gate — and registers its
    profile with `forge/state.py init --profile <id>`. With no plugins installed, `generic`,
-   and `character` are available; a profile whose plugin is missing (`cs2`, `animated-character`) fails
+   is available on its own; a profile whose plugin is missing (`cs2`, `character`) fails
    loud naming what is installed, never silently downgrades. `img2 remove <id>` reverses cleanly.
 
    **Official plugins:**
@@ -145,7 +145,7 @@ A staged sculpting pipeline turns the reference image into a spec, then generate
    | Plugin | Adds | Install |
    |---|---|---|
    | [plugin-cs2](https://github.com/img2threejs/plugin-cs2) | `cs2` profile — CS2 weapon-skin reconstruction: family adapters, finish rules, domain review gate | `img2 add img2threejs/plugin-cs2` |
-   | [plugin-character](https://github.com/img2threejs/plugin-character) | `animated-character` profile — everything `character` has plus the Stage R rigging/animation gates | `img2 add img2threejs/plugin-character` |
+   | [plugin-character](https://github.com/img2threejs/plugin-character) | `character` profile — the humanoid sculpt spec, its derived rig, and the Stage R rigging/animation gates | `img2 add img2threejs/plugin-character` |
    | [plugin-img2glb](https://github.com/img2threejs/plugin-img2glb) | `image → glb` emission target via the hosted TRELLIS space | `img2 add img2threejs/plugin-img2glb` |
    | [plugin-hello-cube](https://github.com/img2threejs/plugin-hello-cube) | minimal reference plugin — copy it to write your own | `img2 add img2threejs/plugin-hello-cube` |
 
@@ -339,7 +339,7 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v2.0 — The Plugin Update** — the domain registry, pull-based spec augmentation
   with raise-only quality floors, the emission-target socket with provenance, per-plugin blocking
   gates, and the img2 harness (`img2 install/add/doctor`). CS2 extracted into `plugin-cs2`,
-  `animated-character` served by `plugin-character`; the base names no domain. The "plugin
+  `character` served by `plugin-character`; the base names no domain. The "plugin
   ecosystem and API" originally slotted for the Procedural World bundle, shipped first as its own major.
 
 **Next — one theme per release:**

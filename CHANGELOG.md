@@ -7,18 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**The Character Split — targets v2.1.** The base `character` domain joins
-`plugin-character`, so the base names no domain and the v2.0 plugin split closes.
+**The Character Split — targets v2.1.** The base character domain joins `plugin-character`, so the
+base names no domain at all and the v2.0 plugin split closes. OpenSpec change:
+`extract-character-sculpt-into-the-plugin`.
 
-- The in-repo `character` domain is removed; `plugin-character` (already serving
-  `animated-character`) carries the full character workflow — anatomy, hair, materials, Stage R
-  rig and animation.
-- The seam is hardened: pass-id enforcement at the validation site, the inbound base-to-plugin
-  import is broken, and the contract gains a clause forbidding the base from importing plugin
-  code.
-- Acceptance rule: the character build keeps emitting the same Three.js output for the same
-  input across the move. The partition of every character/rig-named line as base mechanism or
-  domain content is written down *before* any file moves.
+### Changed — BREAKING
+
+- **The `animated-character` profile is withdrawn; use `--profile character`.** One id now, always
+  carrying the nine Stage R rig steps. A static build skips a rig step with a recorded reason, which
+  the checklist already supports; a second profile that omitted the Stage R gates entirely is how
+  animation shipped broken in 1.5.1. The refusal names the withdrawn id, its successor and the
+  remedy rather than printing an availability list: re-init with `--profile character`, or edit
+  `"profile"` in an in-flight state file. Requires plugin-character >= 0.3.0.
+
+- **`character` is served by the installed plugin-character**, not by an in-repo module
+  (`img2 add img2threejs/plugin-character`). Without it the profile fails loud naming what is
+  available, exactly as `cs2` has since 2.0. `forge/_shared/domains/` now ships NO domain module:
+  both registry consumers are installed plugins, which is what makes the seam an extension point
+  rather than a rename.
+
+- **`new_sculpt_spec.py` drops `--character` and `--accessories`**, and
+  `new_pre_spec_assessment.py` drops `--character`. They are REFUSED, not ignored: a script still
+  passing one gets `unrecognized arguments` rather than exiting 0 on a generic spec. The humanoid
+  template, its derived rig and the figure-drawing canon are plugin-character's, reaching the spec
+  through `--augmentation` and `merge_spec_augmentation` — the same path CS2's finish recipe takes.
+
+- **`character-v1.5` is no longer a pipeline track.** `TRACK_BY_KIND` keeps `weapon` only, and a
+  spec persisting `pipelineRouting.track: "character-v1.5"` is refused by
+  `validate_pipeline_routing`. `character` and `hybrid` remain valid classification KINDS: a kind is
+  what the classifier saw, a track is what this repo can build from it, and removing the kind would
+  make a correct classification read as corrupt input. A confident `character` classification with
+  no provider installed now fails closed naming `--domain character` as the remedy.
+
+- **`validate_character_track` is removed** with the template it gated. The base has no view on
+  anatomy; the requirement moved to the producer, where plugin-character's emit step refuses to
+  build without measured anatomy or an explicit `--style-heads`. That sentence was NOT true when
+  first written — a review measured the producer exiting 0 with no anatomy at all, so the check
+  briefly existed in neither repo. It is true as of plugin-character 0.3.0.
+
+- **`rig_is_bone_track` routes on the payload alone.** It required
+  `objectClass.primaryDomain in {"character", "hybrid"}`; a spec carrying `rig.bones` with
+  `primaryDomain: "object"` therefore emitted nothing and now emits a full skeleton. `rig` is
+  plugin-contributable, so a domain-name allow-list here would have meant the base deciding which
+  domains may have skeletons. A spec with no bones still emits nothing, so the pivot track is
+  untouched.
+
+### Removed
+
+- `forge/_shared/domains/character.py`, `forge/stage2_spec/humanoid_proportions.py`, the humanoid
+  half of `forge/stage2_spec/new_sculpt_spec.py` (17 symbols, 948 lines), and four
+  `grimoire/character/` pages — `reconstruction.md`, `likeness_maximization.md`,
+  `structure_decomposition.md`, `head_construction.md`. The two HAIR entries stay: hair is not
+  extracted by this change, and `scalp_field.py` / `scalp_exposure.py` stay with them.
+- `docs/GLB_ANIMATED_CHARACTER_PROMPT.md` is renamed `docs/GLB_CHARACTER_RIG_PROMPT.md`.
+
+### Added
+
+- **`SECTION_AUTHORITY` beside `BASE_OWNED`** in `forge/_shared/spec_augmentation.py`: for each
+  spec section the base knows of, whether a plugin may author it and why. It is NOT an allow-list
+  and must not become one — the merge still admits a section named nowhere in it, which is the
+  deny-list property that design rests on. What it buys is that a section the base HAS reasoned
+  about carries the reasoning.
+- **`forge/tests/test_documentation_agreement.py`** — dead paths in live guidance (Python
+  docstrings included), and the withdrawn identifier surviving in prose. The second is the half a
+  path-scoped check cannot see: a `--profile` flag naming it is not a path, and seven documents
+  still taught it while the one mechanical doc gate passed green.
+- The joint-admission gate, the pass-identifier validator and the recessed-topology rule now take
+  their humanoid fixture from the frozen `forge/tests/fixtures/oracle-character/spec.json` instead
+  of shelling out to `new_sculpt_spec.py --character`. Same bytes, no subprocess, and a better
+  model of what a rig-carrying spec is after this change: something that arrived.
+
+### Fixed
+
+- **A `character` classification with its provider installed no longer fails closed.** The routing
+  conflict named `--domain character` plus a spec-augmentation artifact as the remedy, then refused
+  the run that supplied both — advice that cannot succeed. `resolve_pipeline_routing` now takes
+  `provider_domain`; a provider-resolved record carries `track: null` and names its provider,
+  because there is no base track and inventing a name for one would be the base naming a domain.
+  It answers exactly one conflict: a hybrid, an unknown, a shaky classification or a provider
+  claiming a different kind all still fail closed. A re-review caught that `validate_pipeline_routing`
+  enforced the record's SHAPE and none of those conditions, so a hand-edited spec walked a
+  0.40-confidence hybrid through as `resolved`; both sides now call one shared predicate.
+- **A low-confidence `character` classification now names both its problems.** The confidence check
+  was an `elif` on the no-track branch, so the record said only "its domain plugin supplies the
+  content" while the real blocker was that nobody was sure it was a character.
+- `forge/state.py` no longer builds `--profile` choices with argparse `choices=`. One bad profile
+  gave two different answers — `init` printed `invalid choice: 'x' (choose from ...)`, naming an
+  availability list from which "your plugin is missing" and "this profile no longer exists" are
+  indistinguishable, while `resume` went through the registry and printed a message that explains
+  itself. The registry answers both now.
+
+### Verification
+
+- `COLLECTED_FLOOR` **set** to the measured 1460, from 1192 against 1458 collected — 266 of slack,
+  enough to absorb a quarter of the suite going dark. The withdrawn attempt lost 100 tests and the
+  floor never moved. Arithmetic in `forge/tests/test_suite_integrity.py`.
+- `IMG2_HOME=$(mktemp -d) pytest forge/tests`: 1394 passed, 66 skipped, 0 failed, 0 errors.
 
 ## [2.0.0] — 2026-09-05
 

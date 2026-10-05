@@ -45,7 +45,41 @@ TESTS_DIR = Path(__file__).resolve().parent
 # registry layout instead of assumed from a name match) added 2 tests -- a plugin whose package
 # name differs from its domain id, and an in-repo domain's profile correctly attributing no
 # installed plugin as its owner.
-COLLECTED_FLOOR = 1192
+#
+# 1192 -> 1443 for extract-character-sculpt-into-the-plugin. **SET to the measured count, not
+# lowered and not merely raised.** The floor stood at 1192 against 1458 collected -- 266 of slack,
+# so a quarter of this suite could have stopped being collected with nothing going red. Closing
+# that slack is half of what this change is for: the withdrawn attempt lost 100 tests and the floor
+# never moved, because 261 of slack absorbed them.
+#
+#   1458   measured on this branch's parent, `--collect-only`
+#  -  22   moved to plugin-character with their subjects: test_character_rig_derivation (13),
+#          test_humanoid_proportions (9). Both modules are gone from this suite, not emptied
+#  -   3   test_pipeline 57 -> 54: five tests drove `new_sculpt_spec.py --character` and asserted
+#          the humanoid tree, its accessories, digits, parent chain and palette. All five moved to
+#          plugin-character's authoring oracle; five base-side tests replaced them, covering what
+#          the base still does -- refuse the withdrawn flags, author no humanoid, merge an
+#          augmentation. Two older `validate_character_track` tests collapsed into one
+#  +   3   test_pipeline_routing 13 -> 16: `character` is still a KIND with no TRACK, which is a
+#          state that did not exist before and needed its own assertions
+#  +   5   test_domain_registry 10 -> 15: the in-repo source is empty now, so "both sources" became
+#          "two installed plugins" (D9), plus the withdrawal-table scenarios
+#  +   2   test_rig_workflow_steps 13 -> 15: the base-asset agreement is derived from the installed
+#          declarations rather than transcribed, and asserts the moved pages are GONE
+#  +  10   test_documentation_agreement.py, new: dead paths in live guidance (docstrings included)
+#          and the withdrawn identifier surviving in prose -- the second is the half a path-scoped
+#          check cannot see, and the half that was missed -- plus 4 added by a cleanup review,
+#          which found SECTION_AUTHORITY's plugin half checked only from the OTHER repo, by a test
+#          that skips when it cannot see this one
+#  +   4   test_pipeline_routing, from a correctness review: a provider resolving the one conflict
+#          it can answer, the three it cannot, and a shaky character classification naming BOTH
+#          its problems rather than only the first
+#  +   3   test_pipeline_routing again, from the RE-review of those fixes: the provider branch it
+#          added had opened a hole -- the validator checked the record's shape and none of the
+#          four conditions the resolver checks, so a hand-edited spec walked a 0.40-confidence
+#          hybrid through as resolved. One predicate now, and a test that the two cannot disagree
+#   = 1460
+COLLECTED_FLOOR = 1460
 
 
 REPO_ROOT = TESTS_DIR.parents[1]

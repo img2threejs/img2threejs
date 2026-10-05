@@ -177,7 +177,8 @@ def plugin_contributed_a_step(state: dict[str, Any], plugin_id: str, home: Path)
         by_id = {entry["id"]: entry for entry in state.get("checklist", [])}
         rig_ids = domain_rig_step_ids(profile, home)
         if rig_ids:
-            # Rig-aware participation (extract-animated-character, D1): a domain that declares a
+            # Rig-aware participation (extract-animated-character D1, kept through the character
+            # extraction): a domain that declares a
             # rig track is not DUE until that track has begun. The gate sweep at plugin-gates runs
             # in the FINAL scope, strictly before the rig scope, and a rig domain's gate inputs are
             # produced by rig steps -- sweeping it on the strength of done SETUP steps fired the

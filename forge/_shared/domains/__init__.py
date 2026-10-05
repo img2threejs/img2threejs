@@ -42,6 +42,22 @@ _ALLOWED: Final = {
 }
 
 
+# Profile identifiers this project has RETIRED, and what replaced them. A user whose run or script
+# names one gets a message that answers the question they actually have; without it the refusal
+# below says only "no installed provider serves profile 'animated-character'; available: character,
+# generic", from which "this profile no longer exists" and "the plugin that serves it is missing"
+# are indistinguishable -- and its advice, "install the domain plugin that provides it", is advice
+# that cannot succeed: after the character extraction nobody provides `animated-character`, so
+# obeying it installs the current plugin and reproduces the same message.
+WITHDRAWN: Final[dict[str, tuple[str, str]]] = {
+    "animated-character": (
+        "character",
+        "one id now carries the rig steps; a static build skips a rig step with a recorded reason. "
+        "Re-init with --profile character, or edit \"profile\" in an in-flight state file",
+    ),
+}
+
+
 class DomainRegistryError(ValueError):
     pass
 
@@ -160,6 +176,13 @@ def domain_profile(profile: str) -> dict[str, Any] | None:
     domains = registered_domains()
     if profile not in domains:
         known = ", ".join(sorted(["generic", *domains]))
+        if profile in WITHDRAWN:
+            successor, remedy = WITHDRAWN[profile]
+            served = "is served by" if successor in domains else "was replaced by"
+            raise DomainRegistryError(
+                f"profile {profile!r} has been withdrawn; it {served} {successor!r}. {remedy}. "
+                f"Available: {known}."
+            )
         raise DomainRegistryError(
             f"no installed provider serves profile {profile!r}; available: {known}. "
             "Install the domain plugin that provides it, or start the run as generic."

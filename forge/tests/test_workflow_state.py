@@ -106,12 +106,45 @@ class WorkflowStateTest(unittest.TestCase):
         by_id = {entry["id"]: entry for entry in state["checklist"]}
         self.assertIn(str(plugin_dir), by_id["fx-manifest"]["command"])
 
-    def test_character_state_requires_contract_landmarks_and_route_decision(self):
-        state = new_state("character.png", profile="character")
+    def test_a_domain_s_setup_steps_keep_their_declared_order_inside_the_splice(self):
+        """The anchor places the GROUP; order within it is the declaration's own.
+
+        This was spelled against the in-repo `character` domain, asserting
+        `character-contract-read` before `character-landmarks` before `pre-spec-assessment`. That
+        domain is plugin-character's now, and the property is the base's: a provider that lists a
+        step producing a file before the step consuming it must get them in that order, since
+        `setupAnchorBefore` is one anchor for the whole group and buys nothing inside it. The real
+        character domain depends on exactly this -- `character-landmarks` writes the `anatomy.json`
+        that `character-spec-augmentation` reads.
+        """
+        domain_entry = {
+            "id": "ordered-dom",
+            "setupSteps": [["od-first", "Read {plugin_dir}/a.md"],
+                           ["od-second", "python3 {plugin_dir}/b.py --out b.json"],
+                           ["od-third", "python3 {plugin_dir}/c.py --in b.json"]],
+            "setupAnchorBefore": "local-spec-search",
+        }
+        home = Path(tempfile.mkdtemp(prefix="img2-home-"))
+        self.addCleanup(shutil.rmtree, home, True)
+        plugin_dir = home / "plugins" / "ordered-plugin"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "domain.json").write_text(json.dumps(domain_entry), encoding="utf-8")
+        (home / "plugins.json").write_text(
+            json.dumps({"version": 1, "plugins": [{"id": "ordered-plugin"}]}), encoding="utf-8")
+        prior = os.environ.get("IMG2_HOME")
+        os.environ["IMG2_HOME"] = str(home)
+        try:
+            state = new_state("subject.png", profile="ordered-dom")
+        finally:
+            if prior is None:
+                os.environ.pop("IMG2_HOME", None)
+            else:
+                os.environ["IMG2_HOME"] = prior
         ids = [entry["id"] for entry in state["checklist"]]
-        self.assertLess(ids.index("character-contract-read"), ids.index("character-landmarks"))
-        self.assertLess(ids.index("character-landmarks"), ids.index("pre-spec-assessment"))
-        self.assertLess(ids.index("character-landmarks"), ids.index("projection-route"))
+        self.assertLess(ids.index("od-first"), ids.index("od-second"))
+        self.assertLess(ids.index("od-second"), ids.index("od-third"))
+        self.assertLess(ids.index("od-third"), ids.index("local-spec-search"))
+        self.assertLess(ids.index("local-spec-search"), ids.index("pre-spec-assessment"))
 
     def test_pass_commands_follow_executable_gate_order(self):
         state = new_state("reference.png", spec="spec.json")

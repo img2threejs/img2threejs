@@ -11,8 +11,16 @@ plan and both change what the gate does:
   shoulder and the upper arm then hangs back down toward the hips, so euclidean reach is
   legitimately non-monotonic for any chain that goes out and then down.
 - `PROPORTION_LIMIT` is a fraction of the skeleton's own height rather than head units, because
-  the rig carries no head unit and requiring `anatomy.proportions` would reject the default
-  `--character` template outright.
+  the rig carries no head unit and requiring `anatomy.proportions` would reject a humanoid authored
+  with no anatomy block outright.
+
+WHERE THE FIXTURE COMES FROM. It used to be built by shelling out to `new_sculpt_spec.py
+--character`. That template is a plugin's now, so the fixture is the FROZEN spec in
+`fixtures/oracle-character/` -- the same 49-bone skeleton, the same bytes, captured before anything
+moved. It is a better fixture than the subprocess was: it cannot drift when the plugin changes, and
+this gate's subject is content ARRIVING from a provider, which is exactly what a frozen artifact
+models. The gate itself stays in the base and must: `rig` is not in `BASE_OWNED`, so a plugin writes
+it wholesale and the merge admits it opaquely -- these five checks are the base's only look at it.
 
 Pure Python 3.10+ stdlib. No pip installs.
 """
@@ -21,13 +29,12 @@ from __future__ import annotations
 
 import copy
 import json
-import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 _FORGE = Path(__file__).resolve().parents[1]
+FROZEN_SPEC = Path(__file__).resolve().parent / "fixtures" / "oracle-character" / "spec.json"
 sys.path.insert(0, str(_FORGE / "stage2_spec"))
 
 from validate_sculpt_spec import (  # noqa: E402
@@ -45,13 +52,10 @@ def _tags(errors: list[str]) -> set[str]:
 class JointAdmissionGate(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        out = Path(tempfile.mkdtemp()) / "character.json"
-        subprocess.run(
-            [sys.executable, str(_FORGE / "stage2_spec" / "new_sculpt_spec.py"),
-             "Gate Probe", "--character", "--out", str(out)],
-            capture_output=True, text=True, check=True,
-        )
-        cls.base = json.loads(out.read_text())
+        cls.base = json.loads(FROZEN_SPEC.read_text(encoding="utf-8"))
+        # If the fixture ever stopped carrying a skeleton, every rejection test below would still
+        # pass -- against a spec with nothing to reject.
+        assert len(cls.base["rig"]["bones"]) == 49, "the fixture lost its skeleton"
 
     def _run(self, mutate=None) -> tuple[dict, set[str], list[str]]:
         spec = copy.deepcopy(self.base)

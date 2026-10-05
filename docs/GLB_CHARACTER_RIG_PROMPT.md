@@ -1,10 +1,17 @@
-# GLB animated-character prompt
+# GLB character rig prompt
 
-> **Checklist authority note (extract-animated-character, 2026-09-03):** the `animated-character`
-> profile is served by the installed **plugin-character** (`img2 add img2threejs/plugin-character`);
-> its `domain.json` owns the rig-step order and invokes the plugin's `tools/` ports. The
-> `forge/stage5_rig/...` commands below remain runnable as the base LIBRARY the emitters use, but
-> the checklist runs the plugin's copies -- when the two disagree, the plugin is the authority.
+> **Renamed from `GLB_ANIMATED_CHARACTER_PROMPT.md`** by
+> `extract-character-sculpt-into-the-plugin` (2026-09-13). The document was named after the
+> `animated-character` profile, which is withdrawn: there is ONE `character` profile now and it
+> always carries the rig steps. A static build skips a rig step with a recorded reason, which the
+> checklist already supports; a profile that omitted the Stage R gates entirely is how animation
+> shipped broken in 1.5.1. Nothing else about the walkthrough changed.
+>
+> **Checklist authority note:** the `character` profile is served by the installed
+> **plugin-character** (`img2 add img2threejs/plugin-character`); its `domain.json` owns the
+> rig-step order and invokes the plugin's `tools/` ports. The `forge/stage5_rig/...` commands below
+> remain runnable as the base LIBRARY the emitters use, but the checklist runs the plugin's
+> copies -- when the two disagree, the plugin is the authority.
 
 One copy-paste prompt that carries a subject from a GLB reference to a **rigged, animated,
 gate-cleared** procedural Three.js character, for img2threejs 1.5.2 and later.
@@ -22,8 +29,8 @@ Animation used to break meshes, and the reason was structural rather than accide
 1. **The gates were unreachable.** Every module under `forge/stage5_rig/` was callable and nothing
    in the workflow ever told anyone to call one. `next.py` walks the checklist, so a gate absent
    from the checklist never runs — and a gate that never runs reports a clean verdict forever. The
-   `animated-character` profile puts Stage R on the checklist, so the gates are now unskippable
-   rather than merely available.
+   `character` profile puts Stage R on the checklist, so the gates are now unskippable rather than
+   merely available.
 2. **The rig was authored beside the GLB instead of read from it.** A GLB carries a real skin and
    real clips; its animation channels target ITS node indices and its `skinIndex` values address
    ITS joint array. Feeding either into a procedurally authored skeleton indexes a different
@@ -90,11 +97,11 @@ Build a rigged, animated procedural Three.js character from a GLB reference usin
 ### Stage 0 — Intake, on the animated profile
 ```
 python3 forge/state.py init --state .img2threejs/state.json --reference <glb> \
-  --profile animated-character --spec object-sculpt-spec.json
+  --profile character --spec object-sculpt-spec.json
 python3 forge/stage1_intake/probe_glb.py <glb> --out glb-probe.json
 python3 forge/stage1_intake/label_glb_nodes.py <glb> --out nodes.json --min-confidence 0.6
 ```
-`--profile animated-character` is what puts Stage R on the checklist. On `character` the rig gates
+`--profile character` is what puts Stage R on the checklist. Without the plugin installed the rig gates
 are absent and the build will complete without ever running them.
 
 Read `glb-probe.json` for `skinCount` and `animationCount` before anything else. `skinCount > 1`
@@ -209,7 +216,7 @@ it rather than shipping a shredded figure.
 
 | Rule in the prompt | What it prevents |
 |---|---|
-| `--profile animated-character` | Stage R gates existed but nothing invoked them; a gate that never runs reports clean forever |
+| `--profile character` with plugin-character installed | Stage R gates existed but nothing invoked them; a gate that never runs reports clean forever |
 | Rig read from the GLB | GLB clips target GLB node indices; fed to a procedural skeleton they index a different rig and shred the mesh |
 | Correspondence by measured position | Joint names are `node_17`; a name-matched correspondence is confidently wrong |
 | Repair before freeze | Freezing a broken mesh certifies the breakage instead of catching it |

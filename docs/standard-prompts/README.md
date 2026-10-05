@@ -10,14 +10,14 @@ exit condition. Replace every `<PLACEHOLDER>` before pasting.
 | [`polish.md`](polish.md) | a build that renders but does not match | bounded correction, one defect at a time |
 | [`vfx.md`](vfx.md) | the rig and its clips play, only the effects are missing | measure the events off a real mixer, then schedule against them |
 
-Rigging and animation on top of a GLB: [`../GLB_ANIMATED_CHARACTER_PROMPT.md`](../GLB_ANIMATED_CHARACTER_PROMPT.md).
+Rigging and animation on top of a GLB: [`../GLB_CHARACTER_RIG_PROMPT.md`](../GLB_CHARACTER_RIG_PROMPT.md).
 
 ## Why these were rewritten
 
 The previous prompts blocked more than they built, for three reasons that were mechanical rather
 than stylistic:
 
-1. **They pointed at a file that does not exist.** `GLB_ANIMATED_CHARACTER_PROMPT.md` delegated the
+1. **They pointed at a file that does not exist.** `GLB_CHARACTER_RIG_PROMPT.md` delegated the
    whole geometry route to `docs/GLB_CHARACTER_PROMPT.md`, which was never written. An agent
    reaching the largest step of the run found a dead reference. `build.md` is that missing file.
 

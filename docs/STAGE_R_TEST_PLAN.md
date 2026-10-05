@@ -1,6 +1,6 @@
 # Stage R test plan — does the animation pipeline still break meshes?
 
-> **Checklist authority note (extract-animated-character, 2026-09-03):** the `animated-character`
+> **Checklist authority note (extract-character-sculpt-into-the-plugin, 2026-09-13):** the `character`
 > profile is served by the installed **plugin-character** (`img2 add img2threejs/plugin-character`);
 > its `domain.json` owns the rig-step order and invokes the plugin's `tools/` ports. The
 > `forge/stage5_rig/...` commands below remain runnable as the base LIBRARY the emitters use, but
@@ -176,7 +176,7 @@ the checklist that no dispatcher ever returned — the build reported `complete`
 
 ```bash
 python3 $I/forge/state.py init --state .img2threejs/state.json \
-  --reference <your>.glb --profile animated-character \
+  --reference <your>.glb --profile character \
   --spec object-sculpt-spec.json
 ```
 
@@ -204,7 +204,7 @@ python3 $I/forge/next.py --state .img2threejs/state.json
 **Goal:** take the Phase 0 subject through the full flow. Follow `next.py` at every step; a hard stop
 (exit 3) is the system working — answer it rather than pushing past it.
 
-Use `docs/GLB_ANIMATED_CHARACTER_PROMPT.md` as the driver. The order below cannot be rearranged:
+Use `docs/GLB_CHARACTER_RIG_PROMPT.md` as the driver. The order below cannot be rearranged:
 **repair before freeze, freeze before bind, verify after bind.**
 
 ### 3.1 — Repair, then freeze
@@ -331,7 +331,7 @@ duration while driving nothing — is a CLI on `emit_animation_runtime.py`. It a
 
 ## Related
 
-- `docs/GLB_ANIMATED_CHARACTER_PROMPT.md` — the one-pass prompt this plan tests.
+- `docs/GLB_CHARACTER_RIG_PROMPT.md` — the one-pass prompt this plan tests.
 - `docs/pipelines/character-rigging-animation-1.5.2.md` — the derivation and the failure log.
 - `grimoire/readiness/animation_contract.md` — the routing file read at Stage R.
 - `forge/stage5_rig/CONTRACT_1.5.2.md` — module map and payload shapes.

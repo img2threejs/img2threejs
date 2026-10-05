@@ -897,12 +897,10 @@ def validate_pipeline_routing_contract(spec: dict[str, Any], errors: list[str]) 
     if not isinstance(routing, dict) or routing.get("status") != "resolved":
         errors.append("pipelineRouting must be resolved before validation")
         return
-    routing_track = routing.get("track")
-    object_class = spec.get("preSpecAssessment", {}).get("objectClass", {})
-    if routing_track == "character-v1.5" and spec.get("cs2Intake") is not None:
-        errors.append("character-v1.5 routing cannot carry cs2Intake")
-    if routing_track == "character-v1.5" and object_class.get("primaryDomain") not in {"character", "hybrid"}:
-        errors.append("character-v1.5 routing requires the character template")
+    # The two character-v1.5 checks that stood here are gone with the track, and `routing_track`
+    # and `object_class` went with them -- both existed only to feed those checks. `character-v1.5`
+    # is no longer in VALID_TRACKS, so `validate_pipeline_routing` above already rejects a spec
+    # carrying it; re-checking its coherence below that would be checking a record just refused.
     # There is deliberately no domain requirement on weapon-v1.4. This used to read
     #   if routing_track == "weapon-v1.4" and not legacy_cs2 and object_class.get("cs2") is not True
     # which was wrong twice over: weapon-v1.4 is the weapon *shape* template, keyed by classified
@@ -2607,44 +2605,6 @@ def validate_detail_inventory(spec: dict[str, Any], errors: list[str], warnings:
         )
 
 
-def validate_character_track(spec: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
-    """Gate the character track. Backward compatible: only enforced when primaryDomain is
-    character or hybrid."""
-    assessment = spec.get("preSpecAssessment")
-    if not isinstance(assessment, dict):
-        return
-    object_class = assessment.get("objectClass")
-    domain = object_class.get("primaryDomain") if isinstance(object_class, dict) else None
-    if domain not in {"character", "hybrid"}:
-        return
-    anatomy = assessment.get("anatomy")
-    if not isinstance(anatomy, dict) or anatomy.get("applies") is not True:
-        warnings.append(
-            "quality: primaryDomain is character/hybrid but anatomy.applies is not true; "
-            "fill anatomy (styleHeads, proportions, pose, faceLandmarks) from the reference"
-        )
-        return
-    if not (is_number(anatomy.get("styleHeads")) and float(anatomy["styleHeads"]) > 0):
-        warnings.append("quality: character anatomy.styleHeads must be greater than 0 (head-unit proportion)")
-    proportions = anatomy.get("proportions")
-    if not (isinstance(proportions, dict) and any(
-        is_number(proportions.get(k)) and float(proportions[k]) > 0 for k in ("torso", "legs")
-    )):
-        warnings.append("quality: character anatomy.proportions must set torso/legs head-unit ratios")
-    landmarks = anatomy.get("faceLandmarks")
-    if not (isinstance(landmarks, dict) and any(
-        is_number(landmarks.get(k)) and float(landmarks[k]) > 0 for k in ("eyeLine", "noseBase", "mouthLine")
-    )):
-        warnings.append("quality: character anatomy.faceLandmarks must set eyeLine/noseBase/mouthLine from the reference")
-    targets = spec.get("featureReviewTargets", [])
-    character_ids = {"anatomy-proportion", "face-landmark-placement", "pose-silhouette", "outfit-and-palette"}
-    if not any(isinstance(t, dict) and t.get("id") in character_ids for t in targets):
-        warnings.append(
-            "quality: character track needs featureReviewTargets covering anatomy/face/pose/outfit "
-            "(add anatomy-proportion, face-landmark-placement, pose-silhouette, outfit-and-palette)"
-        )
-
-
 # PLAN_1.5 §5.2 Half A — the Joint Admission Gate. Pure semantics and arithmetic, which is why it
 # folds into this file rather than becoming a new module: §5.2 says so explicitly, and warns that
 # `forge/stage4_review/geometry_integrity.py` already owns that name. Half B
@@ -2654,9 +2614,15 @@ SYMMETRY_PARITY_TOLERANCE = 0.05
 POOL_FLOOR_MIN_BONES = 4
 # §5.2 states PROPORTION_LIMIT as "bone length against the head-unit template (e.g. femur <= 2.5
 # HU)". READING CHOSEN: the rig carries no head unit — demanding `anatomy.proportions` would reject
-# the default `--character` template, which has no anatomy block at all — so the limit is expressed
-# as a fraction of the skeleton's own height. That is scale-free and needs no external input. On a
-# 6.78-head figure the plan's 2.5 HU is 2.5/6.78 = 37% of height, so 0.40 sits just above it.
+# a humanoid authored with no anatomy block at all — so the limit is expressed as a fraction of the
+# skeleton's own height. That is scale-free and needs no external input. On a 6.78-head figure the
+# plan's 2.5 HU is 2.5/6.78 = 37% of height, so 0.40 sits just above it.
+#
+# That reading is why this whole gate STAYS in the base after the character extraction: it is
+# scale-free and domain-free, and `rig` is not in `BASE_OWNED`, so a plugin writes it wholesale and
+# these five checks are the base's only look at what arrived. A partition that classified the gate
+# by its narrative would have moved it; the comment above records the opposite of that narrative,
+# and it was already here.
 PROPORTION_LIMIT_FRACTION = 0.40
 
 
@@ -2838,7 +2804,6 @@ def validate_spec(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
         errors.append("performanceBudget must be an object")
     validate_quality_depth(spec, errors, warnings)
     validate_detail_inventory(spec, errors, warnings)
-    validate_character_track(spec, errors, warnings)
     validate_rig_admission(spec, errors, warnings)
     if suitability == "pass" and spec.get("risks"):
         warnings.append("suitability is pass but risks are present; confirm they are acceptable")

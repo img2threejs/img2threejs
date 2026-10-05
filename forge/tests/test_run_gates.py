@@ -180,20 +180,22 @@ class DomainPluginGatesRunPostDomainSteps(RunGatesTestBase):
         self.assertIn("my-interiors-plugin", results)
         self.assertEqual(results["my-interiors-plugin"]["results"][0]["status"], "pass")
 
-    def test_an_in_repo_domain_has_no_owner_plugin_and_gates_no_installed_plugin(self):
-        # 'character' resolves from forge/_shared/domains/character.py, not an installed plugin.
-        # An installed plugin's domain.json ALSO declaring "character" would collide with the
-        # in-repo module (registered_domains()'s own "declared twice" refusal) -- so the honest
-        # version of this scenario installs an unrelated plugin (its own, different domain) and
-        # confirms it is not mistaken for "character"'s owner.
+    def test_an_unowned_domain_has_no_owner_plugin_and_runs_nobody_s_gates(self):
+        """`domain_owner_plugin` must not fall back to "some installed plugin".
+
+        Spelled with `character` while the base carried an in-repo `character` domain -- that was
+        the only unowned-but-real domain available, and it is gone. The property never depended on
+        it: what is asserted is that an id no installed plugin claims resolves to no owner, and
+        that an unrelated plugin standing nearby is not adopted as one.
+        """
         self._install_domain_plugin(
             "unrelated-plugin", domain_id="unrelated-domain",
             gate_body=FAIL_GATE.format(gate_id="unrelated-plugin-gate", plugin_id="unrelated-plugin"),
         )
-        self.assertIsNone(run_gates.domain_owner_plugin("character", self.home))
-        _action_ready_state(self.workspace, self.spec_path, profile="character")
-        results = run_gates.run_gates_for_workspace(self.workspace, home=self.home)
-        self.assertEqual(results, {})
+        self.assertIsNone(run_gates.domain_owner_plugin("nobodys-domain", self.home))
+        _action_ready_state(self.workspace, self.spec_path, profile="unrelated-domain")
+        state_profile_owner = run_gates.domain_owner_plugin("unrelated-domain", self.home)
+        self.assertEqual(state_profile_owner, "unrelated-plugin")
 
 
 class UninvolvedPluginRunsNone(RunGatesTestBase):
