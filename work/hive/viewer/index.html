@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#05070a">
+<title>HIVE · El castillo vivo</title>
+<style>
+:root {
+  --void:#05070a; --ink:#f4f0e8; --muted:#8f9ba6; --amber:#f0a830;
+  --cyan:#55d6e8; --magenta:#d643b8; --green:#79d6a2; --danger:#e25072;
+  --glass:rgba(7,10,14,.79); --line:rgba(255,255,255,.11); --accent:240,168,48;
+}
+* { box-sizing:border-box }
+html,body,#app,#viewport { width:100%;height:100%;margin:0;overflow:hidden }
+body { background:var(--void);color:var(--ink);font-family:"Cascadia Mono",Consolas,monospace }
+button,a { font:inherit }
+button { color:inherit }
+#viewport { position:fixed;inset:0;background:radial-gradient(circle at 50% 35%,#17212a,#05070a 68%) }
+canvas { display:block;width:100%;height:100%;cursor:grab }
+canvas:active { cursor:grabbing }
+
+#preloader {
+  position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:#05070a;
+  transition:opacity .65s ease,visibility .65s;
+}
+#preloader.done { opacity:0;visibility:hidden }
+.load-mark { width:min(360px,76vw);text-align:center }
+.load-logo { color:var(--amber);font:900 42px/1 Inter,Arial,sans-serif;letter-spacing:.34em;margin-right:-.34em }
+.load-copy { margin:18px 0;color:var(--muted);font-size:9px;letter-spacing:.18em;text-transform:uppercase }
+.load-track { height:2px;background:rgba(255,255,255,.12) }
+.load-track i { display:block;width:0;height:100%;background:linear-gradient(90deg,var(--amber),var(--magenta));box-shadow:0 0 18px var(--amber);transition:width .2s }
+
+#hud {
+  position:fixed;z-index:30;left:0;right:0;top:0;height:58px;padding:0 28px;
+  display:flex;align-items:center;gap:22px;background:linear-gradient(#06080bdd,transparent);
+  border-bottom:1px solid rgba(255,255,255,.06);pointer-events:none;
+}
+.brand { color:var(--amber);font-weight:900;letter-spacing:.34em;font-size:13px }
+.truth { color:var(--muted);font-size:9px;letter-spacing:.1em;text-transform:uppercase }
+.truth b { color:var(--green) }
+.stats { margin-left:auto;display:flex;gap:20px;color:var(--muted);font-size:9px;text-transform:uppercase }
+.stats b { color:var(--ink);font-size:11px }
+
+#castle-map {
+  position:fixed;left:22px;top:50%;z-index:40;transform:translateY(-50%);
+  width:190px;padding:16px 13px 14px;background:linear-gradient(145deg,rgba(9,12,16,.92),rgba(9,12,16,.58));
+  border:1px solid var(--line);backdrop-filter:blur(14px);box-shadow:0 24px 80px #0009;
+}
+.map-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:13px }
+.map-head span { color:var(--muted);font-size:8px;letter-spacing:.16em;text-transform:uppercase }
+.map-toggle { display:none;background:none;border:0;color:var(--amber);font-size:16px;cursor:pointer }
+.map-stack { display:flex;flex-direction:column }
+.room-btn {
+  position:relative;display:grid;grid-template-columns:15px 1fr auto;align-items:center;gap:9px;
+  width:100%;padding:10px 6px;border:0;border-top:1px solid rgba(255,255,255,.07);
+  background:none;text-align:left;cursor:pointer;color:#a9b1b8;transition:.25s;
+}
+.room-btn:first-child { border-top:0 }
+.room-btn i { width:8px;height:8px;border:1px solid currentColor;transform:rotate(45deg);transition:.25s }
+.room-btn strong { font-size:9px;letter-spacing:.12em;text-transform:uppercase }
+.room-btn small { color:#66717b;font-size:7px }
+.room-btn:hover,.room-btn:focus-visible { color:var(--ink);outline:none;transform:translateX(3px) }
+.room-btn.active { color:rgb(var(--room-accent));background:linear-gradient(90deg,rgba(var(--room-accent),.12),transparent) }
+.room-btn.active i { background:currentColor;box-shadow:0 0 13px currentColor;transform:rotate(45deg) scale(1.25) }
+.map-foot { margin-top:12px;padding-top:10px;border-top:1px solid var(--line);color:#65717b;font-size:7px;line-height:1.6 }
+
+#room-ui { position:fixed;inset:0;z-index:20;pointer-events:none }
+.room-panel {
+  --panel-accent:var(--amber);position:absolute;right:clamp(24px,5vw,76px);bottom:clamp(28px,7vh,74px);
+  width:min(520px,calc(100vw - 280px));padding:26px 28px;
+  background:linear-gradient(135deg,rgba(7,10,14,.9),rgba(7,10,14,.64));
+  border:1px solid color-mix(in srgb,var(--panel-accent) 35%,transparent);border-top-color:var(--panel-accent);
+  box-shadow:0 28px 90px #000b,inset 0 1px rgba(255,255,255,.05);backdrop-filter:blur(16px);
+  opacity:0;visibility:hidden;transform:translateY(22px);transition:opacity .4s,transform .55s,visibility .55s;
+}
+.room-panel.active { opacity:1;visibility:visible;transform:none;pointer-events:auto }
+.room-panel::before { content:"";position:absolute;left:-1px;top:-1px;width:62px;height:3px;background:var(--panel-accent);box-shadow:0 0 24px var(--panel-accent) }
+.eyebrow { color:var(--panel-accent);font-size:8px;font-weight:800;letter-spacing:.2em;text-transform:uppercase }
+.room-panel h1 { margin:8px 0 9px;font:900 clamp(32px,4vw,58px)/.92 Inter,Arial,sans-serif;text-transform:uppercase;letter-spacing:-.05em }
+.room-panel p { margin:0;color:#b9c0c6;font:15px/1.5 Inter,Arial,sans-serif }
+.metrics { display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:19px;background:rgba(255,255,255,.08) }
+.metric { min-height:64px;padding:11px;background:rgba(4,6,9,.86) }
+.metric b { display:block;color:var(--panel-accent);font:800 22px/1 Inter,Arial,sans-serif }
+.metric span { color:#707b85;font-size:7px;text-transform:uppercase;letter-spacing:.1em }
+.agents { display:grid;gap:6px;margin-top:18px }
+.agent { display:grid;grid-template-columns:1fr auto;gap:4px;padding:8px 10px;background:rgba(255,255,255,.035);border-left:2px solid var(--green);font-size:8px }
+.agent.risk { border-left-color:var(--danger) }
+.agent span { color:var(--muted) }
+.agent b { color:var(--ink) }
+.verdict { display:grid;grid-template-columns:90px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:8px;color:var(--muted) }
+.verdict b { color:var(--green) }.verdict.fail b { color:var(--danger) }.verdict.inc b { color:var(--amber) }
+.chain { margin-top:18px;padding:12px;background:#030507;border-left:2px solid var(--green);color:var(--green);font-size:9px;line-height:1.6 }
+.panel-actions { display:flex;gap:8px;margin-top:16px }
+.panel-actions button {
+  padding:8px 11px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:8px;
+  text-transform:uppercase;letter-spacing:.08em;cursor:pointer;
+}
+.panel-actions button:hover,.panel-actions button:focus-visible { border-color:var(--panel-accent);outline:none;color:var(--panel-accent) }
+
+#hint {
+  position:fixed;z-index:22;left:50%;bottom:20px;transform:translateX(-50%);
+  color:#727d86;font-size:8px;letter-spacing:.11em;text-transform:uppercase;pointer-events:none;
+  transition:opacity .3s;
+}
+#transition {
+  position:fixed;inset:0;z-index:19;pointer-events:none;opacity:0;
+  background:radial-gradient(circle at 50% 50%,transparent 0,rgba(var(--accent),.09) 40%,#030406 100%);
+}
+#transition.flying { animation:portal 1.25s ease both }
+@keyframes portal { 0%,100%{opacity:0} 40%,60%{opacity:1} }
+
+@media (max-width:800px) {
+  #hud { padding:0 15px }.truth,.stats span:not(:last-child) { display:none }
+  #castle-map { top:68px;left:12px;transform:none;width:calc(100vw - 24px);padding:10px 12px }
+  .map-head { margin:0 }.map-toggle { display:block }.map-stack,.map-foot { display:none }
+  #castle-map.open .map-stack { display:flex;margin-top:10px;max-height:58vh;overflow:auto }
+  #castle-map.open .map-foot { display:block }
+  .room-panel { right:12px;left:12px;bottom:36px;width:auto;padding:20px 18px;max-height:54vh;overflow:auto }
+  .room-panel h1 { font-size:34px }.room-panel p { font-size:13px }
+  .metrics { grid-template-columns:repeat(3,1fr) }
+  #hint { width:100%;text-align:center;font-size:7px }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation-duration:.01ms!important;transition-duration:.01ms!important }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="viewport" aria-label="Castillo HIVE 3D. Arrastra para orbitar en el exterior y pulsa las habitaciones para entrar."></div>
+
+  <div id="preloader" role="status" aria-live="polite">
+    <div class="load-mark"><div class="load-logo">HIVE</div><div class="load-copy" id="load-copy">precargando el castillo completo · 0 / 8</div><div class="load-track"><i id="load-bar"></i></div></div>
+  </div>
+
+  <header id="hud">
+    <span class="brand">HIVE</span><span class="truth"><b>CASTILLO VIVO</b> · todo cargado · una sola escena</span>
+    <span class="stats"><span>agentes <b>7</b></span><span>tasks <b>4</b></span><span>estado <b id="global-state">PASS</b></span></span>
+  </header>
+
+  <nav id="castle-map" aria-label="Mapa del castillo">
+    <div class="map-head"><span>Mapa · estancias</span><button class="map-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">⌘</button></div>
+    <div class="map-stack">
+      <button class="room-btn active" data-room="exterior" style="--room-accent:240,168,48"><i></i><strong>Exterior</strong><small>órbita</small></button>
+      <button class="room-btn" data-room="aguja" style="--room-accent:240,168,48"><i></i><strong>Aguja</strong><small>Queen</small></button>
+      <button class="room-btn" data-room="p1" style="--room-accent:85,214,232"><i></i><strong>Planta I</strong><small>excel_planos</small></button>
+      <button class="room-btn" data-room="p2" style="--room-accent:214,67,184"><i></i><strong>Planta II</strong><small>HIVE</small></button>
+      <button class="room-btn" data-room="cripta" style="--room-accent:85,214,232"><i></i><strong>Cripta</strong><small>Bartolomeo</small></button>
+      <button class="room-btn" data-room="kernel" style="--room-accent:121,214,162"><i></i><strong>Kernel</strong><small>ledger</small></button>
+    </div>
+    <div class="map-foot">CLICK puerta = entrar<br>ESC = exterior · ↑↓ = cambiar estancia</div>
+  </nav>
+
+  <main id="room-ui">
+    <section class="room-panel" data-panel="exterior" style="--panel-accent:var(--amber)">
+      <span class="eyebrow">Colonia gobernada · corte persistente</span><h1>El castillo HIVE</h1>
+      <p>Cinco estancias dentro de una única escena Three.js. Puedes orbitar el conjunto, pulsar cada portal o usar el mapa para volar dentro.</p>
+      <div class="metrics"><div class="metric"><b>5</b><span>habitaciones vivas</span></div><div class="metric"><b>1</b><span>escena persistente</span></div><div class="metric"><b>0</b><span>recargas al viajar</span></div></div>
+      <div class="panel-actions"><button type="button" data-go="aguja">Entrar por la Aguja</button><button type="button" id="toggle-cutaway">Cerrar / abrir fachada</button></div>
+    </section>
+    <section class="room-panel" data-panel="aguja" style="--panel-accent:var(--amber)">
+      <span class="eyebrow">Aguja · autoridad viva</span><h1>HIVE Queen</h1>
+      <p>La Queen limita, asigna y observa. No ejecuta el trabajo ni sustituye al juez.</p>
+      <div class="metrics"><div class="metric"><b>7</b><span>agentes</span></div><div class="metric"><b>4</b><span>tasks vivas</span></div><div class="metric"><b>0</b><span>zombies</span></div></div>
+      <div class="panel-actions"><button type="button" data-go="p1">Descender a Planta I</button><button type="button" data-go="exterior">Ver castillo</button></div>
+    </section>
+    <section class="room-panel" data-panel="p1" style="--panel-accent:var(--cyan)">
+      <span class="eyebrow">Planta I · ~/scripts/excel_planos</span><h1>Obreras</h1>
+      <p>Trabajo durable con capability proof, lease renovable y presupuesto reservado.</p>
+      <div class="agents"><div class="agent"><b>cyo@pc-imanol</b><span>LEASED · 4m12s · PASS 8/9</span></div><div class="agent risk"><b>cys@pc-imanol</b><span>RETRY 2/3 · 1m03s</span></div><div class="agent"><b>gy@pc-imanol</b><span>IDLE · último done 12m</span></div></div>
+      <div class="panel-actions"><button type="button" data-go="p2">Ir a la alerta</button><button type="button" data-go="exterior">Ver castillo</button></div>
+    </section>
+    <section class="room-panel" data-panel="p2" style="--panel-accent:var(--magenta)">
+      <span class="eyebrow">Planta II · ~/scripts/HIVE · alerta</span><h1>Recovery</h1>
+      <p>Un lease está muriendo. El resultado tardío de Able se conserva como evidencia, pero el fencing token obsoleto no puede mutar el estado.</p>
+      <div class="agents"><div class="agent"><b>caty@portatil</b><span>LEASED · PASS 5/5</span></div><div class="agent risk"><b>gy2@pc-imanol</b><span>LEASE 0m41s · EXPIRING</span></div><div class="agent"><b>my@portatil</b><span>LEASED · replay 2/2</span></div><div class="agent risk"><b>able@pc-imanol</b><span>LATE RESULT · stale fence</span></div></div>
+      <div class="panel-actions"><button type="button" data-go="cripta">Llevar evidencia al juez</button><button type="button" data-go="exterior">Ver castillo</button></div>
+    </section>
+    <section class="room-panel" data-panel="cripta" style="--panel-accent:var(--cyan)">
+      <span class="eyebrow">Cripta · juez independiente</span><h1>Bartolomeo</h1>
+      <p>Quien actúa no se juzga. Cada veredicto abre los bytes, ejecuta predicados y queda ligado al linaje.</p>
+      <div class="verdict"><b>PASS</b><span>ht-2a2b · gate 8/9 · evidencia abierta</span></div><div class="verdict inc"><b>INCONCLUSIVE</b><span>ht-d808 · fact key sin regla</span></div><div class="verdict fail"><b>FAIL</b><span>ht-aa20 · artefacto ilegible</span></div>
+      <div class="panel-actions"><button type="button" data-go="kernel">Bajar al ledger</button><button type="button" data-go="exterior">Ver castillo</button></div>
+    </section>
+    <section class="room-panel" data-panel="kernel" style="--panel-accent:var(--green)">
+      <span class="eyebrow">Bóveda · event store</span><h1>Kernel</h1>
+      <p>La interfaz puede desaparecer: el ledger recompone exactamente el mismo mundo sin consultar ninguna vista derivada.</p>
+      <div class="chain">a41f…9c02 → 77b3…e6d8 → 02cd…44aa → f1e0…7b21<br>verify_chain OK · replay fingerprint MATCH</div>
+      <div class="metrics"><div class="metric"><b>10</b><span>eventos acceptance</span></div><div class="metric"><b>PASS</b><span>cadena HMAC</span></div><div class="metric"><b>0</b><span>reparación manual</span></div></div>
+      <div class="panel-actions"><button type="button" data-go="aguja">Volver a la Queen</button><button type="button" data-go="exterior">Ver castillo completo</button></div>
+    </section>
+  </main>
+  <div id="transition"></div>
+  <div id="hint">arrastra para orbitar · click en una puerta para entrar</div>
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"../node_modules/three/build/three.module.js",
+  "three/addons/":"../node_modules/three/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const viewport = document.querySelector('#viewport');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const renderer = new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+viewport.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070a);
+scene.fog = new THREE.FogExp2(0x05070a,.035);
+const camera = new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.05,80);
+const controls = new OrbitControls(camera,renderer.domElement);
+controls.enableDamping = true;controls.dampingFactor=.045;controls.minDistance=7;controls.maxDistance=20;
+controls.target.set(0,2.7,0);camera.position.set(8.4,6.8,11.5);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(),.04).texture;
+const ambient = new THREE.HemisphereLight(0x7ca8c8,0x090506,.42);scene.add(ambient);
+const key = new THREE.SpotLight(0xf0a830,68,35,Math.PI*.18,.58,1.4);key.position.set(-5,10,7);key.castShadow=true;key.shadow.mapSize.set(2048,2048);scene.add(key);
+const rim = new THREE.DirectionalLight(0x55d6e8,1.3);rim.position.set(5,4,-5);scene.add(rim);
+
+const manager = new THREE.LoadingManager();
+const loadBar = document.querySelector('#load-bar'), loadCopy = document.querySelector('#load-copy');
+manager.onProgress = (_url,loaded,total) => { loadBar.style.width=`${loaded/total*100}%`;loadCopy.textContent=`precargando el castillo completo · ${loaded} / ${total}` };
+manager.onLoad = () => { loadBar.style.width='100%';loadCopy.textContent='castillo completo en memoria';setTimeout(()=>document.querySelector('#preloader').classList.add('done'),350) };
+const loader = new THREE.TextureLoader(manager);
+const texturePaths = {
+  albedo:'../pbr_pine/varnished-pine_albedo.png', rough:'../pbr_pine/varnished-pine_roughness.png',
+  normal:'../pbr_pine/varnished-pine_normal.png', ao:'../pbr_pine/varnished-pine_ao.png',
+  metal:'../pbr_metal/galvanized-steel_albedo.png', metalRough:'../pbr_metal/galvanized-steel_roughness.png',
+  metalNormal:'../pbr_metal/galvanized-steel_normal.png', entrance:'../pbr_entrance/entrance-metal_albedo.png'
+};
+const textures = Object.fromEntries(Object.entries(texturePaths).map(([k,p])=>[k,loader.load(p)]));
+textures.albedo.colorSpace=THREE.SRGBColorSpace;textures.metal.colorSpace=THREE.SRGBColorSpace;textures.entrance.colorSpace=THREE.SRGBColorSpace;
+for(const t of Object.values(textures)){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,2);t.anisotropy=renderer.capabilities.getMaxAnisotropy()}
+
+const wood = new THREE.MeshPhysicalMaterial({map:textures.albedo,roughnessMap:textures.rough,normalMap:textures.normal,aoMap:textures.ao,color:0x7e5635,roughness:.56,clearcoat:.28,clearcoatRoughness:.34});
+const darkWood = wood.clone();darkWood.color.set(0x2b1b14);darkWood.roughness=.75;
+const metal = new THREE.MeshStandardMaterial({map:textures.metal,roughnessMap:textures.metalRough,normalMap:textures.metalNormal,color:0x56626b,metalness:.82,roughness:.38});
+const black = new THREE.MeshStandardMaterial({color:0x07090c,metalness:.55,roughness:.42});
+const glass = new THREE.MeshPhysicalMaterial({color:0x15242d,transparent:true,opacity:.34,roughness:.2,metalness:.18,side:THREE.DoubleSide});
+const castle = new THREE.Group();castle.name='HIVE-castle';scene.add(castle);
+const facadeParts=[],portals=[],roomGroups={};
+const W=5.8,D=3.1,H=.92;
+const rooms=[
+  {id:'kernel',y:.58,color:0x79d6a2,label:'KERNEL'},
+  {id:'cripta',y:1.58,color:0x55d6e8,label:'CRIPTA'},
+  {id:'p2',y:2.58,color:0xd643b8,label:'P II'},
+  {id:'p1',y:3.58,color:0x55d6e8,label:'P I'},
+  {id:'aguja',y:4.58,color:0xf0a830,label:'AGUJA'}
+];
+const box=(w,h,d,mat)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.castShadow=true;m.receiveShadow=true;return m};
+function glowMat(color,intensity=1.4){return new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:intensity,roughness:.35,metalness:.4})}
+function addRoom(def,index){
+  const g=new THREE.Group();g.name=def.id;g.position.y=def.y;castle.add(g);roomGroups[def.id]=g;
+  const floor=box(W,.12,D,wood);floor.position.y=-H/2;g.add(floor);
+  const ceiling=box(W,.1,D,darkWood);ceiling.position.y=H/2;g.add(ceiling);
+  const back=box(W-.18,H-.14,.12,darkWood);back.position.z=-D/2;g.add(back);
+  const left=box(.12,H-.14,D-.12,darkWood);left.position.x=-W/2;g.add(left);
+  const right=left.clone();right.position.x=W/2;g.add(right);
+  const edge=box(W+.16,.035,D+.16,metal);edge.position.y=H/2+.035;g.add(edge);
+  const glow=new THREE.PointLight(def.color,6.5,6.4,1.7);glow.position.set(0,.1,.4);g.add(glow);
+  const floorGlow=box(W*.72,.018,D*.5,new THREE.MeshBasicMaterial({color:def.color,transparent:true,opacity:.18}));floorGlow.position.set(0,-H/2+.071,.15);g.add(floorGlow);
+  const facade=box(W-.28,H-.2,.075,glass);facade.position.z=D/2+.015;facade.name=`facade-${def.id}`;g.add(facade);facadeParts.push(facade);
+  const portal=box(.84,.54,.09,glowMat(def.color,.72));portal.position.set(0,-.08,D/2+.07);portal.name=`portal-${def.id}`;portal.userData.room=def.id;g.add(portal);portals.push(portal);
+  const inner=box(.62,.36,.035,black);inner.position.z=.055;portal.add(inner);
+  for(let i=0;i<10;i++){const tooth=box(.09,.09,.12,wood);tooth.position.set(i%2?-W/2-.015:W/2+.015,-H/2+.12+(i%5)*.18,i<5?D/2-.18:-D/2+.18);g.add(tooth)}
+  if(def.id==='aguja'){
+    const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.34,1),glowMat(def.color,1.7));core.position.set(0,.02,-.15);core.name='queen-core';g.add(core);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.55,.018,8,64),metal);ring.rotation.x=Math.PI/2;ring.position.copy(core.position);g.add(ring);
+  } else if(def.id==='p1'||def.id==='p2'){
+    const count=def.id==='p1'?3:4;
+    for(let i=0;i<count;i++){const pod=new THREE.Mesh(new THREE.OctahedronGeometry(.16,0),glowMat(def.color,.8));pod.position.set((i-(count-1)/2)*.85,-.06,-.18+(i%2)*.12);pod.userData.spin=.3+i*.14;g.add(pod)}
+  } else if(def.id==='cripta'){
+    for(let i=0;i<3;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(.27+i*.16,.018,8,48),glowMat(i===2?0xe25072:def.color,.9));ring.rotation.x=Math.PI/2;ring.position.set(0,-.02,-.22);g.add(ring)}
+  } else {
+    for(let i=0;i<8;i++){const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.1+(i%3)*.035,0),glowMat(def.color,.9));crystal.position.set((i-3.5)*.48,-.1+Math.sin(i)*.12,-.18);crystal.userData.spin=.18+i*.04;g.add(crystal)}
+  }
+}
+rooms.forEach(addRoom);
+
+// Foundation, crown and an articulated facade turn the stacked rooms into one castle.
+const foundation=box(W+1,.38,D+1,wood);foundation.position.y=-.12;castle.add(foundation);
+const plinth=box(W+1.45,.12,D+1.4,metal);plinth.position.y=-.35;castle.add(plinth);
+const crown=new THREE.Group();crown.position.y=5.28;castle.add(crown);
+const roof=box(W+1,.14,D+1,metal);crown.add(roof);
+const spire=new THREE.Mesh(new THREE.ConeGeometry(1.05,1.55,6),darkWood);spire.position.y=.82;spire.castShadow=true;crown.add(spire);
+const beacon=new THREE.Mesh(new THREE.OctahedronGeometry(.23,0),glowMat(0xf0a830,2));beacon.position.y=1.7;crown.add(beacon);
+for(let x of [-2.45,2.45])for(let y=.35;y<5.1;y+=.5){const brace=box(.18,.18,.18,wood);brace.position.set(x,y,D/2+.08);castle.add(brace)}
+
+const ground=new THREE.Mesh(new THREE.CircleGeometry(11,80),new THREE.MeshStandardMaterial({color:0x06090b,roughness:.95,metalness:.2}));
+ground.rotation.x=-Math.PI/2;ground.position.y=-.42;ground.receiveShadow=true;scene.add(ground);
+const grid=new THREE.GridHelper(22,22,0x25323b,0x12191e);grid.position.y=-.405;scene.add(grid);
+
+const dustGeo=new THREE.BufferGeometry(),dustCount=reduceMotion?0:260,dustPos=new Float32Array(dustCount*3);
+for(let i=0;i<dustCount;i++){dustPos[i*3]=(Math.random()-.5)*18;dustPos[i*3+1]=Math.random()*9;dustPos[i*3+2]=(Math.random()-.5)*14}
+dustGeo.setAttribute('position',new THREE.BufferAttribute(dustPos,3));
+const dust=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0xf0a830,size:.025,transparent:true,opacity:.55}));scene.add(dust);
+
+const targets={
+  exterior:{pos:new THREE.Vector3(8.4,6.8,11.5),look:new THREE.Vector3(0,2.7,0)},
+  aguja:{pos:new THREE.Vector3(1.6,4.92,6.25),look:new THREE.Vector3(0,4.52,-.05)},
+  p1:{pos:new THREE.Vector3(1.6,3.92,6.25),look:new THREE.Vector3(0,3.52,-.05)},
+  p2:{pos:new THREE.Vector3(1.6,2.92,6.25),look:new THREE.Vector3(0,2.52,-.05)},
+  cripta:{pos:new THREE.Vector3(1.6,1.92,6.25),look:new THREE.Vector3(0,1.52,-.05)},
+  kernel:{pos:new THREE.Vector3(1.6,.92,6.25),look:new THREE.Vector3(0,.52,-.05)}
+};
+let active='exterior',flight=null,facadeOpen=true;
+const transition=document.querySelector('#transition'),hint=document.querySelector('#hint');
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
+function goRoom(id,push=true){
+  if(!targets[id]||id===active)return;
+  const now=performance.now(),duration=reduceMotion?1:1250;
+  flight={fromPos:camera.position.clone(),fromLook:controls.target.clone(),toPos:targets[id].pos.clone(),toLook:targets[id].look.clone(),start:now,duration};
+  active=id;controls.enabled=false;transition.classList.remove('flying');void transition.offsetWidth;transition.classList.add('flying');
+  const accent={exterior:'240,168,48',aguja:'240,168,48',p1:'85,214,232',p2:'214,67,184',cripta:'85,214,232',kernel:'121,214,162'}[id];
+  document.documentElement.style.setProperty('--accent',accent);
+  document.querySelectorAll('.room-btn').forEach(b=>b.classList.toggle('active',b.dataset.room===id));
+  document.querySelectorAll('.room-panel').forEach(p=>p.classList.toggle('active',p.dataset.panel===id));
+  hint.textContent=id==='exterior'?'arrastra para orbitar · click en una puerta para entrar':'ESC para salir · mapa para viajar sin recargar';
+  facadeParts.forEach(f=>{f.visible=id==='exterior'&&!facadeOpen?true:id==='exterior'});
+  portals.forEach(p=>p.visible=id==='exterior');
+  if(push)history.replaceState(null,'',`#${id}`);
+  document.querySelector('#castle-map').classList.remove('open');document.querySelector('.map-toggle').setAttribute('aria-expanded','false');
+}
+document.querySelectorAll('[data-room],[data-go]').forEach(el=>el.addEventListener('click',()=>goRoom(el.dataset.room||el.dataset.go)));
+document.querySelector('.map-toggle').addEventListener('click',e=>{const map=document.querySelector('#castle-map');map.classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',String(map.classList.contains('open')))});
+document.querySelector('#toggle-cutaway').addEventListener('click',()=>{facadeOpen=!facadeOpen;facadeParts.forEach(f=>f.visible=!facadeOpen)});
+
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(active!=='exterior'||Math.abs(e.movementX)>4||Math.abs(e.movementY)>4)return;
+  pointer.x=e.clientX/innerWidth*2-1;pointer.y=-(e.clientY/innerHeight)*2+1;raycaster.setFromCamera(pointer,camera);
+  const hit=raycaster.intersectObjects(portals,false)[0];if(hit)goRoom(hit.object.userData.room);
+});
+addEventListener('keydown',e=>{
+  if(e.key==='Escape')goRoom('exterior');
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){const ids=['aguja','p1','p2','cripta','kernel'];let i=ids.indexOf(active);i=e.key==='ArrowDown'?Math.min(ids.length-1,i+1):Math.max(0,i-1);goRoom(ids[i<0?0:i])}
+});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+
+// Start only after every room, mesh and texture already exists.
+document.querySelector(`.room-panel[data-panel="exterior"]`).classList.add('active');
+const initial=location.hash.slice(1);if(targets[initial]&&initial!=='exterior')setTimeout(()=>goRoom(initial,false),500);
+window.__hiveWorld={scene,camera,renderer,castle,rooms:roomGroups,portals,goRoom,get activeRoom(){return active},get assetsReady(){return document.querySelector('#preloader').classList.contains('done')}};
+window.__hiveCapture=()=>renderer.domElement.toDataURL('image/png');
+function animate(now){
+  requestAnimationFrame(animate);
+  if(flight){
+    const t=Math.min(1,(now-flight.start)/flight.duration),k=ease(t);
+    camera.position.lerpVectors(flight.fromPos,flight.toPos,k);controls.target.lerpVectors(flight.fromLook,flight.toLook,k);
+    if(t>=1){flight=null;controls.enabled=active==='exterior';transition.classList.remove('flying')}
+  }
+  if(active==='exterior'&&!flight)controls.update();
+  castle.traverse(o=>{if(o.userData.spin)o.rotation.y+=o.userData.spin*.008});
+  beacon.rotation.y+=.008;if(!reduceMotion){dust.rotation.y+=.00035;key.position.x=Math.sin(now*.00022)*5}
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
