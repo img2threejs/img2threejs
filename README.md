@@ -244,6 +244,9 @@ npx --yes img2-environment install --yes
 That installer has its own SDK pin and may retain older CLI presentation.
 For lifecycle and trust details, read the [harness usage guide](https://github.com/img2threejs/img2#quickstart).
 To write a plugin, follow [WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
+For what a run in this repository actually sees once plugins are installed — which plugins the
+active `$IMG2_HOME` registers, how `domain.json` reaches the checklist, plugin gates, host skills,
+and the profile-missing failure modes — read [docs/PLUGINS.md](docs/PLUGINS.md).
 
 ### 4. Run a reconstruction in your agent
 

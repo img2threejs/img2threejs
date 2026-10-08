@@ -39,7 +39,48 @@ The user attaches/points to an object image and wants a procedural Three.js mode
 reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
 action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
 
+## Preflight: check and install the plugin surface (before any work)
+
+Domain knowledge — CS2 skin families and finishes, animation readiness, emission targets — lives in
+installed plugins, not in this checkout, so what a run can reach is decided *before* its first
+script runs. Do this preflight at the start of every reconstruction, and again after any
+environment change: a profile discovered missing after the spec is authored costs the spec.
+
+```bash
+img2 --version --json     # harness present? prints harness, coreApi, contract, commands[]
+img2 list                 # what the ACTIVE $IMG2_HOME has registered
+img2 doctor               # fail-loud static audit — must be clean before you build on it
+python3 forge/state.py init --help | grep profile   # the profiles this environment can start
+```
+
+- `$IMG2_HOME` decides what a run sees (default `~/.img2`), and composition is the registry at
+  `$IMG2_HOME/plugins.json` — this pipeline reads that registry, never a glob of `plugins/`. On a
+  machine with more than one home, a plugin installed into the inactive one is linked, audited, and
+  contributes **nothing** to the run: `img2 list` and the `--profile` choices are the two answers
+  that matter, and they must agree.
+- When a domain plugin serves the item (a CS2 weapon skin, an animated character), **install it and
+  confirm its profile appears before starting** — never downgrade the run to `generic` behind the
+  user's back, and never vendor the domain logic into this checkout:
+
+  ```bash
+  img2 add cs2 --yes                      # short id — harness CLI >= 0.4.0, `img2 plugins` lists the catalog
+  img2 add img2threejs/plugin-cs2         # the org/repo form works on any harness version
+  img2 doctor && img2 sync --check
+  ```
+
+  `--link <path>` symlinks a local checkout instead of cloning (plugin development); `--ref <tag>`
+  pins something other than the newest tag. Check the version first — `img2 plugins` and short ids
+  do not exist before CLI 0.4.0, and the `img2threejs/plugin-<id>` form is the portable one.
+- Then read what the profile's own steps name, completely, at the moment you reach them: the
+  plugin's `SKILL.md` and the contract each step points at are the authority for that domain's
+  steps, gates and reference material, exactly as they are for `character`.
+- Still no provider for a profile you need, and the failure modes around it:
+  [`docs/PLUGINS.md`](docs/PLUGINS.md).
+
 ## Core Promise
+
+**Step zero is the plugin preflight above** — the domain a run needs must be installed and
+registered in the `$IMG2_HOME` this environment uses before anything else.
 
 Sculpt from a photo, in order — never one-shot a mesh:
 1. **Run `python3 forge/next.py --state .img2threejs/state.json [<spec>]` first**, at every start,
@@ -380,13 +421,21 @@ infer the shape from the reference, as for any other object.
   blocked run: it is the generic path, and the reconstruction proceeds by inference.
 - This pipeline names no domain. If a rule is domain-specific, it lives in that domain's plugin.
 
+### Domain plugin flows
+Domain plugins (CS2, animated-character, etc.) add mandatory setup steps and blocking gates. Steps and paths are plugin-specific — do not improvise. Key flows:
+- **CS2 plugin** (`plugin-cs2`): setup steps `cs2-contract-read → cs2-authoritative-classification → cs2-manifest → cs2-spec-augmentation → solve_camera_pose → bake_projected_texture → cs2-review` (blocking). See the plugin's own `docs/cs2/review-gates.md`.
+- **img2 harness**: `img2 add img2threejs/plugin-<id> --ref <tag>` to install, `img2 capabilities` to discover, `img2 doctor` to resolve.
+- **Installing and using plugins end to end** — what a run sees, how `domain.json` reaches this checklist, plugin gates, host linking, troubleshooting: [`docs/PLUGINS.md`](docs/PLUGINS.md).
+
 ### The img2 harness
 
 Plugins are installed and managed by the `img2` harness
 ([img2threejs/img2](https://github.com/img2threejs/img2)), a separate dependency-free CLI (Node
 launcher, Python core). This skill
-never installs anything itself: when `state.py init` names a profile as unavailable, name the
-`img2 add` command that installs it and stop — never vendor domain logic instead.
+vendors no domain logic and never writes a substitute for it: **installing and checking plugins is
+the preflight above — part of starting a run, not a reason to stop.** A profile that is missing is
+a setup gap to close with `img2 add` (or a `$IMG2_HOME` to correct); only a plugin that genuinely
+does not exist upstream is a blocker to report.
 
 ```bash
 img2 add img2threejs/plugin-<id> --ref <tag>      # install a plugin at a tag (e.g. plugin-cs2)
