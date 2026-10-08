@@ -15,9 +15,10 @@ subsequently be *exported* to; an explicitly-selected emission target (`--target
 terminal, whole-artifact transform of the already-built model, verified to its own stated limit,
 never a second way to build one.
 
-Agent-agnostic: works under Claude Code, Codex, or OpenCode. Wherever this doc says "agent
-vision" or "agent browser tool", use whatever the host provides — native image reading, a
-browser MCP (playwright/chrome-devtools), the project preview, or a user-supplied screenshot.
+Agent-agnostic: works under Hermes, Claude Code, Codex, or OpenCode — the four hosts the installer
+sets up (`docs/INSTALL.md`). Wherever this doc says "agent vision" or "agent browser tool", use
+whatever the host provides — native image reading, a browser MCP (playwright/chrome-devtools), the
+project preview, or a user-supplied screenshot.
 
 This file is the always-loaded router: it holds the order of operations and every hard rule as one
 line. The full contract behind each rule lives in the `grimoire/` or `docs/` file that rule names —
