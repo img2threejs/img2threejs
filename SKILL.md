@@ -25,13 +25,19 @@ read the named file at the moment you reach that stage, not before.
 
 ## Canonical shared checkout
 
-Keep one checkout of this repository and let every host enter it through a symlink, so Claude and
-Codex execute the same code instead of drifting apart:
+Keep one checkout of this repository and let every host enter it through a symlink, so the hosts
+execute the same code instead of drifting apart. The installer does this for the hosts it detects —
+`hermes`, `claude`, `codex`, `opencode` — and a manual install symlinks the same entry per host:
 
 ```text
-~/.claude/skills/img2threejs -> <your checkout>
-~/.codex/skills/img2threejs  -> <your checkout>
+~/.hermes/skills/img2threejs          -> <your checkout>
+~/.claude/skills/img2threejs          -> <your checkout>
+~/.codex/skills/img2threejs           -> <your checkout>
+~/.config/opencode/skills/img2threejs -> <your checkout>
 ```
+
+Install and verify runbook (which CLI does what, expected output, troubleshooting):
+[`docs/INSTALL.md`](docs/INSTALL.md).
 
 ## When To Use
 
