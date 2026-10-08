@@ -82,7 +82,7 @@ The gallery source lives in [img2threejs/img2threejs-showcase](https://github.co
 
 You give it one reference image of an object. It produces a `THREE.Group` factory written in TypeScript that recreates that object from primitives, procedural shaders, and generated geometry — with a runtime hierarchy (pivots, sockets, colliders) so the result is ready to animate, not an inert lump.
 
-It runs under Claude Code, Codex, or OpenCode. It is agent-agnostic: wherever the docs say "agent vision" or "agent browser tool", it uses whatever the host provides — native image reading, a browser MCP, the project preview, or a user-supplied screenshot.
+It runs under Hermes, Claude Code, Codex, or OpenCode. It is agent-agnostic: wherever the docs say "agent vision" or "agent browser tool", it uses whatever the host provides — native image reading, a browser MCP, the project preview, or a user-supplied screenshot.
 
 ### Subjects and detail accuracy
 
@@ -176,6 +176,9 @@ You can also install the CLI globally with `npm install -g img2threejs`, then ru
 `node bin/img2threejs.mjs install --dry-run`; see [CONTRIBUTING.md](CONTRIBUTING.md)
 for packaging and publication checks.
 
+The same procedure as a runbook — expected output at each step, the two-CLI distinction, and the
+failure modes — is [`docs/INSTALL.md`](docs/INSTALL.md).
+
 ### 2. Install the plugin harness, if needed
 
 Use harness CLI **0.4.0 or newer** for short plugin IDs:
@@ -202,6 +205,10 @@ older launcher are not automatically upgraded by running `install` again.
 
 The first `--yes` in the harness install command belongs to npx; the final one skips
 the harness consent prompt. Neither permits replacing an existing plugin.
+
+After that, what an agent actually sees — which plugins this `$IMG2_HOME` registers, how a plugin's
+`domain.json` reaches the checklist, plugin gates, and host-skill linking — is
+[`docs/PLUGINS.md`](docs/PLUGINS.md).
 
 ### 3. Choose plugins — do not install everything by default
 
@@ -244,6 +251,9 @@ npx --yes img2-environment install --yes
 That installer has its own SDK pin and may retain older CLI presentation.
 For lifecycle and trust details, read the [harness usage guide](https://github.com/img2threejs/img2#quickstart).
 To write a plugin, follow [WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
+For what a run in this repository actually sees once plugins are installed — which plugins the
+active `$IMG2_HOME` registers, how `domain.json` reaches the checklist, plugin gates, host skills,
+and the profile-missing failure modes — read [docs/PLUGINS.md](docs/PLUGINS.md).
 
 ### 4. Run a reconstruction in your agent
 
