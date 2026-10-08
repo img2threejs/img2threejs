@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "video",
+    "sourceHashSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "width": 640,
+    "height": 480,
+    "fps": 30.0,
+    "frameCount": 3,
+    "intervalSeconds": [1.0, 1.0666666667],
+    "decodePolicy": "original-resolution-no-resample",
+    "requestedCoverage": "every-frame",
+    "analysisCoverage": "every-frame",
+    "bootstrapReferenceFrame": {
+      "timestampSeconds": 1.0333333333,
+      "selectionRule": "interval-midpoint",
+      "reason": "Nearest native frame to the requested interval midpoint."
+    },
+    "viewCount": 1,
+    "colorSpace": "sRGB",
+    "transferFunction": "sRGB EOTF to linear-light RGB",
+    "measurementRoi": {
+      "x": 160,
+      "y": 40,
+      "width": 320,
+      "height": 320
+    }
+  },
+  "systems": [
+    {
+      "id": "camera-registration",
+      "class": "camera",
+      "observedFeature": "projected boundary center and scale"
+    },
+    {
+      "id": "orb-boundary",
+      "class": "silhouette",
+      "observedFeature": "ellipse boundary"
+    },
+    {
+      "id": "cyan-key",
+      "class": "lighting",
+      "observedFeature": "cyan highlight centroid"
+    },
+    {
+      "id": "silver-rim",
+      "class": "lighting",
+      "observedFeature": "broad neutral environment strip"
+    },
+    {
+      "id": "bottom-dots",
+      "class": "overlay",
+      "observedFeature": "fixed dotted arc"
+    }
+  ],
+  "frames": [
+    {
+      "index": 0,
+      "timestampSeconds": 1.0,
+      "observed": {
+        "features": [
+          {
+            "systemId": "camera-registration",
+            "featureId": "ellipse-center",
+            "sourcePoints": [[320.0, 210.0]],
+            "confidence": 0.96,
+            "fitResidualPx": 0.9,
+            "measurements": { "radiusX": 148.0, "radiusY": 158.0 }
+          },
+          {
+            "systemId": "orb-boundary",
+            "featureId": "cardinal-contour-points",
+            "sourcePoints": [[172.0, 210.0], [320.0, 52.0], [468.0, 210.0], [320.0, 368.0]],
+            "confidence": 0.94,
+            "fitResidualPx": 0.9
+          },
+          {
+            "systemId": "cyan-key",
+            "featureId": "highlight-centroid",
+            "sourcePoints": [[316.0, 91.0]],
+            "confidence": 0.91,
+            "measurements": { "linearLuminance": 0.48, "softnessRadiusPx": 2.1 }
+          }
+        ]
+      },
+      "inferred": {
+        "properties": [
+          {
+            "systemId": "cyan-key",
+            "property": "light-direction-camera",
+            "value": [-0.08, 0.71, 0.70],
+            "units": "unit-vector",
+            "confidence": 0.35,
+            "assumptions": ["unit sphere", "orthographic view vector", "mirror-like point highlight"]
+          }
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "timestampSeconds": 1.0333333333,
+      "observed": {
+        "features": [
+          {
+            "systemId": "camera-registration",
+            "featureId": "ellipse-center",
+            "sourcePoints": [[319.0, 210.0]],
+            "confidence": 0.96,
+            "fitResidualPx": 0.8,
+            "measurements": { "radiusX": 148.0, "radiusY": 158.0 }
+          },
+          {
+            "systemId": "orb-boundary",
+            "featureId": "cardinal-contour-points",
+            "sourcePoints": [[171.0, 210.0], [319.0, 52.0], [467.0, 210.0], [319.0, 368.0]],
+            "confidence": 0.94,
+            "fitResidualPx": 0.8
+          },
+          {
+            "systemId": "cyan-key",
+            "featureId": "highlight-centroid",
+            "sourcePoints": [[313.0, 91.0]],
+            "confidence": 0.92,
+            "measurements": { "linearLuminance": 0.51, "softnessRadiusPx": 2.0 }
+          }
+        ]
+      },
+      "inferred": {
+        "properties": [
+          {
+            "systemId": "cyan-key",
+            "property": "light-direction-camera",
+            "value": [-0.11, 0.70, 0.70],
+            "units": "unit-vector",
+            "confidence": 0.36,
+            "assumptions": ["unit sphere", "orthographic view vector", "mirror-like point highlight"]
+          }
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "timestampSeconds": 1.0666666667,
+      "observed": {
+        "features": [
+          {
+            "systemId": "camera-registration",
+            "featureId": "ellipse-center",
+            "sourcePoints": [[318.0, 210.0]],
+            "confidence": 0.96,
+            "fitResidualPx": 0.8,
+            "measurements": { "radiusX": 148.0, "radiusY": 158.0 }
+          },
+          {
+            "systemId": "orb-boundary",
+            "featureId": "cardinal-contour-points",
+            "sourcePoints": [[170.0, 210.0], [318.0, 52.0], [466.0, 210.0], [318.0, 368.0]],
+            "confidence": 0.94,
+            "fitResidualPx": 0.8
+          },
+          {
+            "systemId": "cyan-key",
+            "featureId": "highlight-centroid",
+            "sourcePoints": [[310.0, 91.0]],
+            "confidence": 0.92,
+            "measurements": { "linearLuminance": 0.53, "softnessRadiusPx": 1.9 }
+          }
+        ]
+      },
+      "inferred": {
+        "properties": [
+          {
+            "systemId": "cyan-key",
+            "property": "light-direction-camera",
+            "value": [-0.14, 0.70, 0.70],
+            "units": "unit-vector",
+            "confidence": 0.36,
+            "assumptions": ["unit sphere", "orthographic view vector", "mirror-like point highlight"]
+          }
+        ]
+      }
+    }
+  ],
+  "intervals": [
+    {
+      "id": "stable-glass",
+      "classification": "stable",
+      "startSeconds": 1.0,
+      "endSeconds": 1.0666666667,
+      "notes": "Boundary remains stable while the cyan key moves left."
+    }
+  ],
+  "comparison": {
+    "status": "complete",
+    "referenceFeatureId": "cyan-key:highlight-centroid",
+    "renderFeatureId": "orb-material:broad-upper-highlight",
+    "featureEquivalent": false,
+    "classification": "proxy",
+    "synchronizedTimes": true,
+    "cameraMatched": true,
+    "metrics": [
+      { "name": "direction-angular-rmse", "value": 88.4, "units": "degrees" }
+    ],
+    "metricInterpretation": "Structural direction mismatch proxy; the render lacks an isolated cyan point-key equivalent."
+  },
+  "evidence": {
+    "contactSheet": {
+      "path": "evidence/contact-sheet.png",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "annotatedKeyframes": {
+      "path": "evidence/annotated-keyframes.png",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  },
+  "preImplementationDecision": {
+    "action": "ready-for-implementation",
+    "reasons": [
+      "Every requested source frame was measured at original resolution.",
+      "Camera and cyan-key motion are separated in source coordinates."
+    ],
+    "unresolvedAmbiguities": [
+      "Single-view rough-glass inverse lighting is non-unique.",
+      "The current render has no like-for-like cyan point-key feature."
+    ]
+  },
+  "rootReviewDecision": {
+    "status": "complete",
+    "action": "refine-spec",
+    "reasons": [
+      "The current render lacks an equivalent isolated cyan point-key feature, so the temporal target must be corrected before code tuning."
+    ],
+    "unresolvedAmbiguities": [
+      "Single-view rough-glass inverse lighting remains non-unique."
+    ]
+  }
+}
