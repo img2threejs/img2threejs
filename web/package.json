@@ -1,0 +1,37 @@
+{
+  "name": "web",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.41.0",
+    "@pmndrs/vanilla": "^1.25.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vueuse/core": "^14.4.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "d3-contour": "^4.0.2",
+    "motion-v": "^2.4.1",
+    "nuxt": "^4.5.2",
+    "reka-ui": "^2.10.4",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "three": "^0.185.1",
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/d3-contour": "^3.0.6",
+    "@types/three": "^0.185.4",
+    "shadcn-nuxt": "^2.8.2",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.11"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
