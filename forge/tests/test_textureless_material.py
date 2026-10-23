@@ -150,6 +150,32 @@ class QualityBar(unittest.TestCase):
         self.assertTrue(any("textureless.evidence" in error for error in errors), errors)
 
 
+class MaterialPassGate(unittest.TestCase):
+    """The build gate must exempt a declared-textureless material exactly as the validator does.
+
+    Otherwise a spec that passes `--strict-quality` can never build `--pass-id material-pass`, and
+    the only way through is the dishonest `qualityTier: "utility"` relabel.
+    """
+
+    def test_a_declared_material_yields_no_material_pass_gaps(self):
+        from orchestrate_passes import material_pass_gaps
+
+        gaps = material_pass_gaps(quality_first_spec([base_material(textureless=DECLARED)]))
+        self.assertFalse([gap for gap in gaps if "vinyl-fur" in gap], gaps)
+
+    def test_an_undeclared_material_still_yields_material_pass_gaps(self):
+        """Negative control: the exemption is per-material, not global."""
+        from orchestrate_passes import material_pass_gaps
+
+        gaps = material_pass_gaps(quality_first_spec([
+            base_material(textureless=DECLARED),
+            base_material(id="painted-metal"),
+        ]))
+        self.assertFalse([gap for gap in gaps if "vinyl-fur" in gap], gaps)
+        self.assertTrue(any("'painted-metal' textureResolution must be >=" in gap for gap in gaps),
+                        gaps)
+
+
 class EmittedFactory(unittest.TestCase):
     """A declared-textureless material must not be given a synthesised texture set.
 

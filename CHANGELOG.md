@@ -20,6 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
 
+### Fixed
+
+- `orchestrate_passes.py` material-pass gate now exempts a declared `textureless` material from
+  the quality-first texture bar, exactly as `validate_sculpt_spec.py` already did. A spec that
+  passed `--strict-quality` could never build `material-pass` without the dishonest
+  `qualityTier: "utility"` relabel.
+- `self_intersection.py` no longer reports clean surface-net (implicit SDF) meshes as folded. Two
+  causes: without supplied normals it stepped samples away from the centroid, which points into
+  the solid on any non-star-shaped mesh (now: area-weighted face normals, oriented by signed
+  volume, reported as `normalSource: "faceNormals"`); and it masked triangles incident to the
+  sample, dropping a real entry crossing in concave creases. A clean fox build went from 295/1968
+  "inside" to 0.
+
 ## npm CLI 0.1.1 — 2026-10-07
 
 - Add tag-driven trusted publishing for independent `cli-vX.Y.Z` CLI releases.

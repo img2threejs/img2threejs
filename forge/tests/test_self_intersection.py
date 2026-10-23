@@ -102,6 +102,84 @@ def punch_through(
     return moved
 
 
+def surface_net(sdf, n: int = 16, bound: float = 1.1, with_normals: bool = True) -> dict:
+    """Naive surface nets over [-bound, bound]^3, mirroring the emitted `polygonizeSdf`.
+
+    One vertex per sign-changing cell at the mean of its edge crossings, one quad (split into two
+    triangles) per sign-changing grid edge, normals from the central-difference field gradient.
+    This is the mesh class -- smooth, closed, but with SDF-union creases and non-star-shaped
+    bodies -- that the gate used to reject on a clean fox build.
+    """
+    step = 2.0 * bound / n
+    corner = lambda i, j, k: (-bound + i * step, -bound + j * step, -bound + k * step)  # noqa: E731
+    field = {
+        (i, j, k): sdf(*corner(i, j, k))
+        for i in range(n + 1) for j in range(n + 1) for k in range(n + 1)
+    }
+    offsets = [(i, j, k) for i in (0, 1) for j in (0, 1) for k in (0, 1)]
+    cube_edges = [(a, b) for a in offsets for b in offsets if a < b and sum(abs(x - y) for x, y in zip(a, b)) == 1]
+    vertices: list[list[float]] = []
+    normals: list[list[float]] = []
+    cell_vertex: dict[tuple[int, int, int], int] = {}
+    g = step * 0.25
+    for cell in [(i, j, k) for i in range(n) for j in range(n) for k in range(n)]:
+        crossings = []
+        for a, b in cube_edges:
+            ca = tuple(c + o for c, o in zip(cell, a))
+            cb = tuple(c + o for c, o in zip(cell, b))
+            fa, fb = field[ca], field[cb]
+            if (fa <= 0) != (fb <= 0):
+                t = fa / (fa - fb)
+                pa, pb = corner(*ca), corner(*cb)
+                crossings.append([pa[x] + t * (pb[x] - pa[x]) for x in range(3)])
+        if crossings:
+            cell_vertex[cell] = len(vertices)
+            point = [sum(c[x] for c in crossings) / len(crossings) for x in range(3)]
+            vertices.append(point)
+            grad = [
+                sdf(*[point[y] + (g if y == x else 0.0) for y in range(3)])
+                - sdf(*[point[y] - (g if y == x else 0.0) for y in range(3)])
+                for x in range(3)
+            ]
+            length = sum(c * c for c in grad) ** 0.5 or 1.0
+            normals.append([c / length for c in grad])
+    indices: list[int] = []
+    for axis in range(3):
+        u, v = (axis + 1) % 3, (axis + 2) % 3
+        for start, value in field.items():
+            if start[axis] >= n or not (1 <= start[u] <= n - 1 and 1 <= start[v] <= n - 1):
+                continue
+            end = list(start)
+            end[axis] += 1
+            if (value <= 0) == (field[tuple(end)] <= 0):
+                continue
+            quad = []
+            for du, dv in ((-1, -1), (0, -1), (0, 0), (-1, 0)):
+                around = list(start)
+                around[u] += du
+                around[v] += dv
+                quad.append(cell_vertex[tuple(around)])
+            if value > 0:
+                quad.reverse()
+            indices += [quad[0], quad[1], quad[2], quad[0], quad[2], quad[3]]
+    mesh = {"vertices": vertices, "indices": indices}
+    if with_normals:
+        mesh["normals"] = normals
+    return mesh
+
+
+def torus_sdf(x: float, y: float, z: float) -> float:
+    """Not star-shaped: from the centroid, the inner ring's outward direction points into the tube."""
+    return (((x * x + z * z) ** 0.5 - 0.65) ** 2 + y * y) ** 0.5 - 0.25
+
+
+def crease_sdf(x: float, y: float, z: float) -> float:
+    """A hard SDF union (min) of two spheres: the concave crease where they meet."""
+    a = ((x + 0.3) ** 2 + y * y + z * z) ** 0.5 - 0.5
+    b = ((x - 0.3) ** 2 + (y - 0.1) ** 2 + (z - 0.05) ** 2) ** 0.5 - 0.35
+    return min(a, b)
+
+
 class CleanMesh(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -132,9 +210,10 @@ class CleanMesh(unittest.TestCase):
         self.assertEqual(result["normalFallbackCount"], 0)
         self.assertFalse(result["selfIntersecting"])
 
-    def test_centroid_fallback_is_reported_when_normals_absent(self) -> None:
+    def test_face_normals_are_derived_when_normals_absent(self) -> None:
         result = analyze_mesh({"vertices": self.vertices, "indices": self.indices})
-        self.assertEqual(result["normalSource"], "centroid")
+        self.assertEqual(result["normalSource"], "faceNormals")
+        self.assertEqual(result["normalFallbackCount"], 0)
 
     def test_wrong_length_normals_fall_back_rather_than_trusting_them(self) -> None:
         result = analyze_mesh({
@@ -142,8 +221,15 @@ class CleanMesh(unittest.TestCase):
             "indices": self.indices,
             "normals": [[0.0, 0.0, 1.0]],
         })
-        self.assertEqual(result["normalSource"], "centroid")
+        self.assertEqual(result["normalSource"], "faceNormals")
         self.assertFalse(result["selfIntersecting"])
+
+    def test_inward_wound_mesh_without_normals_is_still_clean(self) -> None:
+        # Derived normals follow the winding, so an inward-wound mesh must be re-oriented by its
+        # signed volume, or every sample is stepped inward and the whole mesh reads as folded.
+        flipped = [index for i in range(0, len(self.indices), 3) for index in self.indices[i:i + 3][::-1]]
+        result = analyze_mesh({"vertices": self.vertices, "indices": flipped})
+        self.assertFalse(result["selfIntersecting"], result["worstRegions"])
 
     def test_epsilon_scales_with_the_model(self) -> None:
         big = [[value * 1000.0 for value in vertex] for vertex in self.vertices]
@@ -210,6 +296,37 @@ class SelfIntersectionRegression(unittest.TestCase):
         by_name = {report["name"]: report for report in result["meshes"]}
         self.assertFalse(by_name["clean"]["selfIntersecting"])
         self.assertTrue(by_name["punched"]["selfIntersecting"])
+
+
+class SurfaceNetFalsePositives(unittest.TestCase):
+    """Regression: a clean surface-net fox build read 295/1968 samples "inside"; a generalized
+    winding number found 0. Two independent causes, one test each.
+    """
+
+    def test_non_star_shaped_mesh_without_normals_is_clean(self) -> None:
+        # Cause 1: with no supplied normals the gate stepped each vertex away from the CENTROID.
+        # On a torus (or a cape shell, a curled tail) that direction points into the solid for the
+        # whole inner side, so ~a quarter of the samples were stepped inside and flagged.
+        result = analyze_mesh(surface_net(torus_sdf, with_normals=False))
+        self.assertFalse(result["selfIntersecting"], result["worstRegions"])
+
+    def test_concave_union_crease_is_clean(self) -> None:
+        # Cause 2: the gate masked every triangle incident to the sample vertex. In a concave
+        # crease a ray from just above the surface legitimately ENTERS through one of those
+        # triangles; masking it dropped the entry, kept the exit, and flipped the parity. The
+        # gradient normals here are exact, so this fails on masking alone.
+        result = analyze_mesh(surface_net(crease_sdf, n=20))
+        self.assertEqual(result["normalSource"], "vertexNormals")
+        self.assertFalse(result["selfIntersecting"], result["worstRegions"])
+
+    def test_a_punched_surface_net_is_still_caught(self) -> None:
+        # Negative control: the fixes remove false positives, not the gate's sight. Push the top
+        # of the tube (0.5 thick) down 0.6, through and out of its own underside.
+        mesh = surface_net(torus_sdf, with_normals=False)
+        mesh["vertices"] = [
+            [x, y - 0.6, z] if y > 0.15 else [x, y, z] for x, y, z in mesh["vertices"]
+        ]
+        self.assertTrue(analyze_mesh(mesh)["selfIntersecting"])
 
 
 class ParityIsReal(unittest.TestCase):

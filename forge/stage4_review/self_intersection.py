@@ -235,7 +235,6 @@ def _count_crossings(
     direction: Vector3,
     grid: _DirectionGrid,
     prepared: list[tuple[float, ...]],
-    excluded: set[int],
     t_min: float,
 ) -> tuple[int, bool]:
     """Möller-Trumbore parity count. Returns (crossings, reliable).
@@ -244,13 +243,16 @@ def _count_crossings(
     determinant cannot be trusted, or a hit lands on a triangle edge where it belongs equally to two
     triangles. Those cases are handed back to the caller as undecided; they are never rounded into a
     verdict.
+
+    Every triangle is counted, including the ones meeting at the sample's own vertex. The sample
+    point sits `epsilon` off the surface, so a hit on its own neighbourhood is a real crossing: in a
+    concave crease a ray legitimately enters through an incident triangle, and masking that entry
+    while counting the matching exit flipped the parity on clean surface-net unions.
     """
     ox, oy, oz = origin
     dx, dy, dz = direction
     crossings = 0
     for index in grid.candidates(origin):
-        if index in excluded:
-            continue
         (ax, ay, az, e1x, e1y, e1z, e2x, e2y, e2z, normal_length) = prepared[index]
         px = dy * e2z - dz * e2y
         py = dz * e2x - dx * e2z
@@ -319,7 +321,8 @@ def analyze_mesh(
 
     `mesh` takes the same shape `geometry_integrity` uses:
     `{"vertices": [[x, y, z], ...], "indices": [...] or [[a, b, c], ...],
-      "normals": [[x, y, z], ...] (optional), "name": str (optional)}`.
+      "normals": [[x, y, z], ...] (optional), "name": str (optional)}`. Without `normals`, each
+    sample steps along its area-weighted face normal, oriented outward by the mesh's signed volume.
 
     `epsilon` is the distance the sample point is stepped along its outward direction. It defaults
     to `EPSILON_BBOX_FRACTION` of the bounding-box diagonal so it scales with the model instead of
@@ -353,6 +356,12 @@ def analyze_mesh(
     # floating-point noise rather than through a real second surface.
     t_min = offset * 1e-3
 
+    # Weld by rounded position rather than by index so that a seam-duplicated vertex gets the
+    # normal of the whole surface around it, not of one side of the seam.
+    keys = [tuple(round(value, WELD_PRECISION) for value in vertex) for vertex in vertices]
+    face_normal_sums: dict[tuple[float, ...], list[float]] = {}
+    signed_volume = 0.0
+
     prepared: list[tuple[float, ...]] = []
     live: list[tuple[int, int, int]] = []
     degenerate = 0
@@ -373,33 +382,31 @@ def analyze_mesh(
             continue
         prepared.append((pa[0], pa[1], pa[2], *e1, *e2, normal_length))
         live.append((a, b, c))
+        # The unnormalised cross product is area-weighted for free; pa . (e1 x e2) is 6x the signed
+        # volume this face contributes, which says whether the winding faces out or in.
+        signed_volume += pa[0] * cross[0] + pa[1] * cross[1] + pa[2] * cross[2]
+        for corner in (a, b, c):
+            total = face_normal_sums.setdefault(keys[corner], [0.0, 0.0, 0.0])
+            total[0] += cross[0]
+            total[1] += cross[1]
+            total[2] += cross[2]
     if not live:
         return _error_result(name, "mesh has no non-degenerate triangles", vertex_count)
+    # Known limit: one global orientation. A mesh whose components are wound opposite ways would
+    # need per-component signed volumes.
+    orientation = -1.0 if signed_volume < 0.0 else 1.0
 
     # Fixed stride, never random: the same mesh must produce the same sample set every run.
     stride = max(1, -(-vertex_count // max(1, int(max_samples))))
     sampled = list(range(0, vertex_count, stride))
 
+    # Without supplied normals the outward direction comes from the triangles themselves. It used
+    # to be "away from the centroid", which is only outward on a star-shaped mesh: on a torus, a cape
+    # shell or a curled tail it points INTO the solid for the whole inner side, and every such sample
+    # was stepped inside and reported as a fold.
     normals = mesh.get("normals")
     use_supplied_normals = isinstance(normals, list) and len(normals) == vertex_count
-    normal_source = "vertexNormals" if use_supplied_normals else "centroid"
-    centroid = (
-        sum(vertex[0] for vertex in vertices) / vertex_count,
-        sum(vertex[1] for vertex in vertices) / vertex_count,
-        sum(vertex[2] for vertex in vertices) / vertex_count,
-    )
-
-    # Weld by rounded position rather than by index so that a seam-duplicated vertex sharing a
-    # position still masks the triangles that meet there. Without this, the surface the sample sits
-    # on gets counted as a crossing and every seam vertex reads as a false positive.
-    keys = [tuple(round(value, WELD_PRECISION) for value in vertex) for vertex in vertices]
-    sampled_keys = {keys[index] for index in sampled}
-    incident: dict[tuple[float, ...], set[int]] = {key: set() for key in sampled_keys}
-    for triangle_index, triangle in enumerate(live):
-        for corner in triangle:
-            bucket = incident.get(keys[corner])
-            if bucket is not None:
-                bucket.add(triangle_index)
+    normal_source = "vertexNormals" if use_supplied_normals else "faceNormals"
 
     grids = [_DirectionGrid(direction, vertices, live) for direction in RAY_DIRECTIONS]
 
@@ -419,13 +426,15 @@ def analyze_mesh(
                 # A zero-length or malformed normal on one vertex is not a reason to abandon the
                 # good normals on every other vertex; fall back for this vertex and say how often.
                 normal_fallbacks += 1
-            outward = _normalize((
-                vertex[0] - centroid[0],
-                vertex[1] - centroid[1],
-                vertex[2] - centroid[2],
-            ))
+            summed = face_normal_sums.get(keys[vertex_index])
+            if summed is not None:
+                outward = _normalize((
+                    summed[0] * orientation,
+                    summed[1] * orientation,
+                    summed[2] * orientation,
+                ))
         if outward is None:
-            # A vertex sitting exactly on the centroid has no outward direction to step along.
+            # Touched by no live triangle, or its faces cancel out: there is no outward side.
             undecided += 1
             continue
         origin = (
@@ -433,7 +442,6 @@ def analyze_mesh(
             vertex[1] + outward[1] * offset,
             vertex[2] + outward[2] * offset,
         )
-        excluded = incident[keys[vertex_index]]
         votes: list[bool] = []
         reliable = True
         for direction, grid in zip(RAY_DIRECTIONS, grids):
@@ -442,10 +450,10 @@ def analyze_mesh(
                 reliable = False
                 break
             # Cast into the outward hemisphere. An inward ray from a point that is legitimately
-            # just outside the surface re-crosses that same surface immediately, on triangles this
-            # pass has masked out, and the missing crossing flips the parity to a false positive.
+            # just outside the surface re-crosses that same surface within a few epsilon of the
+            # sample vertex, where hits crowd onto shared edges and the sample goes undecided.
             ray = direction if alignment > 0.0 else (-direction[0], -direction[1], -direction[2])
-            crossings, ok = _count_crossings(origin, ray, grid, prepared, excluded, t_min)
+            crossings, ok = _count_crossings(origin, ray, grid, prepared, t_min)
             if not ok:
                 reliable = False
                 break

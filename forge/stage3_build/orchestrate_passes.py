@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage2_spec"))
 from feature_acceptance_policy import feature_gate_failures
 from status_banner import emit_status
+from validate_sculpt_spec import is_textureless
 
 
 DEFAULT_PASS_ORDER = [
@@ -408,7 +410,9 @@ def material_pass_gaps(spec: dict[str, Any]) -> list[str]:
                 gaps.append("materialGate.passed must be true after crop/render comparison")
     if quality_first_enabled(spec):
         for material in materials:
-            if material.get("qualityTier") == "utility":
+            # Same exemptions as validate_look_dev_targets, or a spec that passes --strict-quality
+            # can never build material-pass.
+            if material.get("qualityTier") == "utility" or is_textureless(material):
                 continue
             gaps.extend(quality_first_material_gaps(spec, material))
     return gaps
