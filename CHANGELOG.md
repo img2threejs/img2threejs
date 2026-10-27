@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The seam is hardened: pass-id enforcement at the validation site, the inbound base-to-plugin
   import is broken, and the contract gains a clause forbidding the base from importing plugin
   code.
+- Rig domains get a base-owned post-rig plugin-gate sweep after their declared `rigSteps`, so
+  rig-aware participation can avoid the premature FINAL sweep without leaving completed rig gates
+  unenforced. Existing persisted checklists are unchanged; re-init to adopt the new row.
 - Acceptance rule: the character build keeps emitting the same Three.js output for the same
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
