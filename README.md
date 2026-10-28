@@ -251,7 +251,6 @@ Gates      Run --strict-quality, and do not advance a pass until the side-by-sid
 Useful additions depending on the subject:
 
 - **A specific person or character** — `Maximize likeness: fit the parametric template to the landmarks, de-light and camera-match the reference, then project it. Tell me which regions are inferred.`
-- **An animal or creature** — `This is a creature, not a humanoid — use the quadruped body plan and the body-unit proportion system.`
 - **A saturated anodized or candy finish** — `The coat is candy-coat, not gem-metal. Keep the hue; do not let the environment steal it.`
 - **A cost ceiling** — `Stay at low effort and skip the presentation composer; I only need the evaluation render.`
 
@@ -348,7 +347,7 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `_shared/chirality.py` | Left/right as an importable convention, with the two gates the two chirality defects need. |
 | `_shared/pipeline_routing.py` | Fail-closed weapon/character routing; low confidence resolves to `request-input`. |
 
-This is a curated selection — `forge/` holds around ninety modules. The executable reference with every flag is [`grimoire/scripts.md`](grimoire/scripts.md), and the gate-by-gate contract is [`grimoire/review/gates_reference.md`](grimoire/review/gates_reference.md). The rest of `grimoire/` holds the rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
+This is a curated selection — `forge/` holds over a hundred modules. The executable reference with every flag is [`grimoire/scripts.md`](grimoire/scripts.md), and the gate-by-gate contract is [`grimoire/review/gates_reference.md`](grimoire/review/gates_reference.md). The rest of `grimoire/` holds the rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
 
 ### Optional reference-fidelity tooling
 
@@ -394,8 +393,8 @@ For the script-by-script reference and the full list of output artifacts, see [d
 - **v1.3** — quality & efficiency: the Divine Eye deterministic review harness, input-integrity and geometry-truth gates, reference-grounded texture and gradient analysis, CIEDE2000 colour math.
 - **v1.4 — The Weapon Update** — CS2 image-matched reconstruction: provenance-aware intake, projection-first finishes, family-specific weapon adapters, and structural review gates.
 - **v1.4.1** — CS2 hardening: explicit component coverage, a dedicated Glock-18 assembly contract, map-stripped blockout evidence, and stricter geometry-integrity checks.
-- **creature generator** — 4 body plans (quadruped / avian / winged-dragon / serpentine), `animalAnatomy` spec, spine-loft geometry, ΔE00 colour gates.
 - **v1.5 — The Character Update** — a skeleton derived from the component tree and bound to `SkinnedMesh` geometry, geodesic skinning, hair as a five-stage subsystem with a hard scalp-exposure gate, chirality gates, interior-difference review, the `tapered-sweep` primitive, the material pipeline with a blocking acceptance gate, and resumable workflow state. Not included: the `hairProfile` compiler, IK, pose-sweep gating, clothing.
+- **v1.5.2** — character rigging and animation: clip measurement vocabulary and classifier, corrected loop rule (poseReturn, not travel), proximity weight blending, topology-driven chain resolution, foot-contact gate, and the G1-G10 gate suite where an unmeasured gate reports `unevaluated` rather than a pass.
 - **v2.0 — The Plugin Update** — the domain registry, pull-based spec augmentation
   with raise-only quality floors, the emission-target socket with provenance, per-plugin blocking
   gates, and the img2 harness (`img2 install/add/doctor`). CS2 extracted into `plugin-cs2`,
