@@ -22,7 +22,7 @@ jobs:
   drift-warning:
     # Non-blocking: reports drift as a warning annotation, never fails the PR.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -40,7 +40,7 @@ jobs:
     # Actions may not create PRs in this repo, so drift is reported as an issue
     # (one open issue, updated in place); a maintainer runs --write and opens the PR.
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     permissions:
       contents: read
       issues: write
