@@ -1100,6 +1100,22 @@ class SnippetTest(unittest.TestCase):
         snippet = json.loads(result.stdout)["matches"][0]["snippets"][0]
         self.assertNotIn("...", snippet)
 
+    def test_search_specs_non_utf8_encoding_tolerance(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            cli = write_cli_fixture(Path(temporary_directory))
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "cp1252"
+            result = subprocess.run(
+                [sys.executable, str(cli), "--collection", "cs2", "roughness"],
+                cwd=temporary_directory,
+                env=env,
+                capture_output=True,
+                encoding="cp1252",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
