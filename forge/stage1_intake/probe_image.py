@@ -48,7 +48,7 @@ def jpeg_size(data: bytes) -> tuple[int, int] | None:
 
 
 def webp_size(data: bytes) -> tuple[int, int] | None:
-    if len(data) < 30 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+    if len(data) < 25 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
         return None
     chunk = data[12:16]
     if chunk == b"VP8X" and len(data) >= 30:
@@ -60,6 +60,12 @@ def webp_size(data: bytes) -> tuple[int, int] | None:
         if start != -1 and start + 7 <= len(data):
             width, height = struct.unpack("<HH", data[start + 3 : start + 7])
             return width & 0x3FFF, height & 0x3FFF
+    if chunk == b"VP8L" and len(data) >= 25:
+        if data[20] == 0x2F:
+            b0, b1, b2, b3 = data[21:25]
+            width = 1 + (((b1 & 0x3F) << 8) | b0)
+            height = 1 + (((b3 & 0x0F) << 10) | (b2 << 2) | ((b1 & 0xC0) >> 6))
+            return width, height
     return None
 
 
@@ -91,7 +97,12 @@ def tiff_size(data: bytes) -> tuple[int, int] | None:
             return None
         tag, value_type, count, raw_value = struct.unpack(f"{endian}HHII", data[cursor : cursor + 12])
         if value_type in {3, 4} and count == 1:
-            value = raw_value if value_type == 4 else raw_value & 0xFFFF
+            if value_type == 4:
+                value = raw_value
+            elif endian == ">":
+                value = (raw_value >> 16) & 0xFFFF
+            else:
+                value = raw_value & 0xFFFF
             if tag == 256:
                 width = value
             elif tag == 257:
