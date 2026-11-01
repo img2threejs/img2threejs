@@ -298,7 +298,7 @@ def scale_triple(component: dict[str, Any], transform: dict[str, Any]) -> tuple[
 
 
 def scale_vector(component: dict[str, Any], transform: dict[str, Any]) -> str:
-    if "scale" in transform:
+    if "scale" in transform and transform.get("scale") is not None:
         return vector(transform.get("scale"), [1, 1, 1])
     dimensions = component.get("dimensions")
     if isinstance(dimensions, dict):

@@ -240,5 +240,20 @@ class HierarchyScaleTest(unittest.TestCase):
         self.assertNotEqual(self.result["worldPosBefore"], self.result["worldPosAfter"])
 
 
+class ScaleVectorTest(unittest.TestCase):
+    def test_scale_vector_preserves_dimensions_when_transform_scale_is_absent(self) -> None:
+        original_path = sys.path[:]
+        sys.path[:0] = [str(ROOT / "stage2_spec"), str(ROOT / "stage3_build")]
+        try:
+            from generate_threejs_factory import scale_vector
+            component = {"dimensions": {"width": 0.52, "height": 0.22, "depth": 0.20}}
+            result = scale_vector(component, {})
+            self.assertIn("0.52", result)
+            self.assertIn("0.22", result)
+            self.assertIn("0.2", result)
+        finally:
+            sys.path[:] = original_path
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
