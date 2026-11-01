@@ -55,21 +55,34 @@ def to_grayscale_downsampled(
     if width <= 0 or height <= 0 or not pixels:
         return [[0.0] * size for _ in range(size)]
     out = [[0.0] * size for _ in range(size)]
-    counts = [[0] * size for _ in range(size)]
-    for idx, (r, g, b, _a) in enumerate(pixels):
-        x = idx % width
-        y = idx // width
-        if y >= height:
-            break
-        sx = min(size - 1, x * size // width)
-        sy = min(size - 1, y * size // height)
-        out[sy][sx] += 0.2126 * r + 0.7152 * g + 0.0722 * b
-        counts[sy][sx] += 1
+    if width >= size and height >= size:
+        counts = [[0] * size for _ in range(size)]
+        for idx, (r, g, b, _a) in enumerate(pixels):
+            x = idx % width
+            y = idx // width
+            if y >= height:
+                break
+            sx = min(size - 1, x * size // width)
+            sy = min(size - 1, y * size // height)
+            out[sy][sx] += 0.2126 * r + 0.7152 * g + 0.0722 * b
+            counts[sy][sx] += 1
+        for sy in range(size):
+            for sx in range(size):
+                c = counts[sy][sx]
+                if c:
+                    out[sy][sx] /= c
+        return out
+
+    # Resample grid cells from nearest source pixels to prevent unpopulated black cells.
+    num_pixels = len(pixels)
     for sy in range(size):
+        src_y = min(height - 1, sy * height // size)
         for sx in range(size):
-            c = counts[sy][sx]
-            if c:
-                out[sy][sx] /= c
+            src_x = min(width - 1, sx * width // size)
+            idx = src_y * width + src_x
+            if idx < num_pixels:
+                r, g, b, _a = pixels[idx]
+                out[sy][sx] = 0.2126 * r + 0.7152 * g + 0.0722 * b
     return out
 
 

@@ -75,6 +75,17 @@ class ImageHashTest(unittest.TestCase):
         b = phash_from_image(64, 64, self._split_image(vertical=False))
         self.assertGreaterEqual(hamming(a, b), 8)
 
+    def test_scale_invariance_small_images(self):
+        def half_image(side):
+            return [
+                (30, 30, 30, 255) if x < side // 2 else (220, 220, 220, 255)
+                for y in range(side)
+                for x in range(side)
+            ]
+        a = phash_from_image(16, 16, half_image(16))
+        b = phash_from_image(32, 32, half_image(32))
+        self.assertLessEqual(hamming(a, b), 2)
+
 
 class ReferenceAdmissionTest(unittest.TestCase):
     def setUp(self):
