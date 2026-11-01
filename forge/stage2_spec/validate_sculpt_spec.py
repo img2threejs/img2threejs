@@ -1624,6 +1624,25 @@ def validate_components(
     for component_id, parent in parent_refs:
         if parent not in ids:
             errors.append(f"component {component_id!r} references missing parent {parent!r}")
+    parent_map = {cid: parent for cid, parent in parent_refs if parent in ids}
+    seen_in_cycle: set[str] = set()
+    for component_id, _ in parent_refs:
+        if component_id in seen_in_cycle or component_id not in parent_map:
+            continue
+        trail: list[str] = []
+        visited: set[str] = set()
+        curr: str | None = component_id
+        while curr and curr in parent_map:
+            if curr in visited:
+                cycle_idx = trail.index(curr)
+                cycle_members = trail[cycle_idx:] + [curr]
+                seen_in_cycle.update(cycle_members)
+                cycle_str = " -> ".join(repr(c) for c in cycle_members)
+                errors.append(f"component parent cycle detected: {cycle_str}")
+                break
+            visited.add(curr)
+            trail.append(curr)
+            curr = parent_map.get(curr)
     # Resolved after the loop, like parents: a component may legitimately stand proud of one that
     # appears later in the tree, and a forward reference is not a defect.
     for component_id, against in proud_refs:
