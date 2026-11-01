@@ -15,7 +15,9 @@ from workflow_state import (  # noqa: E402
     load_state,
     mark_steps,
     new_state,
+    recompute,
     save_state,
+    set_current_pass,
     status_payload,
 )
 
@@ -52,6 +54,10 @@ def build_parser() -> argparse.ArgumentParser:
     mark.add_argument("--status", choices=("done", "skipped", "pending"), default="done")
     mark.add_argument("--evidence", action="append", default=[])
     mark.add_argument("--reason", default="")
+
+    resume = commands.add_parser("resume")
+    resume.add_argument("--state", type=Path, default=Path(".img2threejs/state.json"))
+    resume.add_argument("--pass-id", default="")
 
     return parser
 
@@ -97,6 +103,16 @@ def main(argv: list[str]) -> int:
             print_status(state, as_json=args.json)
         elif args.command == "mark":
             mark_steps(state, args.step, status=args.status, evidence=args.evidence, reason=args.reason)
+            save_state(args.state, state)
+            print_status(state)
+        elif args.command == "resume":
+            if state.get("status") == "stopped":
+                state["status"] = "active"
+                state["stopReason"] = ""
+            if args.pass_id:
+                set_current_pass(state, args.pass_id)
+            else:
+                recompute(state)
             save_state(args.state, state)
             print_status(state)
         return 3 if state.get("status") == "stopped" else 0

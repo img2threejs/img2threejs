@@ -15,8 +15,10 @@ sys.path.insert(0, str(ROOT / "forge" / "_shared"))
 
 from workflow_state import (  # noqa: E402
     WorkflowStateError,
+    load_state,
     mark_steps,
     new_state,
+    save_state,
     set_current_pass,
     status_payload,
     sync_from_spec,
@@ -424,6 +426,20 @@ class WorkflowStateTest(unittest.TestCase):
             "grimoire/review/self_correction.md",
         ):
             self.assertTrue((ROOT / relative).is_file(), relative)
+
+    def test_state_resume_reopens_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            state = new_state("reference.png")
+            save_state(state_path, state)
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "forge" / "state.py"), "resume", "--state", str(state_path), "--pass-id", "blockout"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            resumed = load_state(state_path)
+            self.assertEqual(resumed["currentPass"], "blockout")
 
 
 if __name__ == "__main__":
