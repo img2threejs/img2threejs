@@ -193,10 +193,10 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        payload = json.loads(args.meshes.read_text())
+        payload = json.loads(args.meshes.read_text(encoding="utf-8"))
         meshes = payload["meshes"] if isinstance(payload, dict) and isinstance(payload.get("meshes"), list) else [payload]
         result = analyze_joint_loops(
-            meshes, json.loads(args.bones.read_text()), args.min_loops, args.radius_scale
+            meshes, json.loads(args.bones.read_text(encoding="utf-8")), args.min_loops, args.radius_scale
         )
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)

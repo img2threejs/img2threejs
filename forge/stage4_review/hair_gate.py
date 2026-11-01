@@ -195,11 +195,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--out")
     args = parser.parse_args(argv)
 
-    exposure = json.loads(Path(args.scalp_exposure).read_text()) if args.scalp_exposure else None
+    exposure = json.loads(Path(args.scalp_exposure).read_text(encoding="utf-8")) if args.scalp_exposure else None
     report = hair_gate(_pairs(args.reference, parser), _pairs(args.render, parser), exposure)
     text = json.dumps(report, indent=2)
     if args.out:
-        Path(args.out).write_text(text + "\n")
+        Path(args.out).write_text(text + "\n", encoding="utf-8")
     print(text)
 
     # 1 = a hard failure. 2 = the hard channel never ran, so this verdict is incomplete and must not
