@@ -20,6 +20,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
 
+## npm CLI 0.2.0 — Unreleased
+
+- Without `--ref`, `install` and `update` resolve the latest GitHub Release
+  (`/releases/latest` redirect) instead of a pinned `v2.0.0`. A tag counts only once the
+  governed release workflow has published its Release; prerelease, SHA and branch targets
+  from the redirect are refused (exit 1). `--ref` behaves as before.
+- `update` reports `already up to date` when the host already links the resolved commit.
+- A beta install ahead of the latest stable release is left alone (exit 0) instead of
+  failing with "refusing downgrade". Plain `install` without `--ref` no longer downgrades
+  a beta install either (0.1.1 silently replaced it with the pinned stable).
+- Known limit: Node's `fetch` ignores `HTTPS_PROXY`, so behind a proxy the latest-release
+  lookup fails (exit 1); pass `--ref <tag>`, which only uses Git.
+- A dangling host link is replaced and reported. An unmanaged link to an `img2threejs`
+  checkout now names `git -C <path> pull --ff-only` or moving the link as the way forward.
+- `version` reports `default skill ref: latest GitHub release`; `--dry-run` stays offline.
+- Help notes that Windows is not supported yet.
+
 ## npm CLI 0.1.1 — 2026-10-07
 
 - Add tag-driven trusted publishing for independent `cli-vX.Y.Z` CLI releases.

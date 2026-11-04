@@ -9,8 +9,11 @@ import path from 'node:path'
 
 const SKILL_REPO = 'img2threejs/img2threejs'
 const SKILL_URL = `https://github.com/${SKILL_REPO}.git`
-// CLI semver is independent of the skill release; bump this ref for a new default.
-const DEFAULT_REF = 'v2.0.0'
+// Without --ref, install the latest GitHub Release: it exists only after the governed tag
+// workflow passes, unlike a raw tag. The env override is a test hook.
+const RELEASES_LATEST = process.env.IMG2THREEJS_RELEASES_LATEST_URL ||
+  `https://github.com/${SKILL_REPO}/releases/latest`
+const STABLE_TAG_RE = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 
 const HOSTS = {
   hermes: {
@@ -57,7 +60,7 @@ function die(code, msg, detail) {
 }
 
 function readArgs(argv) {
-  const out = { cmd: argv[2], host: 'all', ref: DEFAULT_REF, dryRun: false }
+  const out = { cmd: argv[2], host: 'all', ref: null, dryRun: false }
   for (let i = 3; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--host' || a === '--ref') {
@@ -83,9 +86,13 @@ Hosts:
   hermes, claude, codex, opencode, all (default: auto-detect all installed)
 
 Ref:
-  Semantic tag (vX.Y.Z, optionally prerelease) or 40-char commit SHA.
+  Default: the latest GitHub release (${RELEASES_LATEST}).
+  --ref takes a semantic tag (vX.Y.Z, optionally prerelease) or 40-char commit SHA.
   Branches and short SHAs are refused. Requires Git and network access.
   --dry-run prints the plan without downloads or filesystem changes.
+
+Platforms: macOS and Linux. Windows is not supported yet (directory symlinks
+  need Developer Mode and the skill expects \`python3\`).
 
 Examples:
   img2threejs install
@@ -110,6 +117,24 @@ function validateRef(ref) {
     die(EXIT.REFUSED, `ref must be a vX.Y.Z tag or 40-char SHA — got: ${ref}`,
         'branches and short SHAs are refused because a moving ref would be a different skill')
   }
+}
+
+async function resolveLatestRelease() {
+  let res
+  try {
+    res = await fetch(RELEASES_LATEST, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(30_000) })
+  } catch (err) {
+    die(EXIT.FAIL, `cannot resolve the latest release from ${RELEASES_LATEST}: ${err.cause?.message || err.message}`,
+      'check network access to github.com; behind HTTPS_PROXY this lookup cannot pass the proxy, so pass --ref <tag>')
+  }
+  const location = res.headers.get('location')
+  let tag
+  try { tag = /\/releases\/tag\/([^/]+)$/.exec(new URL(location, RELEASES_LATEST).pathname)?.[1] } catch {}
+  if (![301, 302, 303, 307, 308].includes(res.status) || !STABLE_TAG_RE.test(tag || '')) {
+    die(EXIT.FAIL, `latest release lookup returned HTTP ${res.status} with location ${location || '(none)'}`,
+      'expected a redirect to a stable vX.Y.Z release; pass --ref <tag> to install a specific release')
+  }
+  return tag
 }
 
 function releasesDir() {
@@ -165,6 +190,15 @@ function managedLink(link) {
   }
 }
 
+function danglingTarget(link) {
+  try {
+    return fs.lstatSync(link).isSymbolicLink() && !fs.existsSync(link) ? fs.readlinkSync(link) : null
+  } catch (err) {
+    if (err.code === 'ENOENT') return null
+    throw err
+  }
+}
+
 function checkLinks(hosts) {
   for (const h of hosts) {
     const link = path.join(HOSTS[h].skills(), 'img2threejs')
@@ -174,21 +208,30 @@ function checkLinks(hosts) {
       if (err.code === 'ENOENT') continue
       throw err
     }
-    if (!managedLink(link)) die(EXIT.REFUSED, `refusing to replace an unmanaged skill at ${link}`,
-      'move the existing entry yourself before installing with this CLI')
+    if (managedLink(link) || danglingTarget(link) !== null) continue
+    let origin = ''
+    try { origin = git(['-C', link, 'remote', 'get-url', 'origin']) } catch {}
+    die(EXIT.REFUSED, `refusing to replace an unmanaged skill at ${link}`,
+      /[/:]img2threejs\/img2threejs(\.git)?$/.test(origin)
+        ? `it is a git checkout of ${SKILL_REPO}: keep yours with \`git -C ${link} pull --ff-only\`, ` +
+          'or move the link and re-run to let this CLI manage it'
+        : 'move the existing entry yourself before installing with this CLI')
   }
 }
 
 async function cmdInstall(args) {
-  validateRef(args.ref)
+  const latest = args.ref === null
+  if (!latest) validateRef(args.ref)
   const hosts = detectHosts(args.host)
   if (hosts.length === 0) die(EXIT.REFUSED, 'no supported agent host detected on this machine')
   checkLinks(hosts)
-  process.stdout.write(`→ ${args.cmd} skill ${SKILL_REPO} @ ${args.ref} into: ${hosts.join(', ')}\n`)
   if (args.dryRun) {
-    process.stdout.write('(dry-run: no downloads or filesystem changes; ref availability and downgrade checks require a real run)\n')
+    process.stdout.write(`→ ${args.cmd} skill ${SKILL_REPO} @ ${args.ref || 'latest release (resolved at run time)'} into: ${hosts.join(', ')}\n` +
+      '(dry-run: no downloads or filesystem changes; ref availability and downgrade checks require a real run)\n')
     return
   }
+  if (latest) args.ref = await resolveLatestRelease()
+  process.stdout.write(`→ ${args.cmd} skill ${SKILL_REPO} @ ${args.ref} into: ${hosts.join(', ')}\n`)
 
   const root = releasesDir()
   fs.mkdirSync(root, { recursive: true })
@@ -204,14 +247,18 @@ async function cmdInstall(args) {
     const sha = git(['rev-parse', 'HEAD'], checkout)
     if (REF_RE.test(args.ref) && sha !== args.ref) die(EXIT.FAIL, 'fetched commit does not match requested SHA')
     const version = skillVersion(checkout)
-    if (args.cmd === 'update') {
-      for (const h of hosts) {
-        const link = path.join(HOSTS[h].skills(), 'img2threejs')
-        if (managedLink(link) && compareVersions(version, skillVersion(link)) < 0) {
-          die(EXIT.REFUSED, `refusing downgrade for ${h}: ${skillVersion(link)} → ${version}`)
-        }
+    const skip = new Set()
+    for (const h of latest || args.cmd === 'update' ? hosts : []) {
+      const link = path.join(HOSTS[h].skills(), 'img2threejs')
+      if (!managedLink(link) || compareVersions(version, skillVersion(link)) >= 0) continue
+      if (latest) {
+        process.stdout.write(`${h}: ${skillVersion(link)} is ahead of latest stable ${args.ref}; nothing to do (use --ref to pin)\n`)
+        skip.add(h)
+      } else if (args.cmd === 'update') {
+        die(EXIT.REFUSED, `refusing downgrade for ${h}: ${skillVersion(link)} → ${version}`)
       }
     }
+    if (skip.size === hosts.length) return
     const release = path.join(root, sha)
     const target = path.join(release, 'img2threejs')
     if (!fs.existsSync(release)) {
@@ -225,8 +272,14 @@ async function cmdInstall(args) {
     }
     checkLinks(hosts)
     for (const h of hosts) {
+      if (skip.has(h)) continue
       const dir = HOSTS[h].skills()
       const link = path.join(dir, 'img2threejs')
+      if (managedLink(link) && fs.realpathSync(link) === fs.realpathSync(target)) {
+        process.stdout.write(`✓ ${h}: already up to date (${version}, ${sha})\n`)
+        continue
+      }
+      const dangling = danglingTarget(link)
       fs.mkdirSync(dir, { recursive: true })
       // Rename a temporary symlink over an owned link; never delete a user directory.
       const temporary = path.join(dir, `.img2threejs-${process.pid}`)
@@ -237,6 +290,7 @@ async function cmdInstall(args) {
         if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
       }
       if (fs.realpathSync(link) !== fs.realpathSync(target)) die(EXIT.FAIL, `host link verification failed: ${link}`)
+      if (dangling !== null) process.stdout.write(`replaced dangling link ${link} (was -> ${dangling})\n`)
       process.stdout.write(`✓ ${h}: ${link} → ${target} (${version}, ${sha})\n`)
     }
   } catch (err) {
@@ -273,7 +327,7 @@ async function cmdDoctor() {
 async function cmdVersion() {
   const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   process.stdout.write(`img2threejs CLI: ${pkg.version}\n`)
-  process.stdout.write(`default skill ref: ${DEFAULT_REF}\n`)
+  process.stdout.write('default skill ref: latest GitHub release\n')
 }
 
 const commands = {
@@ -289,11 +343,7 @@ async function main() {
   // without first naming a subcommand.
   for (const a of process.argv.slice(2)) {
     if (a === '-h' || a === '--help' || a === 'help') { printHelp(); process.exit(EXIT.OK) }
-    if (a === '--version') {
-      const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-      process.stdout.write(`img2threejs CLI: ${pkg.version}\ndefault skill ref: ${DEFAULT_REF}\n`)
-      process.exit(EXIT.OK)
-    }
+    if (a === '--version') { await cmdVersion(); process.exit(EXIT.OK) }
   }
   if (!commands[process.argv[2]]) {
     if (process.argv[2]) process.stderr.write(`unknown command: ${process.argv[2]}\n\n`)
