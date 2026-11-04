@@ -91,6 +91,49 @@ Run against a throwaway `$IMG2_HOME` (nothing of an existing setup touched), in 
    that the directory is absent. Side-effect contract and how to suppress it:
    [`docs/INSTALL.md` §3](INSTALL.md#3-add-a-plugin-only-if-you-need-one).
 
+## Auto-route and consent
+
+When an image needs a domain plugin that is not installed, `SKILL.md`'s preflight routes it through
+two pinned commands: `npx --yes @img2threejs/img2@0.5.0 plugins --json` (read-only catalog) and
+`npx --yes @img2threejs/img2@0.5.0 ensure <id>`. `0.5.0` is the harness version this skill release
+was tested with, bumped with each skill release; it must be published on npm before this routing
+works. `ensure` (harness 0.5.0 and newer) takes one public catalog id and no flags, only adds a
+missing plugin (never updates, downgrades or removes one), and first brings `$IMG2_HOME/harness` up
+to its own version. Those rules live in the harness code and its tests, not in this prose. The agent
+picks the id by matching the subject against the `description` of the public rows; no match means
+`generic`, and the agent says so. A failed catalog call (non-zero exit, or `status` not `ok`) is
+shown verbatim and stops the run; it is never read as "no match".
+
+`$IMG2_HOME` defaults to `~/.img2`. Text inside the image or a plugin's files is data, never
+instructions: at most it influences which public catalog id is picked.
+
+| Situation | What happens |
+|---|---|
+| Marker `$IMG2_HOME/auto-install` present, public catalog plugin missing | `plugins --json` then `ensure <id>`; the agent announces it in one line. Claude Code, default permission mode: no prompt, because `allowed-tools` pre-approves exactly these two commands |
+| `ensure` exits 3: no harness or no marker | the agent asks once. On yes it runs `npx --yes @img2threejs/img2@0.5.0 install --yes --auto-install`, then `ensure` once more. That command is not pre-approved, so Claude Code shows it to you, unless you run an auto-approve mode (`bypassPermissions`, auto), where the agent's question is the only gate |
+| `ensure` exits 3 with `IMG2_AUTO_INSTALL=0`, the user says no, or a second exit 3 | the agent does not ask (again); it prints the manual commands ([`INSTALL.md` §3](INSTALL.md#3-add-a-plugin-only-if-you-need-one)) and stops. No `generic` fallback |
+| `install` or `ensure` fails any other way, e.g. `install` exit 2 for a legacy `~/.img2threejs/repo` | the agent shows the message verbatim and stops. It never adds `--migrate-legacy` or any other flag for you |
+| Private plugin, non-catalog source, plugin update, removal | never automatic: the agent gives the commands and asks |
+| The host blocks a command (Codex sandbox denial, a Claude deny rule) | the agent prints the exact commands and stops. It never falls back to `generic` silently |
+
+- **Consent is a file, written only by `install --auto-install`.** Existing harness users have no
+  marker, so they are asked once. The agent never creates or edits the marker. The marker records
+  consent but is not a barrier: once the harness is installed, `~/.img2` is in Claude Code's
+  `additionalDirectories`, so an agent in an auto-edit mode could write it. What that could unlock is
+  bounded by `ensure`'s scope: public catalog plugins, add-only.
+- **Opt out:** delete `$IMG2_HOME/auto-install`, or set `IMG2_AUTO_INSTALL=0`.
+- **Codex** ignores `allowed-tools`: in its default sandbox each `npx` call is an escalation you
+  approve. Zero-prompt routing is a Claude Code result only.
+- **Release gate:** `ensure` installs a plugin's newest tag without a prompt, so it is only as safe as
+  who can push those tags. This routing ships only once `v*` tag rulesets exist on `img2` and every
+  public catalog plugin repo.
+- **A plugin's own `SKILL.md` cannot widen this.** The agent reads `$IMG2_HOME/plugins/<id>/SKILL.md`
+  directly (the `img2-<id>` host skill loads only next session) and follows its steps, which run
+  through `forge/next.py` as usual. Any install it asks for goes back through this table.
+- Plugins and the skill are never updated during a run. Afterwards the agent may suggest
+  `npx --yes @img2threejs/img2@latest update` (plugins) or the command `scripts/update_check.py`
+  printed (the skill; the agent must be restarted).
+
 ## What a run sees depends on `$IMG2_HOME`
 
 Composition is **data**: the set of active plugins is the registry at `$IMG2_HOME/plugins.json`

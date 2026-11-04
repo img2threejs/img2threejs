@@ -79,6 +79,18 @@ npx --yes @img2threejs/img2@latest list              # the plugin must be listed
 
 Then restart the agent. `add` before `install` fails with `no harness checkout at …/harness` / ``run `img2 install` first``.
 
+**Or let the skill add official plugins when an image needs one** (harness 0.5.0 or newer):
+
+```bash
+npx --yes @img2threejs/img2@0.5.0 install --yes --auto-install   # also writes ~/.img2/auto-install
+```
+
+With that marker, the skill runs `npx --yes @img2threejs/img2@0.5.0 ensure <id>` itself, for public
+catalog plugins only, add-only, with no restart (Claude Code pre-approves it; Codex asks per call).
+Without the marker, the skill asks you once. Opt out by deleting `~/.img2/auto-install` or setting
+`IMG2_AUTO_INSTALL=0`; the skill then prints the commands above and stops instead of asking. Rules:
+[`PLUGINS.md`](PLUGINS.md#auto-route-and-consent).
+
 What `install` changes on your machine:
 
 - creates `~/.img2` (or `$IMG2_HOME`) with the harness checkout and plugin registry;

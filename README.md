@@ -145,6 +145,12 @@ It links an `img2` command if `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local
 `alias img2='npx --yes @img2threejs/img2@latest'`. What it changes on your machine:
 [`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one).
 
+To let the skill add an official public plugin itself when an image needs one, install with
+`npx --yes @img2threejs/img2@0.5.0 install --yes --auto-install` (harness 0.5.0 or newer); without
+that, the skill asks you once. Rules and opt-out: [`docs/PLUGINS.md`](docs/PLUGINS.md#auto-route-and-consent).
+Once a day the skill also checks for a newer skill release and tells you (Codex's default sandbox
+has no network, so there it skips); it never updates during a run.
+
 ### 3. Choose plugins — do not install everything by default
 
 <!-- plugins:start -->

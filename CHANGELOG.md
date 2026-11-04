@@ -20,6 +20,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
 
+## Unreleased — auto-route
+
+Skill staleness notice and plugin auto-route. No version number yet: v2.1 and v2.2 are reserved in
+`ROADMAP.md`, so the maintainer picks one at release.
+
+**Merge and release gates:**
+
+- Met on 2026-11-05: `@img2threejs/img2@0.5.0` (img2#7: `ensure`, `install --auto-install`) and
+  `img2threejs` CLI 0.2.0 (#186) are on npm.
+- Not met: `v*` tag rulesets on `img2` and every public catalog plugin repo (`gh api
+  repos/img2threejs/<repo>/rulesets` non-empty). `ensure` installs a plugin's newest tag without a
+  prompt, so whoever can push that tag decides what gets installed.
+- Not met: the manual E2E checks recorded in #188.
+
+Changes:
+
+- `scripts/update_check.py` (stdlib, run first in the preflight): at most once per 24 h, a single 3 s
+  HEAD to `github.com/img2threejs/img2threejs/releases/latest` (the redirect is read, not followed);
+  prints one line when a newer release exists, with `npx --yes img2threejs@latest update` for a
+  release install or `git -C <dir> pull --ff-only` for a checkout. Offline it prints
+  `update check skipped` and exits 0. The agent never updates during a run. Codex's default sandbox
+  has no network, so there it always skips.
+- The profile preflight routes a missing domain profile through `img2 plugins --json` and
+  `img2 ensure <id>` (public catalog, add-only), both pinned to harness 0.5.0. Claude Code's
+  `allowed-tools` pre-approves exactly those two commands, so in the default permission mode routing
+  costs no prompt there; Codex ignores the key and asks per `npx` call. Consent is the
+  `~/.img2/auto-install` marker written by `install --auto-install`; without it the agent asks once.
+  With `IMG2_AUTO_INSTALL=0`, a "no", or any failure, the agent prints the commands or the error and
+  stops; there is no silent fall back to `generic`. See `docs/PLUGINS.md` ("Auto-route and consent").
+- `forge/tests/test_skill_harness_pin.py` keeps the pinned harness version identical across
+  `SKILL.md`, `docs/INSTALL.md` and `docs/PLUGINS.md`, accepts only the allowed harness command forms
+  in `SKILL.md` (inline or fenced), and requires the allowlist to be exactly those two commands.
+- To stay within the `SKILL.md` word budget, the showcase test commands moved to a pointer at
+  `CONTRIBUTING.md`, and two passages were reworded without changing their rules.
+
 ## [2.0.1] — 2026-11-05
 
 Ships the `SKILL.md` guidance that landed on `main` after v2.0.0, so that `npx img2threejs install`
