@@ -100,7 +100,55 @@ The `environment` plugin is private: it needs a GitHub account with access to it
 Why a run cannot see an installed plugin, and how plugins reach the pipeline:
 [`PLUGINS.md`](PLUGINS.md).
 
-## 4. Update and uninstall
+## 4. Update an existing install
+
+Updating depends on how you installed. Check where your agent's skill link points:
+
+```bash
+ls -l ~/.claude/skills/img2threejs ~/.codex/skills/img2threejs
+```
+
+| The link points to | You installed with | Update with |
+|---|---|---|
+| `~/.img2threejs/releases/<sha>/img2threejs` | `npx img2threejs install` | `npx --yes img2threejs@latest update`, then `… doctor` |
+| a folder that no longer exists | an old checkout you deleted | `npx --yes img2threejs@latest install` (replaces the dangling link) |
+| your own git clone | `git clone` + `ln -s` (§5) | `git -C <clone> pull --ff-only`, or move the link away and run `install` to switch to the CLI |
+| nothing: the path is a real folder | a copied folder | move it away, then `npx --yes img2threejs@latest install` |
+
+Plugins and the harness update separately:
+
+| You installed | Update with |
+|---|---|
+| plugins via the harness (`img2 add …`, or `npx @img2threejs/cs2` and similar) | `npx --yes @img2threejs/img2@latest update` |
+
+Use the `npx …@latest` form, not a bare `img2`: an old `img2` launcher runs the old harness
+checkout, which may not know `update`. Then **start a new agent session** (Claude Code) or restart
+the agent (Codex) so it reads the new files.
+
+Which versions this needs:
+
+- **Skill CLI `img2threejs` ≥ 0.2.0.** It installs the latest GitHub release. 0.1.x always
+  reinstalls v2.0.0. Check with `npm view img2threejs version`.
+- **Harness `@img2threejs/img2` ≥ 0.5.0.** It also moves the harness checkout in
+  `~/.img2/harness` to the newest release; 0.4.x updates plugins only. Until 0.5.0 is on npm, a
+  clean checkout cloned from GitHub can be moved by hand:
+  `git -C ~/.img2/harness fetch --tags && git -C ~/.img2/harness checkout --detach <newest vX.Y.Z tag>`.
+
+### Paste this to your agent to update
+
+```text
+Update the img2threejs skill and its plugins for me, following
+https://github.com/img2threejs/img2threejs/blob/main/docs/INSTALL.md#4-update-an-existing-install
+1. Run `ls -l ~/.claude/skills/img2threejs ~/.codex/skills/img2threejs` and pick the row of the
+   §4 table that matches. Use the npx form for every command, never a bare `img2threejs` or `img2`.
+2. Run that row's command. If it exits 2, show me the message and stop; do not move or delete
+   anything yourself.
+3. If ~/.img2 exists, run `npx --yes @img2threejs/img2@latest update`.
+4. Run `npx --yes img2threejs@latest doctor` and tell me the version each agent now links,
+   and that I must start a new session or restart the agent.
+```
+
+### Options
 
 ```bash
 npx --yes img2threejs@latest update                  # latest GitHub release of the skill
@@ -115,6 +163,8 @@ release are ignored. `update` never downgrades; a beta install newer than the la
 is left as is. `--ref` takes a `vX.Y.Z` tag or a 40-character SHA; branches and short SHAs are
 refused. Behind an HTTP(S) proxy the latest-release lookup fails (Node's `fetch` ignores
 `HTTPS_PROXY`); pass `--ref <tag>` instead, which only uses Git.
+
+### Uninstall
 
 There is no uninstall command for the skill. Delete each agent's `img2threejs` link (the paths in
 `doctor` output, plus any Hermes profile link), then `~/.img2threejs/`. For the harness, `img2 remove`

@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## npm CLI 0.2.0 — Unreleased
 
+- `docs/INSTALL.md` §4 is now "Update an existing install": one row per install path
+  (npx, dangling link, git clone, copied folder, harness plugins), the versions each needs, and a
+  paste-to-agent update prompt.
 - Without `--ref`, `install` and `update` resolve the latest GitHub Release
   (`/releases/latest` redirect) instead of a pinned `v2.0.0`. A tag counts only once the
   governed release workflow has published its Release; prerelease, SHA and branch targets

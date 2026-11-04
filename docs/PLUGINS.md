@@ -67,7 +67,9 @@ writable; other `PATH` directories are not used), so `which img2` resolves **int
 global npm prefix — and the CLI's version is the checkout's tag, not the npm dist-tag. That makes the
 CLI version a machine property worth checking (`img2 --version --json`) rather than an assumption:
 this block's `plugins`, `update`, `npm:<name>` and short-id forms are 0.4.0 additions, while an older
-checkout accepts only the `img2threejs/plugin-<id>` form.
+checkout accepts only the `img2threejs/plugin-<id>` form. To move an old checkout forward, run `npx --yes @img2threejs/img2@latest update` (harness
+0.5.0 and later also update the checkout itself; see
+[`INSTALL.md` §4](INSTALL.md#4-update-an-existing-install)).
 
 ### What `install` actually does
 

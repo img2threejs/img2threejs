@@ -127,6 +127,9 @@ your agent install it, want a manual or single-agent install, or something faile
 [`docs/INSTALL.md`](docs/INSTALL.md) (paste-to-agent prompt, expected output, troubleshooting,
 update and uninstall, other agents such as Cursor).
 
+**Already installed?** Update with the row that matches your install in
+[`docs/INSTALL.md` §4](docs/INSTALL.md#4-update-an-existing-install).
+
 ### 2. Install the plugin harness, if needed
 
 Skip this unless you need a plugin from the table below. Plugins come from a separate CLI, the
