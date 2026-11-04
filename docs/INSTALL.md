@@ -102,51 +102,75 @@ Why a run cannot see an installed plugin, and how plugins reach the pipeline:
 
 ## 4. Update an existing install
 
-Updating depends on how you installed. Check where your agent's skill link points:
-
-```bash
-ls -l ~/.claude/skills/img2threejs ~/.codex/skills/img2threejs
-```
-
-| The link points to | You installed with | Update with |
-|---|---|---|
-| `~/.img2threejs/releases/<sha>/img2threejs` | `npx img2threejs install` | `npx --yes img2threejs@latest update`, then `… doctor` |
-| a folder that no longer exists | an old checkout you deleted | `npx --yes img2threejs@latest install` (replaces the dangling link) |
-| your own git clone | `git clone` + `ln -s` (§5) | `git -C <clone> pull --ff-only`, or move the link away and run `install` to switch to the CLI |
-| nothing: the path is a real folder | a copied folder | move it away, then `npx --yes img2threejs@latest install` |
-
-Plugins and the harness update separately:
-
-| You installed | Update with |
-|---|---|
-| plugins via the harness (`img2 add …`, or `npx @img2threejs/cs2` and similar) | `npx --yes @img2threejs/img2@latest update` |
-
-Use the `npx …@latest` form, not a bare `img2`: an old `img2` launcher runs the old harness
-checkout, which may not know `update`. Then **start a new agent session** (Claude Code) or restart
-the agent (Codex) so it reads the new files.
-
-Which versions this needs:
-
-- **Skill CLI `img2threejs` ≥ 0.2.0.** It installs the latest GitHub release. 0.1.x always
-  reinstalls v2.0.0. Check with `npm view img2threejs version`.
-- **Harness `@img2threejs/img2` ≥ 0.5.0.** It also moves the harness checkout in
-  `~/.img2/harness` to the newest release; 0.4.x updates plugins only. Until 0.5.0 is on npm, a
-  clean checkout cloned from GitHub can be moved by hand:
-  `git -C ~/.img2/harness fetch --tags && git -C ~/.img2/harness checkout --detach <newest vX.Y.Z tag>`.
-
-### Paste this to your agent to update
+A person only needs to paste this to their agent:
 
 ```text
-Update the img2threejs skill and its plugins for me, following
+Update img2threejs for me: follow
 https://github.com/img2threejs/img2threejs/blob/main/docs/INSTALL.md#4-update-an-existing-install
-1. Run `ls -l ~/.claude/skills/img2threejs ~/.codex/skills/img2threejs` and pick the row of the
-   §4 table that matches. Use the npx form for every command, never a bare `img2threejs` or `img2`.
-2. Run that row's command. If it exits 2, show me the message and stop; do not move or delete
-   anything yourself.
-3. If ~/.img2 exists, run `npx --yes @img2threejs/img2@latest update`.
-4. Run `npx --yes img2threejs@latest doctor` and tell me the version each agent now links,
-   and that I must start a new session or restart the agent.
 ```
+
+The rest of this section is the procedure for the agent.
+
+### Procedure (for the agent)
+
+Rules for every step:
+
+- Run commands exactly as written, in the `npx --yes …@latest` form. Never run a bare
+  `img2threejs` or `img2`: an old launcher on `PATH` runs old code.
+- Never move, delete or re-link anything yourself, and never edit dotfiles. When a step says
+  *stop*, show the user the command's output verbatim and what it asks them to do.
+- Do not pass `--ref` unless the user gave you a tag.
+
+**1. See what is installed.** Run:
+
+```bash
+npx --yes img2threejs@latest doctor
+```
+
+Each agent line ends in one of these states. Handle each line on its own:
+
+| State at the end of the line | Meaning | Action |
+|---|---|---|
+| `managed → …/releases/<sha>/img2threejs (<version>)` | installed by this CLI | step 2 |
+| `invalid skill: ENOENT: …, stat '<link>'` | the link points at a folder that no longer exists | step 2 (CLI 0.2.0 and later replace the link; 0.1.x exits 2) |
+| `invalid skill: …`, anything else (e.g. `open '…/SKILL.md'`) | a folder without a usable `SKILL.md` | stop: the user decides whether to move it |
+| `unmanaged → <path> (<version>)` and `git -C <path> remote get-url origin` contains `img2threejs/img2threejs` | the user's own clone | `git -C <path> pull --ff-only`; if that fails, stop |
+| `unmanaged → <path> …`, anything else | a copied folder or someone else's link | stop: the user decides whether to move it |
+| `(no link)` | not installed for that agent | nothing to do |
+
+**2. Update the managed and dangling links**, one agent at a time. `<agent>` is the first word of
+its `doctor` line (`claude`, `codex`, `opencode`, `hermes`). Without `--host`, one unmanaged agent
+makes the whole command exit 2.
+
+```bash
+npx --yes img2threejs@latest update --host <agent>
+```
+
+| Result | Action |
+|---|---|
+| exit 0, `✓ <agent>: …` or `already up to date` | next agent |
+| exit 0, `… is ahead of latest stable …` | a beta install; leave it, next agent |
+| exit 1, `cannot resolve the latest release` / `lookup returned HTTP …` | no access to github.com or a proxy: stop, ask the user for a tag |
+| exit 2 | stop for this agent; continue with the next |
+
+`img2threejs` CLI 0.1.x (`npx --yes img2threejs@latest --version` prints `img2threejs CLI: 0.1.…`)
+always reinstalls v2.0.0. Tell the user no newer version is available through the CLI yet.
+
+**3. Update plugins**, only if `${IMG2_HOME:-$HOME/.img2}/plugins.json` exists:
+
+```bash
+npx --yes @img2threejs/img2@latest update
+```
+
+Non-zero exit: stop. Harness 0.4.x updates plugins only. Harness 0.5.0 and later also move the
+harness checkout to the newest release, and print why when they skip it (`dirty`, `local origin`,
+`not behind …`, `fetch failed: …`). Report a skip reason to the user; do not fix it yourself.
+
+**4. Check and report.** Run `npx --yes img2threejs@latest doctor` again. Tell the user:
+
+- the version each agent now links, and anything you stopped on;
+- that they must start a new session (Claude Code) or restart the agent (Codex, OpenCode, Hermes)
+  before the new version is used.
 
 ### Options
 
