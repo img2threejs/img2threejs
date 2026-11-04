@@ -20,7 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
 
-## npm CLI 0.2.0 — Unreleased
+## [2.0.1] — 2026-11-05
+
+Ships the `SKILL.md` guidance that landed on `main` after v2.0.0, so that `npx img2threejs install`
+(which now follows the latest GitHub release, #186) gives existing users a skill that can route to
+plugins. `forge/` and `grimoire/` are unchanged since v2.0.0.
+
+- Profile preflight: pick a profile from what the image shows, list available profiles, and never
+  fall back to `generic` silently; give the user the plugin install commands and wait.
+- Document the `img2` harness: install, diagnose, and resolve plugins.
+- Release notes are generated from v2.0.0 (`previous-governed-tag`), not v1.4.3.
+
+## npm CLI 0.2.0 — 2026-11-05
 
 - `docs/INSTALL.md` §4 is now "Update an existing install": a one-line prompt the user pastes, and
   a procedure for the agent that maps each `doctor` state (managed, dangling link, own clone,
