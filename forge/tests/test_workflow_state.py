@@ -195,6 +195,83 @@ class WorkflowStateTest(unittest.TestCase):
         )
         self.assertIn("--force", status_payload(state)["nextCommand"])
 
+    def test_stop_review_hard_stops_local_state(self):
+        state = new_state("reference.png")
+        set_current_pass(state, "blockout")
+        sync_from_spec(
+            state,
+            {"reviewHistory": [{"passId": "blockout", "action": "stop"}]},
+            "blockout",
+        )
+        payload = status_payload(state)
+        self.assertEqual(payload["status"], "stopped")
+        self.assertEqual(payload["currentStep"], "stopped")
+        self.assertEqual(payload["stopReason"], "review-action-stop:blockout")
+        self.assertIsNone(payload["nextCommand"])
+
+    def test_old_cursor_does_not_hide_stop_review(self):
+        state = new_state("reference.png")
+        set_current_pass(state, "blockout")
+        # Simulate a state file that already consumed this review before the fix.
+        state["reviewCursor"] = 1
+        sync_from_spec(
+            state,
+            {"reviewHistory": [{"passId": "blockout", "action": "stop"}]},
+            "blockout",
+        )
+        payload = status_payload(state)
+        self.assertEqual(payload["status"], "stopped")
+        self.assertEqual(payload["stopReason"], "review-action-stop:blockout")
+
+    def test_out_of_sequence_stop_does_not_stop_active_pass(self):
+        state = new_state("reference.png")
+        set_current_pass(state, "blockout")
+        sync_from_spec(
+            state,
+            {"reviewHistory": [{"passId": "blockout", "action": "stop", "outOfSequence": True}]},
+            "blockout",
+        )
+        payload = status_payload(state)
+        self.assertEqual(payload["status"], "active")
+        self.assertIsNone(payload["stopReason"])
+
+    def test_latest_in_sequence_action_controls_stop_after_cursor_advance(self):
+        state = new_state("reference.png")
+        set_current_pass(state, "blockout")
+        history = [
+            {"passId": "blockout", "action": "stop"},
+            {"passId": "blockout", "action": "continue"},
+            {"passId": "blockout", "action": "stop", "outOfSequence": True},
+        ]
+        state["reviewCursor"] = len(history)
+        sync_from_spec(state, {"reviewHistory": history}, "blockout")
+        payload = status_payload(state)
+        self.assertEqual(payload["status"], "active")
+        self.assertIsNone(payload["stopReason"])
+
+    def test_next_cli_returns_stopped_for_stop_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            spec_path = Path(directory) / "spec.json"
+            state = new_state("reference.png", spec=str(spec_path))
+            state_path.write_text(json.dumps(state), encoding="utf-8")
+            spec_path.write_text(
+                json.dumps(
+                    {
+                        "buildPasses": [{"id": "blockout", "acceptance": []}],
+                        "reviewHistory": [{"passId": "blockout", "action": "stop"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "forge" / "next.py"), "--state", str(state_path)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 3, result.stderr)
+            self.assertIn("STOP: review-action-stop:blockout", result.stdout)
+
     def test_per_pass_refine_limit_is_a_hard_stop(self):
         state = new_state("reference.png", max_per_pass=3, max_total=6)
         spec = {
