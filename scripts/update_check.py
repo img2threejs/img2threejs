@@ -12,8 +12,8 @@ def version_key(text):
 
 
 def check(home, root=Path(__file__).resolve().parent.parent):
-    stamp = home / ".img2threejs" / "update-check.stamp"
-    if stamp.exists() and time.time() - stamp.stat().st_mtime < 86400:
+    root, stamp = root.resolve(), home / ".img2threejs" / "update-check.stamp"
+    if stamp.is_file() and time.time() - stamp.stat().st_mtime < 86400:
         return None
     stamp.parent.mkdir(parents=True, exist_ok=True)
     stamp.touch()
@@ -25,8 +25,8 @@ def check(home, root=Path(__file__).resolve().parent.parent):
     if version_key(latest) <= version_key(installed):
         return None
     releases = (home / ".img2threejs" / "releases").resolve()
-    command = ("npx --yes img2threejs@latest update" if releases in root.resolve().parents
-               else f"git -C {root.resolve()} pull --ff-only")
+    command = ("npx --yes img2threejs@latest update" if releases in root.parents
+               else f"git -C {root} pull --ff-only")
     return f"img2threejs {latest} is available (installed {installed}); after this run: {command}"
 
 

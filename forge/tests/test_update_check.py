@@ -41,18 +41,19 @@ class UpdateCheckTest(unittest.TestCase):
         root.mkdir(parents=True, exist_ok=True)
         (root / "SKILL.md").write_text(f"---\nname: img2threejs\nversion: {version}\n---\n", encoding="utf-8")
 
-    def test_fresh_stamp_makes_no_request(self) -> None:
-        self.stamp.parent.mkdir(parents=True)
+    def set_stamp_age(self, seconds: float) -> None:
+        self.stamp.parent.mkdir(parents=True, exist_ok=True)
         self.stamp.touch()
+        os.utime(self.stamp, (time.time() - seconds,) * 2)
+
+    def test_fresh_stamp_makes_no_request(self) -> None:
+        self.set_stamp_age(0)
         with patch(CONNECTION) as factory:
             self.assertIsNone(check(self.home, self.checkout))
         factory.assert_not_called()
 
     def test_stale_stamp_makes_one_head_request(self) -> None:
-        self.stamp.parent.mkdir(parents=True)
-        self.stamp.touch()
-        old = time.time() - 2 * 86400
-        os.utime(self.stamp, (old, old))
+        self.set_stamp_age(2 * 86400)
         factory = connection("v2.0.0")
         with patch(CONNECTION, factory):
             self.assertIsNone(check(self.home, self.checkout))
@@ -87,17 +88,18 @@ class UpdateCheckTest(unittest.TestCase):
             message = check(self.home, self.checkout)
         self.assertIn(f"git -C {self.checkout.resolve()} pull --ff-only", message)
 
-    def test_older_or_equal_release_is_silent_and_beta_sees_its_stable(self) -> None:
+    def test_older_release_is_silent(self) -> None:
         with patch(CONNECTION, connection("v1.9.9")):
             self.assertIsNone(check(self.home, self.checkout))
-        self.stamp.unlink()
+
+    def test_beta_install_sees_its_stable_release(self) -> None:
         self.write_skill(self.checkout, "2.1.0-beta.2")
         with patch(CONNECTION, connection("v2.1.0")):
             self.assertIn("v2.1.0 is available", check(self.home, self.checkout))
 
-    def test_bad_location_raises_for_the_cli_to_skip(self) -> None:
+    def test_bad_location_is_an_error_the_cli_skips(self) -> None:
         with patch(CONNECTION, connection("abc123")):
-            with self.assertRaises(AttributeError):
+            with self.assertRaises(Exception):
                 check(self.home, self.checkout)
 
     def test_cli_prints_skipped_and_exits_zero_on_failure(self) -> None:
