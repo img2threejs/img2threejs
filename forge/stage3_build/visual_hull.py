@@ -333,13 +333,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--json", action="store_true", help="print the full result as JSON")
     args = parser.parse_args(argv)
     try:
-        descriptor = json.loads(args.descriptor.read_text())
+        descriptor = json.loads(args.descriptor.read_text(encoding="utf-8"))
         result = carve_visual_hull(descriptor)
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.out:
-        args.out.write_text(json.dumps(result))
+        args.out.write_text(json.dumps(result), encoding="utf-8")
     if args.json:
         print(json.dumps(result, indent=2))
     else:

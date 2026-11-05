@@ -162,14 +162,14 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        base = json.loads(args.base.read_text())
-        targets = [json.loads(path.read_text()) for path in args.target]
+        base = json.loads(args.base.read_text(encoding="utf-8"))
+        targets = [json.loads(path.read_text(encoding="utf-8")) for path in args.target]
         result = build_morph_set(base, targets)
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.out:
-        args.out.write_text(json.dumps(result))
+        args.out.write_text(json.dumps(result), encoding="utf-8")
     print(json.dumps(result, indent=2) if args.json else _format_summary(result))
     return 1 if result["noOpTargets"] else 0
 

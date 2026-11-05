@@ -221,7 +221,7 @@ def largest_exposed_run(result: dict[str, Any], u_samples: int = DEFAULT_U_SAMPL
 
 
 def _load_points(path: Path) -> list[Point]:
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     raw = payload.get("points", payload) if isinstance(payload, dict) else payload
     if not isinstance(raw, list):
         raise ValueError("expected a JSON array of [x,y,z] points, or {\"points\": [...]}")
@@ -238,7 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--out", help="also write the report here")
     args = parser.parse_args(argv)
 
-    field = ScalpField(json.loads(Path(args.rings).read_text()))
+    field = ScalpField(json.loads(Path(args.rings).read_text(encoding="utf-8")))
     report = scalp_exposure(
         field,
         _load_points(Path(args.hair_points)),

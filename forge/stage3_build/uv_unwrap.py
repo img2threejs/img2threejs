@@ -603,7 +603,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        mesh = json.loads(args.mesh.read_text())
+        mesh = json.loads(args.mesh.read_text(encoding="utf-8"))
         if isinstance(mesh, dict) and isinstance(mesh.get("meshes"), list) and mesh["meshes"]:
             mesh = mesh["meshes"][0]
         result = unwrap(mesh, args.angle)
@@ -611,7 +611,7 @@ def main(argv: list[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.out:
-        args.out.write_text(json.dumps(result))
+        args.out.write_text(json.dumps(result), encoding="utf-8")
     print(json.dumps(result, indent=2) if args.json else _format_summary(result))
     # Fold-overs and non-disk charts are the two states where the layout is unusable rather than
     # merely imperfect, so they are the only ones that fail the run.

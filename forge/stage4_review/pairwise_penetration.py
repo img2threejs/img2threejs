@@ -361,7 +361,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        payload = json.loads(args.meshes.read_text())
+        payload = json.loads(args.meshes.read_text(encoding="utf-8"))
         meshes = payload["meshes"] if isinstance(payload, dict) and isinstance(payload.get("meshes"), list) else [payload]
         allowed = [pair.split(",") for pair in args.allow]
         result = analyze_meshes(meshes, allowed, args.max_samples)

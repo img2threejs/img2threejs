@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from argparse import Namespace
 from pathlib import Path
@@ -91,6 +92,12 @@ def _observations(texture_report: dict[str, Any]) -> list[str]:
     return observations
 
 
+def sanitize_region_id(region_id: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_\-\.]", "-", region_id)
+    cleaned = re.sub(r"\.+", ".", cleaned).strip(".-")
+    return cleaned or "region"
+
+
 def analyze_manifest(
     manifest_path: Path,
     out_dir: Path,
@@ -117,10 +124,14 @@ def analyze_manifest(
             source = (manifest_path.parent / source).resolve()
         if not source.exists():
             raise ValueError(f"region {region_id!r} source image does not exist: {source}")
-        crop_path = out_dir / f"{index:02d}-{region_id.replace('/', '-').replace(' ', '-')}.png"
+        safe_region_id = sanitize_region_id(region_id)
+        crop_path = (out_dir / f"{index:02d}-{safe_region_id}.png").resolve()
+        pbr_dir = (out_dir / f"pbr-{index:02d}-{safe_region_id}").resolve()
+        resolved_out = out_dir.resolve()
+        if not crop_path.is_relative_to(resolved_out) or not pbr_dir.is_relative_to(resolved_out):
+            raise ValueError(f"regionId {region_id!r} resolves outside output directory")
         crop_info = crop_region(source, region.get("bbox"), crop_path)
         texture_report = analyze(crop_path)
-        pbr_dir = out_dir / f"pbr-{index:02d}-{region_id.replace('/', '-').replace(' ', '-')}"
         args = Namespace(
             image=crop_path,
             out_dir=pbr_dir,

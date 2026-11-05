@@ -383,7 +383,8 @@ rings, 86,240 ring points). Method and per-stage rationale:
 - A TypeScript `createObjectNameModel(spec, options)` factory returning a `THREE.Group`, with `root.userData.sculptRuntime` exposing nodes, sockets, colliders, and destruction groups.
 - For character builds, `root.userData.rig`: bones, one shared `Skeleton`, bone order and index map, and a `bound` flag computed from whether every skinned mesh actually bound.
 - A render plus comparison sheets documenting the fidelity at each pass.
-For the script-by-script reference and the full list of output artifacts, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+For the full list of output artifacts and schema details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 

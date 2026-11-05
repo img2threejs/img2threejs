@@ -173,7 +173,15 @@ def _emit_error(context: ErrorContext, failure: CliFailure) -> int:
     return failure.exit_code
 
 
+def _configure_streams() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            with contextlib.suppress(Exception):
+                stream.reconfigure(errors="backslashreplace")
+
+
 def main(argv: Sequence[str]) -> int:
+    _configure_streams()
     json_requested = "--json" in argv
     try:
         options = _parse_options(argv)

@@ -91,6 +91,17 @@ class AttachmentDoesNotOverridePrimitive(unittest.TestCase):
         self.assertIn("const endpoint_part_1 = makeAttachmentEndpoint(null);", source)
         self.assertIn("buildTaperedSweepGeometry", source)
 
+    def test_curve_sweep_with_authored_curve_descriptor_keeps_swept_geometry(self):
+        spec = spec_with("curve-sweep", "continuous-sculpt")
+        spec["componentTree"][1]["geometryDescriptor"] = {
+            "curveSweep": {
+                "spine": [[0, 0, 0], [0, 0.5, 0.1], [0, 1.0, 0]],
+                "crossSection": "circle",
+            }
+        }
+        source = generator.generate(spec, "blockout")
+        self.assertIn("const endpoint_part_1 = makeAttachmentEndpoint(null);", source)
+
     def test_a_cylinder_with_an_attachment_still_derives_geometry_from_its_endpoints(self):
         """Negative control: the endpoint path is not removed, only scoped.
 

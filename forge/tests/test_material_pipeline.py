@@ -151,6 +151,13 @@ class MaterialPipelineTest(unittest.TestCase):
         spec = apply_material_analysis(spec, analysis, allow_probe=True)
         self.assertEqual(spec["materialPipeline"]["status"], "probe")
 
+    def test_sanitize_region_id_prevents_traversal(self) -> None:
+        from material_region_analysis import sanitize_region_id
+        self.assertEqual(sanitize_region_id("paint"), "paint")
+        self.assertEqual(sanitize_region_id("../../../evil"), "evil")
+        self.assertEqual(sanitize_region_id("..\\..\\evil"), "evil")
+        self.assertEqual(sanitize_region_id("arm/forearm-part"), "arm-forearm-part")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -521,7 +521,7 @@ def analyze_meshes(
 
 
 def _load_meshes(path: Path) -> list[dict[str, Any]]:
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(payload, list):
         return payload
     if isinstance(payload, dict):

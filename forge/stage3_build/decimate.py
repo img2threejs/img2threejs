@@ -248,7 +248,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
-        mesh = json.loads(args.mesh.read_text())
+        mesh = json.loads(args.mesh.read_text(encoding="utf-8"))
         if isinstance(mesh, dict) and isinstance(mesh.get("meshes"), list) and mesh["meshes"]:
             mesh = mesh["meshes"][0]
         result = decimate(mesh, args.ratio)
@@ -256,7 +256,7 @@ def main(argv: list[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.out:
-        args.out.write_text(json.dumps(result))
+        args.out.write_text(json.dumps(result), encoding="utf-8")
     if args.json:
         print(json.dumps(result, indent=2))
     else:

@@ -582,7 +582,7 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     try:
-        payload = json.loads(args.binding.read_text())
+        payload = json.loads(args.binding.read_text(encoding="utf-8"))
         source = SkinBinding.from_dict(payload)
         height = args.figure_height if args.figure_height is not None else payload.get("figureHeight")
         if height is None:
