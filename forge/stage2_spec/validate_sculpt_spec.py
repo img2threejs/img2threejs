@@ -1392,6 +1392,74 @@ def is_rgba_string(value: Any) -> bool:
     return isinstance(value, str) and bool(RGBA_PATTERN.match(value.strip()))
 
 
+def _endpoint_would_be_null(component: dict[str, Any]) -> bool:
+    """Mirror generate_threejs_factory.py's makeAttachmentEndpoint() gating so this validator
+    flags exactly the components the generator will actually size from transform.scale /
+    dimensions rather than from attachment.baseRadius/endRadius/length.
+
+    The generator only builds geometry from an attachment endpoint when the primitive is an
+    attachment shape (cylinder/cone/capsule/tube/curve-sweep), the component is not an
+    `implicit`/SDF form, AND attachment.localStart/localEnd resolve to two distinct points.
+    Anything else -- including a capsule/cylinder with no attachment at all -- falls through to
+    a unit primitive sized by scale_vector(), which is the path validate_dimension_scale_
+    consistency below is protecting."""
+    primitive = component.get("primitive")
+    geometry_descriptor = component.get("geometryDescriptor")
+    sdf = geometry_descriptor.get("sdf") if isinstance(geometry_descriptor, dict) else None
+    is_implicit = component.get("topologyClass") == "implicit" and isinstance(sdf, dict)
+    if primitive not in ATTACHMENT_PRIMITIVES or is_implicit:
+        return True
+    attachment = component.get("attachment")
+    if not isinstance(attachment, dict):
+        return True
+    start, end = attachment.get("localStart"), attachment.get("localEnd")
+    if not as_number_list(start, 3) or not as_number_list(end, 3):
+        return True
+    length = sum((float(a) - float(b)) ** 2 for a, b in zip(start, end)) ** 0.5
+    return length <= 0.0001
+
+
+def validate_dimension_scale_consistency(component_id: str, component: dict[str, Any], warnings: list[str]) -> None:
+    """quality gate: a unit primitive (box/sphere/ellipsoid/torus, or an attachment-shape
+    primitive with no usable attachment endpoint) is sized in generate_threejs_factory.py by
+    `scale_vector()`, which returns `transform.scale` VERBATIM whenever that key exists at
+    all -- even the default `[1, 1, 1]` a spec author naturally writes alongside `position`
+    and `rotation` out of habit -- and only falls back to `dimensions` when `scale` is absent
+    entirely. A component authored with real `dimensions` but left at identity `scale` silently
+    renders at the primitive's default unit size instead, which can be large enough to bury
+    smaller attached parts inside its own volume.
+
+    This is not hypothetical: it is exactly how a teddy bear's arms and top hat vanished inside
+    an oversized torso/head during the img2threejs smoke test that surfaced this gate -- the
+    torso's authored `dimensions` (0.55 x 0.75 x 0.42) were silently discarded in favor of a
+    unit sphere (radius 0.5 in every axis) because `transform.scale: [1, 1, 1]` was present."""
+    if not _endpoint_would_be_null(component):
+        return  # sized directly from attachment.baseRadius/endRadius/length instead
+    transform = component.get("transform")
+    scale = transform.get("scale") if isinstance(transform, dict) else None
+    if scale is None:
+        return  # no explicit scale authored; the generator already falls back to dimensions
+    if not as_number_list(scale, 3) or any(abs(float(value) - 1.0) > 1e-6 for value in scale):
+        return  # a deliberately non-identity scale is a real authoring choice, not the trap
+    dimensions = component.get("dimensions")
+    if not isinstance(dimensions, dict):
+        return
+    width, height, depth = dimensions.get("width"), dimensions.get("height"), dimensions.get("depth")
+    if not all(is_number(value) for value in (width, height, depth)):
+        return
+    if all(abs(float(value) - 1.0) <= 1e-6 for value in (width, height, depth)):
+        return  # dimensions and identity scale genuinely agree; nothing to flag
+    warnings.append(
+        f"quality: component {component_id!r} has dimensions "
+        f"(width={width}, height={height}, depth={depth}) but transform.scale is [1, 1, 1] -- "
+        "the generator sizes this primitive from transform.scale whenever that key is present "
+        "and never falls back to dimensions once it is, so this component will render at its "
+        "default unit size instead of its authored dimensions. Set transform.scale to "
+        "[width, height, depth] (or the appropriate multiple), or remove the identity `scale` "
+        "key entirely so dimensions apply automatically."
+    )
+
+
 def validate_color_material_recipe(component_id: str, recipe: Any, warnings: list[str]) -> None:
     """Plan 1.3 Workstream C: every non-material-only component needs a structured,
     evidence-linked colorMaterialRecipe instead of bare-word colors. Fires as a
@@ -1539,6 +1607,7 @@ def validate_components(
         if material and material not in material_ids:
             errors.append(f"component {component_id!r} references unknown material {material!r}")
         validate_geometry_descriptor(component_id, component.get("geometryDescriptor"), errors)
+        validate_dimension_scale_consistency(component_id, component, warnings)
         validate_stand_proud(component_id, component, errors, warnings, proud_refs)
         # three's Material.side defaults to FrontSide, which culls backfaces, so a garment opening
         # renders as a HOLE rather than as the inside of the sleeve -- indistinguishable at a glance
