@@ -100,14 +100,101 @@ The `environment` plugin is private: it needs a GitHub account with access to it
 Why a run cannot see an installed plugin, and how plugins reach the pipeline:
 [`PLUGINS.md`](PLUGINS.md).
 
-## 4. Update and uninstall
+## 4. Update an existing install
+
+A person only needs to paste this to their agent:
+
+```text
+Update img2threejs for me: follow
+https://github.com/img2threejs/img2threejs/blob/main/docs/INSTALL.md#4-update-an-existing-install
+```
+
+The rest of this section is the procedure for the agent.
+
+### Procedure (for the agent)
+
+Rules for every step:
+
+- Run commands exactly as written, in the `npx --yes …@latest` form. Never run a bare
+  `img2threejs` or `img2`: an old launcher on `PATH` runs old code.
+- Never move, delete or re-link anything yourself, and never edit dotfiles. When a step says
+  *stop*, show the user the command's output verbatim (skip `npm notice` lines) and what it asks
+  them to do.
+- Do not pass `--ref` unless the user gave you a tag.
+- If your host blocks a command (sandbox, network or approval denied), show the user that exact
+  command and stop; do not retry it another way.
+
+**1. See what is installed.** Run both:
 
 ```bash
-npx --yes img2threejs@latest update                  # latest GitHub release of the skill
-npx --yes img2threejs@latest update --ref v2.0.0     # a specific tag or full 40-char SHA
-img2 update --check                                  # exits 1 when a plugin update is pending
-img2 update cs2
-img2 remove cs2                                      # unlinks it and moves its checkout to ~/.img2/backups
+npx --yes img2threejs@latest --version
+npx --yes img2threejs@latest doctor
+```
+
+`--version` prints `img2threejs CLI: <version>`. **0.1.x** always reinstalls v2.0.0 and cannot
+replace a dangling link; tell the user no newer skill version is available through the CLI yet.
+
+Each `doctor` agent line ends in one of these states. Match the first row that fits, and handle
+each line on its own:
+
+| State at the end of the line | Meaning | Action |
+|---|---|---|
+| `(no link)` | not installed for that agent | nothing to do |
+| `managed → …/releases/<sha>/img2threejs (<version>)` | installed by this CLI | step 2 |
+| `invalid skill: ENOENT: …, stat '<link>'` | the link points at a folder that no longer exists | CLI 0.2.0+: step 2 (it replaces the link). CLI 0.1.x: stop, tell the user to remove `<link>` and ask you again |
+| `invalid skill: …`, any other message (e.g. `open '…/SKILL.md'`) | a folder without a usable `SKILL.md` | stop: the user decides whether to move it |
+| `unmanaged → <path> …` and `git -C <path> remote get-url origin` ends in `/img2threejs/img2threejs` or `:img2threejs/img2threejs` (optionally `.git`) | the user's own clone | `git -C <path> pull --ff-only`; if that fails, stop |
+| `unmanaged → <path> …`, anything else (including when `git remote get-url` fails) | a copied folder or someone else's link | stop: the user decides whether to move it |
+
+If every line says `(no link)`, tell the user img2threejs is not installed and point them to
+[§1](#1-install-the-skill); do not run step 2.
+
+Hermes: `doctor` checks only `~/.hermes/skills`. A profile link made by hand (§5) shows as
+`(no link)` and is not updated by this procedure; say so if the user uses Hermes.
+
+**2. Update the managed and dangling links**, one agent at a time. `<agent>` is the first word of
+its `doctor` line (`claude`, `codex`, `opencode`, `hermes`). Always pass `--host`: without it,
+one unmanaged agent makes the whole command exit 2, and `update` also installs into every detected
+agent that has no link.
+
+```bash
+npx --yes img2threejs@latest update --host <agent>
+```
+
+| Result | Action |
+|---|---|
+| exit 0, `✓ <agent>: …` or `already up to date` | next agent |
+| exit 0, `… is ahead of latest stable …` | a beta install; leave it, next agent |
+| exit 1, `cannot resolve the latest release` / `lookup returned HTTP …` | no access to github.com or a proxy: stop, ask the user for a tag |
+| exit 2 (e.g. `refusing to replace …`, `host … not detected`) | stop for this agent; continue with the next |
+| any other exit code or message | stop for this agent; continue with the next |
+
+**3. Update the plugin harness and plugins**, only if `${IMG2_HOME:-$HOME/.img2}/plugins.json` or
+`${IMG2_HOME:-$HOME/.img2}/harness` exists:
+
+```bash
+npx --yes @img2threejs/img2@latest update
+```
+
+Non-zero exit: stop. Harness 0.4.x updates plugins only. Harness 0.5.0 and later also move the
+harness checkout to the newest release; when they skip it they print why (`no checkout`,
+`local origin`, `dirty`, `fetch failed: …`, `no semver tag on origin`, `tag … not on origin`,
+`not behind …`). Report a skip reason to the user; do not fix it yourself.
+
+**4. Check and report.** Run `npx --yes img2threejs@latest doctor` again. Tell the user:
+
+- the version each agent now links, and anything you stopped on;
+- that they must start a new session (Claude Code) or restart the agent (Codex, OpenCode, Hermes)
+  before the new version is used.
+
+### Options (for people running the CLIs by hand)
+
+```bash
+npx --yes img2threejs@latest update                         # every detected agent, latest release
+npx --yes img2threejs@latest update --ref v2.0.0            # a specific tag or full 40-char SHA
+npx --yes @img2threejs/img2@latest update --check           # exits 1 when an update is pending
+npx --yes @img2threejs/img2@latest update cs2
+npx --yes @img2threejs/img2@latest remove cs2               # unlinks it; checkout moves to ~/.img2/backups
 ```
 
 Without `--ref`, `install` and `update` use the latest GitHub release, so tags without a published
@@ -115,6 +202,8 @@ release are ignored. `update` never downgrades; a beta install newer than the la
 is left as is. `--ref` takes a `vX.Y.Z` tag or a 40-character SHA; branches and short SHAs are
 refused. Behind an HTTP(S) proxy the latest-release lookup fails (Node's `fetch` ignores
 `HTTPS_PROXY`); pass `--ref <tag>` instead, which only uses Git.
+
+### Uninstall
 
 There is no uninstall command for the skill. Delete each agent's `img2threejs` link (the paths in
 `doctor` output, plus any Hermes profile link), then `~/.img2threejs/`. For the harness, `img2 remove`
