@@ -297,8 +297,34 @@ def scale_triple(component: dict[str, Any], transform: dict[str, Any]) -> tuple[
     return (1.0, 1.0, 1.0)
 
 
+def _is_identity_scale(value: Any) -> bool:
+    """True for a scale that multiplies by nothing, so carries no authored information."""
+    return (
+        isinstance(value, (list, tuple))
+        and len(value) == 3
+        and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in value)
+        and all(float(item) == 1.0 for item in value)
+    )
+
+
 def scale_vector(component: dict[str, Any], transform: dict[str, Any]) -> str:
-    if "scale" in transform:
+    """A part's real size, as the factor its unit-sized geometry is baked with.
+
+    WHY IDENTITY SCALE FALLS THROUGH TO `dimensions`. Both fields can express size, and
+    `transform.scale` used to win merely by BEING PRESENT. That is a trap rather than a
+    precedence rule, because `new_sculpt_spec.py` -- this repo's own scaffold -- writes
+    `"scale": [1, 1, 1]` into every component it emits. An author who then fills in the
+    `dimensions` block the schema asks for (and that `--strict-quality` checks the depth of)
+    gets `geometry.scale(1, 1, 1)`: every part unit-sized, a hammer head the same size as its
+    handle, and `PASS` from the validator, because nothing anywhere compares the two fields.
+    Measured on a five-component spec, all five parts came out unit cubes and cylinders.
+
+    An identity scale multiplies by nothing, so deferring to `dimensions` cannot change any
+    render that did not already have this bug: where `dimensions` is absent or itself unit, the
+    result is the same `1, 1, 1`. A genuinely authored non-uniform scale still wins, which is
+    what `test_hierarchy_scale.py` pins (its torso carries `[3, 1, 0.2]` and no `dimensions`).
+    """
+    if "scale" in transform and not _is_identity_scale(transform.get("scale")):
         return vector(transform.get("scale"), [1, 1, 1])
     dimensions = component.get("dimensions")
     if isinstance(dimensions, dict):
