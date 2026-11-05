@@ -39,11 +39,14 @@ twice as if it were two**.
 > tint therefore comes from a generator fallback and is never reference-derived. Fix by adding
 > `sheenColor` to the profile, not by changing the fallback.
 
-**S-2. `sheen` and `sheenColor` are ONE degree of freedom, not two.** They are multiplied before
+**S-2. `sheen` and `sheenColor` are ONE control, and three.js requires BOTH.** They are multiplied before
 upload, so `sheen: 1.0, sheenColor: #808080` is bit-identical to `sheen: 0.5, sheenColor: #ffffff`.
 A spec that extracts both from the reference as independent evidence is extracting the same number
 twice and will produce contradictory-looking priors that render identically. **Extract one: the
-sheen tint. Keep `sheen` as a scalar strength with a fixed authored default.**
+sheen tint. Keep `sheen` as a scalar strength with a fixed authored default.** Declaring both in
+the spec is nevertheless correct authorship -- without `sheenColor` the term multiplies by
+three's default black and evaluates to zero -- so the validator reports the co-declaration as
+an informational note, never as a `quality:` gate (Refs #135).
 
 **S-3. Turning sheen on makes the cloth DARKER, by a computable amount.**
 
@@ -67,6 +70,11 @@ This is a **gate-able number**, not a matter of taste: given the authored sheen,
 darkening is known in advance, so a cloth region that is darker than the reference by roughly
 `0.157 × strength` is diagnosable as "sheen applied without base compensation" rather than as a
 generic colour miss.
+
+The validator raises this as a `quality:` advisory until the author records the compensation:
+set `sheenEnergyCompensated: true` on the material once the base colour has been pre-brightened
+by `1 / (1 - darkening)`. The flag is author metadata only -- the generator ignores it -- and
+uncompensated sheen still blocks `--strict-quality` (Refs #135).
 
 ### Choosing sheenRoughness
 
@@ -147,13 +155,14 @@ and must be declared as an approximation.
 
 ## 4. Degrees of freedom that are secretly the same
 
-Exposing either pair twice creates specs that look richer than they are and priors that contradict
-each other while rendering identically.
+Only one pair below is a genuine either-or. `sheen` x `sheenColor` are folded into one uniform
+but three.js requires BOTH for the term to evaluate, so co-declaration is correct and is
+reported as information, not as a gate.
 
-| Pair | Relation | Source |
-|---|---|---|
-| `sheen` × `sheenColor` | multiplied into one uniform before upload | `WebGLMaterials.js:408` |
-| `ior` ↔ `reflectivity` | `reflectivity = clamp(2.5(ior−1)/(ior+1), 0, 1)`; writing `reflectivity` writes `ior = (1+0.4r)/(1−0.4r)` | `MeshPhysicalMaterial.js:34–44` |
+| Pair | Relation | Rule | Source |
+|---|---|---|---|
+| `sheen` × `sheenColor` | multiplied into one uniform before upload | declare **both**; extract the tint, keep `sheen` as authored strength | `WebGLMaterials.js:408` |
+| `ior` ↔ `reflectivity` | `reflectivity = clamp(2.5(ior−1)/(ior+1), 0, 1)`; writing `reflectivity` writes `ior = (1+0.4r)/(1−0.4r)` | declare **`ior` only**, never `reflectivity` | `MeshPhysicalMaterial.js:34–44` |
 
 **Author `ior`, never `reflectivity`.** `ior` is the physical quantity, has a meaningful range
 (skin ≈ 1.33–1.5, most fabric ≈ 1.45–1.55), and `reflectivity` is a derived view of it.
@@ -216,7 +225,9 @@ Before a skin or cloth number reaches a spec:
 - [ ] Is it clamped? (`clearcoatRoughness` ≥ `0.0525`.)
 - [ ] Is something added to it at shade time? (`geometryRoughness` → `roughness`, `clearcoatRoughness`.)
 - [ ] Is it multiplied into another value before upload, making the pair one degree of freedom?
-      (`sheen` × `sheenColor`.)
+      (`sheen` × `sheenColor` -- but both are still required, so this is information, not a gate.
+      `reflectivity` of `ior` -- declare `ior` only.)
 - [ ] Is it a derived view of a different property? (`reflectivity` of `ior`.)
 - [ ] Does it require a map this pipeline cannot emit? If yes, the value is decoration.
-- [ ] Does turning it on change the base layer? (`sheenEnergyComp` darkens by `0.157 × strength`.)
+- [ ] Does turning it on change the base layer? (`sheenEnergyComp` darkens by `0.157 × strength`;
+      record the compensation with `sheenEnergyCompensated: true`.)

@@ -128,6 +128,56 @@ class MaterialPhysicsGateTests(unittest.TestCase):
         )
         self.assertEqual(errors, [])
 
+    def test_sheen_and_sheen_color_together_are_informational_not_quality(self):
+        """Refs #135: three.js requires both, so co-declaration must never block strict."""
+        _, warnings = check_material_physics(
+            "shirt", {"sheen": 0.7, "sheenColor": "#f2ece2", "sheenEnergyCompensated": True},
+            family="fabric",
+        )
+        together = [w for w in warnings if "sets both sheen and sheenColor" in w]
+        self.assertTrue(together, warnings)
+        self.assertFalse([w for w in together if w.startswith("quality:")], warnings)
+
+    def test_compensated_fabric_sheen_passes_strict(self):
+        """Refs #135: the correct woven-cue authorship must carry zero quality warnings."""
+        errors, warnings = check_material_physics(
+            "shirt",
+            {
+                "sheen": 0.7,
+                "sheenColor": "#f2ece2",
+                "sheenEnergyCompensated": True,
+            },
+            family="fabric",
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual([w for w in warnings if w.startswith("quality:")], [])
+
+    def test_uncompensated_sheen_darkening_still_warns(self):
+        _, warnings = check_material_physics(
+            "shirt", {"sheen": 0.7, "sheenColor": "#f2ece2"}, family="fabric"
+        )
+        quality = [w for w in warnings if w.startswith("quality:")]
+        self.assertTrue(any("sheenEnergyComp" in w for w in quality), warnings)
+
+    def test_compensated_flag_must_be_true_to_silence(self):
+        """A falsy/non-bool flag must not silence the darkening advisory."""
+        for flag in (False, 0, "true", None):
+            material = {"sheen": 0.7, "sheenColor": "#f2ece2"}
+            if flag is not None:
+                material["sheenEnergyCompensated"] = flag
+            _, warnings = check_material_physics("shirt", material, family="fabric")
+            self.assertTrue(
+                any("sheenEnergyComp" in w for w in warnings if w.startswith("quality:")),
+                (flag, warnings),
+            )
+
+    def test_no_sheen_fabric_still_warns_under_strict(self):
+        _, warnings = check_material_physics("shirt", {"roughness": 0.85}, family="fabric")
+        self.assertTrue(
+            any(w.startswith("quality:") and "woven or fibre cue" in w for w in warnings),
+            warnings,
+        )
+
 
 class OpenBoundarySideTests(unittest.TestCase):
     def test_open_garment_boundary_with_front_side_is_an_error(self):

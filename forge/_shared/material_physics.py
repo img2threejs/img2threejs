@@ -62,12 +62,17 @@ ZERO_GATED_FEATURES: Final = frozenset({
     "sheen", "clearcoat", "transmission", "iridescence", "anisotropy", "dispersion",
 })
 
-# Pairs the engine collapses into a single degree of freedom. Authoring both as independent
-# reference-derived evidence is authoring one number twice.
-#   sheen x sheenColor: WebGLMaterials.js:408
+# Pairs the engine collapses into a single degree of freedom where authoring both is
+# authoring one number twice. `ior` is the physical quantity; `reflectivity` is a derived
+# accessor over it, so author one, never both.
 #   ior <-> reflectivity: MeshPhysicalMaterial.js:34-44
+#
+# NOTE: (`sheen`, `sheenColor`) are also multiplied into one uniform before upload
+# (WebGLMaterials.js:408) but are deliberately NOT listed here: three.js requires both for
+# the term to evaluate to anything -- the default sheenColor is black, a multiply by zero
+# -- so co-declaration is the correct authorship, not double evidence. It is reported as
+# an informational note, never as a quality gate (see check_material_physics).
 COLLAPSED_DEGREES_OF_FREEDOM: Final = (
-    ("sheen", "sheenColor", "multiplied into one uniform before upload"),
     ("ior", "reflectivity", "reflectivity is a derived accessor over ior"),
 )
 
@@ -139,6 +144,12 @@ def check_material_physics(
 
     `family` routes the family-specific rules -- `skin` forbids transmission, and a `fabric` or
     `hair` family that ships no sheen tint has no woven cue at all.
+
+    Warnings prefixed `quality:` are promoted to errors by `--strict-quality`; anything else
+    is informational and never blocks. Co-declaring `sheen` with `sheenColor` is the latter:
+    three.js requires both for the term to evaluate. The sheen darkening advisory stays a
+    `quality:` gate until the author records the compensation with
+    `sheenEnergyCompensated: true`.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -161,13 +172,26 @@ def check_material_physics(
             )
         else:
             darkening = sheen_base_darkening(sheen, str(sheen_color))
-            if darkening > 0.0:
+            if darkening > 0.0 and material.get("sheenEnergyCompensated") is not True:
                 warnings.append(
                     f"quality: material {material_id!r} sheen darkens its own diffuse base by "
                     f"{darkening * 100:.1f}% (sheenEnergyComp). Author the base colour "
                     f"{1.0 / (1.0 - darkening):.3f}x brighter than the reference sample, or the "
-                    f"render lands darker than the reference at every non-grazing angle."
+                    f"render lands darker than the reference at every non-grazing angle. Once "
+                    f"compensated, set sheenEnergyCompensated: true to record it."
                 )
+
+    # sheen and sheenColor are folded into one uniform before upload (WebGLMaterials.js:408),
+    # but unlike ior/reflectivity they are not either-or: three.js requires BOTH for the term
+    # to evaluate to anything, so co-declaration is correct authorship. Informational only --
+    # deliberately no `quality:` prefix so --strict-quality never promotes it.
+    if sheen is not None and sheen > 0.0 and sheen_color is not None:
+        if _max_channel(str(sheen_color)) > 0.0:
+            warnings.append(
+                f"material {material_id!r} sets both sheen and sheenColor: folded into one "
+                f"uniform before upload (WebGLMaterials.js:408). Both are required for the "
+                f"term to evaluate, so this is one control, not independent evidence."
+            )
 
     # A value below the clamp is indistinguishable from the clamp, so reporting it as authored is
     # reporting a precision the engine does not have.
@@ -180,19 +204,14 @@ def check_material_physics(
         )
 
     # Both halves of a collapsed pair authored at once: the spec looks richer than it is, and the two
-    # numbers can disagree while rendering identically.
+    # numbers can disagree while rendering identically. Only genuine either-or pairs belong
+    # here (see COLLAPSED_DEGREES_OF_FREEDOM); sheen+sheenColor is handled above as info.
     for first, second, why in COLLAPSED_DEGREES_OF_FREEDOM:
         if material.get(first) is not None and material.get(second) is not None:
-            if (first, second) == ("ior", "reflectivity"):
-                errors.append(
-                    f"material {material_id!r} sets both {first} and {second}: {why}. Author {first} "
-                    f"only -- it is the physical quantity."
-                )
-            else:
-                warnings.append(
-                    f"quality: material {material_id!r} sets both {first} and {second}: {why}. They "
-                    f"are one control, so these are not independent evidence."
-                )
+            errors.append(
+                f"material {material_id!r} sets both {first} and {second}: {why}. Author {first} "
+                f"only -- it is the physical quantity."
+            )
 
     normalized_family = (family or material.get("family") or "").lower()
 
