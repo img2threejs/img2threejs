@@ -29,9 +29,9 @@ Skill staleness notice and plugin auto-route. No version number yet: v2.1 and v2
 
 - Met on 2026-11-05: `@img2threejs/img2@0.5.0` (img2#7: `ensure`, `install --auto-install`) and
   `img2threejs` CLI 0.2.0 (#186) are on npm.
-- Not met: `v*` tag rulesets on `img2` and every public catalog plugin repo (`gh api
-  repos/img2threejs/<repo>/rulesets` non-empty). `ensure` installs a plugin's newest tag without a
-  prompt, so whoever can push that tag decides what gets installed.
+- Met on 2026-11-05: `v*` tag rulesets on `img2` and every public catalog plugin repo (`gh api
+  repos/img2threejs/<repo>/rulesets`). `ensure` installs a plugin's newest tag without a prompt, so
+  only the ruleset's bypass maintainers decide what gets installed.
 - Not met: the manual E2E checks recorded in #188.
 
 Changes:
