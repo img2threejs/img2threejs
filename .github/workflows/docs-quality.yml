@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   scripts-selftest:
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,7 +21,7 @@ jobs:
       - run: python3 -m unittest discover -s scripts/ci/tests
 
   markdown:
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,7 +35,7 @@ jobs:
         run: python3 scripts/ci/md_links.py --baseline scripts/ci/link-baseline.txt --base "origin/${{ github.base_ref }}"
 
   skill-budget:
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -44,7 +44,7 @@ jobs:
       - run: python3 scripts/ci/skill_budget.py
 
   pr-scope:
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     steps:
       - uses: actions/checkout@v4
         with:
