@@ -13,7 +13,7 @@ def version_key(text):
 
 def check(home, root=Path(__file__).resolve().parent.parent):
     root, stamp = root.resolve(), home / ".img2threejs" / "update-check.stamp"
-    if stamp.is_file() and time.time() - stamp.stat().st_mtime < 86400:
+    if stamp.exists() and time.time() - stamp.stat().st_mtime < 86400:
         return None
     stamp.parent.mkdir(parents=True, exist_ok=True)
     stamp.touch()

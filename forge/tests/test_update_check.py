@@ -99,7 +99,7 @@ class UpdateCheckTest(unittest.TestCase):
 
     def test_bad_location_is_an_error_the_cli_skips(self) -> None:
         with patch(CONNECTION, connection("abc123")):
-            with self.assertRaises(Exception):
+            with self.assertRaises((AttributeError, ValueError)):
                 check(self.home, self.checkout)
 
     def test_cli_prints_skipped_and_exits_zero_on_failure(self) -> None:
