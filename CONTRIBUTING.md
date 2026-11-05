@@ -45,7 +45,10 @@ build actually has a GLB reference to measure — skip it entirely otherwise. Se
 ### npm CLI verification and publishing
 
 The CLI version in `package.json` is independent of the skill version in `SKILL.md`.
-`bin/img2threejs.mjs` pins its default skill tag separately. The npm package ships the
+Without `--ref`, `bin/img2threejs.mjs` installs the latest GitHub Release of the skill
+(the `releases/latest` redirect), so a skill release needs no CLI republish. The tests
+point that lookup at a local server through `IMG2THREEJS_RELEASES_LATEST_URL`; this env
+var is a test hook only, not a supported user setting. The npm package ships the
 installer only; it fetches the complete skill from GitHub when explicitly invoked.
 No install lifecycle hook runs.
 

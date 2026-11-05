@@ -4,7 +4,9 @@ One command installs the skill into every supported coding agent on your machine
 optional and only needed for specific domains, for example CS2 skins.
 
 You need **Node.js ≥ 18**, **Git**, and **Python ≥ 3.10**, plus one of: Claude Code, Codex,
-OpenCode, Hermes. Other agents: [§7](#7-other-coding-agents).
+OpenCode, Hermes. Other agents: [§7](#7-other-coding-agents). The CLI supports macOS and Linux;
+Windows is not supported yet (directory symlinks need Developer Mode, and the skill expects
+`python3`).
 
 ## Paste this to your agent
 
@@ -101,15 +103,18 @@ Why a run cannot see an installed plugin, and how plugins reach the pipeline:
 ## 4. Update and uninstall
 
 ```bash
-npx --yes img2threejs@latest update                  # newest pinned release of the skill
+npx --yes img2threejs@latest update                  # latest GitHub release of the skill
 npx --yes img2threejs@latest update --ref v2.0.0     # a specific tag or full 40-char SHA
 img2 update --check                                  # exits 1 when a plugin update is pending
 img2 update cs2
 img2 remove cs2                                      # unlinks it and moves its checkout to ~/.img2/backups
 ```
 
-`update` never downgrades. `--ref` takes a `vX.Y.Z` tag or a 40-character SHA; branches and short
-SHAs are refused.
+Without `--ref`, `install` and `update` use the latest GitHub release, so tags without a published
+release are ignored. `update` never downgrades; a beta install newer than the latest stable release
+is left as is. `--ref` takes a `vX.Y.Z` tag or a 40-character SHA; branches and short SHAs are
+refused. Behind an HTTP(S) proxy the latest-release lookup fails (Node's `fetch` ignores
+`HTTPS_PROXY`); pass `--ref <tag>` instead, which only uses Git.
 
 There is no uninstall command for the skill. Delete each agent's `img2threejs` link (the paths in
 `doctor` output, plus any Hermes profile link), then `~/.img2threejs/`. For the harness, `img2 remove`
@@ -139,7 +144,8 @@ branch; the CLI pins a release.
 | `img2threejs: command not found` or `img2: command not found` | not installed globally (expected) | use the `npx --yes …@latest` form shown above |
 | `img2threejs` starts something else (e.g. Hermes) | another program owns that name on your `PATH` | use the `npx` form; check `which img2threejs` |
 | An agent is missing from the `install` plan | its folder does not exist yet | run that agent once, or pass `--host <name>` |
-| `error (2): refusing to replace an unmanaged skill at <path>` | a manual install or other link is already there | keep it, or move that path away and re-run |
+| `error (2): refusing to replace an unmanaged skill at <path>` | a manual install or other link is already there (a dangling link is replaced automatically) | keep it (for a git checkout: `git -C <path> pull --ff-only`), or move that path away and re-run |
+| `error (1): cannot resolve the latest release` / `latest release lookup returned HTTP …` | no access to github.com, or an HTTP(S) proxy | pass `--ref <tag>` |
 | `error (2): ref must be a vX.Y.Z tag or 40-char SHA` | `--ref` got a branch or short SHA | pass a tag or the full SHA |
 | Slash command or skill not found after install | the agent was not restarted | restart it / open a new session |
 | Hermes says "Unknown skill" | no link in the profile folder | the Hermes line in [§1](#1-install-the-skill) |
