@@ -110,10 +110,22 @@ class MaterialReferenceContract(unittest.TestCase):
     def test_critical_model_invariants(self) -> None:
         for material_id in ("metal.steel-polished", "metal.steel-brushed", "metal.copper", "metal.gold"):
             self.assertEqual(self.by_id[material_id]["renderPrior"]["metalness"]["default"], 1.0)
-        for material_id in ("skin.human", "fabric.woven-matte", "plastic.glossy", "glass.clear"):
+        for material_id in ("skin.human", "fabric.woven-matte", "plastic.glossy", "glass.clear", "coating.metallic-paint"):
             self.assertEqual(self.by_id[material_id]["renderPrior"]["metalness"]["default"], 0.0)
         self.assertEqual(self.by_id["coating.painted-metal"]["renderPrior"]["metalness"]["default"], 0.0)
         self.assertEqual(self.by_id["glass.clear"]["renderPrior"]["transmission"]["default"], 1.0)
+
+    def test_metallic_paint_recipe_resolves_dangling_metal_confusions(self) -> None:
+        # Five metal records (and the lookup contract in docs/materials/README.md)
+        # already named coating.metallic-paint before the recipe existed.
+        self.assertIn("coating.metallic-paint", self.by_id)
+        referrers = sorted(
+            item["id"] for item in self.materials if "coating.metallic-paint" in item["confusableWith"]
+        )
+        self.assertTrue(referrers, "expected existing confusableWith refs to coating.metallic-paint")
+        recipe = self.by_id["coating.metallic-paint"]
+        self.assertEqual(recipe["renderPrior"]["clearcoat"]["default"], 1.0)
+        self.assertIn("normalMap", recipe["requiredMaps"])
 
 
 if __name__ == "__main__":
