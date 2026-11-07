@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const out = path.join(__dirname, 'render_blockout.png');
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await page.goto('http://127.0.0.1:8765/work/hive/viewer/', { waitUntil: 'networkidle', timeout: 60000 });
+await page.waitForTimeout(3500);
+await page.screenshot({ path: out, fullPage: false });
+await browser.close();
+console.log('wrote', out);

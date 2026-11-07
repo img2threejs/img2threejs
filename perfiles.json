@@ -1,0 +1,19 @@
+﻿{
+  "defaults": {
+    "cli": "cy",
+    "interval": "3m"
+  },
+  "roles": {},
+  "perfiles": {
+    "worker1": {
+      "agent": "worker1",
+      "rol": "worker",
+      "cli": "cy"
+    },
+    "worker2": {
+      "agent": "worker2",
+      "rol": "worker",
+      "cli": "cy"
+    }
+  }
+}

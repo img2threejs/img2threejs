@@ -1,0 +1,4271 @@
+{
+  "targetName": "Langstroth Beehive",
+  "targetId": "langstroth-beehive",
+  "schemaVersion": "2.1",
+  "terminologyProfile": {
+    "domain": "real-time procedural Three.js asset",
+    "geometryTerms": [
+      "silhouette",
+      "topology",
+      "primitive",
+      "bevel",
+      "chamfer",
+      "taper",
+      "bend",
+      "boolean cut",
+      "edge loop",
+      "surface normal",
+      "displacement"
+    ],
+    "materialTerms": [
+      "albedo",
+      "baseColor",
+      "roughness",
+      "metalness",
+      "normal map",
+      "bump map",
+      "ambient occlusion",
+      "cavity dirt",
+      "edge wear",
+      "clearcoat"
+    ],
+    "lightingTerms": [
+      "key light",
+      "fill light",
+      "rim light",
+      "HDRI/environment reflection",
+      "contact shadow"
+    ],
+    "descriptionRule": "Use measurable 3D graphics terms. Avoid vague words unless they are paired with concrete geometry/material/shader parameters."
+  },
+  "sourceImage": "refs/langstroth_hive_gen.png",
+  "referenceCamera": {
+    "solved": false,
+    "fovDegrees": 35.0,
+    "aspect": 1.0,
+    "orientation": {
+      "yaw": 28.0,
+      "pitch": -8.0,
+      "roll": 0.0
+    },
+    "positionHint": [
+      1.35,
+      1.05,
+      2.4
+    ],
+    "targetHint": [
+      0.0,
+      0.5760000000000002,
+      0.0
+    ],
+    "note": "Approximate three-quarter studio camera matching reference framing."
+  },
+  "suitability": "conditional",
+  "scores": {
+    "object_isolation": 3,
+    "silhouette_readability": 3,
+    "depth_inference": 2,
+    "primitive_decomposition": 3,
+    "material_procedurality": 3,
+    "occlusion_risk": 1,
+    "interaction_fit": 2
+  },
+  "preSpecAssessment": {
+    "objectClass": {
+      "primaryType": "hard-surface container",
+      "primaryDomain": "object",
+      "formLanguage": [
+        "rectilinear",
+        "stacked-modular",
+        "carpentered-wood",
+        "box-joinery"
+      ],
+      "structureKind": [
+        "assembled-stack",
+        "segmented-box",
+        "lid-and-base"
+      ],
+      "motionPotential": [
+        "lid-lift",
+        "box-slide-detach",
+        "handle-lift"
+      ],
+      "materialFamilies": [
+        "varnished softwood",
+        "galvanized metal edge",
+        "oxidized steel hardware"
+      ],
+      "notes": "Langstroth hive: three stacked rectangular supers with box-joint corners, flat roof with metal drip edge and wire handle, bottom board with entrance reducer."
+    },
+    "complexity": {
+      "tier": "moderate",
+      "scores": {
+        "silhouetteComplexity": 1,
+        "componentCount": 2,
+        "hierarchyDepth": 2,
+        "repetitionDensity": 2,
+        "materialLayerCount": 1,
+        "localDetailDensity": 2,
+        "occlusionRisk": 1,
+        "actionReadinessNeed": 2
+      },
+      "estimatedCounts": {
+        "macroComponents": 5,
+        "mesoComponents": 8,
+        "microFeatureGroups": 4,
+        "materialLayers": 3,
+        "repetitionSystems": 2
+      },
+      "reasoning": [
+        "Vertical stack of 3 nearly-identical supers + roof + bottom board.",
+        "Identity details: finger joints, recessed hand holds, metal roof edge, entrance reducer.",
+        "Hidden rear/underside inferred by bilateral symmetry of a rectangular cabinet form."
+      ]
+    },
+    "specDepthDecision": {
+      "requiredDepth": "moderate",
+      "minimumComponentLevels": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "needsRepetitionSystems": true,
+      "needsMaterialLocalOverrides": true,
+      "needsMultipleReviewViews": true,
+      "needsActionReadyHierarchy": true,
+      "rationale": "Modular stack with repeated box geometry and joinery micro-features."
+    },
+    "unknownsToResolveBeforeImplementation": [],
+    "detailInventory": {
+      "scanMethod": "agent-vision + grid-3x3 scaffold",
+      "targetMinDetails": 6,
+      "details": [
+        {
+          "id": "finger-joint-corners",
+          "kind": "seam",
+          "description": "Alternating box/finger joints at all vertical corners of each super (darker end-grain fingers).",
+          "region": {
+            "x": 0.15,
+            "y": 0.25,
+            "width": 0.15,
+            "height": 0.55,
+            "units": "normalized"
+          },
+          "scale": "meso",
+          "affects": "silhouette-edge-rhythm",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "super-middle"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.92
+        },
+        {
+          "id": "recessed-handholds",
+          "kind": "groove",
+          "description": "Shallow elongated horizontal hand-hold recesses centered on front face of each of the three supers.",
+          "region": {
+            "x": 0.35,
+            "y": 0.3,
+            "width": 0.3,
+            "height": 0.45,
+            "units": "normalized"
+          },
+          "scale": "meso",
+          "affects": "form",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "super-top"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.9
+        },
+        {
+          "id": "metal-roof-drip-edge",
+          "kind": "ridge",
+          "description": "Thin galvanized metal drip edge wrapping the perimeter of the flat wooden roof lid.",
+          "region": {
+            "x": 0.25,
+            "y": 0.08,
+            "width": 0.5,
+            "height": 0.12,
+            "units": "normalized"
+          },
+          "scale": "meso",
+          "affects": "material-boundary",
+          "mapsTo": {
+            "type": "component",
+            "ref": "roof-metal-edge"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.88
+        },
+        {
+          "id": "roof-wire-handle",
+          "kind": "fastener",
+          "description": "Dark arched metal wire handle centered on roof top surface.",
+          "region": {
+            "x": 0.42,
+            "y": 0.06,
+            "width": 0.16,
+            "height": 0.08,
+            "units": "normalized"
+          },
+          "scale": "micro",
+          "affects": "interaction",
+          "mapsTo": {
+            "type": "component",
+            "ref": "roof-handle"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.9
+        },
+        {
+          "id": "entrance-reducer",
+          "kind": "ridge",
+          "description": "Bottom-front entrance board with serrated/toothed metal or wood reducer strip and dark entrance slot.",
+          "region": {
+            "x": 0.25,
+            "y": 0.82,
+            "width": 0.45,
+            "height": 0.12,
+            "units": "normalized"
+          },
+          "scale": "meso",
+          "affects": "identity",
+          "mapsTo": {
+            "type": "component",
+            "ref": "entrance-reducer"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.85
+        },
+        {
+          "id": "wood-grain-varnish",
+          "kind": "gloss",
+          "description": "Warm honey-blond softwood with visible vertical grain and satin varnish; darker end-grain at joints.",
+          "region": {
+            "x": 0.3,
+            "y": 0.35,
+            "width": 0.4,
+            "height": 0.35,
+            "units": "normalized"
+          },
+          "scale": "micro",
+          "affects": "material",
+          "mapsTo": {
+            "type": "material.localOverrides",
+            "ref": "varnished-pine"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.9
+        },
+        {
+          "id": "side-handholds",
+          "kind": "groove",
+          "description": "Vertical-face recessed hand holds on right side of each super.",
+          "region": {
+            "x": 0.68,
+            "y": 0.28,
+            "width": 0.18,
+            "height": 0.45,
+            "units": "normalized"
+          },
+          "scale": "meso",
+          "affects": "form",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "super-middle"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.82
+        },
+        {
+          "id": "bottom-board-ledge",
+          "kind": "contour",
+          "description": "Extended bottom board protruding slightly beyond supers with low front landing board.",
+          "region": {
+            "x": 0.2,
+            "y": 0.88,
+            "width": 0.55,
+            "height": 0.1,
+            "units": "normalized"
+          },
+          "scale": "macro",
+          "affects": "silhouette",
+          "mapsTo": {
+            "type": "component",
+            "ref": "bottom-board"
+          },
+          "evidenceRef": "full-object",
+          "confidence": 0.88
+        }
+      ],
+      "note": "Mapped to componentTree/materials below."
+    },
+    "anatomy": {
+      "applies": false,
+      "styleHeads": 0.0,
+      "proportions": {
+        "headUnit": 0.0,
+        "torso": 0.0,
+        "legs": 0.0,
+        "shoulderWidth": 0.0,
+        "hipWidth": 0.0
+      },
+      "pose": {
+        "type": "unassessed",
+        "jointAngles": {}
+      },
+      "faceLandmarks": {
+        "eyeLine": 0.0,
+        "eyeSpacing": 0.0,
+        "noseBase": 0.0,
+        "mouthLine": 0.0,
+        "hairline": 0.0
+      },
+      "features": [],
+      "confidence": 0.0,
+      "note": "Only meaningful when objectClass.primaryDomain is character or hybrid. Set applies=true and fill from forge/stage1_intake/extract_landmarks.py. See grimoire/character/reconstruction.md and grimoire/character/likeness_maximization.md."
+    },
+    "sourceImage": "refs/langstroth_hive_gen.png"
+  },
+  "qualityContract": {
+    "qualityBar": "moderate",
+    "definitionOfDone": [
+      "The rendered model matches the reference silhouette, primary proportions, visible component hierarchy, material response, and most recognizable local features for the selected fidelity tier."
+    ],
+    "minimumSpecDepth": {
+      "macroComponents": 5,
+      "mesoComponents": 4,
+      "microFeatureGroups": 3,
+      "materialLayers": 3,
+      "repetitionSystems": 2,
+      "reviewViewpoints": 3
+    },
+    "featureGroups": [
+      {
+        "id": "overall-silhouette",
+        "name": "Overall silhouette and proportions",
+        "required": true,
+        "qualityCriteria": [
+          "Bounding shape, dominant curves, negative spaces, and scale relationships are explicitly described."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "model reads as a generic placeholder instead of the reference object",
+          "major proportions are guessed without evidence"
+        ]
+      },
+      {
+        "id": "primary-structure",
+        "name": "Primary structure and hierarchy",
+        "required": true,
+        "qualityCriteria": [
+          "Major parts, joints, seams, contact points, and parent-child relationships are named before code generation."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "large visible parts are merged into one mesh",
+          "component hierarchy is too shallow for the observed complexity"
+        ]
+      },
+      {
+        "id": "attachment-joint-correctness",
+        "name": "Attachment and joint correctness",
+        "required": true,
+        "qualityCriteria": [
+          "Every visible child appendage, branch, limb, handle, connector, tube, cable, horn, wing, leg, or hinged part has an attachment contract with parent socket, localStart/localEnd, contact type, embed/overlap, and gap tolerance."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "child part root floats away from the parent",
+          "branch/limb/tube is centered in space instead of pivoting from its root",
+          "parent-child transform mixes world and local coordinates"
+        ]
+      },
+      {
+        "id": "surface-material-response",
+        "name": "Surface material response",
+        "required": true,
+        "qualityCriteria": [
+          "Albedo zones, roughness, normal/bump/displacement intent, cavity dirt, edge wear, and local overrides are specified where visible.",
+          "Important materials define independent albedo, roughness, height/normal, and AO responses instead of reusing one texture for unrelated PBR channels.",
+          "Surface response is decomposed into macro, meso, and micro frequency bands with scale and amplitude tied to object scale."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "surface looks like flat plastic",
+          "local material variation is missing or not tied to image evidence"
+        ]
+      },
+      {
+        "id": "reference-lookdev",
+        "name": "Reference color, material, and lighting response",
+        "required": true,
+        "qualityCriteria": [
+          "Material-pass names the reference-derived albedo palette, roughness variation, tactile normal/bump/displacement response, and local masks.",
+          "When a source image is available, run reference PBR extraction and require confidence >= 0.7 before treating maps as implementation-ready.",
+          "Lighting-pass names key/fill/rim or environment light, exposure, tone mapping, background, and contact shadow behavior.",
+          "Neutral, grazing-angle, and reference-matched renders prove that surface relief survives relighting and is not painted into albedo."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "model has acceptable shape but reads as flat shaded or plastic",
+          "colors are a generic average instead of reference-observed local color zones",
+          "lighting is evenly ambient and cannot reproduce the source value range"
+        ]
+      }
+    ],
+    "visualDeltaChecks": [
+      "silhouette and negative-space delta",
+      "component hierarchy depth delta",
+      "repetition density and distribution delta",
+      "material albedo/roughness/normal response delta",
+      "local feature placement and scale delta"
+    ],
+    "antiShallowSpecRules": [
+      "Do not proceed to code if qualityContract.qualityBar is unassessed.",
+      "Do not proceed to code if the spec only contains a root component for a moderate or complex object.",
+      "Do not proceed to code if required featureGroups are not represented by componentTree, materials, or repetitionSystems.",
+      "Do not proceed to code if visible local features are described only in prose and not attached to components/materials/evidenceRefs.",
+      "Do not proceed past structural-pass if attached child parts lack attachment.parentSocket, localStart, localEnd, embedDepth/overlap, and gapTolerance.",
+      "Do not pass material look-dev when albedo is reused as roughness, height, normal, or AO.",
+      "Do not pass material look-dev without macro, meso, and micro surface frequency bands for close-up materials.",
+      "Do not pass reference-fidelity material look-dev from a source image without usable referencePbr maps or an explicit documented limitation.",
+      "Do not patch a spec with extracted PBR maps when extraction confidence is below the target threshold unless the user explicitly accepts lower fidelity.",
+      "Do not place adjacent separate-geometry parts below 0.02 world-unit seam overlap (source: grimoire/build/geometry_patterns.md).",
+      "Do not satisfy raised or recessed relief, fasteners, or grip structure with a map alone when the feature affects form; use geometry or displacement (source: grimoire/build/geometry_patterns.md).",
+      "Adjacent components must overlap by at least 0.02 world units at shared seams (source: grimoire/build/geometry_patterns.md).",
+      "Raised or recessed relief and fasteners must be geometry, instanced micro-parts, or displacement; a map alone is an approximation (source: grimoire/build/geometry_patterns.md)."
+    ],
+    "mustNotDo": [
+      "Do not proceed to code if qualityContract.qualityBar is unassessed.",
+      "Do not proceed to code if the spec only contains a root component for a moderate or complex object.",
+      "Do not proceed to code if required featureGroups are not represented by componentTree, materials, or repetitionSystems.",
+      "Do not proceed to code if visible local features are described only in prose and not attached to components/materials/evidenceRefs.",
+      "Do not proceed past structural-pass if attached child parts lack attachment.parentSocket, localStart, localEnd, embedDepth/overlap, and gapTolerance.",
+      "Do not pass material look-dev when albedo is reused as roughness, height, normal, or AO.",
+      "Do not pass material look-dev without macro, meso, and micro surface frequency bands for close-up materials.",
+      "Do not pass reference-fidelity material look-dev from a source image without usable referencePbr maps or an explicit documented limitation.",
+      "Do not patch a spec with extracted PBR maps when extraction confidence is below the target threshold unless the user explicitly accepts lower fidelity.",
+      "Do not place adjacent separate-geometry parts below 0.02 world-unit seam overlap (source: grimoire/build/geometry_patterns.md).",
+      "Do not satisfy raised or recessed relief, fasteners, or grip structure with a map alone when the feature affects form; use geometry or displacement (source: grimoire/build/geometry_patterns.md).",
+      "Adjacent components must overlap by at least 0.02 world units at shared seams (source: grimoire/build/geometry_patterns.md).",
+      "Raised or recessed relief and fasteners must be geometry, instanced micro-parts, or displacement; a map alone is an approximation (source: grimoire/build/geometry_patterns.md)."
+    ]
+  },
+  "qualityTargets": {
+    "targetFidelity": 0.7,
+    "mustMatch": [
+      "macro silhouette and proportions",
+      "primary material albedo/roughness response",
+      "reference-derived PBR material response at or above 0.7 confidence when source pixels are usable",
+      "most recognizable local features"
+    ],
+    "niceToHave": [
+      "micro scratches, stains, chips, and dirt masks",
+      "secondary lighting match"
+    ],
+    "fpsTarget": 60,
+    "reviewViewpoints": [
+      "front",
+      "three-quarter",
+      "side",
+      "thickness-axis",
+      "long-axis"
+    ]
+  },
+  "selfCorrectLoop": {
+    "enabled": true,
+    "visualAcceptance": {
+      "reviewer": "ai-vision",
+      "threshold": 0.7,
+      "comparisonArtifactRequired": true,
+      "layerScoresRequired": true,
+      "codePixelDiffIsAcceptanceAuthority": false,
+      "scoringRule": "AI vision must inspect a side-by-side reference/render sheet and score the current pass from 0 to 1. Pixel-diff code may assist diagnostics but cannot approve a pass.",
+      "requiredLayerScores": [
+        "silhouetteProportion",
+        "componentStructure",
+        "formDetail",
+        "materialSurface",
+        "lightingCamera"
+      ],
+      "featureReviewPolicy": {
+        "enabled": true,
+        "reviewUnit": "semantic-subsystem",
+        "maxCriticalFeaturesPerPass": 5,
+        "maxImportantFeaturesPerPass": 3,
+        "criticalDefaultThreshold": 0.8,
+        "importantAverageThreshold": 0.65,
+        "adaptiveEscalation": true,
+        "singleImagePairOnly": true,
+        "selectionRule": "Choose only the most visually salient, identity-defining, user-prioritized, or high-risk semantic systems. Group repeated parts instead of reviewing every mesh. AI vision scores every selected feature from the same full reference/render pair."
+      }
+    },
+    "reviewAfterPasses": [
+      "blockout",
+      "structural-pass",
+      "form-refinement",
+      "material-pass",
+      "surface-pass",
+      "lighting-pass",
+      "interaction-pass",
+      "optimization-pass"
+    ],
+    "allowedActions": [
+      "continue",
+      "refine-spec",
+      "refine-code",
+      "request-input",
+      "stop"
+    ],
+    "specRefineTriggers": [
+      "missing component",
+      "wrong primitive family",
+      "wrong proportions",
+      "material layer under-specified",
+      "local feature not traceable to viewEvidence",
+      "reference ambiguity discovered during implementation"
+    ],
+    "codeRefineTriggers": [
+      "spec is adequate but generated geometry/material does not match",
+      "browser render differs from reference",
+      "performance budget exceeded",
+      "lighting hides geometry or material response"
+    ],
+    "stopCriteria": [
+      "target fidelity reached or user accepts current approximation",
+      "remaining gaps require new reference images or manual art"
+    ],
+    "screenshotPolicy": {
+      "requiredForPasses": [
+        "blockout",
+        "structural-pass",
+        "form-refinement",
+        "material-pass",
+        "surface-pass",
+        "lighting-pass",
+        "interaction-pass"
+      ],
+      "preferredCapture": "in-app-browser-screenshot",
+      "fallbackCapture": "user-supplied-screenshot-path",
+      "minimumEvidence": "Each visual pass needs a reference image, rendered screenshot, side-by-side comparison sheet, AI vision score, layer scores, and critique before choosing continue.",
+      "reviewPairRule": "Compare the same camera/viewpoint whenever possible; do not judge a front reference against a random render angle.",
+      "acceptanceAuthority": "AI vision review of the comparison sheet. Code-generated pixel similarity is not sufficient evidence."
+    }
+  },
+  "featureReviewTargets": [
+    {
+      "id": "stack-silhouette",
+      "name": "Vertical 3-box stack silhouette with roof and base",
+      "tier": "critical",
+      "passIds": [
+        "blockout",
+        "structural-pass"
+      ],
+      "minimumScore": 0.85,
+      "mustPass": true,
+      "componentRefs": [
+        "root",
+        "super-bottom",
+        "super-middle",
+        "super-top",
+        "roof",
+        "bottom-board"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "box-joinery-rhythm",
+      "name": "Finger/box joint edge rhythm on vertical corners",
+      "tier": "critical",
+      "passIds": [
+        "structural-pass",
+        "form-refinement"
+      ],
+      "minimumScore": 0.8,
+      "mustPass": true,
+      "componentRefs": [
+        "super-middle",
+        "finger-joint-sample"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "handhold-recesses",
+      "name": "Recessed hand holds on super faces",
+      "tier": "critical",
+      "passIds": [
+        "form-refinement",
+        "surface-pass"
+      ],
+      "minimumScore": 0.8,
+      "mustPass": true,
+      "componentRefs": [
+        "handhold-front-middle",
+        "handhold-right-middle"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "roof-hardware",
+      "name": "Metal drip edge + arched wire handle",
+      "tier": "important",
+      "passIds": [
+        "form-refinement",
+        "material-pass"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "roof-metal-edge",
+        "roof-handle"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "entrance-identity",
+      "name": "Bottom entrance reducer and landing board",
+      "tier": "important",
+      "passIds": [
+        "structural-pass",
+        "form-refinement"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "bottom-board",
+        "entrance-reducer"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "wood-pbr-response",
+      "name": "Varnished pine grain and metal contrast",
+      "tier": "important",
+      "passIds": [
+        "material-pass",
+        "lighting-pass"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "super-middle",
+        "roof-metal-edge"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    }
+  ],
+  "sculptPipeline": {
+    "passGateMode": "locked-sequential",
+    "passOrder": [
+      "blockout",
+      "structural-pass",
+      "form-refinement",
+      "material-pass",
+      "surface-pass",
+      "lighting-pass",
+      "interaction-pass",
+      "optimization-pass"
+    ],
+    "currentPass": "blockout",
+    "completedPasses": [],
+    "lastCompletedPass": "",
+    "blockedReason": "blockout requires a browser screenshot and self-correction review before structural-pass unlocks",
+    "nextRequiredEvidence": [
+      "blockout browser render screenshot from your agent's browser/screenshot tool",
+      "side-by-side reference/render comparison sheet",
+      "AI vision score >= 0.7 with layer scores and mismatch critique",
+      "critical semantic feature scores from the same image pair meeting their individual thresholds",
+      "reviewHistory entry for blockout with action=continue"
+    ]
+  },
+  "lookDevTargets": {
+    "qualityPriority": "reference-fidelity",
+    "materialPass": {
+      "albedoPaletteRequired": true,
+      "roughnessVariationRequired": true,
+      "normalOrBumpRequired": true,
+      "localOverridesRequired": true,
+      "minimumTextureResolution": 1024,
+      "preferredTextureResolution": 2048,
+      "independentMapChannels": [
+        "albedo",
+        "roughness",
+        "height",
+        "normal",
+        "ambient-occlusion"
+      ],
+      "requiredSurfaceFrequencyBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "geometryReliefRequiredWhenSilhouetteAffected": true,
+      "referencePbrExtraction": {
+        "requiredWhenSourceImagePresent": true,
+        "targetThreshold": 0.7,
+        "stopOnLowConfidence": true,
+        "script": "forge/stage1_intake/extract_pbr_evidence.py",
+        "acceptedLimitation": "single-image extraction is reference-derived inference, not exact photogrammetry"
+      },
+      "mustAvoid": [
+        "single flat albedo per material",
+        "uniform roughness",
+        "albedo texture reused as roughness/height/normal/AO",
+        "single-frequency random noise",
+        "plastic-looking smooth bark, stone, cloth, foliage, or aged material",
+        "local color/detail described only in prose without material masks",
+        "claiming exact PBR recovery when confidence is below the target threshold"
+      ]
+    },
+    "lightingPass": {
+      "requiredTerms": [
+        "key light",
+        "fill light",
+        "rim or environment light",
+        "exposure",
+        "tone mapping",
+        "background",
+        "contact shadow"
+      ],
+      "mustAvoid": [
+        "ambient-only lighting",
+        "flat value range",
+        "missing contact shadow",
+        "reference lighting copied without separating material readability"
+      ]
+    },
+    "screenshotReview": [
+      "Compare albedo palette and local color zones.",
+      "Compare roughness/normal/bump response under light.",
+      "Compare cavity dirt, edge wear, stains, moss, scratches, or other local masks.",
+      "Compare key/fill/rim structure, exposure, tone mapping, background, and contact shadows.",
+      "Capture a neutral-light render to verify material readability without reference lighting.",
+      "Capture a grazing-light close-up to expose flat normals, uniform roughness, tiling, and plastic highlights.",
+      "Capture a reference-matched render from the same camera framing as the source."
+    ],
+    "primaryMaterials": [
+      "varnished-pine",
+      "galvanized-steel",
+      "entrance-metal"
+    ],
+    "exposure": 1.0,
+    "toneMapping": "ACES filmic",
+    "contactShadow": "ground plane contact shadow + seam AO",
+    "groundShadow": true
+  },
+  "actionReadiness": {
+    "contract": "Every macro/meso component should be generated as a stable named Object3D pivot node with a mesh child, action metadata, optional sockets, collider proxy, and destruction metadata.",
+    "defaultRigType": "action-ready-static-rig",
+    "rootMotionNode": "root",
+    "requiredComponentFields": [
+      "id",
+      "parent",
+      "transform",
+      "attachment for child appendages, connectors, limbs, tubes, handles, legs, horns, wings, branches, or cables",
+      "actionProfile.animationRole",
+      "actionProfile.pivot",
+      "actionProfile.collider",
+      "actionProfile.destruction"
+    ],
+    "transformChannels": [
+      "translate",
+      "rotate",
+      "scale",
+      "bend",
+      "twist",
+      "detach",
+      "visibility",
+      "material-state"
+    ],
+    "authoringRules": [
+      "Do not collapse independently movable parts into one mesh.",
+      "Put transforms on component pivot groups, not only on raw meshes.",
+      "For attached child parts, put the pivot at the semantic root/socket and build visible geometry from localStart to localEnd.",
+      "Represent hinge, socket, detachable, and breakable intent even when no animation is implemented yet.",
+      "Use simplified collider proxies for runtime physics instead of visual mesh colliders by default."
+    ],
+    "destructionPolicy": {
+      "defaultBreakable": false,
+      "fractureGroupNaming": "Use stable semantic names such as body-shell, left-hinge, glass-panel, branch-segment.",
+      "debrisStrategy": "Prefer detachable component groups and a small number of procedural fragments over random mesh explosion."
+    }
+  },
+  "assumptions": [
+    "Rear and left faces mirror visible right/front by bilateral rectangular symmetry.",
+    "Interior comb frames omitted (not visible) \u2014 exterior shell reconstruction only.",
+    "Entrance reducer tooth count \u2248 12 estimated under foreshortening.",
+    "Wood species treated as soft pine/spruce with satin clear coat."
+  ],
+  "coordinateFrame": {
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "forward": [
+      0,
+      0,
+      1
+    ],
+    "units": "relative",
+    "origin": "ground-center under bottom board",
+    "notes": "Front faces +Z (toward camera in three-quarter view slightly from left)."
+  },
+  "silhouette": {
+    "dominantShape": "vertical rectangular prism stack",
+    "aspectRatio": {
+      "width": 1.0,
+      "height": 1.28,
+      "depth": 0.82
+    },
+    "negativeSpaces": [
+      "entrance slot under front of bottom super",
+      "hand-hold recesses"
+    ],
+    "profileNotes": [
+      "Nearly constant width/depth through stack; roof slightly larger than supers.",
+      "Bottom board slightly wider/deeper with front landing overhang.",
+      "Box-joint teeth create scalloped vertical edges."
+    ],
+    "confidence": 0.88
+  },
+  "viewEvidence": [
+    {
+      "id": "full-object",
+      "view": "three-quarter front-right",
+      "source": "refs/langstroth_hive_gen.png",
+      "visible": [
+        "roof",
+        "3 supers",
+        "bottom board",
+        "entrance",
+        "finger joints",
+        "handholds",
+        "handle"
+      ],
+      "occluded": [
+        "rear face",
+        "interior frames",
+        "underside"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "componentTree": [
+    {
+      "id": "root",
+      "name": "Langstroth Beehive Assembly",
+      "level": "macro",
+      "role": "assembly-root",
+      "importance": 1.0,
+      "confidence": 0.95,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Multi-part stacked carpentered assembly of discrete boxes and hardware.",
+      "geometryDescriptor": {
+        "topologyIntent": "hierarchical assembly of rectangular supers + lid + base",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.004,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "per-component box UVs",
+        "normalStrategy": "vertex normals + grain bump"
+      },
+      "parent": null,
+      "attachment": null,
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.2800000000000002,
+        "depth": 0.8799999999999999,
+        "units": "relative",
+        "confidence": 0.85
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "root",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "hive",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine",
+        "galvanized-steel",
+        "entrance-metal"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [],
+      "surfaceDetail": {
+        "macroRoughness": 0.4,
+        "microRoughness": 0.15,
+        "bumpAmplitude": 0.01,
+        "normalPattern": "wood-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "stack-seams",
+        "edgeWearPattern": "corner-wear",
+        "notes": "Root is structural parent only."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "overall stacked rectangular silhouette"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(201, 160, 106, 1.0)",
+        "secondaryAlbedo": "rgba(166, 124, 74, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.9
+      }
+    },
+    {
+      "id": "bottom-board",
+      "name": "Bottom board / landing",
+      "level": "macro",
+      "role": "base",
+      "importance": 0.95,
+      "confidence": 0.88,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Flat wooden plank assembly with slight front overhang.",
+      "geometryDescriptor": {
+        "topologyIntent": "wide low plank with front landing ledge",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.003,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "box UV, grain along X",
+        "normalStrategy": "vertex normals"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentSocket": "base",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0.12,
+          0
+        ],
+        "contactType": "abut",
+        "embedDepth": 0.0,
+        "overlap": 0.0,
+        "gapTolerance": 0.002,
+        "notes": "Attached to root"
+      },
+      "dimensions": {
+        "width": 1.08,
+        "height": 0.12,
+        "depth": 0.94,
+        "units": "relative",
+        "confidence": 0.85
+      },
+      "transform": {
+        "position": [
+          0,
+          0.06,
+          0.03
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "static-base",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "base",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [
+        {
+          "with": "super-bottom",
+          "type": "abut-seam"
+        }
+      ],
+      "localFeatures": [
+        {
+          "id": "landing-overhang",
+          "kind": "ledge",
+          "description": "Front plank extends beyond super stack",
+          "affects": "silhouette"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.45,
+        "microRoughness": 0.2,
+        "bumpAmplitude": 0.012,
+        "normalPattern": "wood-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "under-super",
+        "edgeWearPattern": "front-edge-wear",
+        "notes": ""
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "bottom-board-ledge"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(184, 144, 96, 1.0)",
+        "secondaryAlbedo": "rgba(139, 99, 64, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.85
+      }
+    },
+    {
+      "id": "entrance-reducer",
+      "name": "Entrance reducer strip",
+      "level": "meso",
+      "role": "hardware",
+      "importance": 0.85,
+      "confidence": 0.8,
+      "primitive": "box",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Thin serrated strip on front of bottom board; relief is part of identity.",
+      "geometryDescriptor": {
+        "topologyIntent": "thin horizontal bar with toothed top edge (12 teeth approx)",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "planar front",
+        "normalStrategy": "flat + tooth normal"
+      },
+      "parent": "bottom-board",
+      "attachment": {
+        "parentSocket": "front-edge",
+        "localStart": [
+          0,
+          0.041999999999999996,
+          0.47
+        ],
+        "localEnd": [
+          0,
+          0.041999999999999996,
+          0.49
+        ],
+        "contactType": "embed",
+        "embedDepth": 0.015,
+        "overlap": 0.015,
+        "gapTolerance": 0.003,
+        "notes": "Attached to bottom-board"
+      },
+      "dimensions": {
+        "width": 0.72,
+        "height": 0.035,
+        "depth": 0.04,
+        "units": "relative",
+        "confidence": 0.75
+      },
+      "transform": {
+        "position": [
+          0,
+          0.02,
+          0.45999999999999996
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "base",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "entrance-metal",
+      "materialLayers": [
+        "entrance-metal"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "teeth",
+          "kind": "serration",
+          "count": 12,
+          "description": "Upward teeth along strip",
+          "affects": "identity"
+        },
+        {
+          "id": "entrance-slot",
+          "kind": "void",
+          "description": "Dark horizontal opening behind strip",
+          "affects": "negative-space"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.55,
+        "microRoughness": 0.3,
+        "bumpAmplitude": 0.02,
+        "normalPattern": "serrated",
+        "displacementPattern": "",
+        "occlusionPattern": "slot",
+        "edgeWearPattern": "",
+        "notes": ""
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "entrance-reducer"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(74, 74, 72, 1.0)",
+        "secondaryAlbedo": "rgba(42, 42, 40, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.75
+      }
+    },
+    {
+      "id": "super-bottom",
+      "name": "Bottom super (brood box)",
+      "level": "macro",
+      "role": "body-segment",
+      "importance": 1.0,
+      "confidence": 0.9,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Closed rectangular wooden box with finger-joint corners and recessed hand holds.",
+      "geometryDescriptor": {
+        "topologyIntent": "hollow-looking solid blockout box; wall thickness implied by joints",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.004,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "box UV vertical grain",
+        "normalStrategy": "vertex normals + grain"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentSocket": "stack-0",
+        "localStart": [
+          0,
+          0.12,
+          0
+        ],
+        "localEnd": [
+          0,
+          0.48,
+          0
+        ],
+        "contactType": "abut",
+        "embedDepth": 0.0,
+        "overlap": 0.0,
+        "gapTolerance": 0.003,
+        "notes": "Attached to root"
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 0.36,
+        "depth": 0.82,
+        "units": "relative",
+        "confidence": 0.9
+      },
+      "transform": {
+        "position": [
+          0,
+          0.3,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "detachable-stack",
+        "pivot": {
+          "mode": "bottom-center",
+          "localPosition": [
+            0,
+            -0.18,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.85
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": true,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": true,
+          "fractureGroup": "super-0",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 12.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [
+        {
+          "type": "box-joint",
+          "corners": [
+            "all-vertical"
+          ]
+        }
+      ],
+      "seams": [
+        {
+          "with": "neighbor-super",
+          "type": "horizontal-abut"
+        }
+      ],
+      "localFeatures": [
+        {
+          "id": "finger-joints",
+          "kind": "joinery",
+          "description": "Alternating finger joints on vertical edges",
+          "affects": "edge-rhythm"
+        },
+        {
+          "id": "front-handhold",
+          "kind": "recess",
+          "description": "Elongated horizontal hand-hold on front face",
+          "affects": "form",
+          "placement": {
+            "face": "front",
+            "width": 0.28,
+            "height": 0.06,
+            "depth": 0.03
+          }
+        },
+        {
+          "id": "side-handhold",
+          "kind": "recess",
+          "description": "Hand-hold on right side face",
+          "affects": "form",
+          "placement": {
+            "face": "right",
+            "width": 0.06,
+            "height": 0.12,
+            "depth": 0.03
+          }
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.42,
+        "microRoughness": 0.15,
+        "bumpAmplitude": 0.012,
+        "normalPattern": "wood-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "handhold-cavity",
+        "edgeWearPattern": "corner-soft",
+        "notes": "End-grain fingers darker."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "finger-joint-corners",
+        "recessed-handholds",
+        "side-handholds",
+        "wood-grain-varnish"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(201, 160, 106, 1.0)",
+        "secondaryAlbedo": "rgba(166, 124, 74, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.9
+      },
+      "repetitionSystemRef": "super-stack"
+    },
+    {
+      "id": "super-middle",
+      "name": "Middle super",
+      "level": "macro",
+      "role": "body-segment",
+      "importance": 0.98,
+      "confidence": 0.9,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Closed rectangular wooden box with finger-joint corners and recessed hand holds.",
+      "geometryDescriptor": {
+        "topologyIntent": "hollow-looking solid blockout box; wall thickness implied by joints",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.004,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "box UV vertical grain",
+        "normalStrategy": "vertex normals + grain"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentSocket": "stack-1",
+        "localStart": [
+          0,
+          0.48000000000000004,
+          0
+        ],
+        "localEnd": [
+          0,
+          0.8400000000000001,
+          0
+        ],
+        "contactType": "abut",
+        "embedDepth": 0.0,
+        "overlap": 0.0,
+        "gapTolerance": 0.003,
+        "notes": "Attached to root"
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 0.36,
+        "depth": 0.82,
+        "units": "relative",
+        "confidence": 0.9
+      },
+      "transform": {
+        "position": [
+          0,
+          0.66,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "detachable-stack",
+        "pivot": {
+          "mode": "bottom-center",
+          "localPosition": [
+            0,
+            -0.18,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.85
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": true,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": true,
+          "fractureGroup": "super-1",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 12.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [
+        {
+          "type": "box-joint",
+          "corners": [
+            "all-vertical"
+          ]
+        }
+      ],
+      "seams": [
+        {
+          "with": "neighbor-super",
+          "type": "horizontal-abut"
+        }
+      ],
+      "localFeatures": [
+        {
+          "id": "finger-joints",
+          "kind": "joinery",
+          "description": "Alternating finger joints on vertical edges",
+          "affects": "edge-rhythm"
+        },
+        {
+          "id": "front-handhold",
+          "kind": "recess",
+          "description": "Elongated horizontal hand-hold on front face",
+          "affects": "form",
+          "placement": {
+            "face": "front",
+            "width": 0.28,
+            "height": 0.06,
+            "depth": 0.03
+          }
+        },
+        {
+          "id": "side-handhold",
+          "kind": "recess",
+          "description": "Hand-hold on right side face",
+          "affects": "form",
+          "placement": {
+            "face": "right",
+            "width": 0.06,
+            "height": 0.12,
+            "depth": 0.03
+          }
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.42,
+        "microRoughness": 0.15,
+        "bumpAmplitude": 0.012,
+        "normalPattern": "wood-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "handhold-cavity",
+        "edgeWearPattern": "corner-soft",
+        "notes": "End-grain fingers darker."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "finger-joint-corners",
+        "recessed-handholds",
+        "side-handholds",
+        "wood-grain-varnish"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(201, 160, 106, 1.0)",
+        "secondaryAlbedo": "rgba(166, 124, 74, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.9
+      },
+      "repetitionSystemRef": "super-stack"
+    },
+    {
+      "id": "super-top",
+      "name": "Top super",
+      "level": "macro",
+      "role": "body-segment",
+      "importance": 0.96,
+      "confidence": 0.9,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Closed rectangular wooden box with finger-joint corners and recessed hand holds.",
+      "geometryDescriptor": {
+        "topologyIntent": "hollow-looking solid blockout box; wall thickness implied by joints",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.004,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "box UV vertical grain",
+        "normalStrategy": "vertex normals + grain"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentSocket": "stack-2",
+        "localStart": [
+          0,
+          0.8400000000000001,
+          0
+        ],
+        "localEnd": [
+          0,
+          1.2,
+          0
+        ],
+        "contactType": "abut",
+        "embedDepth": 0.0,
+        "overlap": 0.0,
+        "gapTolerance": 0.003,
+        "notes": "Attached to root"
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 0.36,
+        "depth": 0.82,
+        "units": "relative",
+        "confidence": 0.9
+      },
+      "transform": {
+        "position": [
+          0,
+          1.02,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "detachable-stack",
+        "pivot": {
+          "mode": "bottom-center",
+          "localPosition": [
+            0,
+            -0.18,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.85
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": true,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": true,
+          "fractureGroup": "super-2",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 12.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [
+        {
+          "type": "box-joint",
+          "corners": [
+            "all-vertical"
+          ]
+        }
+      ],
+      "seams": [
+        {
+          "with": "neighbor-super",
+          "type": "horizontal-abut"
+        }
+      ],
+      "localFeatures": [
+        {
+          "id": "finger-joints",
+          "kind": "joinery",
+          "description": "Alternating finger joints on vertical edges",
+          "affects": "edge-rhythm"
+        },
+        {
+          "id": "front-handhold",
+          "kind": "recess",
+          "description": "Elongated horizontal hand-hold on front face",
+          "affects": "form",
+          "placement": {
+            "face": "front",
+            "width": 0.28,
+            "height": 0.06,
+            "depth": 0.03
+          }
+        },
+        {
+          "id": "side-handhold",
+          "kind": "recess",
+          "description": "Hand-hold on right side face",
+          "affects": "form",
+          "placement": {
+            "face": "right",
+            "width": 0.06,
+            "height": 0.12,
+            "depth": 0.03
+          }
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.42,
+        "microRoughness": 0.15,
+        "bumpAmplitude": 0.012,
+        "normalPattern": "wood-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "handhold-cavity",
+        "edgeWearPattern": "corner-soft",
+        "notes": "End-grain fingers darker."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "finger-joint-corners",
+        "recessed-handholds",
+        "side-handholds",
+        "wood-grain-varnish"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(201, 160, 106, 1.0)",
+        "secondaryAlbedo": "rgba(166, 124, 74, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.9
+      },
+      "repetitionSystemRef": "super-stack"
+    },
+    {
+      "id": "handhold-front-middle",
+      "name": "Handhold recess (front)",
+      "level": "micro",
+      "role": "surface-cutout",
+      "importance": 0.7,
+      "confidence": 0.85,
+      "primitive": "box",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Shallow recessed cavity cut into super face.",
+      "geometryDescriptor": {
+        "topologyIntent": "inset box representing cavity (boolean cut intent)",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.008,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "planar",
+        "normalStrategy": "inward cavity"
+      },
+      "parent": "super-middle",
+      "attachment": {
+        "parentSocket": "handhold-front",
+        "localStart": [
+          0,
+          0,
+          0.39999999999999997
+        ],
+        "localEnd": [
+          0,
+          0,
+          0.39999999999999997
+        ],
+        "contactType": "embed",
+        "embedDepth": 0.02,
+        "overlap": 0.02,
+        "gapTolerance": 0.002,
+        "notes": "Attached to super-middle"
+      },
+      "dimensions": {
+        "width": 0.28,
+        "height": 0.055,
+        "depth": 0.035,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0.66,
+          0.39999999999999997
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "super-1",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "cavity-ao",
+          "kind": "occlusion",
+          "description": "Darker interior of hand hold"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.7,
+        "microRoughness": 0.3,
+        "bumpAmplitude": 0.0,
+        "normalPattern": "",
+        "displacementPattern": "",
+        "occlusionPattern": "cavity",
+        "edgeWearPattern": "",
+        "notes": "Render as inset darker mesh or boolean depression."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "recessed-handholds"
+      ],
+      "fidelityTier": "detail",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(166, 124, 74, 1.0)",
+        "secondaryAlbedo": "rgba(107, 78, 48, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.8
+      }
+    },
+    {
+      "id": "handhold-right-middle",
+      "name": "Handhold recess (right)",
+      "level": "micro",
+      "role": "surface-cutout",
+      "importance": 0.7,
+      "confidence": 0.85,
+      "primitive": "box",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Shallow recessed cavity cut into super face.",
+      "geometryDescriptor": {
+        "topologyIntent": "inset box representing cavity (boolean cut intent)",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.008,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "planar",
+        "normalStrategy": "inward cavity"
+      },
+      "parent": "super-middle",
+      "attachment": {
+        "parentSocket": "handhold-right",
+        "localStart": [
+          0.49,
+          0,
+          0
+        ],
+        "localEnd": [
+          0.49,
+          0,
+          0
+        ],
+        "contactType": "embed",
+        "embedDepth": 0.02,
+        "overlap": 0.02,
+        "gapTolerance": 0.002,
+        "notes": "Attached to super-middle"
+      },
+      "dimensions": {
+        "width": 0.035,
+        "height": 0.1,
+        "depth": 0.06,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0.49,
+          0.66,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "super-1",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "cavity-ao",
+          "kind": "occlusion",
+          "description": "Darker interior of hand hold"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.7,
+        "microRoughness": 0.3,
+        "bumpAmplitude": 0.0,
+        "normalPattern": "",
+        "displacementPattern": "",
+        "occlusionPattern": "cavity",
+        "edgeWearPattern": "",
+        "notes": "Render as inset darker mesh or boolean depression."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "recessed-handholds"
+      ],
+      "fidelityTier": "detail",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(166, 124, 74, 1.0)",
+        "secondaryAlbedo": "rgba(107, 78, 48, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.8
+      }
+    },
+    {
+      "id": "roof",
+      "name": "Telescoping cover / roof",
+      "level": "macro",
+      "role": "lid",
+      "importance": 0.95,
+      "confidence": 0.9,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Flat wooden lid slightly larger than supers with metal drip edge.",
+      "geometryDescriptor": {
+        "topologyIntent": "flat lid plank with slight overhang",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.003,
+          "segments": 2
+        },
+        "deformationStack": [],
+        "uvStrategy": "box UV",
+        "normalStrategy": "vertex normals"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentSocket": "top-socket",
+        "localStart": [
+          0,
+          1.2000000000000002,
+          0
+        ],
+        "localEnd": [
+          0,
+          1.2800000000000002,
+          0
+        ],
+        "contactType": "abut",
+        "embedDepth": 0.0,
+        "overlap": 0.0,
+        "gapTolerance": 0.003,
+        "notes": "Attached to root"
+      },
+      "dimensions": {
+        "width": 1.06,
+        "height": 0.08,
+        "depth": 0.8799999999999999,
+        "units": "relative",
+        "confidence": 0.9
+      },
+      "transform": {
+        "position": [
+          0,
+          1.2400000000000002,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "lid",
+        "pivot": {
+          "mode": "back-hinge",
+          "localPosition": [
+            0,
+            0,
+            -0.328
+          ],
+          "axis": [
+            1,
+            0,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": true,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": true,
+          "fractureGroup": "roof",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 12.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine",
+        "galvanized-steel"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [
+        {
+          "with": "super-top",
+          "type": "abut-seam"
+        }
+      ],
+      "localFeatures": [
+        {
+          "id": "flat-top",
+          "kind": "plane",
+          "description": "Planar top surface"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.4,
+        "microRoughness": 0.15,
+        "bumpAmplitude": 0.01,
+        "normalPattern": "wood-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "",
+        "edgeWearPattern": "",
+        "notes": ""
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "metal-roof-drip-edge",
+        "roof-wire-handle"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(196, 160, 112, 1.0)",
+        "secondaryAlbedo": "rgba(166, 124, 74, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.88
+      }
+    },
+    {
+      "id": "roof-metal-edge",
+      "name": "Galvanized drip edge",
+      "level": "meso",
+      "role": "trim",
+      "importance": 0.8,
+      "confidence": 0.88,
+      "primitive": "box",
+      "topologyClass": "conforming-shell",
+      "topologyRationale": "Thin metal strip wrapping roof perimeter \u2014 shell-like trim.",
+      "geometryDescriptor": {
+        "topologyIntent": "thin perimeter band under roof lip",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "strip UV",
+        "normalStrategy": "outward"
+      },
+      "parent": "roof",
+      "attachment": {
+        "parentSocket": "perimeter",
+        "localStart": [
+          0,
+          -0.027999999999999997,
+          0
+        ],
+        "localEnd": [
+          0,
+          -0.027999999999999997,
+          0
+        ],
+        "contactType": "embed",
+        "embedDepth": 0.01,
+        "overlap": 0.01,
+        "gapTolerance": 0.002,
+        "notes": "Attached to roof"
+      },
+      "dimensions": {
+        "width": 1.07,
+        "height": 0.018,
+        "depth": 0.8899999999999999,
+        "units": "relative",
+        "confidence": 0.85
+      },
+      "transform": {
+        "position": [
+          0,
+          1.2120000000000002,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "roof",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "galvanized-steel",
+      "materialLayers": [
+        "galvanized-steel"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "zinc-band",
+          "kind": "trim",
+          "description": "Light metal band visible under roof rim"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.35,
+        "microRoughness": 0.12,
+        "bumpAmplitude": 0.0,
+        "normalPattern": "brushed",
+        "displacementPattern": "",
+        "occlusionPattern": "",
+        "edgeWearPattern": "edge-scuff",
+        "notes": ""
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "metal-roof-drip-edge"
+      ],
+      "fidelityTier": "detail",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(168, 176, 181, 1.0)",
+        "secondaryAlbedo": "rgba(122, 130, 136, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.85
+      }
+    },
+    {
+      "id": "roof-handle",
+      "name": "Roof wire handle",
+      "level": "meso",
+      "role": "handle",
+      "importance": 0.75,
+      "confidence": 0.9,
+      "primitive": "tube",
+      "topologyClass": "fiber-strand",
+      "topologyRationale": "Bent metal wire is a thin tubular strand path.",
+      "geometryDescriptor": {
+        "topologyIntent": "U-shaped wire handle on roof top",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "sweep UV",
+        "normalStrategy": "tube normals",
+        "path3D": {
+          "points": [
+            [
+              -0.08,
+              0.04,
+              0.0
+            ],
+            [
+              -0.06,
+              0.07,
+              0.0
+            ],
+            [
+              0.0,
+              0.08,
+              0.0
+            ],
+            [
+              0.06,
+              0.07,
+              0.0
+            ],
+            [
+              0.08,
+              0.04,
+              0.0
+            ]
+          ],
+          "radius": 0.008,
+          "radialSegments": 8,
+          "closed": false
+        }
+      },
+      "parent": "roof",
+      "attachment": {
+        "parentSocket": "top-center",
+        "localStart": [
+          0,
+          0.04,
+          0
+        ],
+        "localEnd": [
+          0,
+          0.12,
+          0
+        ],
+        "contactType": "embed",
+        "embedDepth": 0.01,
+        "overlap": 0.01,
+        "gapTolerance": 0.002,
+        "notes": "Attached to roof"
+      },
+      "dimensions": {
+        "width": 0.16,
+        "height": 0.08,
+        "depth": 0.02,
+        "units": "relative",
+        "confidence": 0.85
+      },
+      "transform": {
+        "position": [
+          0,
+          1.2800000000000002,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "grasp-handle",
+        "pivot": {
+          "mode": "base",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            1,
+            0,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "roof",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "galvanized-steel",
+      "materialLayers": [
+        "galvanized-steel"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "arch",
+          "kind": "curve",
+          "description": "Arched wire"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.55,
+        "microRoughness": 0.2,
+        "bumpAmplitude": 0.0,
+        "normalPattern": "",
+        "displacementPattern": "",
+        "occlusionPattern": "",
+        "edgeWearPattern": "",
+        "notes": "Dark painted metal local override."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "roof-wire-handle"
+      ],
+      "fidelityTier": "detail",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(42, 42, 42, 1.0)",
+        "secondaryAlbedo": "rgba(58, 58, 58, 1.0)",
+        "materialClass": "metal",
+        "materialClassConfidence": 0.9
+      }
+    },
+    {
+      "id": "finger-joint-sample",
+      "name": "Box joint tooth sample",
+      "level": "micro",
+      "role": "joinery-detail",
+      "importance": 0.65,
+      "confidence": 0.85,
+      "primitive": "box",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Small rectangular teeth alternating on vertical edges.",
+      "geometryDescriptor": {
+        "topologyIntent": "instanced small boxes along vertical edges",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "end-grain UV",
+        "normalStrategy": "flat"
+      },
+      "parent": "super-middle",
+      "attachment": {
+        "parentSocket": "corner-edge",
+        "localStart": [
+          -0.5,
+          0,
+          0.41
+        ],
+        "localEnd": [
+          -0.51,
+          0,
+          0.41
+        ],
+        "contactType": "embed",
+        "embedDepth": 0.008,
+        "overlap": 0.008,
+        "gapTolerance": 0.002,
+        "notes": "Attached to super-middle"
+      },
+      "dimensions": {
+        "width": 0.028,
+        "height": 0.04,
+        "depth": 0.028,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          -0.5,
+          0.66,
+          0.41
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.8
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "super-1",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "end-grain",
+          "kind": "material-zone",
+          "description": "Darker end grain"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.62,
+        "microRoughness": 0.25,
+        "bumpAmplitude": 0.005,
+        "normalPattern": "end-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "",
+        "edgeWearPattern": "",
+        "notes": ""
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "finger-joint-corners"
+      ],
+      "fidelityTier": "detail",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(139, 99, 64, 1.0)",
+        "secondaryAlbedo": "rgba(107, 78, 48, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.85
+      },
+      "repetitionSystemRef": "finger-joints"
+    },
+    {
+      "id": "entrance-landing-lip",
+      "name": "Front landing lip",
+      "level": "meso",
+      "role": "ledge",
+      "importance": 0.7,
+      "confidence": 0.8,
+      "primitive": "box",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Thin front ledge of the bottom board extending toward the camera.",
+      "geometryDescriptor": {
+        "topologyIntent": "thin front plank extension",
+        "edgeTreatment": {
+          "type": "bevel",
+          "bevelRadius": 0.002,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "box UV",
+        "normalStrategy": "vertex normals"
+      },
+      "parent": "bottom-board",
+      "attachment": {
+        "parentSocket": "front-lip",
+        "localStart": [
+          0,
+          0.02,
+          0.4
+        ],
+        "localEnd": [
+          0,
+          0.02,
+          0.48
+        ],
+        "contactType": "abut",
+        "embedDepth": 0.005,
+        "overlap": 0.005,
+        "gapTolerance": 0.003,
+        "notes": "Attached to bottom-board"
+      },
+      "dimensions": {
+        "width": 0.95,
+        "height": 0.03,
+        "depth": 0.08,
+        "units": "relative",
+        "confidence": 0.75
+      },
+      "transform": {
+        "position": [
+          0,
+          0.03,
+          0.48
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "static",
+        "pivot": {
+          "mode": "center",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": false,
+          "rotate": false,
+          "scale": false,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": true
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": ""
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "base",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "varnished-pine"
+        }
+      },
+      "material": "varnished-pine",
+      "materialLayers": [
+        "varnished-pine"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "front-lip",
+          "kind": "ledge",
+          "description": "Landing board front edge"
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.5,
+        "microRoughness": 0.2,
+        "bumpAmplitude": 0.01,
+        "normalPattern": "wood-grain",
+        "displacementPattern": "",
+        "occlusionPattern": "",
+        "edgeWearPattern": "edge-wear",
+        "notes": ""
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [
+        "bottom-board-ledge"
+      ],
+      "fidelityTier": "structural",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(184, 144, 96, 1.0)",
+        "secondaryAlbedo": "rgba(139, 99, 64, 1.0)",
+        "materialClass": "wood",
+        "materialClassConfidence": 0.8
+      }
+    }
+  ],
+  "materials": [
+    {
+      "id": "varnished-pine",
+      "name": "Varnished softwood (pine)",
+      "type": "standard",
+      "shaderModel": "MeshPhysicalMaterial",
+      "baseColor": "#C9A06A",
+      "color": "#C9A06A",
+      "albedo": {
+        "dominant": "#936C47",
+        "secondary": [
+          "#BD8E5B",
+          "#C5A177",
+          "#D0CEC8"
+        ],
+        "samplingNotes": "Reference-derived from foreground pixels; de-lit to reduce baked shadows/highlights.",
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_albedo.png",
+          "url": "varnished-pine_albedo.png",
+          "channel": "albedo",
+          "source": "reference-pixel-extraction"
+        }
+      },
+      "colorVariation": {
+        "palette": [
+          "#936C47",
+          "#BD8E5B",
+          "#C5A177",
+          "#D0CEC8",
+          "#573A1F"
+        ],
+        "pattern": "reference-derived pixel palette",
+        "amplitude": 0.219,
+        "heightCorrelation": 0.42
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          2.0,
+          3.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Grain runs vertical on box faces; end-grain on finger joints."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 2.0,
+          "amplitude": 0.463,
+          "role": "reference-derived broad albedo and height breakup"
+        },
+        {
+          "id": "meso",
+          "frequency": 14.0,
+          "amplitude": 0.35,
+          "role": "reference-derived cracks, ridges, pores, grain, or leaf clusters"
+        },
+        {
+          "id": "micro",
+          "frequency": 72.0,
+          "amplitude": 0.14,
+          "role": "reference-derived micro highlight breakup under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.701,
+        "variation": 0.094,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_roughness.png",
+          "url": "varnished-pine_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "localResponse": "reference-derived roughness estimate; cavities and textured zones trend rougher, bright highlights trend smoother"
+      },
+      "metalness": {
+        "base": 0.0,
+        "variation": 0.0
+      },
+      "normal": {
+        "pattern": "reference-derived height-gradient normal map",
+        "strength": 0.218,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_normal.png",
+          "url": "varnished-pine_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "heightSource": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_height.png",
+          "url": "varnished-pine_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "reference-derived height field",
+        "amplitude": 0.024,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_height.png",
+          "url": "varnished-pine_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        }
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.38,
+        "contactShadowBias": 0.35,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_ao.png",
+          "url": "varnished-pine_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        },
+        "notes": "Reference-derived cavity estimate from local height minima; verify against grazing-light screenshot."
+      },
+      "wear": {
+        "edgeWear": 0.15,
+        "scratches": [
+          {
+            "direction": "random-shallow",
+            "density": 0.08
+          }
+        ],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.08,
+        "cavityBias": 0.55,
+        "color": "#4A3A28"
+      },
+      "clearcoat": 0.35,
+      "clearcoatRoughness": 0.25,
+      "localOverrides": [
+        {
+          "id": "end-grain-fingers",
+          "region": "finger-joint-corners",
+          "albedo": "#8B6340",
+          "roughness": 0.62,
+          "notes": "Darker end-grain fingers at box joints."
+        },
+        {
+          "id": "handhold-cavity",
+          "region": "recessed-handholds",
+          "roughness": 0.7,
+          "aoBoost": 0.35,
+          "notes": "Matte recessed wood inside hand holds."
+        },
+        {
+          "id": "seam-dirt",
+          "region": "super-stack-seams",
+          "dirt": 0.2,
+          "notes": "Slight grime line between stacked boxes."
+        },
+        {
+          "id": "reference-pbr-pixel-evidence",
+          "type": "material-map-evidence",
+          "evidenceRefs": [
+            "full-object"
+          ],
+          "channels": [
+            "albedo",
+            "roughness",
+            "height",
+            "normal",
+            "ambient-occlusion"
+          ],
+          "notes": "Use generated maps as material evidence, then refine after browser screenshot comparison."
+        }
+      ],
+      "referencePbr": {
+        "version": "1.0",
+        "sourceImage": "C:\\Users\\ifranjo\\scripts\\imag_3js\\refs\\langstroth_hive_gen.png",
+        "extractor": "stage1_intake/extract_pbr_evidence.py",
+        "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
+        "usable": true,
+        "verdict": "pass",
+        "confidence": 0.86,
+        "estimatedFidelity": 0.86,
+        "targetThreshold": 0.5,
+        "hardLimit": "A single image cannot uniquely recover true albedo/roughness/normal/AO; maps are reference-derived estimates.",
+        "maps": {
+          "albedo": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_albedo.png",
+            "url": "varnished-pine_albedo.png",
+            "channel": "albedo",
+            "source": "reference-pixel-extraction"
+          },
+          "roughness": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_roughness.png",
+            "url": "varnished-pine_roughness.png",
+            "channel": "roughness",
+            "source": "reference-pixel-extraction"
+          },
+          "height": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_height.png",
+            "url": "varnished-pine_height.png",
+            "channel": "height",
+            "source": "reference-pixel-extraction"
+          },
+          "normal": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_normal.png",
+            "url": "varnished-pine_normal.png",
+            "channel": "normal",
+            "source": "reference-pixel-extraction"
+          },
+          "ao": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_ao.png",
+            "url": "varnished-pine_ao.png",
+            "channel": "ao",
+            "source": "reference-pixel-extraction"
+          }
+        },
+        "diagnostics": {
+          "sourceWidth": 1024,
+          "sourceHeight": 1024,
+          "mapSize": 1024,
+          "cropBBoxPixels": {
+            "x": 152,
+            "y": 78,
+            "width": 872,
+            "height": 898
+          },
+          "mask": {
+            "backgroundColor": "#F0F2F0",
+            "backgroundNoise": 9.695,
+            "transparentPixelFraction": 0.0,
+            "foregroundCoverage": 0.5645
+          },
+          "mapStats": {
+            "valueRange": 0.5216,
+            "heightP90Gradient": 0.05228,
+            "roughnessBase": 0.701,
+            "roughnessVariation": 0.094,
+            "normalStrength": 0.218,
+            "blurRadius": 21
+          },
+          "palette": [
+            "#936C47",
+            "#BD8E5B",
+            "#C5A177",
+            "#D0CEC8",
+            "#573A1F"
+          ]
+        },
+        "warnings": [
+          "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+        ]
+      },
+      "shaderNotes": [
+        "MeshPhysicalMaterial with mild clearcoat for varnish sheen.",
+        "Independent roughness/AO maps; do not reuse albedo as roughness.",
+        "Reference-derived maps are estimates from image pixels; verify with neutral, grazing, and reference-matched renders.",
+        "Do not treat baked image shadows as final albedo; rerun extraction with a tighter material crop if highlights/shadows pollute the maps."
+      ]
+    },
+    {
+      "id": "galvanized-steel",
+      "name": "Galvanized / painted steel hardware",
+      "type": "standard",
+      "shaderModel": "MeshStandardMaterial",
+      "baseColor": "#A8B0B5",
+      "color": "#A8B0B5",
+      "albedo": {
+        "dominant": "#936C47",
+        "secondary": [
+          "#BD8E5B",
+          "#C5A177",
+          "#D0CEC8"
+        ],
+        "samplingNotes": "Reference-derived from foreground pixels; de-lit to reduce baked shadows/highlights.",
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_albedo.png",
+          "url": "galvanized-steel_albedo.png",
+          "channel": "albedo",
+          "source": "reference-pixel-extraction"
+        }
+      },
+      "colorVariation": {
+        "palette": [
+          "#936C47",
+          "#BD8E5B",
+          "#C5A177",
+          "#D0CEC8",
+          "#573A1F"
+        ],
+        "pattern": "reference-derived pixel palette",
+        "amplitude": 0.219,
+        "heightCorrelation": 0.42
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          1.0,
+          1.0
+        ],
+        "anisotropy": 4,
+        "texelDensityIntent": "Thin trim strips; keep texel density high enough for edge glints."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 2.0,
+          "amplitude": 0.463,
+          "role": "reference-derived broad albedo and height breakup"
+        },
+        {
+          "id": "meso",
+          "frequency": 14.0,
+          "amplitude": 0.35,
+          "role": "reference-derived cracks, ridges, pores, grain, or leaf clusters"
+        },
+        {
+          "id": "micro",
+          "frequency": 72.0,
+          "amplitude": 0.14,
+          "role": "reference-derived micro highlight breakup under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.701,
+        "variation": 0.094,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_roughness.png",
+          "url": "galvanized-steel_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "localResponse": "reference-derived roughness estimate; cavities and textured zones trend rougher, bright highlights trend smoother"
+      },
+      "metalness": {
+        "base": 0.85,
+        "variation": 0.1
+      },
+      "normal": {
+        "pattern": "reference-derived height-gradient normal map",
+        "strength": 0.218,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_normal.png",
+          "url": "galvanized-steel_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "heightSource": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_height.png",
+          "url": "galvanized-steel_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "reference-derived height field",
+        "amplitude": 0.024,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_height.png",
+          "url": "galvanized-steel_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        }
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.38,
+        "contactShadowBias": 0.35,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_ao.png",
+          "url": "galvanized-steel_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        },
+        "notes": "Reference-derived cavity estimate from local height minima; verify against grazing-light screenshot."
+      },
+      "wear": {
+        "edgeWear": 0.2,
+        "scratches": [
+          {
+            "direction": "along-edge",
+            "density": 0.1
+          }
+        ],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.05,
+        "cavityBias": 0.3,
+        "color": "#3A3A3A"
+      },
+      "localOverrides": [
+        {
+          "id": "handle-dark",
+          "region": "roof-handle",
+          "albedo": "#2A2A2A",
+          "metalness": 0.7,
+          "roughness": 0.55
+        },
+        {
+          "id": "reference-pbr-pixel-evidence",
+          "type": "material-map-evidence",
+          "evidenceRefs": [
+            "full-object"
+          ],
+          "channels": [
+            "albedo",
+            "roughness",
+            "height",
+            "normal",
+            "ambient-occlusion"
+          ],
+          "notes": "Use generated maps as material evidence, then refine after browser screenshot comparison."
+        }
+      ],
+      "referencePbr": {
+        "version": "1.0",
+        "sourceImage": "C:\\Users\\ifranjo\\scripts\\imag_3js\\refs\\langstroth_hive_gen.png",
+        "extractor": "stage1_intake/extract_pbr_evidence.py",
+        "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
+        "usable": true,
+        "verdict": "pass",
+        "confidence": 0.86,
+        "estimatedFidelity": 0.86,
+        "targetThreshold": 0.5,
+        "hardLimit": "A single image cannot uniquely recover true albedo/roughness/normal/AO; maps are reference-derived estimates.",
+        "maps": {
+          "albedo": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_albedo.png",
+            "url": "galvanized-steel_albedo.png",
+            "channel": "albedo",
+            "source": "reference-pixel-extraction"
+          },
+          "roughness": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_roughness.png",
+            "url": "galvanized-steel_roughness.png",
+            "channel": "roughness",
+            "source": "reference-pixel-extraction"
+          },
+          "height": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_height.png",
+            "url": "galvanized-steel_height.png",
+            "channel": "height",
+            "source": "reference-pixel-extraction"
+          },
+          "normal": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_normal.png",
+            "url": "galvanized-steel_normal.png",
+            "channel": "normal",
+            "source": "reference-pixel-extraction"
+          },
+          "ao": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_ao.png",
+            "url": "galvanized-steel_ao.png",
+            "channel": "ao",
+            "source": "reference-pixel-extraction"
+          }
+        },
+        "diagnostics": {
+          "sourceWidth": 1024,
+          "sourceHeight": 1024,
+          "mapSize": 1024,
+          "cropBBoxPixels": {
+            "x": 152,
+            "y": 78,
+            "width": 872,
+            "height": 898
+          },
+          "mask": {
+            "backgroundColor": "#F0F2F0",
+            "backgroundNoise": 9.695,
+            "transparentPixelFraction": 0.0,
+            "foregroundCoverage": 0.5645
+          },
+          "mapStats": {
+            "valueRange": 0.5216,
+            "heightP90Gradient": 0.05228,
+            "roughnessBase": 0.701,
+            "roughnessVariation": 0.094,
+            "normalStrength": 0.218,
+            "blurRadius": 21
+          },
+          "palette": [
+            "#936C47",
+            "#BD8E5B",
+            "#C5A177",
+            "#D0CEC8",
+            "#573A1F"
+          ]
+        },
+        "warnings": [
+          "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+        ]
+      },
+      "shaderNotes": [
+        "Separate dark material override for wire handle.",
+        "Reference-derived maps are estimates from image pixels; verify with neutral, grazing, and reference-matched renders.",
+        "Do not treat baked image shadows as final albedo; rerun extraction with a tighter material crop if highlights/shadows pollute the maps."
+      ]
+    },
+    {
+      "id": "entrance-metal",
+      "name": "Dark entrance reducer / landing metal",
+      "type": "standard",
+      "shaderModel": "MeshStandardMaterial",
+      "baseColor": "#4A4A48",
+      "color": "#4A4A48",
+      "albedo": {
+        "dominant": "#936C47",
+        "secondary": [
+          "#BD8E5B",
+          "#C5A177",
+          "#D0CEC8"
+        ],
+        "samplingNotes": "Reference-derived from foreground pixels; de-lit to reduce baked shadows/highlights.",
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_albedo.png",
+          "url": "entrance-metal_albedo.png",
+          "channel": "albedo",
+          "source": "reference-pixel-extraction"
+        }
+      },
+      "colorVariation": {
+        "palette": [
+          "#936C47",
+          "#BD8E5B",
+          "#C5A177",
+          "#D0CEC8",
+          "#573A1F"
+        ],
+        "pattern": "reference-derived pixel palette",
+        "amplitude": 0.219,
+        "heightCorrelation": 0.42
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          4.0,
+          1.0
+        ],
+        "anisotropy": 4,
+        "texelDensityIntent": "Teeth pattern along width."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 2.0,
+          "amplitude": 0.463,
+          "role": "reference-derived broad albedo and height breakup"
+        },
+        {
+          "id": "meso",
+          "frequency": 14.0,
+          "amplitude": 0.35,
+          "role": "reference-derived cracks, ridges, pores, grain, or leaf clusters"
+        },
+        {
+          "id": "micro",
+          "frequency": 72.0,
+          "amplitude": 0.14,
+          "role": "reference-derived micro highlight breakup under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.701,
+        "variation": 0.094,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_roughness.png",
+          "url": "entrance-metal_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "localResponse": "reference-derived roughness estimate; cavities and textured zones trend rougher, bright highlights trend smoother"
+      },
+      "metalness": {
+        "base": 0.6,
+        "variation": 0.1
+      },
+      "normal": {
+        "pattern": "reference-derived height-gradient normal map",
+        "strength": 0.218,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_normal.png",
+          "url": "entrance-metal_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "heightSource": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_height.png",
+          "url": "entrance-metal_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "reference-derived height field",
+        "amplitude": 0.024,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_height.png",
+          "url": "entrance-metal_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        }
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.38,
+        "contactShadowBias": 0.35,
+        "map": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_ao.png",
+          "url": "entrance-metal_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        },
+        "notes": "Reference-derived cavity estimate from local height minima; verify against grazing-light screenshot."
+      },
+      "wear": {
+        "edgeWear": 0.25,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.2,
+        "cavityBias": 0.6,
+        "color": "#1A1A18"
+      },
+      "localOverrides": [
+        {
+          "id": "entrance-slot-void",
+          "region": "entrance-opening",
+          "albedo": "#0A0A0A",
+          "roughness": 0.9,
+          "metalness": 0.0
+        },
+        {
+          "id": "reference-pbr-pixel-evidence",
+          "type": "material-map-evidence",
+          "evidenceRefs": [
+            "full-object"
+          ],
+          "channels": [
+            "albedo",
+            "roughness",
+            "height",
+            "normal",
+            "ambient-occlusion"
+          ],
+          "notes": "Use generated maps as material evidence, then refine after browser screenshot comparison."
+        }
+      ],
+      "referencePbr": {
+        "version": "1.0",
+        "sourceImage": "C:\\Users\\ifranjo\\scripts\\imag_3js\\refs\\langstroth_hive_gen.png",
+        "extractor": "stage1_intake/extract_pbr_evidence.py",
+        "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
+        "usable": true,
+        "verdict": "pass",
+        "confidence": 0.86,
+        "estimatedFidelity": 0.86,
+        "targetThreshold": 0.5,
+        "hardLimit": "A single image cannot uniquely recover true albedo/roughness/normal/AO; maps are reference-derived estimates.",
+        "maps": {
+          "albedo": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_albedo.png",
+            "url": "entrance-metal_albedo.png",
+            "channel": "albedo",
+            "source": "reference-pixel-extraction"
+          },
+          "roughness": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_roughness.png",
+            "url": "entrance-metal_roughness.png",
+            "channel": "roughness",
+            "source": "reference-pixel-extraction"
+          },
+          "height": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_height.png",
+            "url": "entrance-metal_height.png",
+            "channel": "height",
+            "source": "reference-pixel-extraction"
+          },
+          "normal": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_normal.png",
+            "url": "entrance-metal_normal.png",
+            "channel": "normal",
+            "source": "reference-pixel-extraction"
+          },
+          "ao": {
+            "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_ao.png",
+            "url": "entrance-metal_ao.png",
+            "channel": "ao",
+            "source": "reference-pixel-extraction"
+          }
+        },
+        "diagnostics": {
+          "sourceWidth": 1024,
+          "sourceHeight": 1024,
+          "mapSize": 1024,
+          "cropBBoxPixels": {
+            "x": 152,
+            "y": 78,
+            "width": 872,
+            "height": 898
+          },
+          "mask": {
+            "backgroundColor": "#F0F2F0",
+            "backgroundNoise": 9.695,
+            "transparentPixelFraction": 0.0,
+            "foregroundCoverage": 0.5645
+          },
+          "mapStats": {
+            "valueRange": 0.5216,
+            "heightP90Gradient": 0.05228,
+            "roughnessBase": 0.701,
+            "roughnessVariation": 0.094,
+            "normalStrength": 0.218,
+            "blurRadius": 21
+          },
+          "palette": [
+            "#936C47",
+            "#BD8E5B",
+            "#C5A177",
+            "#D0CEC8",
+            "#573A1F"
+          ]
+        },
+        "warnings": [
+          "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+        ]
+      },
+      "shaderNotes": [
+        "Reference-derived maps are estimates from image pixels; verify with neutral, grazing, and reference-matched renders.",
+        "Do not treat baked image shadows as final albedo; rerun extraction with a tighter material crop if highlights/shadows pollute the maps."
+      ]
+    }
+  ],
+  "repetitionSystems": [
+    {
+      "id": "super-stack",
+      "name": "Stacked supers",
+      "mode": "linear",
+      "count": 3,
+      "prototypeComponent": "super-middle",
+      "distribution": {
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "spacing": 0.36,
+        "start": [
+          0,
+          0.3,
+          0
+        ]
+      },
+      "variation": {
+        "rotationJitter": 0.0,
+        "scaleJitter": 0.0
+      },
+      "notes": "Three identical exterior boxes stacked vertically."
+    },
+    {
+      "id": "finger-joints",
+      "name": "Box joint teeth along vertical edges",
+      "mode": "linear",
+      "count": 8,
+      "prototypeComponent": "finger-joint-sample",
+      "distribution": {
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "spacing": 0.045,
+        "start": [
+          -0.5,
+          0.5,
+          0.41
+        ]
+      },
+      "variation": {
+        "alternateOffset": true
+      },
+      "notes": "Alternate protruding/recessed teeth; dark end-grain material."
+    }
+  ],
+  "buildPasses": [
+    {
+      "id": "blockout",
+      "goal": "Match macro silhouette and proportions.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Silhouette reads correctly without materials.",
+        "Quality contract has named all required macro feature groups before code generation.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "structural-pass",
+      "goal": "Build the component hierarchy implied by the pre-spec complexity assessment.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Macro, meso, and repeated structures meet qualityContract.minimumSpecDepth.",
+        "Parent-child relations, joints, seams, sockets, and contact points are explicit.",
+        "Every attached child appendage/connector has parentSocket, localStart/localEnd, contactType, embedDepth or overlap, and gapTolerance.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "form-refinement",
+      "goal": "Refine shape, deformation, bevels, tapers, curves, asymmetry, and visible local geometry.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Important visible forms are represented in component geometryDescriptor, deformations, localFeatures, or repetitionSystems.",
+        "Endpoint-based child parts are rooted at their attachment sockets and do not visibly float away from parents.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "material-pass",
+      "goal": "Match material color, roughness, bump, and local variation.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Reference-derived albedo palette records dominant, secondary, and accent colors per visible material.",
+        "Each important material defines roughness variation and at least one normal/bump/displacement response.",
+        "Local material overrides, dirt/wear/stains/moss/chips/scratches or equivalent masks are tied to evidenceRefs.",
+        "Thin, transparent, reflective, wet, or fibrous materials document alpha/transmission/clearcoat/metalness/fiber response when relevant.",
+        "Generated preview uses procedural albedo/roughness/bump texture or vertex color variation instead of one flat color.",
+        "Generated preview uses independent PBR maps at 1024px or higher for the quality-first tier.",
+        "If source pixels are available, referencePbr extraction passed at confidence >= 0.7 or the pass is stopped/requesting better references.",
+        "Macro, meso, and micro surface frequency bands are visible at the intended review distance without obvious tiling.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "surface-pass",
+      "goal": "Add procedural surface locality such as normal/bump/displacement, AO, dirt, stains, chips, grain, moss, scratches, and wear.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Every required material feature group has local overrides or surfaceDetail tied to evidenceRefs.",
+        "A grazing-angle close-up proves that normal/height detail breaks highlights naturally and does not read as smooth plastic.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "lighting-pass",
+      "goal": "Make material and form readable under neutral turntable lighting plus optional reference lighting.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "lightingFromPhoto identifies key light direction/color/intensity, fill light, rim or environment light, and ambient color.",
+        "Exposure, tone mapping, background color/gradient, shadow softness, and contact shadow behavior are specified.",
+        "Lighting does not hide geometry/material gaps and screenshots can be compared fairly to the reference.",
+        "Neutral, grazing, and reference-matched lighting checks distinguish material errors from lighting errors.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "interaction-pass",
+      "goal": "Make the model ready for future animation, transformation, physics, or destruction.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Macro and movable meso components have stable pivot nodes.",
+        "Sockets, collider proxies, and destruction metadata are present for future runtime actions.",
+        "AI vision comparison score meets selfCorrectLoop.visualAcceptance.threshold."
+      ]
+    },
+    {
+      "id": "optimization-pass",
+      "goal": "Protect runtime performance after visual fidelity is accepted.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Triangle count, draw calls, instancing, LOD strategy, and FPS target are documented or verified.",
+        "Repeated detail is instanced or simplified where possible without breaking silhouette/material believability."
+      ]
+    }
+  ],
+  "visualEvidence": [],
+  "reviewHistory": [],
+  "lodPlan": [
+    {
+      "tier": "near",
+      "distance": 0,
+      "strategy": "full component tree and material layers"
+    },
+    {
+      "tier": "far",
+      "distance": 30,
+      "strategy": "merge static components and reduce local feature geometry"
+    }
+  ],
+  "performanceBudget": {
+    "qualityPriority": "reference-fidelity",
+    "targetTriangles": 250000,
+    "maxDrawCalls": 160,
+    "textureSize": 2048,
+    "fpsTarget": 30,
+    "optimizationPolicy": "Reach accepted visual fidelity first, then optimize without removing reference-critical geometry or surface layers."
+  },
+  "lightingFromPhoto": [
+    {
+      "id": "key",
+      "type": "directional",
+      "role": "key",
+      "directionHint": [
+        -0.45,
+        0.75,
+        0.45
+      ],
+      "color": "#FFF5E6",
+      "intensity": 1.35,
+      "notes": "Soft upper-left studio key; warm. exposure ~1.0 EV; tone mapping ACES filmic; contact shadow under hive on ground plane."
+    },
+    {
+      "id": "fill",
+      "type": "hemisphere",
+      "role": "fill",
+      "skyColor": "#F0F2F5",
+      "groundColor": "#C8C0B4",
+      "intensity": 0.45,
+      "notes": "Neutral soft fill from white cyclorama. soft ground shadow and ambient occlusion in stack seams."
+    },
+    {
+      "id": "rim",
+      "type": "directional",
+      "role": "rim",
+      "directionHint": [
+        0.55,
+        0.35,
+        -0.65
+      ],
+      "color": "#E8EEF5",
+      "intensity": 0.35,
+      "notes": "Subtle cool rim separating hive from white background."
+    },
+    {
+      "id": "env",
+      "type": "environment",
+      "role": "reflection",
+      "preset": "studio-soft",
+      "intensity": 0.55,
+      "notes": "Low-contrast studio env for varnish reflections."
+    }
+  ],
+  "proceduralStrategy": [
+    "Box primitives for supers, roof, bottom board (assembled-solid).",
+    "Tube path for roof wire handle.",
+    "Instanced small boxes for finger-joint teeth along vertical edges.",
+    "Inset darker boxes for hand-hold cavities (boolean-cut intent).",
+    "Procedural wood-grain albedo/roughness/normal for pine; independent channels.",
+    "No external mesh downloads \u2014 pure Three.js geometry."
+  ],
+  "animationAnchors": [
+    {
+      "id": "lid-open",
+      "component": "roof",
+      "channel": "rotation.x",
+      "range": [
+        0,
+        -1.1
+      ],
+      "notes": "Hinge-open lid"
+    },
+    {
+      "id": "lift-top-super",
+      "component": "super-top",
+      "channel": "position.y",
+      "range": [
+        0,
+        0.5
+      ],
+      "notes": "Lift off top box"
+    },
+    {
+      "id": "explode-stack",
+      "component": "root",
+      "channel": "explode",
+      "notes": "Scale-from-center explode of named parts"
+    }
+  ],
+  "destructionAnchors": [
+    {
+      "id": "detach-supers",
+      "groups": [
+        "super-0",
+        "super-1",
+        "super-2",
+        "roof",
+        "base"
+      ],
+      "notes": "Each box is a detachable fragment."
+    }
+  ],
+  "risks": [
+    "Single three-quarter view: rear/left inferred by symmetry.",
+    "Interior frames not reconstructed.",
+    "Handholds on all three supers should match; only middle fully micro-detailed in first pass.",
+    "Finger joint count approximate under foreshortening."
+  ],
+  "localSpecSearch": {
+    "collection": "core_3d",
+    "query": "Langstroth Beehive wood grain box stack finger joint metal handle",
+    "index": {
+      "status": "rebuilt",
+      "reason": "missing",
+      "fingerprint": "ac4f0bc9028e34083dbb5d5531ae3df7699c8e7641d5f8e6d42e7492ea1be1d0"
+    },
+    "matches": [
+      {
+        "record_id": "core.shader-mapping-lathegeometry-turnedradially-symmetric-parts",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.rendering_shader_mapping[9]",
+        "score": 8.131144498575,
+        "snippets": [
+          "... ra b\u1eb1ng c\u00e1ch xoay m\u1ed9t bi\u00ean d\u1ea1ng 2D quanh m\u1ed9t tr\u1ee5c. Recognition cues: Contoured, fully radially-symmetric part \u2014 turned wood/metal handle, some muzzle device shapes, adjustment knobs D\u1ea5u hi\u1ec7u nh\u1eadn di\u1ec7n: B\u1ed9 ph\u1eadn c\u00f3 bi\u00ean d\u1ea1ng, \u0111\u1ed1i x\u1ee9ng tr\u1ee5c ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.rendering_shader_mapping[9]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      },
+      {
+        "record_id": "core.shader-mapping-torusgeometry-rings-loops",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.rendering_shader_mapping[8]",
+        "score": 7.742746089594,
+        "snippets": [
+          "... circular features. \u00c1nh x\u1ea1 t\u1edbi c\u00e1c chi ti\u1ebft h\u00ecnh v\u00f2ng tr\u00f2n ki\u1ec3u donut. Recognition cues: Circular loop feature \u2014 bayonet handle ring, finger loop on a Talon knife, trigger guard loop, carrying handle D\u1ea5u hi\u1ec7u nh\u1eadn di\u1ec7n: Chi ti\u1ebft v\u00f2ng tr\u00f2n \u2014 ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.rendering_shader_mapping[8]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      },
+      {
+        "record_id": "core.description-scene-graph-relational-triplets",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.description_conventions[2]",
+        "score": 6.818578340608,
+        "snippets": [
+          "<Subject, Predicate, Object> statements capturing spatial/semantic relationships between parts (e.g. <blade, attached_to, handle>), plus per-node bounding box and class label. C\u00e1c ph\u00e1t bi\u1ec3u <Ch\u1ee7 th\u1ec3, V\u1ecb ng\u1eef, \u0110\u1ed1i t\u01b0\u1ee3ng> n\u1eafm b\u1eaft quan h\u1ec7 kh\u00f4ng ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.description_conventions[2]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      }
+    ]
+  },
+  "pbrExtractionHistory": [
+    {
+      "materialId": "varnished-pine",
+      "confidence": 0.86,
+      "verdict": "pass",
+      "usable": true,
+      "maps": {
+        "albedo": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_albedo.png",
+          "url": "varnished-pine_albedo.png",
+          "channel": "albedo",
+          "source": "reference-pixel-extraction"
+        },
+        "roughness": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_roughness.png",
+          "url": "varnished-pine_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "height": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_height.png",
+          "url": "varnished-pine_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "normal": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_normal.png",
+          "url": "varnished-pine_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "ao": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_pine\\varnished-pine_ao.png",
+          "url": "varnished-pine_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        }
+      }
+    },
+    {
+      "materialId": "galvanized-steel",
+      "confidence": 0.86,
+      "verdict": "pass",
+      "usable": true,
+      "maps": {
+        "albedo": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_albedo.png",
+          "url": "galvanized-steel_albedo.png",
+          "channel": "albedo",
+          "source": "reference-pixel-extraction"
+        },
+        "roughness": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_roughness.png",
+          "url": "galvanized-steel_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "height": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_height.png",
+          "url": "galvanized-steel_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "normal": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_normal.png",
+          "url": "galvanized-steel_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "ao": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_metal\\galvanized-steel_ao.png",
+          "url": "galvanized-steel_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        }
+      }
+    },
+    {
+      "materialId": "entrance-metal",
+      "confidence": 0.86,
+      "verdict": "pass",
+      "usable": true,
+      "maps": {
+        "albedo": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_albedo.png",
+          "url": "entrance-metal_albedo.png",
+          "channel": "albedo",
+          "source": "reference-pixel-extraction"
+        },
+        "roughness": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_roughness.png",
+          "url": "entrance-metal_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "height": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_height.png",
+          "url": "entrance-metal_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "normal": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_normal.png",
+          "url": "entrance-metal_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "ao": {
+          "path": "C:\\Users\\ifranjo\\scripts\\imag_3js\\work\\hive\\pbr_entrance\\entrance-metal_ao.png",
+          "url": "entrance-metal_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        }
+      }
+    }
+  ]
+}
