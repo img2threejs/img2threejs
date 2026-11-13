@@ -5,16 +5,18 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test, after } from 'node:test'
 
 const cli = fileURLToPath(new URL('./img2threejs.mjs', import.meta.url))
-const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'img2threejs-test-')))
+const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'img2threejs test ')))
 after(() => fs.rmSync(root, { recursive: true, force: true }))
-const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim()
+const realGit = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', ['git'], { encoding: 'utf8' }).trim().split(/\r?\n/)[0]
 const repo = path.join(root, 'source')
 fs.mkdirSync(repo)
-const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
+const emptyGitConfig = path.join(root, 'empty.gitconfig')
+fs.writeFileSync(emptyGitConfig, '')
+const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: emptyGitConfig,
   GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid',
   GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' }
 function git(...args) {
@@ -32,12 +34,11 @@ for (const version of ['1.5.2', '2.0.0-beta.2', '2.0.0-beta.10', '2.0.0', '2.1.0
   git('tag', `v${version}`)
   commits[version] = git('rev-parse', 'HEAD')
 }
-const tools = path.join(root, 'tools')
-fs.mkdirSync(tools)
-// Only redirect the remote URL; fetch, checkout, SHA and status use the real Git binary.
-fs.writeFileSync(path.join(tools, 'git'), `#!${process.execPath}\nimport { spawnSync } from 'node:child_process';\nconst args = process.argv.slice(2).map(a => a === 'https://github.com/img2threejs/img2threejs.git' ? process.env.FIXTURE_REPO : a);\nconst result = spawnSync(process.env.REAL_GIT, args, {stdio:'inherit'});\nprocess.exit(result.status ?? 1);\n`, { mode: 0o755 })
-// Extensionless executables default to CommonJS outside a package.
-fs.writeFileSync(path.join(tools, 'package.json'), '{"type":"module"}')
+// Git's own URL rewrite keeps every fixture offline on both POSIX and Windows.
+gitEnv.GIT_CONFIG_COUNT = '1'
+gitEnv.GIT_CONFIG_KEY_0 = `url.${pathToFileURL(repo).href}.insteadOf`
+gitEnv.GIT_CONFIG_VALUE_0 = 'https://github.com/img2threejs/img2threejs.git'
+const directoryLinkType = process.platform === 'win32' ? 'junction' : 'dir'
 // The release server runs in its own process because the CLI is run with spawnSync.
 // /tag/<tag> redirects to that release (/tag/<tag>/<code> with that status), /status/<code> answers <code>,
 // /none redirects without a location, /malformed redirects to an unparseable URL.
@@ -71,8 +72,7 @@ function skills(dir, host = 'claude') {
 }
 function runEnv(extra, dir, ...args) {
   return spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', timeout: 20000,
-    env: { ...gitEnv, HOME: dir, XDG_CONFIG_HOME: path.join(dir, 'xdg'),
-      PATH: `${tools}${path.delimiter}${process.env.PATH}`, FIXTURE_REPO: repo, REAL_GIT: realGit,
+    env: { ...gitEnv, HOME: dir, USERPROFILE: dir, XDG_CONFIG_HOME: path.join(dir, 'xdg'),
       ...latest('v2.0.0'), ...extra } })
 }
 function run(dir, ...args) {
@@ -151,6 +151,30 @@ test('update follows the latest release, then reports already up to date', () =>
   assert.equal(fs.lstatSync(link).ino, before.ino)
 })
 
+test('a failed link replacement preserves the previous install', () => {
+  const dir = home()
+  success(run(dir, 'install'))
+  const previousTarget = installed(dir)
+  const hook = path.join(dir, 'fail-link-replacement.cjs')
+  fs.writeFileSync(hook, `
+const fs = require('node:fs'), path = require('node:path')
+const rename = fs.renameSync
+fs.renameSync = function (from, to) {
+  if (path.basename(from).startsWith('.img2threejs-') &&
+      !path.basename(from).endsWith('-previous') && path.basename(to) === 'img2threejs') {
+    throw Object.assign(new Error('injected link replacement failure'), { code: 'EACCES' })
+  }
+  return rename.apply(this, arguments)
+}
+`)
+  const result = runEnv({ ...latest('v2.1.0'),
+    NODE_OPTIONS: `--require "${hook.replaceAll('\\', '/')}"` }, dir, 'update')
+  assert.equal(result.status, 1, result.stderr)
+  assert.match(result.stderr, /injected link replacement failure/)
+  assert.equal(installed(dir), previousTarget)
+  assert.deepEqual(fs.readdirSync(skills(dir)), ['img2threejs'])
+})
+
 test('a beta install ahead of the latest stable release is left alone', () => {
   const dir = home()
   success(run(dir, 'install', '--ref', 'v2.0.0-beta.10'))
@@ -199,10 +223,11 @@ test('a dangling host link is replaced', () => {
   const dir = home()
   fs.mkdirSync(skills(dir), { recursive: true })
   const missing = path.join(dir, 'deleted-checkout')
-  fs.symlinkSync(missing, path.join(skills(dir), 'img2threejs'))
+  fs.symlinkSync(missing, path.join(skills(dir), 'img2threejs'), directoryLinkType)
+  const originalTarget = fs.readlinkSync(path.join(skills(dir), 'img2threejs'))
   const result = run(dir, 'install')
   success(result)
-  assert.ok(result.stdout.includes(`replaced dangling link ${path.join(skills(dir), 'img2threejs')} (was -> ${missing})`))
+  assert.ok(result.stdout.includes(`replaced dangling link ${path.join(skills(dir), 'img2threejs')} (was -> ${originalTarget})`))
   assert.equal(path.basename(path.dirname(installed(dir))), commits['2.0.0'])
 })
 
@@ -214,12 +239,13 @@ test('an unmanaged link to a skill checkout names both ways forward', () => {
   execFileSync(realGit, ['-C', checkout, 'remote', 'add', 'origin', 'git@github.com:img2threejs/img2threejs.git'], { env: gitEnv })
   fs.mkdirSync(skills(dir), { recursive: true })
   const link = path.join(skills(dir), 'img2threejs')
-  fs.symlinkSync(checkout, link)
+  fs.symlinkSync(checkout, link, directoryLinkType)
+  const originalTarget = fs.readlinkSync(link)
   const result = run(dir, 'install')
   assert.equal(result.status, 2)
   assert.ok(result.stderr.includes(`git -C ${link} pull --ff-only`), result.stderr)
   assert.match(result.stderr, /move the link and re-run/)
-  assert.equal(fs.readlinkSync(link), checkout)
+  assert.equal(fs.readlinkSync(link), originalTarget)
 })
 
 test('explicit host installs the full pinned skill without linking other hosts', () => {
@@ -278,12 +304,13 @@ test('unmanaged directories and symlinks are preserved; no hosts partially insta
       fs.writeFileSync(path.join(link, 'keep'), 'user data')
     } else {
       fs.mkdirSync(path.join(dir, 'elsewhere'))
-      fs.symlinkSync(path.join(dir, 'elsewhere'), link)
+      fs.symlinkSync(path.join(dir, 'elsewhere'), link, directoryLinkType)
     }
+    const originalTarget = kind === 'symlink' ? fs.readlinkSync(link) : null
     assert.equal(run(dir, 'install').status, 2)
     assert.ok(!fs.existsSync(skills(dir)))
     if (kind === 'directory') assert.equal(fs.readFileSync(path.join(link, 'keep'), 'utf8'), 'user data')
-    else assert.equal(fs.readlinkSync(link), path.join(dir, 'elsewhere'))
+    else assert.equal(fs.readlinkSync(link), originalTarget)
     assert.ok(!fs.existsSync(path.join(dir, '.img2threejs')))
   }
 })

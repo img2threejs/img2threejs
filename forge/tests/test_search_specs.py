@@ -15,6 +15,16 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def directory_link(link: Path, target: Path) -> None:
+    if os.name == "nt":
+        import _winapi
+        _winapi.CreateJunction(str(target), str(link))
+    else:
+        link.symlink_to(target, target_is_directory=True)
+
+
 SPEC_SEARCH_PATH = ROOT / "forge/_shared/spec_search.py"
 SEARCH_SPECS_CLI = ROOT / "forge/stage1_intake/search_specs.py"
 SPEC_SEARCH_SPEC = importlib.util.spec_from_file_location("spec_search", SPEC_SEARCH_PATH)
@@ -252,6 +262,7 @@ def run_cli_fixture(
         env=environment,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
 
@@ -502,7 +513,12 @@ class SourceIngestionTest(unittest.TestCase):
             source_root.mkdir()
             secret = root / "secret.md"
             secret.write_text("# Secret\nmust-not-be-indexed\n", encoding="utf-8")
-            (source_root / "linked.md").symlink_to(secret)
+            try:
+                (source_root / "linked.md").symlink_to(secret)
+            except OSError as error:
+                if os.name == "nt" and error.winerror == 1314:
+                    self.skipTest("file symlink creation requires Windows Developer Mode or administrator rights")
+                raise
             profile = make_profile()
 
             with self.assertRaisesRegex(SourceIngestionError, r"linked\.md: symbolic links are not allowed"):
@@ -521,7 +537,7 @@ class SourceIngestionTest(unittest.TestCase):
                 "# Secret\nmust-not-be-indexed\n",
                 encoding="utf-8",
             )
-            (root / "specs").symlink_to(secret_root, target_is_directory=True)
+            directory_link(root / "specs", secret_root)
 
             with self.assertRaisesRegex(
                 SourceIngestionError,
@@ -911,7 +927,7 @@ class CliOutputTest(unittest.TestCase):
             outside = root.parent / f"{root.name}-outside"
             outside.mkdir()
             (root / ".cache").mkdir()
-            (root / ".cache" / "spec-search").symlink_to(outside, target_is_directory=True)
+            directory_link(root / ".cache" / "spec-search", outside)
 
             result = subprocess.run(
                 # Names the collection for the same reason run_cli_fixture does: this fixture defines
@@ -925,6 +941,7 @@ class CliOutputTest(unittest.TestCase):
                      "IMG2_HOME": str(root / ".img2-empty")},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
 

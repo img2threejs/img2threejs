@@ -17,6 +17,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "forge"))
@@ -122,7 +123,7 @@ WRONG_KIND_GLB_TOOL = """
 
 class EmitTargetTestBase(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
+        self._tmp = tempfile.TemporaryDirectory(prefix="img2 emit spaces ")
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
         self.home = self.root / "img2home-empty"
@@ -273,6 +274,38 @@ class DeterminismMismatchFailsNamingTheTarget(EmitTargetTestBase):
         self.assertIn("flaky-kind", proc.stderr)
         self.assertIn("different bytes", proc.stderr)
         self.assertFalse((self.workspace / ".img2" / "artifacts" / "flaky-plugin" / "out.json").exists())
+
+
+class InterpreterPortability(unittest.TestCase):
+    def test_child_environment_keeps_windows_runtime_but_excludes_undeclared_values(self):
+        with mock.patch.dict(os.environ, {
+            "SystemRoot": "C:\\Windows", "IMG2_TEST_PRIVATE_VALUE": "do-not-forward",
+        }):
+            child = emit_target._bounded_env([])
+        self.assertNotIn("IMG2_TEST_PRIVATE_VALUE", child)
+        if os.name == "nt":
+            self.assertEqual(child["SystemRoot"], "C:\\Windows")
+        else:
+            self.assertNotIn("SystemRoot", child)
+
+    def test_explicit_interpreter_preserves_arguments_with_spaces(self):
+        with tempfile.TemporaryDirectory(prefix="img2 Python space ") as tmp:
+            proc = emit_target.run_bounded(
+                [sys.executable, "-c", "import sys; print(sys.argv[1])", "a path with spaces"],
+                cwd=Path(tmp), timeout=5, declared_env=[], target_kind="fixture",
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(proc.stdout.strip(), b"a path with spaces")
+
+    @unittest.skipUnless(os.name == "nt", "Windows python3 alias compatibility")
+    def test_python3_manifest_uses_running_interpreter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = emit_target.run_bounded(
+                ["python3", "-c", "import sys; print(sys.executable)"],
+                cwd=Path(tmp), timeout=5, declared_env=[], target_kind="fixture",
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(Path(os.fsdecode(proc.stdout).strip()), Path(sys.executable))
 
 
 if __name__ == "__main__":

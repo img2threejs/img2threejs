@@ -134,6 +134,10 @@ def _bounded_env(declared: list[str]) -> dict[str, str]:
     never merely allowed to pass through (round-3 H1: an allowlist forwards a variable only when
     the parent already has it, and the base itself commonly runs with IMG2_HOME unset)."""
     env = {name: os.environ[name] for name in ENV_ALLOWLIST if name in os.environ}
+    # Windows runtime DLL loading (including Python 3.10's random initialization)
+    # requires SystemRoot even when the child receives a restricted environment.
+    if os.name == "nt" and "SystemRoot" in os.environ:
+        env["SystemRoot"] = os.environ["SystemRoot"]
     for name in declared:
         if name in os.environ:
             env[name] = os.environ[name]
@@ -160,6 +164,11 @@ def run_bounded(
     target_kind: str,
 ) -> subprocess.CompletedProcess:
     env = _bounded_env(declared_env)
+    # Windows commonly exposes Python through `py`, without a `python3` executable.
+    # Reuse the interpreter running this tool for the portable manifest command;
+    # explicit interpreter paths and all other commands retain their meaning.
+    if os.name == "nt" and argv and argv[0] == "python3":
+        argv = [sys.executable, *argv[1:]]
     try:
         proc = subprocess.run(
             argv,

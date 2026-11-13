@@ -4102,7 +4102,7 @@ def main(argv: list[str]) -> int:
             f"implementation yet in geometry_for() — refine-spec to a supported primitive "
             f"or implement it before generating this component"
         )
-    output.write_text(rendered, encoding="utf-8")
+    output.write_text(rendered, encoding="utf-8", newline="\n")
     print(output)
     return 0
 
