@@ -255,4 +255,7 @@ def main(argv: Sequence[str]) -> int:
 
 
 if __name__ == "__main__":
+    # The CLI emits Unicode search results, including when piped on Windows.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     raise SystemExit(main(sys.argv[1:]))

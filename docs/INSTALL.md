@@ -4,9 +4,11 @@ One command installs the skill into every supported coding agent on your machine
 optional and only needed for specific domains, for example CS2 skins.
 
 You need **Node.js ≥ 18**, **Git**, and **Python ≥ 3.10**, plus one of: Claude Code, Codex,
-OpenCode, Hermes. Other agents: [§7](#7-other-coding-agents). The CLI supports macOS and Linux;
-Windows is not supported yet (directory symlinks need Developer Mode, and the skill expects
-`python3`).
+OpenCode, Hermes. Other agents: [§7](#7-other-coding-agents). The CLI supports macOS, Linux,
+and Windows. On Windows it creates directory junctions, which do not require Developer Mode
+or administrator rights. In PowerShell, run the skill's `python3` commands with `py` instead.
+Explicitly configured interpreter paths are preserved; bare `python3` plugin commands use
+the Python interpreter running the Windows tool. Search CLI output is UTF-8, including pipes.
 
 ## Paste this to your agent
 

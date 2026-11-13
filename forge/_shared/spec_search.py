@@ -959,9 +959,18 @@ def _source_kind(path: Path) -> SourceKind:
     return kind
 
 
+def _is_source_link(info: os.stat_result) -> bool:
+    # Directory junctions redirect traversal just like symbolic links, but on
+    # Windows their lstat mode is a directory rather than S_IFLNK.
+    return stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0) == getattr(
+        stat, "IO_REPARSE_TAG_MOUNT_POINT", 0xA0000003
+    )
+
+
 def _source_tree_files(root: Path, *, optional: bool) -> list[Path]:
     try:
-        root_mode = root.lstat().st_mode
+        root_info = root.lstat()
+        root_mode = root_info.st_mode
     except FileNotFoundError as error:
         if optional:
             return []
@@ -974,7 +983,7 @@ def _source_tree_files(root: Path, *, optional: bool) -> list[Path]:
             path=root,
             reason="unable to read configured source root",
         ) from error
-    if stat.S_ISLNK(root_mode):
+    if _is_source_link(root_info):
         raise SourceIngestionError(path=root, reason="symbolic links are not allowed")
     if not stat.S_ISDIR(root_mode):
         raise SourceIngestionError(
@@ -997,13 +1006,14 @@ def _source_tree_files(root: Path, *, optional: bool) -> list[Path]:
             ) from error
         for child in children:
             try:
-                child_mode = child.lstat().st_mode
+                child_info = child.lstat()
+                child_mode = child_info.st_mode
             except OSError as error:
                 raise SourceIngestionError(
                     path=child,
                     reason="unable to inspect configured source",
                 ) from error
-            if stat.S_ISLNK(child_mode):
+            if _is_source_link(child_info):
                 raise SourceIngestionError(
                     path=child,
                     reason="symbolic links are not allowed",
@@ -1280,7 +1290,7 @@ def _configured_project_path(
     for part in relative.parts:
         current /= part
         try:
-            current_mode = current.lstat().st_mode
+            current_info = current.lstat()
         except FileNotFoundError:
             break
         except OSError as error:
@@ -1288,7 +1298,7 @@ def _configured_project_path(
                 path=current,
                 reason="unable to inspect configured source path",
             ) from error
-        if stat.S_ISLNK(current_mode):
+        if _is_source_link(current_info):
             raise SourceIngestionError(
                 path=current,
                 reason="symbolic links are not allowed",
@@ -1321,13 +1331,14 @@ def _configured_sources(request: IndexRequest) -> list[ConfiguredSource]:
     for configured_record in request.profile["distilled_records"]:
         path = _configured_project_path(request, configured_record)
         try:
-            record_mode = path.lstat().st_mode
+            record_info = path.lstat()
+            record_mode = record_info.st_mode
         except OSError as error:
             raise SourceIngestionError(
                 path=path,
                 reason="configured distilled record source is not a file",
             ) from error
-        if stat.S_ISLNK(record_mode):
+        if _is_source_link(record_info):
             raise SourceIngestionError(path=path, reason="symbolic links are not allowed")
         if not stat.S_ISREG(record_mode):
             raise SourceIngestionError(path=path, reason="configured distilled record source is not a file")

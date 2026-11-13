@@ -91,8 +91,8 @@ Ref:
   Branches and short SHAs are refused. Requires Git and network access.
   --dry-run prints the plan without downloads or filesystem changes.
 
-Platforms: macOS and Linux. Windows is not supported yet (directory symlinks
-  need Developer Mode and the skill expects \`python3\`).
+Platforms: macOS, Linux and Windows. Windows uses directory junctions without
+  requiring Developer Mode. Run the skill's Python commands with \`py\` on Windows.
 
 Examples:
   img2threejs install
@@ -284,8 +284,22 @@ async function cmdInstall(args) {
       // Rename a temporary symlink over an owned link; never delete a user directory.
       const temporary = path.join(dir, `.img2threejs-${process.pid}`)
       try {
-        fs.symlinkSync(target, temporary, 'dir')
-        fs.renameSync(temporary, link)
+        fs.symlinkSync(target, temporary, process.platform === 'win32' ? 'junction' : 'dir')
+        if (process.platform === 'win32' && (managedLink(link) || danglingTarget(link) !== null)) {
+          // Windows cannot rename over a directory junction. Keep the old link
+          // available for rollback until its replacement has been installed.
+          const previous = `${temporary}-previous`
+          fs.renameSync(link, previous)
+          try {
+            fs.renameSync(temporary, link)
+          } catch (err) {
+            fs.renameSync(previous, link)
+            throw err
+          }
+          fs.unlinkSync(previous)
+        } else {
+          fs.renameSync(temporary, link)
+        }
       } finally {
         if (fs.existsSync(temporary)) fs.unlinkSync(temporary)
       }
