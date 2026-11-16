@@ -25,11 +25,15 @@ TUI.
 
 ```text
 $ kiro-cli --version
-# (kiro-cli version line)
+kiro-cli 2.32.0
 ```
 
-On this host (2026-10-17) `kiro-cli` is not installed; the install
-command above is the documented one from `https://cli.kiro.dev/install`.
+Verified on 2026-10-17 in a clean `debian:13-slim` container: the
+`curl | bash` one-liner downloads the `kiro-cli` package from
+<https://cli.kiro.dev>, extracts it, and installs to
+`~/.local/bin/kiro-cli`. `kiro-cli --version`, `-V`, and `version` all
+return `kiro-cli 2.32.0`. `kiro-cli doctor` is the on-host diagnostic
+for sign-in / settings / agent issues.
 
 ## Skill loading path
 

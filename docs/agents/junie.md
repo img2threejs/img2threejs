@@ -25,11 +25,17 @@ Copilot).
 
 ```text
 $ junie --version
-# (Junie CLI version line)
+Junie version: 26.10.12 (3659.7)
 ```
 
-On this host (2026-10-17) `junie` is not installed; the install command
-above is the documented one from `https://junie.jetbrains.com/install.sh`.
+Verified on 2026-10-17 in a clean `debian:13-slim` container: the
+`curl | bash` one-liner above downloads `junie-release-<build>-linux-amd64.zip`
+from the JetBrains releases, verifies its checksum, and installs to
+`~/.local/bin/junie`. `junie --version` prints the marketing version
+(`26.10.12`) and the build number (`3659.7`). Running `junie` without
+auth produces an explicit "Cannot find authorization" error and points
+at `junie --auth <api-key>` or `JUNIE_API_KEY` — by design, the
+install does not require any auth.
 
 ## Skill loading path
 

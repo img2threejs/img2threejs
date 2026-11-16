@@ -25,11 +25,14 @@ is on by default — `agent update` is the manual refresh.
 
 ```text
 $ agent --version
-# (output line varies by release; auto-updated)
+2026.10.16-e3cb207
 ```
 
-On this host (2026-10-17) the `agent` CLI is not installed; the install
-command above is the documented one from <https://cursor.com/install>.
+Verified on 2026-10-17 in a clean `debian:13-slim` container: the
+one-liner above installs to `~/.local/bin/agent`, the binary is named
+`agent` (not `cursor`), and `agent --version` returns a date-stamped
+build identifier (`2026.10.16-e3cb207` at install time). `agent update`
+is the manual refresh; auto-update is on by default.
 
 ## Skill loading path
 
