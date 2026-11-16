@@ -1625,24 +1625,25 @@ def validate_components(
         if parent not in ids:
             errors.append(f"component {component_id!r} references missing parent {parent!r}")
     parent_map = {cid: parent for cid, parent in parent_refs if parent in ids}
-    seen_in_cycle: set[str] = set()
+    # Cache every completed parent path, including tails feeding a cycle.
+    # Each component/parent edge is visited at most once.
+    resolved: set[str] = set()
     for component_id, _ in parent_refs:
-        if component_id in seen_in_cycle or component_id not in parent_map:
+        if component_id in resolved or component_id not in parent_map:
             continue
         trail: list[str] = []
-        visited: set[str] = set()
+        active: dict[str, int] = {}
         curr: str | None = component_id
-        while curr and curr in parent_map:
-            if curr in visited:
-                cycle_idx = trail.index(curr)
-                cycle_members = trail[cycle_idx:] + [curr]
-                seen_in_cycle.update(cycle_members)
+        while curr and curr in parent_map and curr not in resolved:
+            if curr in active:
+                cycle_members = trail[active[curr]:] + [curr]
                 cycle_str = " -> ".join(repr(c) for c in cycle_members)
                 errors.append(f"component parent cycle detected: {cycle_str}")
                 break
-            visited.add(curr)
+            active[curr] = len(trail)
             trail.append(curr)
             curr = parent_map.get(curr)
+        resolved.update(trail)
     # Resolved after the loop, like parents: a component may legitimately stand proud of one that
     # appears later in the tree, and a forward reference is not a defect.
     for component_id, against in proud_refs:
