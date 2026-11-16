@@ -197,17 +197,30 @@ def filter_components_for_pass(spec: dict[str, Any], components: list[dict[str, 
     explicit_refs = component_refs_for_pass(spec, pass_id)
     included: list[dict[str, Any]] = []
     included_ids: set[str] = set()
+    visiting: set[str] = set()
     component_by_id = {str(item.get("id")): item for item in components if item.get("id") is not None}
 
     def include_component(component: dict[str, Any]) -> None:
-        component_id = str(component.get("id") or "")
-        if not component_id or component_id in included_ids:
-            return
-        parent_id = component.get("parent")
-        if parent_id is not None and str(parent_id) in component_by_id:
-            include_component(component_by_id[str(parent_id)])
-        included.append(component)
-        included_ids.add(component_id)
+        chain: list[dict[str, Any]] = []
+        curr: dict[str, Any] | None = component
+        while curr is not None:
+            cid = str(curr.get("id") or "")
+            if not cid or cid in included_ids:
+                break
+            if cid in visiting:
+                cycle_chain = " -> ".join([repr(str(c.get("id"))) for c in chain] + [repr(cid)])
+                raise ValueError(f"Cyclic component parent hierarchy detected: {cycle_chain}")
+            visiting.add(cid)
+            chain.append(curr)
+            pid = curr.get("parent")
+            curr = component_by_id.get(str(pid)) if pid is not None else None
+
+        for item in reversed(chain):
+            item_id = str(item.get("id") or "")
+            if item_id not in included_ids:
+                included.append(item)
+                included_ids.add(item_id)
+            visiting.discard(item_id)
 
     for component in components:
         component_id = str(component.get("id") or "")
