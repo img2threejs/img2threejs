@@ -158,5 +158,98 @@ class MaskIsRobustToStrayForeground(unittest.TestCase):
         self.assertEqual(discarded, 0.0)
 
 
+class PerPartColorPresenceTest(unittest.TestCase):
+    """A small coloured fitting can never own one of five global clusters. The cluster-only test
+    failed every multi-material object with one (measured: navigation lights at delta-E 80+ while
+    every real material sat at <= 2). Presence and 'unmeasured' fix that without weakening a real
+    mismatch on a large part."""
+
+    @staticmethod
+    def _write_png(path, w, h, fn):
+        import struct
+        import zlib
+
+        def chunk(tag, data):
+            return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+        raw = bytearray()
+        for y in range(h):
+            raw.append(0)
+            for x in range(w):
+                raw.extend(fn(x, y))
+        ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+        path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+                         + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b""))
+
+    def _render(self, tmp):
+        def px(x, y):
+            if 18 <= x < 21 and 18 <= y < 21:
+                return (40, 90, 230)  # 9 px blue fitting -> present
+            if 25 <= x < 27 and 25 <= y < 27:
+                return (210, 30, 30)  # 4 px red fitting -> below PRESENCE_MIN_PIXELS
+            if 5 <= x < 35 and 5 <= y < 35:
+                # five large materials take every global cluster, as on a real multi-material render
+                bands = [(60, 62, 66), (120, 80, 40), (200, 200, 90), (90, 40, 120), (30, 120, 120)]
+                return bands[min(4, (y - 5) // 6)]
+            return (255, 255, 255)
+
+        path = Path(tmp) / "render.png"
+        self._write_png(path, 40, 40, px)
+        return path
+
+    def test_statuses(self):
+        import tempfile
+
+        from diagnose_render import per_part_color_delta
+
+        with tempfile.TemporaryDirectory() as tmp:
+            render = self._render(tmp)
+            recipes = [
+                {"componentId": "hull", "dominantAlbedo": "rgba(58, 62, 66, 1.0)", "extent": 10.0},
+                {"componentId": "light-bar", "dominantAlbedo": "rgba(40, 90, 230, 1.0)", "extent": 1.2},
+                {"componentId": "nav-light", "dominantAlbedo": "rgba(210, 30, 30, 1.0)", "extent": 0.1},
+                {"componentId": "big-wrong", "dominantAlbedo": "rgba(30, 190, 70, 1.0)", "extent": 5.0},
+            ]
+            report = per_part_color_delta(recipes, render)
+        status = {e["componentId"]: e["status"] for e in report["perComponent"]}
+        self.assertEqual(status["hull"], "matched")
+        self.assertEqual(status["light-bar"], "present")
+        self.assertEqual(status["nav-light"], "unmeasured")
+        self.assertEqual(status["big-wrong"], "mismatch")
+        self.assertEqual(report["unmeasured"], ["nav-light"])
+        # a large part with an absent colour still fails the gate
+        self.assertGreater(report["maxDeltaE"], 20.0)
+
+    def test_unmeasured_is_excluded_from_max_but_listed(self):
+        import tempfile
+
+        from diagnose_render import per_part_color_delta
+
+        with tempfile.TemporaryDirectory() as tmp:
+            render = self._render(tmp)
+            report = per_part_color_delta([
+                {"componentId": "hull", "dominantAlbedo": "rgba(58, 62, 66, 1.0)", "extent": 10.0},
+                {"componentId": "nav-light", "dominantAlbedo": "rgba(210, 30, 30, 1.0)", "extent": 0.1},
+            ], render)
+        self.assertLessEqual(report["maxDeltaE"], 20.0)
+        self.assertEqual(report["unmeasured"], ["nav-light"])
+        self.assertGreater(report["maxClusterDeltaE"], 20.0)
+
+    def test_without_extent_an_absent_colour_is_a_mismatch(self):
+        import tempfile
+
+        from diagnose_render import per_part_color_delta
+
+        with tempfile.TemporaryDirectory() as tmp:
+            render = self._render(tmp)
+            report = per_part_color_delta([
+                {"componentId": "hull", "dominantAlbedo": "rgba(58, 62, 66, 1.0)"},
+                {"componentId": "nav-light", "dominantAlbedo": "rgba(210, 30, 30, 1.0)"},
+            ], render)
+        statuses = [e["status"] for e in report["perComponent"]]
+        self.assertIn(statuses[0], {"matched", "present"})  # k=2 may merge the grey with a neighbour band
+        self.assertEqual(statuses[1], "mismatch")  # no extent -> never excused as 'unmeasured'
+
+
 if __name__ == "__main__":
     unittest.main()
