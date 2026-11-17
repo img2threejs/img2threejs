@@ -182,31 +182,106 @@ def bilateral_symmetry_error(mask: list[bool], size: int = MASK_GRID_SIZE) -> fl
     return mismatches / total if total else 0.0
 
 
-def per_part_color_delta(recipes: list[dict[str, Any]], render_path: Path) -> dict[str, Any]:
-    """Compares each component's colorMaterialRecipe against the render's overall
-    dominant Lab-space color clusters (see module docstring for the per-component-
-    region scope limitation). Returns per-recipe delta-E and a pass/fail summary."""
+SMALL_PART_RATIO = 0.03  # largest dimension below this fraction of the model's largest component dimension
+PRESENCE_MIN_PIXELS = 6  # a colour "is present" only on at least this many foreground pixels
+PRESENCE_SAMPLE_LIMIT = 40000  # deterministic stride sampling bound for the presence scan
+
+
+def _recipe_lab(recipe: dict[str, Any]) -> tuple[float, float, float] | None:
+    dominant = recipe.get("dominantAlbedo")
+    if not isinstance(dominant, str):
+        return None
+    try:
+        rgb_text = dominant[dominant.index("(") + 1 : dominant.index(")")]
+        r, g, b = (int(float(part.strip())) for part in rgb_text.split(",")[:3])
+    except (ValueError, IndexError):
+        return None
+    return srgb_to_lab((r, g, b))
+
+
+def per_part_color_delta(
+    recipes: list[dict[str, Any]],
+    render_path: Path,
+    threshold: float | None = None,
+) -> dict[str, Any]:
+    """Compares each component's colorMaterialRecipe against the render's colours.
+
+    Each recipe gets one status:
+
+    - ``matched``: its colour is one of the render's dominant Lab clusters (the original test).
+    - ``present``: it is not a cluster centre but the colour exists on at least
+      ``PRESENCE_MIN_PIXELS`` foreground pixels. A small part (a navigation light, a light bar)
+      can never own one of five global clusters, so the cluster test alone failed every
+      multi-material object with a coloured fitting on it -- a false failure, not a colour error.
+    - ``unmeasured``: the colour is absent AND the recipe declares a small ``extent`` (largest
+      dimension below ``SMALL_PART_RATIO`` of the model extent). Such a part may be occluded in
+      this view or too small to resolve at Tier-1 resolution. It is LISTED, never counted as pass
+      evidence, and excluded from ``maxDeltaE`` -- the report names what it did not look at.
+    - ``mismatch``: anything else; its cluster delta still drives the gate.
+
+    ``maxDeltaE`` is computed over matched/present/mismatch entries; ``maxClusterDeltaE`` keeps the
+    old cluster-only number for comparison. Scope limitation unchanged (see module docstring): this
+    is still not a per-component cropped-region measurement.
+    """
+    limit = COLOR_DELTA_E_THRESHOLD if threshold is None else threshold
     if not recipes:
-        return {"checked": 0, "maxDeltaE": 0.0, "perComponent": []}
+        return {"checked": 0, "maxDeltaE": 0.0, "perComponent": [], "unmeasured": []}
     width, height, pixels, _warnings = load_image(render_path)
     mask, _diag, _warn = build_foreground_mask(width, height, pixels)
     foreground_lab = [srgb_to_lab((r, g, b)) for (r, g, b, _a), keep in zip(pixels, mask) if keep]
     clusters = lab_kmeans_palette(foreground_lab, k=min(5, max(1, len(recipes))))
+    stride = max(1, len(foreground_lab) // PRESENCE_SAMPLE_LIMIT)
+    sample = foreground_lab[::stride]
+    extents = [float(r["extent"]) for r in recipes if isinstance(r.get("extent"), (int, float)) and r["extent"] > 0]
+    model_extent = max(extents, default=0.0)
     results = []
     for recipe in recipes:
-        dominant = recipe.get("dominantAlbedo")
-        if not isinstance(dominant, str):
+        expected_lab = _recipe_lab(recipe)
+        if expected_lab is None:
             continue
-        try:
-            rgb_text = dominant[dominant.index("(") + 1 : dominant.index(")")]
-            r, g, b = (int(float(part.strip())) for part in rgb_text.split(",")[:3])
-        except (ValueError, IndexError):
-            continue
-        expected_lab = srgb_to_lab((r, g, b))
-        best_delta = min((lab_distance(expected_lab, c["center"]) for c in clusters), default=999.0)
-        results.append({"componentId": recipe.get("componentId"), "deltaE": round(best_delta, 2)})
-    max_delta = max((entry["deltaE"] for entry in results), default=0.0)
-    return {"checked": len(results), "maxDeltaE": round(max_delta, 2), "perComponent": results}
+        cluster_delta = min((lab_distance(expected_lab, c["center"]) for c in clusters), default=999.0)
+        entry: dict[str, Any] = {"componentId": recipe.get("componentId"), "clusterDeltaE": round(cluster_delta, 2)}
+        if cluster_delta <= limit:
+            entry.update(status="matched", deltaE=round(cluster_delta, 2))
+        else:
+            distances = [lab_distance(expected_lab, lab) for lab in sample]
+            near = sum(1 for d in distances if d <= limit)
+            presence = min(distances, default=999.0)
+            entry["presenceDeltaE"] = round(presence, 2)
+            entry["presencePixels"] = near * stride
+            extent = recipe.get("extent")
+            small = (
+                isinstance(extent, (int, float))
+                and model_extent > 0
+                and float(extent) < SMALL_PART_RATIO * model_extent
+            )
+            if near * stride >= PRESENCE_MIN_PIXELS:
+                entry.update(status="present", deltaE=round(presence, 2))
+            elif small:
+                entry.update(status="unmeasured", deltaE=None,
+                             reason=f"part extent {float(extent):.3g} < {SMALL_PART_RATIO} x model extent "
+                                    f"{model_extent:.3g} and colour on fewer than {PRESENCE_MIN_PIXELS} px: "
+                                    "occluded in this view or below Tier-1 resolution")
+            else:
+                entry.update(status="mismatch", deltaE=round(cluster_delta, 2))
+        results.append(entry)
+    measured = [e["deltaE"] for e in results if e.get("deltaE") is not None]
+    return {
+        "checked": len(results),
+        "maxDeltaE": round(max(measured, default=0.0), 2),
+        "maxClusterDeltaE": round(max((e["clusterDeltaE"] for e in results), default=0.0), 2),
+        "perComponent": results,
+        "unmeasured": [e["componentId"] for e in results if e["status"] == "unmeasured"],
+    }
+
+
+def _component_extent(component: dict[str, Any]) -> float | None:
+    dims = component.get("dimensions")
+    if not isinstance(dims, dict):
+        return None
+    values = [float(dims[k]) for k in ("width", "height", "depth", "length")
+              if isinstance(dims.get(k), (int, float)) and not isinstance(dims.get(k), bool)]
+    return max(values) if values else None
 
 
 def render_hash(render_path: Path) -> str:
@@ -270,7 +345,8 @@ def run_tier1(
     if spec_path is not None:
         spec = load_spec(spec_path)
         recipes = [
-            component["colorMaterialRecipe"]
+            {**component["colorMaterialRecipe"], "componentId": component.get("id"),
+             "extent": _component_extent(component)}
             for component in spec.get("componentTree", [])
             if isinstance(component, dict) and isinstance(component.get("colorMaterialRecipe"), dict)
         ]
