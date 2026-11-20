@@ -20,8 +20,10 @@ The dedicated 2D projection/consumer binds the exact child subject, artifact,
 snapshot, reference, render, capture and critical crops to an answered controller
 quality-review record. Independently approved requirements cannot be shrunk by
 workspace JSON. This semantic evidence still does NOT authenticate native capture:
-terminal promotion remains blocked until a reviewed real-host replay/attestation
-producer proves the pinned helper ran with these source bytes loaded.
+terminal promotion remains blocked until a reviewed confined/independent native-node
+producer binds those nodes to the captured pixels. Live CDP replay of arbitrary
+same-realm scene JavaScript is diagnostic evidence only: it cannot exclude scene
+identity spoofing, renderer mutation or an overlaid raster.
 
 Pixi's import bootstrap must also be pinned: runtime_provider is a trusted
 {dir, resolvedSha} for the harness checkout named 'harness'. Its Python package
@@ -475,7 +477,9 @@ class RouteAuthority(AggregateAuthority):
         # An authenticated semantic decision is necessary, not sufficient:
         # capture.json's producer/renderer strings still do not prove that the
         # pinned helper ran inside the real host with these source bytes loaded.
-        # No reviewed host replay/attestation contract currently exists.
+        # Even live CDP pixels from arbitrary same-realm source cannot prove that
+        # the required native nodes, rather than an overlay/spoof, produced them.
+        # No reviewed confinement/independent native-node producer exists here.
         _fail("terminal-native-capture-authority-unavailable")
 
     def pixi_quality_context(self, object_id, child_workspace):
