@@ -1,27 +1,34 @@
 #!/usr/bin/env python3
-"""Decision-only Router CLI; never initializes children or authorizes execution.
+"""Route decisions and explicitly requested child-state initialization, not delivery.
 
 Run ``python3 forge/route.py --workspace WORKSPACE --run-id RUN --image ref.png
 --objects objects.json``. Image and object paths are workspace-relative. Real Jev
 image disclosure and paid use require a separate user-run four-purpose consent
 command; this CLI never enrolls, revokes, prompts for keys, or selects a fallback.
-Only the base-owned reviewed release lock is accepted; there is no lock override.
+Only the base-owned reviewed Jev release lock is accepted; there is no Jev lock override.
+``--create-children`` requires explicit local harness release/launcher pins. It
+creates pending child checklists only after concrete aggregate authentication.
+It does not execute models, complete terminal gates, or produce a deliverable.
 """
 from __future__ import annotations
 
 import argparse
+import ast
 import copy
 import hashlib
 import json
+import io
 import os
 from pathlib import Path
 import re
+import posixpath
 import selectors
 import signal
 import shutil
 import subprocess
 import sys
 import time
+import tarfile
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
@@ -32,6 +39,11 @@ from jev_cli_bridge import REQUIRED_PROVIDER_FILES, _file, _json
 from jev_provider_factory import JevProviderFactory
 from stage0_route.discovery import Discovery, JEV_EDGE
 from stage0_route.route import Router
+from domains import DomainRegistryError, registered_domains
+from domains.character import DOMAIN as CHARACTER_DOMAIN
+from route_authority import RouteAuthority
+from route_parent import OwnerProfile, ParentError, RouteParent
+from stage0_route.discovery import EDGES, read_only_probes
 
 
 _AUTH = {"credential-missing", "credential-rejected", "credential-storage-error"}
@@ -44,6 +56,15 @@ _SAFE_ERRORS = _PROBE_FAILURES | {"invalid-routing-input", "invalid-routing-resu
     "workspace-busy", "lease-lost", "invalid-request", "invalid-object-proposals",
     "objects-required", "context-fault", "evidence-missing", "invalid-json",
     "context-too-large", "consent-probe-error", "routing-suspended", "routing-failed"}
+_SAFE_ERRORS |= {"harness-pin-required", "harness-pin-mismatch", "harness-runtime-unavailable",
+    "harness-import-closure-unproven", "unapproved-owner-profile", "owner-output-mismatch",
+    "owner-profile-unavailable", "profile-registry-unavailable", "owner-profile-provider-mismatch",
+    "route-execution-unresolved", "existing-parent-preserved", "existing-state-conflict",
+    "live-provider-unavailable-or-ambiguous", "live-provider-identity-mismatch",
+    "live-provider-contract-mismatch", "live-dependency-mismatch", "live-blocking-producer-mismatch",
+    "paid-or-licensed-owner-not-authorized", "stale-route-aggregate",
+    "invalid-route-authority-input", "route-round-unsealed", "route-round-link-mismatch",
+    "authority-command-not-authorized"}
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -251,6 +272,259 @@ class PinnedDiscovery(Discovery):
             return {"status": error.reason_code if error.reason_code in _AUTH else "availability-unproven"}
 
 
+class HarnessPin:
+    """Host-approved exact local package; not third-party release authenticity.
+
+    Pin the complete tracked package and reject untracked import material, links,
+    dependencies and dynamic/external imports. Host Git, Node and OS standard
+    libraries remain trust dependencies. Startup overrides are never inherited.
+    """
+    def __init__(self, root, commit, launcher, launcher_sha, consent):
+        try:
+            self.root, self.launcher = Path(root), Path(launcher)
+            if (not self.root.is_absolute() or self.root.resolve(strict=True) != self.root
+                    or self.root.name != "harness" or not self.root.is_dir()
+                    or not self.launcher.is_absolute() or self.launcher.resolve(strict=True) != self.launcher
+                    or self.launcher != self.root / "bin/img2.mjs"):
+                _fail("harness-pin-required")
+            if (type(commit) is not str or re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", commit) is None
+                    or type(launcher_sha) is not str or not _HEX.fullmatch(launcher_sha)):
+                _fail("harness-pin-required")
+            node = shutil.which("node")
+            if node is None:
+                _fail("harness-runtime-unavailable")
+            self.node = Path(node).resolve(strict=True)
+        except OSError:
+            _fail("harness-runtime-unavailable")
+        self.commit, self.launcher_sha, self.consent = commit, launcher_sha, consent
+        self.node_sha = hashlib.sha256(_file(self.node.parent, self.node.name,
+                                            maximum=256 * 1024 * 1024, capture=True)).hexdigest()
+        self.argv = (str(self.node), "--no-addons", str(self.launcher))
+        self.runtime_provider = {"dir": str(self.root), "resolvedSha": commit}
+        self.inventory = None
+        self.verify()
+
+    def _imports(self, files):
+        try:
+            package = _json(files["package.json"])
+            if (type(package) is not dict or package.get("name") != "@img2threejs/img2"
+                    or package.get("dependencies") or package.get("optionalDependencies")
+                    or package.get("peerDependencies") or package.get("imports")
+                    or "img2_core/__init__.py" not in files):
+                _fail("harness-import-closure-unproven")
+            for relative, raw in files.items():
+                if relative.startswith("bin/") and relative.endswith((".js", ".mjs", ".cjs")):
+                    text = raw.decode("utf-8")
+                    if re.search(r"\b(?:import|require|eval|Function)\s*\(", text):
+                        _fail("harness-import-closure-unproven")
+                    for declaration in re.findall(r"(?m)^\s*import\b[^\n]*", text):
+                        match = re.fullmatch(r"\s*import\s+(?:[^;'\"\n]+\s+from\s+)?['\"]([^'\"\n]+)['\"]\s*;?\s*", declaration)
+                        if match is None:
+                            _fail("harness-import-closure-unproven")
+                        specifier = match[1]
+                        if specifier.startswith("node:"):
+                            continue
+                        target = posixpath.normpath(posixpath.join(posixpath.dirname(relative), specifier))
+                        if not specifier.startswith("./") or target not in files or not target.endswith(".mjs"):
+                            _fail("harness-import-closure-unproven")
+                elif relative.startswith("img2_core/") and relative.endswith(".py"):
+                    tree = ast.parse(raw, filename=relative)
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.Import):
+                            names = [item.name.split(".")[0] for item in node.names]
+                        elif isinstance(node, ast.ImportFrom):
+                            names = [] if node.level else [(node.module or "").split(".")[0]]
+                            if node.level > 1:
+                                _fail("harness-import-closure-unproven")
+                        elif isinstance(node, ast.Call):
+                            target = node.func
+                            if ((isinstance(target, ast.Name) and target.id in {"__import__", "eval", "exec", "compile"})
+                                    or (isinstance(target, ast.Attribute) and target.attr in {"import_module", "exec_module"})):
+                                _fail("harness-import-closure-unproven")
+                            continue
+                        else:
+                            continue
+                        if any(name != "img2_core" and name not in sys.stdlib_module_names for name in names):
+                            _fail("harness-import-closure-unproven")
+        except (KeyError, TypeError, ValueError, UnicodeError, SyntaxError):
+            _fail("harness-import-closure-unproven")
+
+    def verify(self):
+        if hashlib.sha256(_file(self.consent.git.parent, self.consent.git.name,
+                                maximum=256 * 1024 * 1024, capture=True)).hexdigest() != self.consent.git_sha:
+            _fail("harness-pin-mismatch")
+        if hashlib.sha256(_file(self.node.parent, self.node.name,
+                                maximum=256 * 1024 * 1024, capture=True)).hexdigest() != self.node_sha:
+            _fail("harness-pin-mismatch")
+        code, raw = _run_bytes([str(self.consent.git), "--no-pager", "--no-optional-locks",
+                               "-C", str(self.root), "archive", "--format=tar", self.commit],
+                              self.root, maximum=64 * 1024 * 1024, env=self.consent.git_env)
+        if code:
+            _fail("harness-pin-mismatch")
+        files = {}
+        try:
+            with tarfile.open(fileobj=io.BytesIO(raw), mode="r|") as archive:
+                for member in archive:
+                    if member.isdir():
+                        continue
+                    relative = member.name
+                    if (not member.isfile() or len(files) >= 4096 or member.size > 16 * 1024 * 1024
+                            or relative.startswith("/") or "\\" in relative
+                            or any(part in {"", ".", ".."} for part in relative.split("/"))
+                            or relative in files or relative.endswith((".so", ".node", ".pyd"))):
+                        _fail("harness-import-closure-unproven")
+                    stream = archive.extractfile(member)
+                    if stream is None:
+                        _fail("harness-import-closure-unproven")
+                    files[relative] = stream.read(16 * 1024 * 1024 + 1)
+        except (tarfile.TarError, OSError, ValueError):
+            _fail("harness-pin-mismatch")
+        if "bin/img2.mjs" not in files or hashlib.sha256(files["bin/img2.mjs"]).hexdigest() != self.launcher_sha:
+            _fail("harness-pin-mismatch")
+        found = set()
+        for directory, directories, names in os.walk(self.root, followlinks=False):
+            local = Path(directory).relative_to(self.root)
+            directories[:] = [name for name in directories if not (local == Path(".") and name == ".git")]
+            if any((Path(directory) / name).is_symlink() or name == "node_modules" for name in directories):
+                _fail("harness-import-closure-unproven")
+            for name in names:
+                if local == Path(".") and name == ".git":
+                    continue
+                path = Path(directory) / name
+                relative = path.relative_to(self.root).as_posix()
+                if "__pycache__" in path.relative_to(self.root).parts and name.endswith(".pyc"):
+                    if path.is_symlink():
+                        _fail("harness-import-closure-unproven")
+                    continue
+                if relative not in files:
+                    _fail("harness-import-closure-unproven")
+                _file(self.root, relative, maximum=16 * 1024 * 1024,
+                      expected=hashlib.sha256(files[relative]).hexdigest())
+                found.add(relative)
+        if found != files.keys():
+            _fail("harness-pin-mismatch")
+        self._imports(files)
+        inventory = {path: hashlib.sha256(raw).hexdigest() for path, raw in files.items()}
+        if self.inventory is not None and self.inventory != inventory:
+            _fail("harness-pin-mismatch")
+        self.inventory = inventory
+
+    def runner(self, argv, *, cwd=None, env=None, timeout=30, **kwargs):
+        self.verify()
+        if tuple(argv[:len(self.argv)]) == self.argv:
+            command = list(argv[len(self.argv):])
+            if command != ["--version", "--json"] and not (
+                    len(command) == 6 and command[0:2] == ["capabilities", "--from-kind"]
+                    and command[3] == "--to-kind" and command[5] == "--json"):
+                _fail("authority-command-not-authorized")
+        elif argv[0] != "git" and list(argv) not in [
+                ["python3", "--version"], ["node", "--version"], ["blender", "--version"]]:
+            _fail("authority-command-not-authorized")
+        environment = dict(os.environ if env is None else env)
+        for key in list(environment):
+            if key.startswith(("NODE_", "PYTHON")) or key == "TYPESAFE_API_KEY":
+                del environment[key]
+        if argv[0] == "git":
+            argv = [str(self.consent.git), *argv[1:]]
+            environment = self.consent.git_env
+        try:
+            code, raw = _run_bytes(list(argv), Path(cwd or self.root), timeout=timeout,
+                                   maximum=8 * 1024 * 1024, env=environment)
+            return subprocess.CompletedProcess(argv, code, raw, b"")
+        finally:
+            self.verify()
+
+
+def _owner_profiles(router, result, discovered):
+    decision = result["decision"]
+    rows = decision.get("objects")
+    if (decision.get("phase") != "decided" or type(rows) is not list or not rows
+            or any(row.get("status") not in {"resolved", "dropped", "merged"} for row in rows)):
+        _fail("route-execution-unresolved")
+    candidates = discovered.get("candidates")
+    if (type(candidates) is not list or any(type(c) is not dict for c in candidates)
+            or len({c.get("id") for c in candidates}) != len(candidates)):
+        _fail("unapproved-owner-profile")
+    by_id = {candidate["id"]: candidate for candidate in candidates}
+    try:
+        domains = registered_domains()
+    except DomainRegistryError:
+        _fail("profile-registry-unavailable")
+    expected_output = decision.get("request", {}).get("expectedOutput")
+    owners = {}
+    for row in rows:
+        if row["status"] in {"dropped", "merged"}:
+            continue
+        selected = row.get("selected")
+        if type(selected) is not list or len(selected) != 1 or selected[0] not in by_id:
+            _fail("unapproved-owner-profile")
+        candidate = by_id[selected[0]]
+        provider, card = candidate.get("provider"), candidate.get("card", {})
+        if (candidate.get("providerStatus") != "answered" or candidate.get("blockingGateProduced") is not True
+                or any(value is not True for value in candidate.get("dependencies", {}).values())):
+            _fail("live-dependency-mismatch")
+        if card.get("costClass") != "local":
+            _fail("paid-or-licensed-owner-not-authorized")
+        kind = card.get("outputKind")
+        if provider == "base" and selected == ["base:generic"] and kind == "3d-object" and expected_output == "3d":
+            owner = OwnerProfile("generic", "3d-object")
+        else:
+            profiles = {"character": ("character", "rigged-3d"), "cs2": ("cs2", "3d-object"),
+                        "interior": ("interior", "3d-scene"), "pixi2d": ("pixi2d", "2d-scene")}
+            if (provider not in profiles or candidate.get("claimants") != [provider]
+                    or expected_output != ("2d" if provider == "pixi2d" else "3d")):
+                _fail("unapproved-owner-profile")
+            profile, output_kind = profiles[provider]
+            if kind != ("spec-augmentation" if provider == "cs2" else output_kind):
+                _fail("owner-output-mismatch")
+            if profile not in domains:
+                _fail("owner-profile-unavailable")
+            if provider == "character":
+                if domains[profile] != CHARACTER_DOMAIN:
+                    _fail("owner-profile-provider-mismatch")
+            else:
+                response = router.discovery.query(EDGES[provider])
+                providers = response.get("providers", []) if type(response) is dict else []
+                if (type(response) is not dict or response.get("status") != "answered" or len(providers) != 1
+                        or providers[0].get("plugin") != provider
+                        or providers[0].get("resolvedSha") != candidate.get("resolvedSha")):
+                    _fail("live-provider-unavailable-or-ambiguous")
+                trusted = providers[0]
+                declared = _json(router.discovery._pinned_file(trusted, "domain.json"))
+                if type(declared) is not dict or declared.get("id") != profile:
+                    _fail("owner-profile-provider-mismatch")
+                for key in ("setupSteps", "passSteps", "rigSteps"):
+                    if key in declared:
+                        declared[key] = tuple((ident, command.replace("{plugin_dir}", trusted["dir"]))
+                                              for ident, command in declared[key])
+                if declared != domains[profile]:
+                    _fail("owner-profile-provider-mismatch")
+            owner = OwnerProfile(profile, output_kind)
+        owners[selected[0]] = owner
+    if not owners:
+        _fail("unapproved-owner-profile")
+    return owners
+
+
+def _create_children(router, result, harness, consent):
+    if (router.workspace / ".img2threejs/state.json").exists() or (router.workspace / ".img2threejs/state.json").is_symlink():
+        _fail("existing-parent-preserved")
+    rows = result.get("decision", {}).get("objects")
+    if (result.get("decision", {}).get("phase") != "decided" or type(rows) is not list or not rows
+            or any(row.get("status") not in {"resolved", "dropped", "merged"} for row in rows)):
+        _fail("route-execution-unresolved")
+    consent()
+    discovered = router.verification_snapshot()  # Detailed discovery remains outside locks.
+    owners = _owner_profiles(router, result, discovered)
+    harness.verify()
+    authority = RouteAuthority(router, result["decisionRef"], discovered=discovered, owners=owners,
+                               harness=harness.argv, runtime_provider=harness.runtime_provider,
+                               runner=harness.runner)
+    parent = RouteParent(router.controller, verify_aggregate=authority, consent=consent)
+    with read_only_probes(router.discovery):
+        return parent.create()
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
@@ -260,6 +534,12 @@ def build_parser():
     parser.add_argument("--expected-output", choices=("2d", "3d"), default="3d")
     parser.add_argument("--intent", action="append", default=[])
     parser.add_argument("--explicit-route")
+    parser.add_argument("--create-children", action="store_true",
+                        help="Initialize pending child states after concrete route verification; not model execution or delivery")
+    parser.add_argument("--harness-root", type=Path, help="Host-approved canonical harness checkout (required for child creation)")
+    parser.add_argument("--harness-sha", help="Host-approved exact harness Git commit")
+    parser.add_argument("--harness-executable", type=Path, help="Canonical harness bin/img2.mjs launcher")
+    parser.add_argument("--harness-sha256", help="Host-approved launcher SHA256; never calculated from workspace input")
     return parser
 
 
@@ -296,9 +576,17 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.expected_output == "3d" and args.objects is None:
         parser.error("--objects is required for --expected-output 3d")
-    consent = None
+    pins = (args.harness_root, args.harness_sha, args.harness_executable, args.harness_sha256)
+    if args.create_children and any(value is None for value in pins):
+        parser.error("--create-children requires --harness-root, --harness-sha, --harness-executable and --harness-sha256")
+    if not args.create_children and any(value is not None for value in pins):
+        parser.error("harness approval flags require --create-children")
+    consent, result, harness = None, None, None
     try:
         workspace = args.workspace.resolve(strict=True)
+        if args.create_children and ((workspace / ".img2threejs/state.json").exists()
+                                    or (workspace / ".img2threejs/state.json").is_symlink()):
+            _fail("existing-parent-preserved")
         _file(workspace, args.image, maximum=64 * 1024 * 1024)
         objects = _json(_file(workspace, args.objects, maximum=256 * 1024, capture=True)) if args.objects else None
         release = _approved_lock()
@@ -306,6 +594,10 @@ def main(argv=None):
         discovery = PinnedDiscovery(controller)
         consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
         discovery.consent_probe = consent
+        if args.create_children:
+            harness = HarnessPin(*pins, consent)
+            discovery.harness = harness.argv
+            discovery.runner = harness.runner
         factory = JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
                                      consent=consent, python_executable=consent.executable)
         router = Router(workspace, args.run_id, controller=controller, discovery=discovery,
@@ -313,14 +605,26 @@ def main(argv=None):
         result = router.route(image=args.image, objects=objects, expected_output=args.expected_output,
                               intent=args.intent, explicit_route=args.explicit_route)
         value = _output(reason=consent.last_failure, result=result)
+        if args.create_children and value["status"] == "decided":
+            parent = _create_children(router, result, harness, consent)
+            value.update(status="children-initialized", childrenCreated=True,
+                         parentStatePath=".img2threejs/state.json", childCount=len(parent["objects"]),
+                         childStatePaths=[child["statePath"] for child in parent["objects"]])
     except Exception as error:
         reported = getattr(error, "reason_code", None)
-        reason = reported if type(reported) is str and reported in _SAFE_ERRORS else "invalid-routing-input"
+        trusted_parent_error = (isinstance(error, ParentError) and type(reported) is str
+                                and re.fullmatch(r"[a-z][a-z0-9-]{0,95}", reported))
+        reason = reported if trusted_parent_error or (type(reported) is str and reported in _SAFE_ERRORS) else "invalid-routing-input"
         if reason == "consent-probe-error" and consent is not None and consent.last_failure:
             reason = consent.last_failure
         value = _output(reason=reason)
+    if args.create_children:
+        value.update(terminalStatus="incomplete", terminalAcceptance=False, deliverable=False)
+        value.setdefault("childrenCreated", False)
+        if value["childrenCreated"]:
+            value["mode"] = "children-initialized"
     print(json.dumps(value, sort_keys=True))
-    return 0 if value["status"] == "decided" else 3
+    return 0 if value["status"] in {"decided", "children-initialized"} else 3
 
 
 if __name__ == "__main__":

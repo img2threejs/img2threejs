@@ -41,13 +41,14 @@ action-ready props, game objects, botanical/mechanical parts, and stylized recon
 
 ## Jev routing development entry point
 
-`python3 forge/route.py --help` describes the isolated decision-only routing entry point.
-It does not authorize child execution or replace the state gate below. When an installed,
-pinned Jev provider is logged out, ask the user to run `img2-jev login`; never request their
-key in chat. Image disclosure and paid calls require separate, explicit per-run authorization.
-Pixi2D is eligible only for an explicit 2D request; never silently downgrade a 3D request.
-Until the integrated child workflow and terminal gates are qualified, report routing decisions
-as advisory rather than a finished reconstruction.
+`python3 forge/route.py --help` describes the isolated routing entry point. With explicit,
+reviewed harness pins, `--create-children` can initialize separate pending child checklists
+after the route is authenticated; it does not build models, pass terminal gates, or produce
+a deliverable. When an installed, pinned Jev provider is logged out, ask the user to run
+`img2-jev login`; never request their key in chat. Image disclosure and paid calls require
+separate, explicit per-run authorization. Pixi2D is eligible only for an explicit 2D request;
+never silently downgrade a 3D request. Until child execution and terminal gates are qualified,
+report routing decisions and initialized states as progress, not finished reconstructions.
 
 ## Profile preflight (once per run, before `forge/next.py`)
 

@@ -6,6 +6,9 @@ import hashlib
 import importlib.util
 import io
 import json
+import shutil
+import tarfile
+from types import SimpleNamespace
 from pathlib import Path
 import sys
 import tempfile
@@ -271,6 +274,23 @@ class RouteCliTests(unittest.TestCase):
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             parser.parse_args(self.args("--release-lock", "workspace-supplied.json"))
 
+    def test_create_request_with_missing_auth_stays_decision_only(self):
+        def failure(argv, workspace, **kwargs):
+            return 3, {"kind": "img2.jev-command", "version": 1, "status": "missing", "reasonCode": "credential-missing"}
+        self.probe = failure
+        flags = ["--create-children", "--harness-root", str(self.root / "harness"),
+                 "--harness-sha", "d" * 40, "--harness-executable", str(self.root / "harness/bin/img2.mjs"),
+                 "--harness-sha256", "e" * 64]
+        harness = SimpleNamespace(argv=("fixture-harness",), runner=Mock())
+        with patch.object(route_cli, "HarnessPin", return_value=harness):
+            code, value, _, _ = self.invoke(self.args(*flags))
+        self.assertEqual((code, value["reasonCode"]), (3, "credential-missing"))
+        self.assertEqual(value["mode"], "decision-only")
+        self.assertFalse(value["childrenCreated"])
+        self.assertFalse(value["terminalAcceptance"])
+        self.assertFalse(value["deliverable"])
+        self.assertFalse((self.workspace / ".img2threejs/state.json").exists())
+
     def test_git_verification_environment_contains_no_host_credentials(self):
         with patch.dict(route_cli.os.environ, {"TYPESAFE_API_KEY": self.secret, "GIT_CONFIG_COUNT": "99"}):
             consent = self.live()
@@ -290,6 +310,269 @@ class RouteCliTests(unittest.TestCase):
         self.assertFalse(spawn.call_args.kwargs["shell"])
         self.assertTrue(spawn.call_args.kwargs["start_new_session"])
         self.assertEqual(spawn.call_args.kwargs["stdin"], route_cli.subprocess.DEVNULL)
+
+
+class ChildInitializationTests(unittest.TestCase):
+    """Actual Router journal/RouteAuthority/RouteParent; only external providers mocked."""
+    def setUp(self):
+        sys.path.insert(0, str(Path(__file__).parent))
+        import test_route_authority as authority_fixtures
+        self.case = authority_fixtures.RouteAuthorityTests("runTest")
+        self.case.setUp()
+        self.addCleanup(self.case.doCleanups)
+        self.harness = SimpleNamespace(argv=("fixture-img2",), runtime_provider=self.case.runtime_row,
+                                       runner=self.case.command, verify=Mock())
+        self.case.pin(self.case.plugin, "domain.json", json.dumps({"id": "pixi2d"}).encode())
+
+    def generic(self):
+        proposals = {"kind": "img2.object-proposals", "version": 1, "objects": [
+            {"objectId": "cube", "label": "cube", "role": "prop", "approxBox": [.1, .1, .9, .9],
+             "observations": {"flatness": "volumetric"}}]}
+        self.routed = self.case.router.route(image="reference.png", objects=proposals,
+                                             expected_output="3d", explicit_route="base:generic")
+        self.assertEqual(self.routed["decision"]["phase"], "decided")
+        return proposals
+
+    def initialize(self, result, domains):
+        with patch.object(route_cli, "registered_domains", return_value=domains), \
+                patch("domains.registered_domains", return_value=domains):
+            return route_cli._create_children(self.case.router, result, self.harness, self.case.consent)
+
+    def test_legitimate_generic_child_uses_real_journal_authority_not_a_boolean(self):
+        self.generic()
+        parent = self.initialize(self.routed, {})
+        self.assertEqual(parent["objects"][0]["profile"], "generic")
+        self.assertEqual(parent["objects"][0]["outputKind"], "3d-object")
+        child = json.loads((self.case.workspace / parent["objects"][0]["statePath"]).read_text())
+        self.assertEqual(child["profile"], "generic")
+        self.assertTrue(any(step["status"] == "pending" for step in child["checklist"]))
+        self.assertNotEqual(parent["status"], "complete")
+        self.assertFalse(parent["routeDecision"]["executionAuthorized"])
+        journal = [json.loads(line) for line in self.case.controller.journal_path.read_text().splitlines()]
+        self.assertTrue(any("route-round" in entry["event"] for entry in journal))
+
+    def test_explicit_2d_uses_registered_pixi_profile_without_generic_substitution(self):
+        parent = self.initialize(self.case.routed, {"pixi2d": {"id": "pixi2d"}})
+        child = json.loads((self.case.workspace / parent["objects"][0]["statePath"]).read_text())
+        self.assertEqual(child["profile"], "pixi2d")
+        self.assertEqual(parent["objects"][0]["outputKind"], "2d-scene")
+        self.assertTrue(all(step["id"] not in {"composition", "scene-gates"} for step in parent["checklist"]))
+        self.assertTrue(any(step["status"] == "pending" for step in child["checklist"]))
+
+    def test_missing_profile_ambiguous_provider_and_dependency_fail_closed(self):
+        from route_parent import ParentError
+        with self.assertRaises(DecisionError) as caught:
+            self.initialize(self.case.routed, {})
+        self.assertEqual(caught.exception.reason_code, "owner-profile-unavailable")
+        self.assertFalse((self.case.workspace / ".img2threejs/state.json").exists())
+        snapshot = self.case.router.verification_snapshot()
+        candidate = next(c for c in snapshot["candidates"] if c["provider"] == "pixi2d")
+        candidate["dependencies"] = {"python3>=3.10": False}
+        with patch.object(self.case.router, "verification_snapshot", return_value=snapshot), \
+                self.assertRaises(DecisionError) as caught:
+            self.initialize(self.case.routed, {"pixi2d": {"id": "pixi2d"}})
+        self.assertEqual(caught.exception.reason_code, "live-dependency-mismatch")
+        self.case.live_status = "ambiguous"
+        with self.assertRaises((DecisionError, ParentError)):
+            self.initialize(self.case.routed, {"pixi2d": {"id": "pixi2d"}})
+        self.assertFalse((self.case.workspace / ".img2threejs/state.json").exists())
+
+    def test_no_auth_and_uncertain_routes_never_initialize_or_probe_snapshot(self):
+        denied = Mock(side_effect=DecisionError("credential-missing"))
+        with patch.object(self.case.router, "verification_snapshot") as snapshot:
+            with self.assertRaises(DecisionError) as caught:
+                route_cli._create_children(self.case.router, self.case.routed, self.harness, denied)
+            self.assertEqual(caught.exception.reason_code, "credential-missing")
+            snapshot.assert_not_called()
+        unresolved = copy.deepcopy(self.case.routed)
+        unresolved["decision"]["objects"][0]["status"] = "best-of-n"
+        with patch.object(self.case.router, "verification_snapshot") as snapshot:
+            with self.assertRaises(DecisionError) as caught:
+                route_cli._create_children(self.case.router, unresolved, self.harness, self.case.consent)
+            self.assertEqual(caught.exception.reason_code, "route-execution-unresolved")
+            snapshot.assert_not_called()
+
+    def test_malicious_provider_or_profile_cannot_supply_owner_authority(self):
+        snapshot = self.case.router.verification_snapshot()
+        selected = self.case.routed["decision"]["objects"][0]["selected"][0]
+        candidate = next(c for c in snapshot["candidates"] if c["id"] == selected)
+        candidate.update(provider="unapproved", profile="generic", claimants=["unapproved"])
+        with patch.object(route_cli, "registered_domains", return_value={"unapproved": {"id": "generic"}}), \
+                self.assertRaises(DecisionError) as caught:
+            route_cli._owner_profiles(self.case.router, self.case.routed, snapshot)
+        self.assertEqual(caught.exception.reason_code, "unapproved-owner-profile")
+        self.assertFalse((self.case.workspace / ".img2threejs/state.json").exists())
+
+    def test_fixed_character_cs2_interior_and_pixi_terminal_mappings(self):
+        for provider, card_kind, profile, terminal, branch in (
+                ("character", "rigged-3d", "character", "rigged-3d", "3d"),
+                ("cs2", "spec-augmentation", "cs2", "3d-object", "3d"),
+                ("interior", "3d-scene", "interior", "3d-scene", "3d"),
+                ("pixi2d", "2d-scene", "pixi2d", "2d-scene", "2d")):
+            with self.subTest(provider=provider):
+                candidate = {"id": "selected", "provider": provider, "resolvedSha": "a" * 40,
+                             "providerStatus": "answered", "claimants": [provider],
+                             "blockingGateProduced": True, "dependencies": {}, "profile": "generic",
+                             "card": {"costClass": "local", "outputKind": card_kind}}
+                routed = {"decision": {"phase": "decided", "request": {"expectedOutput": branch},
+                                      "objects": [{"status": "resolved", "selected": ["selected"]}]}}
+                domain = copy.deepcopy(route_cli.CHARACTER_DOMAIN) if provider == "character" else {"id": profile}
+                row = {"plugin": provider, "resolvedSha": "a" * 40, "dir": str(self.case.plugin)}
+                with patch.object(route_cli, "registered_domains", return_value={profile: domain}), \
+                        patch.object(self.case.discovery, "query", return_value={"status": "answered", "providers": [row]}), \
+                        patch.object(self.case.discovery, "_pinned_file", return_value=json.dumps({"id": profile}).encode()):
+                    owners = route_cli._owner_profiles(self.case.router, routed, {"candidates": [candidate]})
+                self.assertEqual(owners["selected"], route_cli.OwnerProfile(profile, terminal))
+                self.assertNotEqual(owners["selected"].profile, "generic")
+
+    def test_profile_definition_must_match_pinned_provider_domain(self):
+        domains = {"pixi2d": {"id": "pixi2d", "setupSteps": (("malicious", "execute unapproved code"),)}}
+        with self.assertRaises(DecisionError) as caught:
+            self.initialize(self.case.routed, domains)
+        self.assertEqual(caught.exception.reason_code, "owner-profile-provider-mismatch")
+
+    def test_legacy_parent_is_preserved_before_any_new_snapshot(self):
+        path = self.case.workspace / ".img2threejs/state.json"
+        path.write_text('{"legacy":"user state"}')
+        with patch.object(self.case.router, "verification_snapshot") as snapshot, self.assertRaises(DecisionError) as caught:
+            self.initialize(self.case.routed, {"pixi2d": {"id": "pixi2d"}})
+        self.assertEqual(caught.exception.reason_code, "existing-parent-preserved")
+        self.assertEqual(path.read_text(), '{"legacy":"user state"}')
+        snapshot.assert_not_called()
+
+    def run_child_cli(self, result, domains, *, expected_output, proposals=None):
+        if proposals is not None:
+            (self.case.workspace / "objects.json").write_text(json.dumps(proposals))
+        host_consent = Mock(side_effect=self.case.consent)
+        host_consent.executable = Path(sys.executable).resolve()
+        host_consent.last_failure = None
+        self.case.router.consent = host_consent
+        argv = ["--workspace", str(self.case.workspace), "--run-id", "route-run", "--image", "reference.png",
+                "--expected-output", expected_output, "--create-children", "--harness-root", str(self.case.runtime),
+                "--harness-sha", "b" * 40, "--harness-executable", str(self.case.runtime / "bin/img2.mjs"),
+                "--harness-sha256", "d" * 64]
+        if proposals is not None:
+            argv.extend(["--objects", "objects.json"])
+        output = io.StringIO()
+        with patch.object(route_cli, "DecisionController", return_value=self.case.controller), \
+                patch.object(route_cli, "PinnedDiscovery", return_value=self.case.discovery), \
+                patch.object(route_cli, "LiveConsent", return_value=host_consent), \
+                patch.object(route_cli, "HarnessPin", return_value=self.harness), \
+                patch.object(route_cli, "JevProviderFactory"), \
+                patch.object(route_cli, "Router", return_value=self.case.router), \
+                patch.object(self.case.router, "route", return_value=result), \
+                patch.object(route_cli, "registered_domains", return_value=domains), \
+                patch("domains.registered_domains", return_value=domains), redirect_stdout(output):
+            status = route_cli.main(argv)
+        command = json.loads(output.getvalue())
+        self.assertEqual(status, 0)
+        self.assertEqual(command["status"], "children-initialized")
+        self.assertEqual(command["mode"], "children-initialized")
+        self.assertFalse(command["terminalAcceptance"])
+        self.assertEqual(command["terminalStatus"], "incomplete")
+        self.assertTrue(command["childrenCreated"])
+        self.assertFalse(command["executionAuthorized"])
+        self.assertFalse(command["deliverable"])
+        self.assertTrue((self.case.workspace / command["parentStatePath"]).is_file())
+        self.assertTrue(all((self.case.workspace / path).is_file() for path in command["childStatePaths"]))
+        return command
+
+    def test_cli_child_creation_reports_pending_terminal_state(self):
+        proposals = self.generic()
+        self.run_child_cli(self.routed, {}, expected_output="3d", proposals=proposals)
+
+    def test_cli_explicit_2d_initializes_only_the_actual_pending_pixi_child(self):
+        command = self.run_child_cli(self.case.routed, {"pixi2d": {"id": "pixi2d"}}, expected_output="2d")
+        child = json.loads((self.case.workspace / command["childStatePaths"][0]).read_text())
+        self.assertEqual(child["profile"], "pixi2d")
+        self.assertEqual(child["routeChild"]["outputKind"], "2d-scene")
+
+    def test_help_and_required_harness_approval_flags(self):
+        help_text = io.StringIO()
+        with redirect_stdout(help_text), self.assertRaises(SystemExit) as caught:
+            route_cli.main(["--help"])
+        self.assertEqual(caught.exception.code, 0)
+        for name in ("--create-children", "--harness-root", "--harness-sha", "--harness-executable", "--harness-sha256"):
+            self.assertIn(name, help_text.getvalue())
+        with patch.object(route_cli, "DecisionController") as controller, redirect_stderr(io.StringIO()), \
+                self.assertRaises(SystemExit):
+            route_cli.main(["--run-id", "run", "--image", "reference.png", "--objects", "objects.json", "--create-children"])
+        controller.assert_not_called()
+
+
+@unittest.skipUnless(shutil.which("node"), "runtime closure pinning requires a host Node executable")
+class HarnessPinTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve() / "harness"
+        self.sources = {"package.json": b'{"name":"@img2threejs/img2"}',
+                        "bin/img2.mjs": b"import fs from 'node:fs'\n",
+                        "img2_core/__init__.py": b"import json\n"}
+        for relative, raw in self.sources.items():
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+        self.consent = SimpleNamespace(git=Path(sys.executable).resolve(), git_env={"GIT_NO_LAZY_FETCH": "1"})
+        self.consent.git_sha = hashlib.sha256(self.consent.git.read_bytes()).hexdigest()
+        self.calls = []
+        self.runner_patch = patch.object(route_cli, "_run_bytes", side_effect=self.command)
+        self.runner_patch.start()
+        self.addCleanup(self.runner_patch.stop)
+
+    def archive(self):
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode="w") as archive:
+            for relative, raw in self.sources.items():
+                member = tarfile.TarInfo(relative)
+                member.size = len(raw)
+                archive.addfile(member, io.BytesIO(raw))
+        return output.getvalue()
+
+    def command(self, argv, workspace, **kwargs):
+        self.calls.append((argv, kwargs))
+        return (0, self.archive()) if "archive" in argv else (0, b'{"harness":"0.5.0"}')
+
+    def pin(self):
+        return route_cli.HarnessPin(self.root, "a" * 40, self.root / "bin/img2.mjs",
+                                    hashlib.sha256(self.sources["bin/img2.mjs"]).hexdigest(), self.consent)
+
+    def test_complete_runtime_inventory_and_launcher_are_pinned(self):
+        pin = self.pin()
+        self.assertEqual(set(pin.inventory), set(self.sources))
+        (self.root / "img2_core/__init__.py").write_bytes(b"changed source")
+        with self.assertRaises(DecisionError):
+            pin.verify()
+
+    def test_untracked_external_dynamic_and_dependency_imports_fail_closed(self):
+        (self.root / "bin/injected.mjs").write_text("untracked")
+        with self.assertRaises(DecisionError):
+            self.pin()
+        (self.root / "bin/injected.mjs").unlink()
+        for raw in (b"import value from 'unapproved-package'\n", b"await import('./late.mjs')\n"):
+            self.sources["bin/img2.mjs"] = raw
+            (self.root / "bin/img2.mjs").write_bytes(raw)
+            with self.assertRaises(DecisionError) as caught:
+                self.pin()
+            self.assertEqual(caught.exception.reason_code, "harness-import-closure-unproven")
+
+    def test_declared_third_party_package_dependency_is_not_implicitly_trusted(self):
+        self.sources["package.json"] = b'{"name":"@img2threejs/img2","dependencies":{"unapproved":"*"}}'
+        (self.root / "package.json").write_bytes(self.sources["package.json"])
+        with self.assertRaises(DecisionError) as caught:
+            self.pin()
+        self.assertEqual(caught.exception.reason_code, "harness-import-closure-unproven")
+
+    def test_runtime_runner_strips_startup_overrides_and_forbids_installs(self):
+        pin = self.pin()
+        with patch.dict(route_cli.os.environ, {"NODE_OPTIONS": "--import unapproved", "TYPESAFE_API_KEY": "private"}):
+            pin.runner([*pin.argv, "--version", "--json"], shell=False, capture_output=True, check=False)
+        actual = next(kwargs for argv, kwargs in self.calls if argv[:len(pin.argv)] == list(pin.argv))
+        self.assertNotIn("NODE_OPTIONS", actual["env"])
+        self.assertNotIn("TYPESAFE_API_KEY", actual["env"])
+        with self.assertRaises(DecisionError) as caught:
+            pin.runner([*pin.argv, "add", "unapproved"])
+        self.assertEqual(caught.exception.reason_code, "authority-command-not-authorized")
 
 
 if __name__ == "__main__":
