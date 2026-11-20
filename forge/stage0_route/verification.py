@@ -166,6 +166,8 @@ def verify_route(router, decision_ref, verify, discovered):
                     or context["questionSetVersion"] != inputs["questionSetVersion"]
                     or context["requestedModel"] != inputs["requestedModel"]):
                 raise RouteError("context-request-mismatch")
+            if context["observations"].get("label") != proposal["label"]:
+                raise RouteError("crop-choice-mismatch" if step == "crop-choice" else "context-target-mismatch")
             common_reference = references[0] if common_reference is None else common_reference
             if digest(consultations[step][0]["consent"]) != inputs["consentSnapshotSha256"]:
                 raise RouteError("consent-changed")
@@ -284,7 +286,8 @@ def verify_route(router, decision_ref, verify, discovered):
         expected_crops = list({(b["role"], b["path"]): b for b in
                                (entries[m["objectId"]]["reference"] for m in members)}.values())
         expected_observations = copy.deepcopy(members[0].get("observations", {}))
-        expected_observations.update(role=members[0]["role"], box=entries[leader_id]["box"], instances=expected_instances,
+        expected_observations.update(role=members[0]["role"], label=members[0]["label"],
+                                     box=entries[leader_id]["box"], instances=expected_instances,
                                      images=[{"role": "object-crop", "asset": "object-crop"}])
         if _bindings(context, "object-crop") != [dict(entries[leader_id]["reference"], role="object-crop")]:
             raise RouteError("routing-image-mismatch")

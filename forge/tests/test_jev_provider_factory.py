@@ -148,7 +148,7 @@ class JevProviderFactoryTests(unittest.TestCase):
                         "candidates": [{"id": "a"}, {"id": "b"}],
                         "observations": {"images": [{"role": "reference", "asset": "reference-image"}]},
                         "requirements": {"criticalFeatures": [], "requiredViews": []},
-                        "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v1",
+                        "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v2",
                         "requestedModel": "jev-1.14.0"}
 
     def git(self, *args):

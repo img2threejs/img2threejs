@@ -8,6 +8,6 @@
   "observations": {"handleCount": 1, "flatness": "volumetric"},
   "requirements": {"criticalFeatures": [], "requiredViews": []},
   "policyVersion": "recovery-policy-v1",
-  "questionSetVersion": "route-questions-v1",
+  "questionSetVersion": "route-questions-v2",
   "requestedModel": "jev-1.14.0"
 }

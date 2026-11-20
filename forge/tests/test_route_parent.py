@@ -185,7 +185,7 @@ class RouteParentTests(unittest.TestCase):
                        "bindings": [reference, proposal_binding, entry["reference"]],
                        "candidates": [{"id": entry["ownerRoute"]}], "observations": {},
                        "requirements": {"criticalFeatures": [], "requiredViews": [], "objectProposal": proposal},
-                       "policyVersion": "fixture-policy-v1", "questionSetVersion": "route-questions-v1",
+                       "policyVersion": "fixture-policy-v1", "questionSetVersion": "route-questions-v2",
                        "requestedModel": "jev-1.14.0"}
             if card_binding is not None:
                 context["bindings"].append(card_binding)

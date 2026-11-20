@@ -65,7 +65,7 @@ class RouteRoundJournalTests(unittest.TestCase):
     def inputs(self, objects, **changes):
         initial = {"reference": self.reference["sha256"], "request": deepcopy(self.request_value),
                    "proposals": deepcopy(objects), "candidates": [{"id": "base:generic", "resolvedSha": "b" * 64}],
-                   "policyVersion": "route-policy-v1", "questionSetVersion": "route-questions-v1",
+                   "policyVersion": "route-policy-v1", "questionSetVersion": "route-questions-v2",
                    "requestedModel": "jev-1.14.0", "consentSnapshotSha256": canonical_digest(self.grant)}
         initial.update(changes)
         return self.json_binding("routing-inputs", initial), self.proposal(objects)
@@ -97,7 +97,7 @@ class RouteRoundJournalTests(unittest.TestCase):
                 "subject": {"runId": "round-run", "objectId": obj["objectId"], "revision": 1, "passId": pass_id},
                 "bindings": bindings, "candidates": candidates, "observations": observations,
                 "requirements": requirements, "policyVersion": "route-policy-v1",
-                "questionSetVersion": "route-questions-v1", "requestedModel": "jev-1.14.0"}
+                "questionSetVersion": "route-questions-v2", "requestedModel": "jev-1.14.0"}
 
     def advisory(self, context):
         self.assertNotIn("routeRound", context["requirements"])

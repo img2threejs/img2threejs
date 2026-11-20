@@ -901,7 +901,7 @@ class ReadOnlyProbeScopeTests(unittest.TestCase):
                 {"kind": "img2.object-proposals", "version": 1, "objects": [proposal]})
             inputs = {"reference": reference["sha256"], "request": request,
                 "proposals": [proposal], "candidates": [{"id": "base:generic"}],
-                "policyVersion": "route-quality-policy-v1", "questionSetVersion": "route-questions-v1",
+                "policyVersion": "route-quality-policy-v1", "questionSetVersion": "route-questions-v2",
                 "requestedModel": "jev-1.14.0", "consentSnapshotSha256": canonical_digest(grant)}
             initial = snapshot(workspace, "routing-inputs", inputs)
             controller.seal_route_round(route_revision=1, round_number=1, proposal=proposal_ref,

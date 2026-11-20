@@ -28,7 +28,7 @@ from .images import admit_reference, box
 from .storage import RouteError, atomic_write, binding, digest, encode, read_bytes, safe_path, snapshot
 
 _POLICY = "route-quality-policy-v1"
-_QUESTIONS = "route-questions-v1"
+_QUESTIONS = "route-questions-v2"
 _ID = re.compile(r"[a-z][a-z0-9-]{0,95}\Z")
 _ROLES = {"scene-container", "subject", "prop", "set-dressing"}
 _GENERIC_CARD = {"kind": "img2.route-card", "version": 1, "outputKind": "3d-object",
@@ -115,10 +115,14 @@ class Router:
         return clean
 
     def _context(self, obj, revision, candidates, bindings, *, request, decomposition=False):
+        label = obj.get("label")
+        if type(label) is not str or not _ID.fullmatch(label):
+            raise RouteError("invalid-object-proposals")
         requirements = {"criticalFeatures": [], "requiredViews": [], "request": copy.deepcopy(request)}
         observations = copy.deepcopy(obj.get("observations", {}))
         observations["role"] = obj["role"]
         observations["box"] = obj["approxBox"]
+        observations["label"] = label
         if decomposition:
             observations["images"] = [{"role": "upright-reference", "asset": "reference-image"}]
             requirements["decomposition"] = {"image": "reference-image", "objects": [

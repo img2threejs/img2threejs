@@ -1,5 +1,5 @@
 {
-  "resolvedSha": "0bebb215a26f9054dc0ed48fc533e6a88881d2c1",
+  "resolvedSha": "a8ec0f8c484dde01fc6041e6a254a03ae36c6054",
   "contractVersion": "jev-v4-four-decisions",
   "files": {
     "plugin.json": "c9aaa6014203b8a4f90b1706e9841e4b6b43d2736f0c3439eed82237be270299",
@@ -15,7 +15,7 @@
     "tools/jev_checkpoint.py": "6ad04ebaef302affc084c2d54b701aac4cbaac3af7fe0b4101ffdeb2dc9055ee",
     "tools/jev_checkpoint_client.py": "1098e4f87504e4217a9bd35cfb8d27401adbc3e2e8fa178a03863d9823992f76",
     "tools/jev_projection.py": "67eb55f70f582e36e120f3d4cf2119d1291249bacdd138ef2e5137a752afc5cb",
-    "tools/jev_decision_questions.py": "29f382878d54c6e36a692a18268d347d6e451fa6d0170565c426c5c636267100",
+    "tools/jev_decision_questions.py": "b99d97303bb831954910cd4ed04dec53946fe320f9310be8c7e71527ef38ba26",
     "tools/jev_decision_provider.py": "5fb33859a76c3566dc57868103e3f8d1f1bd2c90f05c60957eaaf4dc40eab73d",
     "tools/jev_decision_transport.py": "f83cbb996d86e66c5d43bab006a6e4345e5cecc1cfef1e60734837428ae7d63d",
     "tools/jev_decision_images.py": "5dec4eaeb252c24fa1fded1f1e0a4ed9aeeb132d8010c2e73620949fde326a97"

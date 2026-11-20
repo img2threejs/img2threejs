@@ -24,7 +24,7 @@ from decision_control import DecisionController, DecisionError
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "decision_recovery"
 GROUPS = {
-    "routing": ("img2.route-context", "route-questions-v1"),
+    "routing": ("img2.route-context", "route-questions-v2"),
     "build-strategy": ("img2.build-strategy-context", "strategy-questions-v1"),
     "quality-review": ("img2.quality-review-context", "quality-review-questions-v1"),
     "repair": ("img2.repair-context", "repair-decision-questions-v1"),
