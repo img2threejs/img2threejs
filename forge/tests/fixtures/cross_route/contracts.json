@@ -1,0 +1,56 @@
+{
+  "fixtureScope": "Synthetic protocol data only: no screenshot, render, identity accuracy, reconstruction quality, runtime, rig parity or plugin qualification claim.",
+  "probeAssumptions": "True values below are injected predicate controls, not observations of installed tools, typed providers or real blocking gate producers.",
+  "consumerInputs": {
+    "pixi2d": {
+      "expected_output": "2d", "roles": [], "intent": [], "observations": {},
+      "provider_status": "answered", "dependencies": {"python3>=3.10": true},
+      "blocking_gate_produced": true
+    },
+    "interior": {
+      "expected_output": "3d", "roles": ["scene-container"], "intent": [],
+      "observations": {"enclosure": "enclosed-room", "roomCount": 1},
+      "provider_status": "answered", "dependencies": {"blender>=4.3": true},
+      "blocking_gate_produced": true
+    },
+    "cs2": {
+      "expected_output": "3d", "roles": [], "intent": [], "observations": {},
+      "provider_status": "answered", "dependencies": {"python3>=3.10": true},
+      "blocking_gate_produced": true
+    },
+    "character": {
+      "expected_output": "3d", "roles": [], "intent": ["rig"], "observations": {},
+      "provider_status": "answered",
+      "dependencies": {"python3>=3.10": true, "node>=20": true, "blender>=4.3": true},
+      "blocking_gate_produced": true
+    }
+  },
+  "artifact": {
+    "objectId": "protocol-object", "outputKind": "3d-object", "files": [],
+    "frame": {"units": "m", "up": "+Y", "forward": "+Z"},
+    "pivot": "bottom-centre", "scaleEstimate": 1.0, "rig": null
+  },
+  "cs2": {
+    "inputOrigin": "Standalone cs2/tests/test_cs2_manifest.py ADMITTED/PROBED and knife/talon classification; veto and forged-route inputs from test_cs2_routing.py. These are not real authoritative classifications.",
+    "admission": {
+      "admitted": true, "reasons": [],
+      "provenance": {"pHash": 1234567890, "foregroundCoverage": 0.42, "duplicateOfHash": null, "viewpoint": "reference"}
+    },
+    "probe": {"path": "knife.png", "width": 128, "height": 128, "format": "png", "warnings": []},
+    "classification": {
+      "itemFamily": "knife", "subtype": "talon", "confidence": 0.98,
+      "evidenceRefs": ["fixture:independent-classification"],
+      "provider": "offline-fixture", "version": "1", "timedOut": false
+    },
+    "rejectedClassifications": [
+      {"name": "missing", "record": null},
+      {"name": "not-cs2", "patch": {"isCs2": false}},
+      {"name": "generic-domain", "patch": {"domain": "generic"}},
+      {"name": "look-alike", "patch": {"kind": "look-alike"}},
+      {"name": "below-floor", "patch": {"confidence": 0.8199}},
+      {"name": "timeout", "patch": {"timedOut": true}},
+      {"name": "missing-evidence", "patch": {"evidenceRefs": []}},
+      {"name": "missing-provider", "patch": {"provider": ""}}
+    ]
+  }
+}

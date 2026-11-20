@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   durable leases/journals, token reservations and single-successor trial recovery.
 - Add deterministic supplied-report quality/regression checks and an offline benchmark CLI that
   keeps missing evidence unevaluated and never qualifies real-image fidelity from protocol fixtures.
+- Add independently versioned scene checks for bound supplied measurements, including object
+  coverage, contact, scale, interpenetration, silhouette and interior difference. These do not
+  produce measurements or independently authorise delivery.
 - These are internal foundation APIs. Automatic profile selection, plugin adapters, pass hooks,
   scene composition and live Jev qualification are not implied by these modules or their tests.
 

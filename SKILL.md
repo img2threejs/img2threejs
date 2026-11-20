@@ -39,6 +39,16 @@ The user attaches/points to an object image and wants a procedural Three.js mode
 reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
 action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
 
+## Jev routing development entry point
+
+`python3 forge/route.py --help` describes the isolated decision-only routing entry point.
+It does not authorize child execution or replace the state gate below. When an installed,
+pinned Jev provider is logged out, ask the user to run `img2-jev login`; never request their
+key in chat. Image disclosure and paid calls require separate, explicit per-run authorization.
+Pixi2D is eligible only for an explicit 2D request; never silently downgrade a 3D request.
+Until the integrated child workflow and terminal gates are qualified, report routing decisions
+as advisory rather than a finished reconstruction.
+
 ## Profile preflight (once per run, before `forge/next.py`)
 
 Domain knowledge (CS2 skins, animated characters, emission targets) lives in plugins, not in this
