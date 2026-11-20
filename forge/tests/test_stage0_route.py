@@ -729,6 +729,117 @@ else:
         self.assertEqual(result, 3)
         self.assertEqual(json.loads(output.getvalue())["decision"]["phase"], "suspended")
 
+    def character_provider_fixture(self, *, terminal_gate=None, legacy_blocking=False, omit_deps=False):
+        directory = self.workspace / "character-provider"
+        (directory / "tools").mkdir(parents=True, exist_ok=True)
+        sha = "c" * 40
+        probes = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0")
+        card = {"kind": "img2.route-card", "version": 1, "outputKind": "rigged-3d",
+                "requires": {"intent": ["rig"]}, "costClass": "heavy",
+                "deps": [] if omit_deps else [{"probe": probe} for probe in probes],
+                "routedTerminalGate": terminal_gate if terminal_gate is not None else {
+                    "id": "character-routed-terminal", "script": "tools/gate_routed_terminal.py"}}
+        manifest = {"name": "character", "version": "0.3.0", "requires": {"harness": ">=0.5.0"},
+                    "capabilities": [{"from": EDGES["character"][0], "to": EDGES["character"][1]}]}
+        legacy = [{"id": "legacy-rigging", "blocking": legacy_blocking,
+                   "command": "python3 {plugin_dir}/tools/legacy_gate.py"}]
+        # These are source-presence fixtures, never passing gate verdicts.
+        committed = {"plugin.json": encode(manifest), "route.json": encode(card), "gates.json": encode(legacy),
+                     "tools/gate_routed_terminal.py": b"raise SystemExit('do not execute during discovery')\n",
+                     "tools/legacy_gate.py": b"raise SystemExit('do not execute during discovery')\n"}
+        for relative, data in committed.items():
+            (directory / relative).write_bytes(data)
+        row = {"plugin": "character", "version": "0.3.0", "resolvedSha": sha, "dir": str(directory),
+               "gateRunner": {"argv": ["python3", "fixture-gate-runner"]}}
+        discovery = Discovery(self.controller)
+        discovery.version = "0.5.0"
+        discovery.dependency = Mock(return_value=True)
+        def read_pinned_source(argv):
+            self.assertEqual(tuple(argv[:4]), ("git", "-C", str(directory), "show"))
+            self.assertTrue(argv[4].startswith(sha + ":"))
+            relative = argv[4][len(sha) + 1:]
+            return (0, committed[relative]) if relative in committed else (1, b"")
+        discovery.run = Mock(side_effect=read_pinned_source)
+        return discovery, row, probes
+
+    def test_character_routed_producer_is_available_without_a_blocking_legacy_gate(self):
+        discovery, row, probes = self.character_provider_fixture()
+        candidate = discovery._candidate(row, "character", "answered", EDGES["character"])
+        self.assertTrue(candidate["blockingGateProduced"])
+        self.assertEqual(candidate["dependencies"], {probe: True for probe in probes})
+        self.assertEqual([call.args[0] for call in discovery.dependency.call_args_list], list(probes))
+        pinned = [call.args[0][4].split(":", 1)[1] for call in discovery.run.call_args_list]
+        self.assertEqual(pinned, ["plugin.json", "route.json", "tools/gate_routed_terminal.py"])
+        self.assertNotIn("gates.json", pinned)
+        self.assertNotIn("gatePassed", candidate)
+
+    def test_character_altered_routed_gate_contract_never_falls_back_to_legacy_gate(self):
+        markers = [
+            {"id": "other-terminal", "script": "tools/gate_routed_terminal.py"},
+            {"id": "character-routed-terminal", "script": "../tools/gate_routed_terminal.py"},
+            {"id": "character-routed-terminal", "script": "/tmp/gate_routed_terminal.py"},
+            {"id": "character-routed-terminal", "script": "tools/legacy_gate.py"},
+            {"id": "character-routed-terminal", "script": "tools/gate_routed_terminal.py --accept"},
+            {"id": "character-routed-terminal", "script": "tools/gate_routed_terminal.py", "command": "injected"},
+        ]
+        for marker in markers:
+            with self.subTest(marker=marker):
+                discovery, row, _ = self.character_provider_fixture(terminal_gate=marker, legacy_blocking=True)
+                candidate = discovery._candidate(row, "character", "answered", EDGES["character"])
+                self.assertFalse(candidate["blockingGateProduced"])
+                self.assertEqual([call.args[0][4].split(":", 1)[1] for call in discovery.run.call_args_list],
+                                 ["plugin.json", "route.json"])
+
+    def test_character_routed_script_must_match_its_independent_source_pin(self):
+        discovery, row, _ = self.character_provider_fixture()
+        (Path(row["dir"]) / "tools/gate_routed_terminal.py").write_bytes(b"dirty producer")
+        with self.assertRaises(RouteError) as caught:
+            discovery._candidate(row, "character", "answered", EDGES["character"])
+        self.assertEqual(caught.exception.reason_code, "provider-pin-mismatch")
+
+    def test_character_local_unpinned_provider_cannot_admit_routed_script(self):
+        discovery, row, _ = self.character_provider_fixture()
+        row["resolvedSha"] = "local"
+        with self.assertRaises(RouteError) as caught:
+            discovery._candidate(row, "character", "answered", EDGES["character"])
+        self.assertEqual(caught.exception.reason_code, "provider-unpinned")
+        discovery.run.assert_not_called()
+        discovery.dependency.assert_not_called()
+
+    def test_character_missing_routed_script_is_not_a_producer(self):
+        discovery, row, _ = self.character_provider_fixture()
+        (Path(row["dir"]) / "tools/gate_routed_terminal.py").unlink()
+        candidate = discovery._candidate(row, "character", "answered", EDGES["character"])
+        self.assertFalse(candidate["blockingGateProduced"])
+
+    def test_character_routed_producer_requires_each_actual_runtime_probe(self):
+        for missing in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0"):
+            with self.subTest(missing=missing):
+                discovery, row, probes = self.character_provider_fixture()
+                discovery.dependency.side_effect = lambda probe: probe != missing
+                candidate = discovery._candidate(row, "character", "answered", EDGES["character"])
+                self.assertFalse(candidate["blockingGateProduced"])
+                self.assertIs(candidate["dependencies"][missing], False)
+                self.assertEqual([call.args[0] for call in discovery.dependency.call_args_list], list(probes))
+
+    def test_character_card_cannot_omit_program_owned_runtime_requirements(self):
+        discovery, row, probes = self.character_provider_fixture(omit_deps=True)
+        discovery.dependency.side_effect = lambda probe: probe != "character-node>=22.0"
+        candidate = discovery._candidate(row, "character", "answered", EDGES["character"])
+        self.assertFalse(candidate["blockingGateProduced"])
+        self.assertEqual([call.args[0] for call in discovery.dependency.call_args_list], list(probes))
+
+    def test_character_routed_marker_is_not_a_generic_gate_extension(self):
+        discovery = Discovery(self.controller)
+        discovery._pinned_file = Mock()
+        card = {"routedTerminalGate": {"id": "character-routed-terminal", "script": "tools/gate_routed_terminal.py"}}
+        deps = {probe: True for probe in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0")}
+        self.assertFalse(discovery._gate_producer({"plugin": "interior", "gateRunner": None},
+            expected_name="interior", card=card, dependencies=deps))
+        self.assertFalse(discovery._gate_producer({"plugin": "interior", "gateRunner": None},
+            expected_name="character", card=card, dependencies=deps))
+        discovery._pinned_file.assert_not_called()
+
     def test_pin_requires_real_commit_bytes_not_local_link_or_claimed_sha(self):
         discovery = Discovery(self.controller)
         path = self.workspace / "route.json"

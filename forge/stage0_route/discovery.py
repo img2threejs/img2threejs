@@ -29,6 +29,7 @@ _CHARACTER_DEPENDENCIES = {
     "character-node": ("IMG2_CHARACTER_NODE", "node"),
     "character-chromium": ("IMG2_CHARACTER_BROWSER", "chromium"),
 }
+_CHARACTER_GATE_PROBES = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0")
 
 # Values are immutable and local to the calling thread/async context. A scope
 # applies only to the exact Discovery shared by the controller's callbacks.
@@ -165,11 +166,27 @@ class Discovery:
         required = tuple(int(part) for part in match[2].split("."))
         return actual >= required + (0,) * (3 - len(required))
 
-    def _gate_producer(self, row):
+    def _gate_producer(self, row, *, expected_name=None, card=None, dependencies=None):
         """Admission checks real pinned executable producers, not a model's gate assertion.
 
         This is NOT evidence that any gate passed; child execution remains authoritative.
         """
+        if expected_name == "character":
+            if (row.get("plugin") != "character" or type(card) is not dict
+                    or card.get("routedTerminalGate") != {
+                        "id": "character-routed-terminal", "script": "tools/gate_routed_terminal.py"}
+                    or type(dependencies) is not dict
+                    or any(dependencies.get(probe) is not True for probe in _CHARACTER_GATE_PROBES)):
+                return False
+            # Route-only admission is a base-approved fixed producer, not a
+            # command supplied by a card and not a change to legacy gates.json.
+            try:
+                self._pinned_file(row, "tools/gate_routed_terminal.py")
+            except RouteError as exc:
+                if exc.reason_code == "provider-file-missing":
+                    return False
+                raise
+            return True
         runner = row.get("gateRunner")
         if (type(runner) is not dict or type(runner.get("argv")) is not list
                 or not runner["argv"]):
@@ -237,7 +254,11 @@ class Discovery:
         deps = card.get("deps", []) if type(card) is dict else []
         dependency_results = {d["probe"]: self.dependency(d["probe"]) for d in deps
                               if type(d) is dict and type(d.get("probe")) is str}
-        gate = self._gate_producer(row)
+        if expected_name == "character":
+            for probe in _CHARACTER_GATE_PROBES:
+                if probe not in dependency_results:
+                    dependency_results[probe] = self.dependency(probe)
+        gate = self._gate_producer(row, expected_name=expected_name, card=card, dependencies=dependency_results)
         return {"id": expected_name + ":" + hashlib.sha256(
                     (row["resolvedSha"] + ":" + card_binding["sha256"]).encode()).hexdigest(),
                 "provider": expected_name, "resolvedSha": row["resolvedSha"], "card": card,
