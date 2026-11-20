@@ -1,0 +1,9 @@
+{
+  "purpose": "Protocol fixtures only; independently authored labels, not real-image qualification.",
+  "labels": [
+    {"caseId": "route", "authority": "fixture-expert", "decision": "base:generic", "boxes": [{"label": "cup", "box": [0.1, 0.1, 0.9, 0.9]}]},
+    {"caseId": "strategy", "authority": "fixture-expert", "decision": "lathe-and-handle"},
+    {"caseId": "review", "authority": "fixture-expert", "decision": "block", "criticalNegative": true},
+    {"caseId": "repair", "authority": "fixture-expert", "decision": "repair-handle"}
+  ]
+}

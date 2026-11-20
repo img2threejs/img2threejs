@@ -1,0 +1,13 @@
+{
+  "kind": "img2.route-context",
+  "version": 1,
+  "group": "routing",
+  "subject": {"runId": "recovery-run", "objectId": "cup", "revision": 1, "passId": "geometry"},
+  "bindings": [{"role": "spec", "path": "evidence/subject.json", "sha256": "f91e7cd9afb5de8cb224bb68da17374116fd1d35d044cf43d2dce2aeacd2c0fc"}],
+  "candidates": [{"id": "plan-lathe"}, {"id": "plan-mesh"}],
+  "observations": {"handleCount": 1, "flatness": "volumetric"},
+  "requirements": {"criticalFeatures": [], "requiredViews": []},
+  "policyVersion": "recovery-policy-v1",
+  "questionSetVersion": "route-questions-v1",
+  "requestedModel": "jev-1.14.0"
+}

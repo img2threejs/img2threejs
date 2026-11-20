@@ -1,0 +1,16 @@
+{
+  "producer": "protocol-fixture-not-provider", "decision": "continue", "delivered": true,
+  "elapsedMs": 3000, "usage": {"fresh": 30, "cached": 6, "output": 9},
+  "audit": {"mutations": [], "corrections": 0},
+  "bindings": [{"path": "evidence.txt", "sha256": "6dc9f19b6e1ebf80ab18e96a559f4c3a3b4c6f93f70e38ca22231ed4ad7f2672"}],
+  "candidate": {
+    "id": "missing-handle", "outputKind": "3d-object", "flatness": "volumetric",
+    "gateResults": [{"id": "mesh", "status": "pass", "producer": "protocol-fixture"}],
+    "measurements": {"width": 1, "height": 1, "depth": 0.4, "frontArea": 1, "sideArea": 0.4, "selfIntersectionCount": 0, "partCoveragePassed": true},
+    "views": [0, 90, 180, 270],
+    "features": [{"id": "handle", "tier": "critical", "status": "fail", "score": 1, "threshold": 3}],
+    "metrics": {"silhouetteIoU": 0.7, "interiorDifference": 0.1, "orbitConsistency": 0.9},
+    "evidence": {"referenceSha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "cameraSha256": "6dc9f19b6e1ebf80ab18e96a559f4c3a3b4c6f93f70e38ca22231ed4ad7f2672", "viewSetSha256": "6dc9f19b6e1ebf80ab18e96a559f4c3a3b4c6f93f70e38ca22231ed4ad7f2672"},
+    "cost": 1, "timeMs": 3000
+  }
+}

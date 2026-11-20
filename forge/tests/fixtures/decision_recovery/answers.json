@@ -1,0 +1,17 @@
+{
+  "choice": {
+    "selection": {"type": "choice", "choice": "plan-lathe", "probabilities": {"plan-lathe": 0.9, "plan-mesh": 0.1}, "confidence": 0.8},
+    "anyFits": {"type": "noul", "noul": 1.0}
+  },
+  "correctedChoice": {
+    "selection": {"type": "choice", "choice": "plan-mesh", "probabilities": {"plan-lathe": 0.05, "plan-mesh": 0.95}, "confidence": 0.9},
+    "anyFits": {"type": "noul", "noul": 1.0}
+  },
+  "review": {
+    "dimension:geometry": {
+      "type": "score", "score": 3, "confidence": 0.7,
+      "legend": {"0": "Absent or wrong relative to the declared requirement.", "1": "Major mismatch with the declared requirement.", "2": "Partially meets the declared requirement, with visible deficiencies.", "3": "Meets the declared requirement.", "4": "Exceeds the declared requirement without changing it."},
+      "probabilities": {"0": 0.0, "1": 0.0, "2": 0.1, "3": 0.8, "4": 0.1}
+    }
+  }
+}

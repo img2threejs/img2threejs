@@ -1,0 +1,10 @@
+{
+  "kind": "img2.decision-benchmark-results", "version": 1,
+  "purpose": "Known safe protocol outcomes only; not real-image quality evidence.",
+  "results": [
+    {"caseId": "route", "sourceSha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "measurement": {"path": "route.good.json", "sha256": "cb6265aacdac387d8d8039dd96608d275ceb3d4b67bc903924c4d2e55fc9396a"}},
+    {"caseId": "strategy", "sourceSha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "measurement": {"path": "strategy.good.json", "sha256": "e10e399f6adc86826da66ac47856ee14105d4deb36bd21f73eb855312e91b6d1"}},
+    {"caseId": "review", "sourceSha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "measurement": {"path": "review.good.json", "sha256": "5336224a5e2cf111611dec42ca72797770284947559480eccba683a287fc914f"}},
+    {"caseId": "repair", "sourceSha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "measurement": {"path": "repair.good.json", "sha256": "b54343bbc443c438822ebe9edc8127801300a30c1a67e681225e4547b75ed9a2"}}
+  ]
+}

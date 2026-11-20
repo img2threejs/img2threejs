@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
 
+### Added — Jev decision foundation (internal)
+
+- Add a standard-library shared controller for routing, build strategy, quality review and repair:
+  evidence/revision-bound decisions, explicit login suspension and unavailable-provider fallback,
+  durable leases/journals, token reservations and single-successor trial recovery.
+- Add deterministic supplied-report quality/regression checks and an offline benchmark CLI that
+  keeps missing evidence unevaluated and never qualifies real-image fidelity from protocol fixtures.
+- These are internal foundation APIs. Automatic profile selection, plugin adapters, pass hooks,
+  scene composition and live Jev qualification are not implied by these modules or their tests.
+
 ## [2.0.1] — 2026-11-05
 
 Ships the `SKILL.md` guidance that landed on `main` after v2.0.0, so that `npx img2threejs install`

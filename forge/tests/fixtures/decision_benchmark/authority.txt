@@ -1,0 +1,1 @@
+PROTOCOL FIXTURE ONLY. Local test authority attestation, not a real expert or licensed image-source credential.

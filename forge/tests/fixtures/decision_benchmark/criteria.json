@@ -1,0 +1,9 @@
+{
+  "purpose": "Protocol fixture only; frozen before synthetic evaluation.",
+  "cases": {
+    "repair": {
+      "targetMetric": "silhouetteIoU", "direction": "max", "minImprovement": 0.05,
+      "tolerances": {"interiorDifference": 0.02, "orbitConsistency": 0.02}
+    }
+  }
+}
