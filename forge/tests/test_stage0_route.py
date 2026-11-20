@@ -5,6 +5,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import struct
 import subprocess
@@ -14,7 +15,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 FORGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(FORGE))
@@ -617,6 +618,102 @@ else:
             discovery._candidate(row, "interior", "answered", EDGES["interior"])
         self.assertEqual(caught.exception.reason_code, "route-card-missing")
         self.assertFalse(discovery._gate_producer(row))
+
+    def character_executable(self, name, *, executable=True):
+        path = self.workspace / name
+        path.write_text("host-only executable fixture")
+        path.chmod(0o700 if executable else 0o600)
+        return path
+
+    def test_character_dependencies_resolve_only_named_path_programs_and_numeric_versions(self):
+        paths = {"node": self.character_executable("node-runtime"),
+                 "chromium": self.character_executable("chromium-runtime")}
+        discovery = Discovery(self.controller)
+        discovery.run = Mock(side_effect=[(0, b"v22.0.0\n"), (0, b"Chromium 131.0.6778.85\n")])
+        with patch.dict(os.environ, {}, clear=True), patch("stage0_route.discovery.shutil.which",
+                side_effect=lambda name: str(paths[name])) as which:
+            self.assertTrue(discovery.dependency("character-node>=22.0"))
+            self.assertTrue(discovery.dependency("character-chromium>=1.0"))
+        self.assertEqual([item.args[0] for item in discovery.run.call_args_list],
+                         [(str(paths["node"].resolve()), "--version"), (str(paths["chromium"].resolve()), "--version")])
+        self.assertEqual([item.args[0] for item in which.call_args_list], ["node", "chromium"])
+
+    def test_character_old_node_and_failed_or_malformed_version_are_rejected(self):
+        node = self.character_executable("old-node")
+        discovery = Discovery(self.controller)
+        with patch.dict(os.environ, {"IMG2_CHARACTER_NODE": str(node)}, clear=True):
+            for result in ((0, b"v20.19.0\n"), (0, b"v21.99.99\n"), (1, b"v99.0.0\n"), (0, b"unknown")):
+                with self.subTest(result=result):
+                    discovery.run = Mock(return_value=result)
+                    self.assertFalse(discovery.dependency("character-node>=22.0"))
+        browser = self.character_executable("old-chromium")
+        discovery.run = Mock(return_value=(0, b"Chromium 0.9.99"))
+        with patch.dict(os.environ, {"IMG2_CHARACTER_BROWSER": str(browser)}, clear=True):
+            self.assertFalse(discovery.dependency("character-chromium>=1.0"))
+
+    def test_character_missing_chromium_does_not_search_alternate_browsers(self):
+        discovery = Discovery(self.controller)
+        discovery.run = Mock()
+        with patch.dict(os.environ, {}, clear=True), patch("stage0_route.discovery.shutil.which", return_value=None) as which:
+            self.assertFalse(discovery.dependency("character-chromium>=1.0"))
+        which.assert_called_once_with("chromium")
+        discovery.run.assert_not_called()
+
+    def test_character_explicit_overrides_resolve_real_executables_without_path_fallback(self):
+        node = self.character_executable("node with spaces")
+        browser = self.character_executable("browser with spaces")
+        node_link = self.workspace / "node-link"
+        node_link.symlink_to(node)
+        discovery = Discovery(self.controller)
+        discovery.run = Mock(side_effect=[(0, b"v22.4.1"), (0, b"Chromium 130.0.0.1")])
+        with patch.dict(os.environ, {"IMG2_CHARACTER_NODE": str(node_link),
+                "IMG2_CHARACTER_BROWSER": str(browser)}, clear=True), patch("stage0_route.discovery.shutil.which") as which:
+            self.assertTrue(discovery.dependency("character-node>=22.0"))
+            self.assertTrue(discovery.dependency("character-chromium>=1.0"))
+        which.assert_not_called()
+        self.assertEqual([item.args[0] for item in discovery.run.call_args_list],
+                         [(str(node.resolve()), "--version"), (str(browser.resolve()), "--version")])
+
+    def test_character_invalid_overrides_and_command_strings_never_execute_or_fall_back(self):
+        executable = self.character_executable("valid-runtime")
+        nonexecutable = self.character_executable("not-executable", executable=False)
+        broken_link = self.workspace / "broken-runtime"
+        broken_link.symlink_to(self.workspace / "missing-target")
+        values = ["", "node", "node --eval injected", str(nonexecutable), str(self.workspace),
+                  str(self.workspace / "missing-runtime"), str(broken_link),
+                  str(executable) + " --eval injected", "/bin/sh -c injected"]
+        for variable, dependency in (("IMG2_CHARACTER_NODE", "character-node>=22.0"),
+                                     ("IMG2_CHARACTER_BROWSER", "character-chromium>=1.0")):
+            for value in values:
+                with self.subTest(variable=variable, value=value):
+                    discovery = Discovery(self.controller)
+                    discovery.run = Mock()
+                    with patch.dict(os.environ, {variable: value}, clear=True), patch("stage0_route.discovery.shutil.which") as which:
+                        self.assertFalse(discovery.dependency(dependency))
+                    discovery.run.assert_not_called()
+                    which.assert_not_called()
+
+    def test_character_card_probe_strings_cannot_supply_commands_or_paths(self):
+        discovery = Discovery(self.controller)
+        discovery.run = Mock()
+        probes = ["character-node>=22.0; touch injected", "character-chromium>=1.0 --version",
+                  "character-node=/bin/sh>=22.0", "/bin/node>=22.0", "character-python>=3.10"]
+        with patch("stage0_route.discovery.shutil.which") as which:
+            for probe in probes:
+                with self.subTest(probe=probe):
+                    self.assertFalse(discovery.dependency(probe))
+        discovery.run.assert_not_called()
+        which.assert_not_called()
+
+    def test_character_probe_uses_existing_bounded_no_shell_runner_and_journal(self):
+        node = self.character_executable("bounded-node")
+        runner = Mock(return_value=subprocess.CompletedProcess([], 0, b"v22.1.0\n", b""))
+        discovery = Discovery(self.controller, runner=runner)
+        with patch.dict(os.environ, {"IMG2_CHARACTER_NODE": str(node)}, clear=True):
+            self.assertTrue(discovery.dependency("character-node>=22.0"))
+        runner.assert_called_once_with([str(node.resolve()), "--version"], capture_output=True,
+            timeout=15, check=False, shell=False, cwd=str(self.workspace))
+        self.assertEqual(len(discovery.probes), 1)
 
     def test_unknown_dependency_is_not_executed(self):
         discovery = Discovery(self.controller)

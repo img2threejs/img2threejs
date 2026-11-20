@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -23,6 +24,11 @@ EDGES = {
 JEV_EDGE = ("img2.route-context", "img2.route-advisory")
 _DEPENDENCIES = {"blender": ("blender", "--version"), "node": ("node", "--version"),
                  "python3": ("python3", "--version")}
+# These establish runtime availability only, never terminal gate acceptance.
+_CHARACTER_DEPENDENCIES = {
+    "character-node": ("IMG2_CHARACTER_NODE", "node"),
+    "character-chromium": ("IMG2_CHARACTER_BROWSER", "chromium"),
+}
 
 # Values are immutable and local to the calling thread/async context. A scope
 # applies only to the exact Discovery shared by the controller's callbacks.
@@ -119,6 +125,35 @@ class Discovery:
         return committed
 
     def dependency(self, name):
+        character = re.fullmatch(r"(character-node|character-chromium)>=(\d+(?:\.\d+){0,3})", name)
+        if character:
+            variable, program = _CHARACTER_DEPENDENCIES[character[1]]
+            # Overrides are host configuration, never values read from a card.
+            # An invalid explicit override must not fall back to a different tool.
+            if variable in os.environ:
+                executable = os.environ[variable]
+                if not Path(executable).is_absolute():
+                    return False
+            else:
+                executable = shutil.which(program)
+                if executable is None:
+                    return False
+                executable = os.path.abspath(executable)
+            try:
+                resolved = Path(executable).resolve(strict=True)
+                if not resolved.is_file() or not os.access(resolved, os.X_OK):
+                    return False
+                executable = str(resolved)
+            except (OSError, ValueError, RuntimeError):
+                return False
+            code, raw = self.run((executable, "--version"))
+            version = re.search(rb"(?<![A-Za-z0-9])v?([0-9]+(?:\.[0-9]+)+)", raw)
+            if code != 0 or version is None:
+                return False
+            actual = tuple(map(int, version[1].split(b".")))
+            required = tuple(map(int, character[2].split(".")))
+            width = max(len(actual), len(required))
+            return actual + (0,) * (width - len(actual)) >= required + (0,) * (width - len(required))
         match = re.fullmatch(r"(blender|node|python3)>=(\d+(?:\.\d+)*)", name)
         if not match:
             return False
