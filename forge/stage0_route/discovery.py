@@ -10,10 +10,11 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import time
 
-from .storage import RouteError, snapshot
+from .storage import RouteError, encode, snapshot
 
 EDGES = {
     "pixi2d": ("image", "pixi2d-scene"),
@@ -29,7 +30,94 @@ _CHARACTER_DEPENDENCIES = {
     "character-node": ("IMG2_CHARACTER_NODE", "node"),
     "character-chromium": ("IMG2_CHARACTER_BROWSER", "chromium"),
 }
-_CHARACTER_GATE_PROBES = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0")
+_CHARACTER_GATE_PROBES = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0", "character-three>=0.186.1")
+_CHARACTER_THREE_FILES = (
+    "build/three.core.js", "build/three.module.js",
+    "examples/jsm/loaders/GLTFLoader.js", "examples/jsm/utils/BufferGeometryUtils.js",
+    "examples/jsm/utils/SkeletonUtils.js", "package.json",
+)
+
+
+def character_three_facts():
+    """Recompute host-approved Three bytes; no fallback, execution or gate authority."""
+    selected = os.environ.get("IMG2_CHARACTER_THREE_ROOT")
+    approved = os.environ.get("IMG2_CHARACTER_THREE_SHA256")
+    if (not selected or not Path(selected).is_absolute() or type(approved) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", approved) is None):
+        return None
+    root_fd = None
+    try:
+        root = Path(selected).resolve(strict=True)
+        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        files, package_bytes = [], None
+        for name in sorted(_CHARACTER_THREE_FILES):
+            directory = os.dup(root_fd)
+            try:
+                components = name.split("/")
+                for component in components[:-1]:
+                    child = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                    os.close(directory)
+                    directory = child
+                fd = os.open(components[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+                with os.fdopen(fd, "rb") as source:
+                    if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                        return None
+                    sha = hashlib.sha256()
+                    if name == "package.json":
+                        package_bytes = source.read()
+                        sha.update(package_bytes)
+                    else:
+                        for block in iter(lambda: source.read(1024 * 1024), b""):
+                            sha.update(block)
+                files.append({"path": name, "sha256": sha.hexdigest()})
+            finally:
+                os.close(directory)
+        def pairs(rows):
+            result = {}
+            for key, value in rows:
+                if key in result:
+                    raise ValueError("duplicate package JSON key")
+                result[key] = value
+            return result
+        def invalid(value):
+            raise ValueError("non-finite package JSON")
+        package = json.loads(package_bytes, object_pairs_hook=pairs, parse_constant=invalid)
+        if type(package) is not dict or package.get("version") != "0.186.1":
+            return None
+        inventory = {"kind": "img2.character-three-package", "version": 1, "files": files}
+        actual = hashlib.sha256(encode(inventory)).hexdigest()
+        if actual != approved:
+            return None
+        return {"root": str(root), "version": "0.186.1", "sha256": actual,
+                "files": files, "approval": "host-approved"}
+    except (OSError, ValueError, RuntimeError):
+        return None
+    finally:
+        if root_fd is not None:
+            os.close(root_fd)
+
+
+def resolve_character_executable(probe_name):
+    """Resolve only a fixed character runtime from host configuration, without executing it."""
+    if probe_name not in _CHARACTER_DEPENDENCIES:
+        return None
+    variable, program = _CHARACTER_DEPENDENCIES[probe_name]
+    if variable in os.environ:
+        executable = os.environ[variable]
+        if not Path(executable).is_absolute():
+            return None
+    else:
+        executable = shutil.which(program)
+        if executable is None:
+            return None
+        executable = os.path.abspath(executable)
+    try:
+        resolved = Path(executable).resolve(strict=True)
+        if not resolved.is_file() or not os.access(resolved, os.X_OK):
+            return None
+        return str(resolved)
+    except (OSError, ValueError, RuntimeError):
+        return None
 
 # Values are immutable and local to the calling thread/async context. A scope
 # applies only to the exact Discovery shared by the controller's callbacks.
@@ -126,26 +214,12 @@ class Discovery:
         return committed
 
     def dependency(self, name):
+        if name == "character-three>=0.186.1":
+            return character_three_facts() is not None
         character = re.fullmatch(r"(character-node|character-chromium)>=(\d+(?:\.\d+){0,3})", name)
         if character:
-            variable, program = _CHARACTER_DEPENDENCIES[character[1]]
-            # Overrides are host configuration, never values read from a card.
-            # An invalid explicit override must not fall back to a different tool.
-            if variable in os.environ:
-                executable = os.environ[variable]
-                if not Path(executable).is_absolute():
-                    return False
-            else:
-                executable = shutil.which(program)
-                if executable is None:
-                    return False
-                executable = os.path.abspath(executable)
-            try:
-                resolved = Path(executable).resolve(strict=True)
-                if not resolved.is_file() or not os.access(resolved, os.X_OK):
-                    return False
-                executable = str(resolved)
-            except (OSError, ValueError, RuntimeError):
+            executable = resolve_character_executable(character[1])
+            if executable is None:
                 return False
             code, raw = self.run((executable, "--version"))
             version = re.search(rb"(?<![A-Za-z0-9])v?([0-9]+(?:\.[0-9]+)+)", raw)

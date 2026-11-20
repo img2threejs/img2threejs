@@ -1,9 +1,12 @@
 """Isolated adapter probes; fixture gates never establish real Pixi/native quality."""
 from copy import deepcopy
+from contextlib import contextmanager
 import hashlib
 import json
 import multiprocessing
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -635,6 +638,185 @@ class RouteAuthorityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.authority(verify)
         self.assertFalse((self.workspace / ".img2threejs/state.json").exists())
+
+    @contextmanager
+    def character_case(self, *, cost="heavy", marker=True, overrides=True):
+        """Disposable real Git pin + real executable probes; never a rig gate."""
+        git = shutil.which("git")
+        if git is None:
+            self.fail("git is required for the pinned character fixture")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            plugin, host, three = root / "character", root / "host", root / "three"
+            plugin.mkdir()
+            host.mkdir()
+            files = ("build/three.core.js", "build/three.module.js",
+                     "examples/jsm/loaders/GLTFLoader.js", "examples/jsm/utils/BufferGeometryUtils.js",
+                     "examples/jsm/utils/SkeletonUtils.js", "package.json")
+            inventory = []
+            for name in sorted(files):
+                data = encode({"version": "0.186.1"}) if name == "package.json" else ("// fixture " + name).encode()
+                path = three / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+                inventory.append({"path": name, "sha256": hashlib.sha256(data).hexdigest()})
+            approved = hashlib.sha256(encode({"kind": "img2.character-three-package", "version": 1,
+                                             "files": inventory})).hexdigest()
+            for name, version in (("node", "v22.1.0"), ("chromium", "Chromium 157.0.0.0")):
+                executable = host / name
+                executable.write_text("#!" + sys.executable + "\nprint(" + repr(version) + ")\n")
+                executable.chmod(0o755)
+            manifest = {"name": "character", "version": "1.0.0",
+                        "capabilities": [{"from": "character-mesh", "to": "rigged-character"}],
+                        "requires": {"harness": ">=0.5.0", "coreApi": 1}}
+            card = {"kind": "img2.route-card", "version": 1, "outputKind": "rigged-3d",
+                    "requires": {"intent": ["rig"]}, "notFor": {}, "costClass": cost,
+                    "deps": [{"probe": "python3>=3.10"}, {"probe": "character-node>=22.0"},
+                             {"probe": "character-chromium>=1.0"}], "display": {}}
+            if marker:
+                card["routedTerminalGate"] = {"id": "character-routed-terminal",
+                                              "script": "tools/gate_routed_terminal.py"}
+            for name, data in (("plugin.json", encode(manifest)), ("route.json", encode(card)),
+                    ("gates.json", encode([{"id": "rigging", "blocking": False,
+                        "command": "python3 {plugin_dir}/tools/gate_rigging.py --workspace {workspace}"}])),
+                    ("tools/gate_routed_terminal.py", b"raise RuntimeError('availability tests must not execute this gate')\n")):
+                path = plugin / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            # Commits exist only inside this disposable fixture repository.
+            for args in (("init", "--quiet"), ("add", "--", "plugin.json", "route.json", "gates.json",
+                           "tools/gate_routed_terminal.py"),
+                    ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                     "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null",
+                     "commit", "--quiet", "-m", "Pinned availability fixture")):
+                subprocess.run([git, "-C", str(plugin), *args], check=True, capture_output=True, timeout=10)
+            pin = subprocess.run([git, "-C", str(plugin), "rev-parse", "HEAD"],
+                                 check=True, capture_output=True, timeout=10).stdout.decode().strip()
+            row = {"plugin": "character", "version": "1.0.0", "resolvedSha": pin,
+                   "dir": str(plugin), "gateRunner": None}
+            commands = []
+            def runner(argv, **kwargs):
+                commands.append((list(argv), dict(kwargs)))
+                self.assertIs(kwargs["shell"], False)
+                if argv[0] == "fixture-character-img2":
+                    if argv[1:] == ["--version", "--json"]:
+                        value = {"harness": "0.5.0", "commands": ["capabilities"]}
+                    else:
+                        edge = {"from": argv[3], "to": argv[5]}
+                        value = {"version": 1, "query": edge, "status": "answered", "providers": [row]
+                                 if edge == {"from": "character-mesh", "to": "rigged-character"} else []}
+                    return subprocess.CompletedProcess(argv, 0, encode(value), b"")
+                if str(plugin / "tools/gate_routed_terminal.py") in argv:
+                    self.fail("availability revalidation executed the terminal gate")
+                actual = list(argv)
+                if actual[0] == "git":
+                    actual[0] = git
+                elif actual[0] == "python3":
+                    actual[0] = sys.executable
+                return subprocess.run(actual, **kwargs)
+            environment = {"IMG2_CHARACTER_THREE_ROOT": str(three), "IMG2_CHARACTER_THREE_SHA256": approved,
+                           "PATH": str(host) + os.pathsep + os.defpath}
+            if overrides:
+                environment.update(IMG2_CHARACTER_NODE=str(host / "node"),
+                                   IMG2_CHARACTER_BROWSER=str(host / "chromium"))
+            with patch.dict(os.environ, environment):
+                if not overrides:
+                    os.environ.pop("IMG2_CHARACTER_NODE", None)
+                    os.environ.pop("IMG2_CHARACTER_BROWSER", None)
+                controller = DecisionController(root, "character-run", clock=lambda: 1000)
+                discovery = Discovery(controller, harness=("fixture-character-img2",), runner=runner)
+                discovery.availability = Mock(return_value={"status": "present"})
+                (root / "reference.png").write_bytes(png(4, 4, 3, bytes(range(48))))
+                router = Router(root, "character-run", controller=controller, discovery=discovery,
+                                provider=self.answer, consent=self.consent)
+                routed = router.route(image="reference.png", intent=["rig"], explicit_route="character",
+                    objects={"kind": "img2.object-proposals", "version": 1, "objects": [
+                        {"objectId": "figure", "label": "figure", "role": "subject", "approxBox": [0, 0, 1, 1]}]})
+                discovered = router.verification_snapshot()
+                candidate = next(item for item in discovered["candidates"] if item["provider"] == "character")
+                authority = RouteAuthority(router, routed["decisionRef"], discovered=discovered,
+                    owners={candidate["id"]: OwnerProfile("generic", "rigged-3d")},
+                    harness=("fixture-character-img2",), runner=runner)
+                yield {"root": root, "plugin": plugin, "host": host, "three": three, "row": row,
+                       "controller": controller, "discovery": discovery, "router": router,
+                       "routed": routed, "candidate": candidate, "authority": authority, "commands": commands}
+
+    def test_pinned_character_heavy_route_is_available_without_running_terminal_gate(self):
+        with self.character_case() as case:
+            self.assertTrue(case["candidate"]["blockingGateProduced"])
+            self.assertEqual(case["candidate"]["dependencies"], {
+                "python3>=3.10": True, "character-node>=22.0": True,
+                "character-chromium>=1.0": True, "character-three>=0.186.1": True})
+            with case["controller"].workspace_transaction(consent=self.consent) as verify:
+                with patch.object(case["controller"], "record_probe", side_effect=AssertionError("nested probe lock")):
+                    aggregate = case["authority"](verify)
+                    self.assertEqual(aggregate.owners[case["candidate"]["id"]].output_kind, "rigged-3d")
+                    self.assert_reason("character-blocking-terminal-gates-unavailable",
+                        case["authority"].verify_terminal, verify, object_id="figure",
+                        child_workspace=case["root"], state={}, artifact={})
+            commands = [argv for argv, _ in case["commands"]]
+            self.assertIn([str(case["host"] / "node"), "--version"], commands)
+            self.assertIn([str(case["host"] / "chromium"), "--version"], commands)
+
+    def test_character_path_fallback_matches_discovery_resolution(self):
+        with self.character_case(overrides=False) as case:
+            with case["controller"].workspace_transaction(consent=self.consent) as verify:
+                self.assertIs(type(case["authority"](verify)), VerifiedAggregate)
+
+    def test_character_host_override_and_bytes_cannot_change_after_snapshot(self):
+        with self.character_case() as case:
+            with case["controller"].workspace_transaction(consent=self.consent):
+                for variable, value in (("IMG2_CHARACTER_NODE", "relative-node"),
+                                        ("IMG2_CHARACTER_BROWSER", "")):
+                    with patch.dict(os.environ, {variable: value}):
+                        self.assert_reason("character-host-binding-changed", case["authority"]._provider, case["candidate"])
+                with patch.dict(os.environ, {"PATH": ""}):
+                    os.environ.pop("IMG2_CHARACTER_NODE", None)
+                    os.environ.pop("IMG2_CHARACTER_BROWSER", None)
+                    self.assert_reason("character-host-binding-changed", case["authority"]._provider, case["candidate"])
+                node = case["host"] / "node"
+                node.write_text(node.read_text() + "# changed bytes, same version\n")
+                self.assert_reason("character-host-binding-changed", case["authority"]._provider, case["candidate"])
+
+    def test_character_route_only_marker_and_gate_bytes_are_pinned(self):
+        with self.character_case() as case:
+            script = case["plugin"] / "tools/gate_routed_terminal.py"
+            original = script.read_bytes()
+            script.write_bytes(original + b"# outside edit\n")
+            with case["controller"].workspace_transaction(consent=self.consent):
+                self.assert_reason("provider-pin-mismatch", case["authority"]._provider, case["candidate"])
+            script.write_bytes(original)
+            card = case["plugin"] / "route.json"
+            altered = json.loads(card.read_bytes())
+            altered["routedTerminalGate"]["script"] = "tools/gate_rigging.py"
+            card.write_bytes(encode(altered))
+            with case["controller"].workspace_transaction(consent=self.consent):
+                self.assert_reason("provider-pin-mismatch", case["authority"]._provider, case["candidate"])
+
+    def test_legacy_character_gate_cannot_substitute_route_only_producer(self):
+        with self.character_case(marker=False) as case:
+            self.assertFalse(case["candidate"]["blockingGateProduced"])
+            forged = dict(case["candidate"], blockingGateProduced=True)
+            with case["controller"].workspace_transaction(consent=self.consent):
+                self.assert_reason("live-blocking-producer-mismatch", case["authority"]._provider, forged)
+            self.assertNotEqual(case["routed"]["decision"]["phase"], "decided")
+
+    def test_character_three_approval_and_module_bytes_cannot_change(self):
+        with self.character_case() as case:
+            with case["controller"].workspace_transaction(consent=self.consent):
+                with patch.dict(os.environ, {"IMG2_CHARACTER_THREE_SHA256": "0" * 64}):
+                    self.assert_reason("character-three-binding-changed", case["authority"]._provider, case["candidate"])
+                source = case["three"] / "build/three.core.js"
+                source.write_bytes(source.read_bytes() + b"\n// changed\n")
+                self.assert_reason("character-three-binding-changed", case["authority"]._provider, case["candidate"])
+
+    def test_paid_and_licensed_character_routes_remain_unapproved(self):
+        for cost in ("paid", "licensed"):
+            with self.subTest(cost=cost), self.character_case(cost=cost) as case:
+                parent = RouteParent(case["controller"], verify_aggregate=case["authority"], consent=self.consent)
+                with self.assertRaises((RouteError, ParentError)):
+                    parent.create()
+                self.assertFalse((case["root"] / ".img2threejs/state.json").exists())
 
 
 if __name__ == "__main__":

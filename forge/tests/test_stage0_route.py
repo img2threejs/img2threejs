@@ -21,7 +21,7 @@ FORGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(FORGE))
 sys.path.insert(0, str(FORGE / "_shared"))
 from decision_control import DecisionController, DecisionError, canonical_digest
-from stage0_route.discovery import Discovery, EDGES, JEV_EDGE, read_only_probes
+from stage0_route.discovery import Discovery, EDGES, JEV_EDGE, read_only_probes, character_three_facts
 from stage0_route.images import crop, decode, png, prepare_reference
 from stage0_route.route import Router, main
 from stage0_route.storage import RouteError, atomic_write, encode, snapshot
@@ -733,7 +733,7 @@ else:
         directory = self.workspace / "character-provider"
         (directory / "tools").mkdir(parents=True, exist_ok=True)
         sha = "c" * 40
-        probes = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0")
+        probes = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0", "character-three>=0.186.1")
         card = {"kind": "img2.route-card", "version": 1, "outputKind": "rigged-3d",
                 "requires": {"intent": ["rig"]}, "costClass": "heavy",
                 "deps": [] if omit_deps else [{"probe": probe} for probe in probes],
@@ -813,7 +813,7 @@ else:
         self.assertFalse(candidate["blockingGateProduced"])
 
     def test_character_routed_producer_requires_each_actual_runtime_probe(self):
-        for missing in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0"):
+        for missing in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0", "character-three>=0.186.1"):
             with self.subTest(missing=missing):
                 discovery, row, probes = self.character_provider_fixture()
                 discovery.dependency.side_effect = lambda probe: probe != missing
@@ -824,7 +824,7 @@ else:
 
     def test_character_card_cannot_omit_program_owned_runtime_requirements(self):
         discovery, row, probes = self.character_provider_fixture(omit_deps=True)
-        discovery.dependency.side_effect = lambda probe: probe != "character-node>=22.0"
+        discovery.dependency.side_effect = lambda probe: probe != "character-three>=0.186.1"
         candidate = discovery._candidate(row, "character", "answered", EDGES["character"])
         self.assertFalse(candidate["blockingGateProduced"])
         self.assertEqual([call.args[0] for call in discovery.dependency.call_args_list], list(probes))
@@ -833,12 +833,157 @@ else:
         discovery = Discovery(self.controller)
         discovery._pinned_file = Mock()
         card = {"routedTerminalGate": {"id": "character-routed-terminal", "script": "tools/gate_routed_terminal.py"}}
-        deps = {probe: True for probe in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0")}
+        deps = {probe: True for probe in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0", "character-three>=0.186.1")}
         self.assertFalse(discovery._gate_producer({"plugin": "interior", "gateRunner": None},
             expected_name="interior", card=card, dependencies=deps))
         self.assertFalse(discovery._gate_producer({"plugin": "interior", "gateRunner": None},
             expected_name="character", card=card, dependencies=deps))
         discovery._pinned_file.assert_not_called()
+
+    def three_inventory_pin(self, root):
+        # Independent fixed-list oracle; do not borrow the implementation's list.
+        names = ("build/three.core.js", "build/three.module.js", "examples/jsm/loaders/GLTFLoader.js",
+                 "examples/jsm/utils/BufferGeometryUtils.js", "examples/jsm/utils/SkeletonUtils.js", "package.json")
+        inventory = {"kind": "img2.character-three-package", "version": 1, "files": [
+            {"path": name, "sha256": hashlib.sha256((root / name).read_bytes()).hexdigest()} for name in sorted(names)]}
+        canonical = json.dumps(inventory, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
+        return hashlib.sha256(canonical).hexdigest(), inventory["files"]
+
+    def three_inventory_fixture(self, *, version="0.186.1", package_bytes=None):
+        # Structural approval fixtures are not claims about official npm provenance
+        # or rendering. A separate integration test uses the real approved host package.
+        root = self.workspace / "approved-three"
+        names = ("build/three.core.js", "build/three.module.js", "examples/jsm/loaders/GLTFLoader.js",
+                 "examples/jsm/utils/BufferGeometryUtils.js", "examples/jsm/utils/SkeletonUtils.js", "package.json")
+        for name in names:
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes((package_bytes if package_bytes is not None else encode({"name": "three", "version": version}))
+                             if name == "package.json" else ("// inventory fixture: " + name).encode())
+        pin, files = self.three_inventory_pin(root)
+        return root, {"IMG2_CHARACTER_THREE_ROOT": str(root), "IMG2_CHARACTER_THREE_SHA256": pin}, files
+
+    def test_character_three_checks_exact_host_approved_inventory_without_executing_anything(self):
+        root, environment, files = self.three_inventory_fixture()
+        discovery = Discovery(self.controller)
+        discovery.run = Mock()
+        with patch.dict(os.environ, environment, clear=True), patch("stage0_route.discovery.shutil.which") as which:
+            facts = character_three_facts()
+            self.assertEqual(facts, {"root": str(root.resolve()), "version": "0.186.1",
+                "sha256": environment["IMG2_CHARACTER_THREE_SHA256"], "files": files, "approval": "host-approved"})
+            self.assertTrue(discovery.dependency("character-three>=0.186.1"))
+        which.assert_not_called()
+        discovery.run.assert_not_called()
+
+    def test_character_three_requires_explicit_absolute_root_and_approved_pin_without_fallback(self):
+        root, good, _ = self.three_inventory_fixture()
+        environments = [{}, {"IMG2_CHARACTER_THREE_ROOT": str(root)},
+            {"IMG2_CHARACTER_THREE_SHA256": good["IMG2_CHARACTER_THREE_SHA256"]},
+            {**good, "IMG2_CHARACTER_THREE_ROOT": "relative/three"},
+            {**good, "IMG2_CHARACTER_THREE_ROOT": str(root / "missing")},
+            {**good, "IMG2_CHARACTER_THREE_ROOT": str(root / "package.json")},
+            {**good, "IMG2_CHARACTER_THREE_SHA256": ""},
+            {**good, "IMG2_CHARACTER_THREE_SHA256": "0" * 64},
+            {**good, "IMG2_CHARACTER_THREE_SHA256": "a" * 63},
+            {**good, "IMG2_CHARACTER_THREE_SHA256": "G" * 64}]
+        discovery = Discovery(self.controller)
+        discovery.run = Mock()
+        with patch("stage0_route.discovery.shutil.which") as which:
+            for environment in environments:
+                with self.subTest(environment=environment), patch.dict(os.environ, environment, clear=True):
+                    self.assertFalse(discovery.dependency("character-three>=0.186.1"))
+        which.assert_not_called()
+        discovery.run.assert_not_called()
+
+    def test_character_three_rejects_wrong_version_even_with_a_matching_reviewed_pin(self):
+        for version in ("0.185.0", "0.187.0", "0.186.1-dev", 186):
+            root, environment, _ = self.three_inventory_fixture(version=version)
+            with self.subTest(version=version), patch.dict(os.environ, environment, clear=True):
+                self.assertFalse(Discovery(self.controller).dependency("character-three>=0.186.1"))
+
+    def test_character_three_rejects_missing_or_tampered_fixed_files(self):
+        root, environment, files = self.three_inventory_fixture()
+        with patch.dict(os.environ, environment, clear=True):
+            for entry in files:
+                path = root / entry["path"]
+                original = path.read_bytes()
+                with self.subTest(path=entry["path"]):
+                    path.write_bytes(original + b"tampered")
+                    self.assertIsNone(character_three_facts())
+                    path.unlink()
+                    self.assertIsNone(character_three_facts())
+                    path.write_bytes(original)
+                    self.assertIsNotNone(character_three_facts())
+
+    def test_character_three_rejects_symlink_files_and_intermediate_aliases(self):
+        root, environment, _ = self.three_inventory_fixture()
+        module = root / "build/three.module.js"
+        original = module.read_bytes()
+        foreign = self.workspace / "foreign-module.js"
+        foreign.write_bytes(original)
+        module.unlink()
+        module.symlink_to(foreign)
+        with patch.dict(os.environ, environment, clear=True):
+            self.assertIsNone(character_three_facts())
+        module.unlink()
+        module.write_bytes(original)
+        (root / "build").rename(root / "real-build")
+        (root / "build").symlink_to(root / "real-build", target_is_directory=True)
+        with patch.dict(os.environ, environment, clear=True):
+            self.assertIsNone(character_three_facts())
+
+    def test_character_three_rejects_nonregular_files_without_blocking_on_fifo(self):
+        root, environment, _ = self.three_inventory_fixture()
+        module = root / "build/three.module.js"
+        module.unlink()
+        os.mkfifo(module)
+        with patch.dict(os.environ, environment, clear=True):
+            self.assertIsNone(character_three_facts())
+
+    def test_character_three_parses_package_json_strictly_even_if_bytes_are_approved(self):
+        for package in (b'{"version":"0.186.1","version":"0.186.1"}',
+                        b'{"version":"0.186.1","invalid":NaN}', b"not-json", b"[]"):
+            root, environment, _ = self.three_inventory_fixture(package_bytes=package)
+            with self.subTest(package=package), patch.dict(os.environ, environment, clear=True):
+                self.assertIsNone(character_three_facts())
+
+    def test_character_three_facts_change_on_reapproval_instead_of_caching_true(self):
+        root, environment, _ = self.three_inventory_fixture()
+        with patch.dict(os.environ, environment, clear=True):
+            original = character_three_facts()
+            (root / "build/three.core.js").write_bytes(b"new explicitly reviewed bytes")
+            self.assertIsNone(character_three_facts())
+            pin, _ = self.three_inventory_pin(root)
+            os.environ["IMG2_CHARACTER_THREE_SHA256"] = pin
+            updated = character_three_facts()
+            self.assertIsNotNone(updated)
+            self.assertNotEqual(original["sha256"], updated["sha256"])
+            self.assertTrue(Discovery(self.controller).dependency("character-three>=0.186.1"))
+
+    def test_character_three_dependency_string_cannot_choose_a_path_or_other_version(self):
+        root, environment, _ = self.three_inventory_fixture()
+        discovery = Discovery(self.controller)
+        discovery.run = Mock()
+        with patch.dict(os.environ, environment, clear=True):
+            for probe in ("character-three>=0.187.0", "character-three>=0.186.1; install",
+                          "character-three=/unapproved>=0.186.1"):
+                with self.subTest(probe=probe):
+                    self.assertFalse(discovery.dependency(probe))
+        discovery.run.assert_not_called()
+
+    @unittest.skipUnless(os.environ.get("IMG2_CHARACTER_THREE_ROOT") and os.environ.get("IMG2_CHARACTER_THREE_SHA256"),
+                         "requires the actual explicitly host-approved Three 0.186.1 package")
+    def test_character_three_accepts_actual_known_host_approved_package(self):
+        discovery = Discovery(self.controller)
+        discovery.run = Mock()
+        facts = character_three_facts()
+        self.assertIsNotNone(facts)
+        self.assertEqual(facts["version"], "0.186.1")
+        self.assertEqual(facts["sha256"], os.environ["IMG2_CHARACTER_THREE_SHA256"])
+        expected, files = self.three_inventory_pin(Path(os.environ["IMG2_CHARACTER_THREE_ROOT"]).resolve(strict=True))
+        self.assertEqual((facts["sha256"], facts["files"]), (expected, files))
+        self.assertTrue(discovery.dependency("character-three>=0.186.1"))
+        discovery.run.assert_not_called()
 
     def test_pin_requires_real_commit_bytes_not_local_link_or_claimed_sha(self):
         discovery = Discovery(self.controller)

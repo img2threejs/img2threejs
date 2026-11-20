@@ -35,12 +35,14 @@ GateContract/GateSpec describe other program-reviewed 2D runners implementing
 this same strict artifact-binding/evidence contract, never pass callbacks.
 D18 is a different schema: no Pixi kind/version/bindings fields are imposed on
 3D. Native producer/reference authentication requires a reviewed code amendment,
-not registration of another GateContract. Base has no complete measured terminal
-producer contract; interior's
-workflow is explicitly attestation-only; CS2 accepts unbound metrics; character's
-legacy rig gate is nonblocking. These defaults fail with named reasons. None of
-this establishes missing visual provenance or grants paid/licensed consent; such
-routes remain blocked by the router and this boundary.
+not registration of another GateContract. Character's route-only fixed producer
+is recognized as available only with its pinned marker/script and fresh exact
+host Node/Chromium/approved Three facts. Raw host selection and executable/module
+bytes are frozen before the transaction and rechecked without probe journaling.
+Availability never means that its gate ran or that 3D terminal checks passed.
+The unsupported 3D terminal paths still fail with named reasons. Heavy local
+resource cost is not paid/licensed consent; paid and licensed owners stay blocked
+without explicit additional approval.
 """
 from __future__ import annotations
 
@@ -53,6 +55,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import tempfile
 
@@ -60,7 +63,9 @@ from route_parent import (AggregateAuthority, OwnerProfile, ParentError, Verifie
                           _decode, _encode, _read)
 from workflow_state import new_state
 from stage0_route.images import decode
-from stage0_route.discovery import EDGES, read_only_probes
+from stage0_route.discovery import (
+    EDGES, _CHARACTER_DEPENDENCIES, _CHARACTER_GATE_PROBES,
+    character_three_facts, read_only_probes, resolve_character_executable)
 from stage0_route.route import Router
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
@@ -198,6 +203,13 @@ class RouteAuthority(AggregateAuthority):
                 or len({candidate["id"] for candidate in candidates}) != len(candidates)):
             _fail("invalid-discovery-snapshot")
         self._candidates = {candidate["id"]: candidate for candidate in candidates}
+        # Freeze trusted host selection independently of availability booleans.
+        # Re-probes below never call Discovery.run or acquire its journal lock.
+        has_character = any(candidate.get("provider") == "character" for candidate in candidates)
+        self._character_hosts = {
+            name: self._character_executable_facts(name) for name in _CHARACTER_DEPENDENCIES
+        } if has_character else {}
+        self._character_three = self._character_three_facts() if has_character else None
         if not set(owners) <= self._candidates.keys():
             _fail("unapproved-owner-profile")
         self._profile_templates = {}
@@ -276,7 +288,64 @@ class RouteAuthority(AggregateAuthority):
             _fail("live-provider-unavailable-or-ambiguous")
         return response["providers"][0]
 
+    @staticmethod
+    def _character_executable_facts(name):
+        variable, _ = _CHARACTER_DEPENDENCIES[name]
+        configuration = {"overridePresent": variable in os.environ, "override": os.environ.get(variable),
+                         "pathSearch": os.environ.get("PATH") if variable not in os.environ else None}
+        path = resolve_character_executable(name)
+        digest = None
+        if path is not None:
+            try:
+                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(fd, "rb") as source:
+                    if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                        path = None
+                    else:
+                        sha = hashlib.sha256()
+                        for block in iter(lambda: source.read(1024 * 1024), b""):
+                            sha.update(block)
+                        digest = sha.hexdigest()
+                if resolve_character_executable(name) != path:
+                    path, digest = None, None
+            except OSError:
+                path, digest = None, None
+        return {"configuration": configuration, "path": path, "sha256": digest}
+
+    @staticmethod
+    def _character_three_facts():
+        return {"rootSetting": os.environ.get("IMG2_CHARACTER_THREE_ROOT"),
+                "shaSetting": os.environ.get("IMG2_CHARACTER_THREE_SHA256"),
+                "facts": character_three_facts()}
+
     def _dependency(self, name):
+        if name == "character-three>=0.186.1":
+            if self._character_three is None:
+                return False
+            actual = self._character_three_facts()
+            if actual != self._character_three:
+                _fail("character-three-binding-changed")
+            return actual["facts"] is not None
+        character = re.fullmatch(r"(character-node|character-chromium)>=(\d+(?:\.\d+){0,3})", name)
+        if character:
+            saved = self._character_hosts.get(character[1])
+            if saved is None:
+                return False
+            facts = self._character_executable_facts(character[1])
+            if facts != saved:
+                _fail("character-host-binding-changed")
+            if facts["path"] is None:
+                return False
+            code, raw = self._run((facts["path"], "--version"))
+            if self._character_executable_facts(character[1]) != saved:
+                _fail("character-host-binding-changed")
+            version = re.search(rb"(?<![A-Za-z0-9])v?([0-9]+(?:\.[0-9]+)+)", raw)
+            if code != 0 or version is None:
+                return False
+            actual = tuple(map(int, version[1].split(b".")))
+            required = tuple(map(int, character[2].split(".")))
+            width = max(len(actual), len(required))
+            return actual + (0,) * (width - len(actual)) >= required + (0,) * (width - len(required))
         match = _DEPENDENCY.fullmatch(name)
         if match is None:
             return False
@@ -296,12 +365,13 @@ class RouteAuthority(AggregateAuthority):
             _fail("live-provider-identity-mismatch")
         manifest = _decode(self._pinned(row, "plugin.json"))
         card = _decode(self._pinned(row, "route.json"))
-        try:
-            gates = _decode(self._pinned(row, "gates.json"))
-        except ParentError as exc:
-            if exc.reason_code != "provider-file-missing" or candidate.get("blockingGateProduced") is not False:
-                raise
-            gates = []
+        gates = []
+        if name != "character":
+            try:
+                gates = _decode(self._pinned(row, "gates.json"))
+            except ParentError as exc:
+                if exc.reason_code != "provider-file-missing" or candidate.get("blockingGateProduced") is not False:
+                    raise
         if (type(manifest) is not dict or manifest.get("name") != name or manifest.get("version") != row.get("version")
                 or {"from": EDGES[name][0], "to": EDGES[name][1]} not in manifest.get("capabilities", [])
                 or card != candidate["card"] or type(gates) is not list):
@@ -326,11 +396,27 @@ class RouteAuthority(AggregateAuthority):
                 or candidate.get("claimants") != [name]):
             _fail("stale-discovery-snapshot")
         dependency_facts = {item["probe"]: self._dependency(item["probe"]) for item in card.get("deps", [])}
+        if name == "character":
+            # Required host facts cannot be waived by omission from a route card.
+            for probe in _CHARACTER_GATE_PROBES:
+                if probe not in dependency_facts:
+                    dependency_facts[probe] = self._dependency(probe)
         if candidate.get("dependencies") != dependency_facts:
             _fail("live-dependency-mismatch")
         gate_runner = row.get("gateRunner")
         produced = False
-        if type(gate_runner) is dict and type(gate_runner.get("argv")) is list and gate_runner["argv"]:
+        if name == "character":
+            if (card.get("routedTerminalGate") == {
+                    "id": "character-routed-terminal", "script": "tools/gate_routed_terminal.py"}
+                    and all(dependency_facts.get(probe) is True for probe in _CHARACTER_GATE_PROBES)):
+                try:
+                    self._pinned(row, "tools/gate_routed_terminal.py")
+                except ParentError as exc:
+                    if exc.reason_code != "provider-file-missing":
+                        raise
+                else:
+                    produced = True
+        elif type(gate_runner) is dict and type(gate_runner.get("argv")) is list and gate_runner["argv"]:
             for gate in gates:
                 if type(gate) is not dict or gate.get("blocking") is not True or gate.get("actor", "program") != "program":
                     continue
@@ -371,7 +457,7 @@ class RouteAuthority(AggregateAuthority):
         if not selected <= self._owners.keys():
             _fail("unapproved-owner-profile")
         for ident in selected:
-            if self._candidates[ident]["card"].get("costClass") != "local":
+            if self._candidates[ident]["card"].get("costClass") in {"paid", "licensed"}:
                 _fail("paid-or-licensed-owner-not-authorized")
         owners = {ident: self._owners[ident] for ident in selected}
         return decision, inventory, owners
