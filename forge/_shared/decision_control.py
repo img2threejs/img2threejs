@@ -23,6 +23,7 @@ import stat
 import tempfile
 import time
 from contextlib import contextmanager
+from types import MappingProxyType
 
 
 GROUPS = {
@@ -144,6 +145,30 @@ def _safe_data(value):
     elif type(value) is str:
         if value.startswith(("/", "~/", "file:", "\\")) or re.match(r"^[A-Za-z]:[\\/]", value):
             _fail("unsafe-context")
+
+
+def _immutable(value):
+    if type(value) is dict:
+        return MappingProxyType({key: _immutable(item) for key, item in value.items()})
+    if type(value) is list:
+        return tuple(_immutable(item) for item in value)
+    return value
+
+
+def _proposal_members(value):
+    if (type(value) is not dict or value.get("kind") != "img2.object-proposals"
+            or value.get("version") != 1 or type(value.get("objects")) is not list
+            or not value["objects"]):
+        _fail("invalid-route-proposal")
+    members = {}
+    for obj in value["objects"]:
+        if type(obj) is not dict:
+            _fail("invalid-route-proposal")
+        object_id = _identifier(obj.get("objectId"))
+        if object_id in members:
+            _fail("invalid-route-proposal")
+        members[object_id] = canonical_digest(obj)
+    return members
 
 
 class DecisionController:
@@ -285,7 +310,8 @@ class DecisionController:
     def _load(self):
         entries = []
         state = {"runs": {}, "records": {}, "contexts": {}, "refs": {}, "epochs": {},
-                 "attempts": {}, "applications": {}}
+                 "attempts": {}, "applications": {}, "routeRounds": {}, "routeLinks": [],
+                 "recordSequences": {}, "recordAttempts": {}, "routeDispatches": []}
         if not self.journal_path.exists():
             if self.lease_path.exists():
                 _fail("journal-broken")
@@ -303,7 +329,7 @@ class DecisionController:
                 if (type(entry["sequence"]) is not int or entry["sequence"] != len(entries)
                         or entry["previousHash"] != previous or canonical_digest(body) != entry["hash"]):
                     _fail("journal-broken")
-                self._reduce(state, entry["event"], entry["data"])
+                self._reduce(state, entry["event"], entry["data"], sequence=entry["sequence"])
                 entries.append(entry)
                 previous = entry["hash"]
         except (ValueError, TypeError, KeyError, UnicodeError):
@@ -311,7 +337,7 @@ class DecisionController:
         return entries, state
 
     @staticmethod
-    def _reduce(state, event, data):
+    def _reduce(state, event, data, *, sequence=None):
         run_id = data["runId"]
         if event == "run-started":
             state["runs"][run_id] = {"objects": {}, "tokensUsed": 0, "tokensReserved": 0,
@@ -329,19 +355,22 @@ class DecisionController:
                 run["groupUnavailable"][data["group"]] = data["reasonCode"]
         elif event == "attempt-pending":
             state["runs"][run_id]["tokensReserved"] += data["reservation"]
-            state["attempts"][data["attemptId"]] = dict(data)
+            state["attempts"][data["attemptId"]] = dict(data, pendingAtSequence=sequence)
         elif event in {"attempt-result", "attempt-failure"}:
             run = state["runs"][run_id]
             run["tokensUsed"] += data["tokens"]
             run["tokensReserved"] -= data["release"]
             attempt = state["attempts"][data["attemptId"]]
             attempt.update(data)
+            attempt["finishedAtSequence"] = sequence
             attempt["status"] = "result-ready" if event == "attempt-result" else "failed"
         elif event == "decision-recorded":
             record = data["record"]
             state["records"][record["recordId"]] = record
             state["contexts"][record["recordId"]] = data["context"]
             state["refs"][data["refKey"]] = record["recordId"]
+            state["recordSequences"][record["recordId"]] = sequence
+            state["recordAttempts"][record["recordId"]] = data.get("attemptId")
             previous = state["epochs"].get(data["refKey"])
             epoch = previous["epoch"] if previous else 0
             if previous and previous["contextDigest"] != record["contextDigest"]:
@@ -349,6 +378,12 @@ class DecisionController:
             state["epochs"][data["refKey"]] = {"epoch": epoch, "contextDigest": record["contextDigest"]}
             if data.get("attemptId"):
                 state["attempts"][data["attemptId"]]["status"] = "completed"
+        elif event == "route-round-dispatch":
+            DecisionController._reduce_route_dispatch(state, data, sequence)
+        elif event == "route-round-sealed":
+            DecisionController._reduce_route_round(state, data, sequence)
+        elif event == "route-round-linked":
+            DecisionController._reduce_route_link(state, data)
         elif event == "application-pending":
             application = data["application"]
             state["applications"][application["applicationId"]] = application
@@ -370,7 +405,260 @@ class DecisionController:
         self._atomic_bytes(self.journal_path, b"".join(_json_bytes(item) + b"\n" for item in entries))
         return entry
 
-    def _binding(self, binding):
+    @staticmethod
+    def _rounds(state, run_id, route_revision):
+        return state["routeRounds"].get(run_id, {}).get(canonical_digest(route_revision), [])
+
+    @staticmethod
+    def _route_members(state, run_id, route_revision, round_number, context):
+        rounds = DecisionController._rounds(state, run_id, route_revision)
+        if type(round_number) is not int or round_number not in {1, 2} or len(rounds) < round_number:
+            _fail("route-round-unsealed")
+        if context["group"] != "routing" or context["subject"]["runId"] != run_id:
+            _fail("route-round-subject-mismatch")
+        selected = rounds[round_number - 1]
+        initial = selected["initialInputs"]
+        if (context["policyVersion"] != initial["policyVersion"]
+                or context["questionSetVersion"] != initial["questionSetVersion"]
+                or context["requestedModel"] != initial["requestedModel"]):
+            _fail("route-round-context-mismatch")
+        references = [b for b in context["bindings"] if b["role"] == "reference"]
+        requests = [b for b in context["bindings"] if b["role"] == "route-request"]
+        if (len(references) != 1 or references[0]["sha256"] != initial["reference"]
+                or len(requests) != 1 or requests[0]["sha256"] != canonical_digest(initial["request"])):
+            _fail("route-round-context-mismatch")
+        # Group routing can cover instances introduced in different rounds.
+        allowed = {}
+        relevant = rounds[:round_number] if context["subject"]["passId"] == "routing" else [selected]
+        for round_data in relevant:
+            allowed.update(_proposal_members(round_data["proposalValue"]))
+        proposals = [b for b in context["bindings"] if b["role"] == "object-proposal"]
+        if not proposals or len({b["sha256"] for b in proposals}) != len(proposals):
+            _fail("route-round-proposal-mismatch")
+        inverse = {sha: object_id for object_id, sha in allowed.items()}
+        if any(b["sha256"] not in inverse for b in proposals):
+            _fail("route-round-proposal-mismatch")
+        object_ids = [inverse[b["sha256"]] for b in proposals]
+        if context["subject"]["objectId"] not in object_ids:
+            _fail("route-round-subject-mismatch")
+        if context["subject"]["passId"] != "routing" and object_ids != [context["subject"]["objectId"]]:
+            _fail("route-round-subject-mismatch")
+        return object_ids, [b["sha256"] for b in proposals]
+
+    @staticmethod
+    def _reduce_route_round(state, data, sequence):
+        required = {"runId", "routeRevision", "roundNumber", "proposal", "initialInputsDigest",
+                    "parentRoundSha256", "triggerDecisionIds", "proposalValue", "initialInputs",
+                    "sealedAtSequence"}
+        if type(data) is not dict or set(data) != required:
+            _fail("invalid-route-round")
+        run_id = _identifier(data["runId"])
+        if run_id not in state["runs"]:
+            _fail("route-round-subject-mismatch")
+        _revision(data["routeRevision"])
+        _sha(data["initialInputsDigest"])
+        binding = data["proposal"]
+        if (type(binding) is not dict or set(binding) != {"role", "path", "sha256"}
+                or binding["role"] != "object-proposals" or type(binding["path"]) is not str):
+            _fail("invalid-binding")
+        _sha(binding["sha256"])
+        if (canonical_digest(data["proposalValue"]) != binding["sha256"]
+                or canonical_digest(data["initialInputs"]) != data["initialInputsDigest"]):
+            _fail("route-round-binding-mismatch")
+        _proposal_members(data["proposalValue"])
+        initial = data["initialInputs"]
+        if (type(initial) is not dict or not {"reference", "request", "candidates", "policyVersion",
+                "questionSetVersion", "requestedModel", "proposals"} <= set(initial)
+                or type(initial["candidates"]) is not list):
+            _fail("route-round-context-mismatch")
+        _sha(initial["reference"])
+        for key in ("policyVersion", "questionSetVersion", "requestedModel"):
+            _identifier(initial[key])
+        candidate_ids = []
+        for candidate in initial["candidates"]:
+            if type(candidate) is not dict:
+                _fail("route-round-context-mismatch")
+            candidate_ids.append(_identifier(candidate.get("id")))
+        if len(set(candidate_ids)) != len(candidate_ids):
+            _fail("route-round-context-mismatch")
+        if (type(data["roundNumber"]) is not int or data["roundNumber"] not in {1, 2}
+                or type(data["sealedAtSequence"]) is not int or data["sealedAtSequence"] != sequence):
+            _fail("route-round-order")
+        rounds = DecisionController._rounds(state, run_id, data["routeRevision"])
+        if len(rounds) != data["roundNumber"] - 1:
+            _fail("route-round-order")
+        linked_ids = {link["recordId"] for link in state["routeLinks"] if link["runId"] == run_id}
+        linked_attempts = {state["recordAttempts"].get(record_id) for record_id in linked_ids}
+        for attempt in state["attempts"].values():
+            if attempt["runId"] != run_id or attempt["group"] != "routing":
+                continue
+            if attempt["attemptId"] in linked_attempts:
+                continue
+            # A failed Jev attempt can belong to a later authenticated model
+            # fallback for the same request. A newer in-flight/unlinked call
+            # cannot borrow an older link merely because its context is equal.
+            covered_failure = attempt["status"] == "failed" and any(
+                state["records"][record_id]["contextDigest"] == attempt["contextDigest"]
+                and attempt["finishedAtSequence"] < state["recordSequences"][record_id]
+                for record_id in linked_ids)
+            if not covered_failure:
+                _fail("route-round-order")
+        if any(record["group"] == "routing" and record["subject"]["runId"] == run_id
+               and record.get("model") is not None and record["recordId"] not in linked_ids
+               for record in state["records"].values()):
+            _fail("route-round-order")
+        triggers = data["triggerDecisionIds"]
+        if type(triggers) is not list or len(set(triggers)) != len(triggers):
+            _fail("invalid-route-round-triggers")
+        for record_id in triggers:
+            _sha(record_id)
+        if data["roundNumber"] == 1:
+            if initial["proposals"] != data["proposalValue"]["objects"]:
+                _fail("route-round-proposal-mismatch")
+            if data["parentRoundSha256"] is not None or triggers:
+                _fail("route-round-order")
+        else:
+            first = rounds[0]
+            if (data["parentRoundSha256"] != first["proposal"]["sha256"]
+                    or data["initialInputsDigest"] != first["initialInputsDigest"] or not triggers):
+                _fail("route-round-order")
+            if set(_proposal_members(first["proposalValue"])) & set(_proposal_members(data["proposalValue"])):
+                _fail("duplicate-route-object")
+            for record_id in triggers:
+                record = state["records"].get(record_id)
+                linked = any(link["recordId"] == record_id and link["runId"] == run_id
+                             and link["routeRevision"] == data["routeRevision"] and link["roundNumber"] == 1
+                             for link in state["routeLinks"])
+                if (record is None or not linked or record["group"] != "routing"
+                        or record["subject"]["runId"] != run_id or record["subject"]["passId"] != "decomposition"
+                        or record["status"] != "answered" or record.get("model") is None
+                        or "decomposition" not in record["requirements"]):
+                    _fail("invalid-route-round-trigger")
+                missing = record["answers"].get("missingObjects", {})
+                if missing.get("type") != "noul" or _number(missing.get("noul")) < .7:
+                    _fail("invalid-route-round-trigger")
+        state["routeRounds"].setdefault(run_id, {}).setdefault(
+            canonical_digest(data["routeRevision"]), []).append(copy.deepcopy(data))
+
+    @staticmethod
+    def _reduce_route_dispatch(state, data, sequence):
+        if type(data) is not dict or set(data) != {"runId", "routeRevision", "roundNumber",
+                "contextDigest", "context", "objectIds", "proposalShas"}:
+            _fail("invalid-route-round-dispatch")
+        if canonical_digest(data["context"]) != data["contextDigest"]:
+            _fail("invalid-route-round-dispatch")
+        ids, shas = DecisionController._route_members(
+            state, data["runId"], data["routeRevision"], data["roundNumber"], data["context"])
+        if ids != data["objectIds"] or shas != data["proposalShas"]:
+            _fail("invalid-route-round-dispatch")
+        previous = any(link["runId"] == data["runId"] and link["contextDigest"] == data["contextDigest"]
+                       for link in state["routeLinks"])
+        dispatched = any(item["runId"] == data["runId"] and item["contextDigest"] == data["contextDigest"]
+                         for item in state["routeDispatches"])
+        if not previous and not dispatched:
+            if (any(a["runId"] == data["runId"] and a["group"] == "routing"
+                    and a["contextDigest"] == data["contextDigest"] for a in state["attempts"].values())
+                    or any(r["group"] == "routing" and r["subject"]["runId"] == data["runId"]
+                           and r.get("model") is not None and r["contextDigest"] == data["contextDigest"]
+                           for r in state["records"].values())):
+                _fail("route-round-unlinked-record")
+        state["routeDispatches"].append(dict(copy.deepcopy(data), sequence=sequence))
+
+    @staticmethod
+    def _reduce_route_link(state, data):
+        if type(data) is not dict or set(data) != {"runId", "routeRevision", "roundNumber",
+                "recordId", "contextDigest", "objectIds", "proposalShas"}:
+            _fail("invalid-route-round-link")
+        run_id = _identifier(data["runId"])
+        _revision(data["routeRevision"])
+        record = state["records"].get(_sha(data["recordId"]))
+        context = state["contexts"].get(data["recordId"])
+        if (record is None or context is None or record.get("model") is None
+                or record["contextDigest"] != data["contextDigest"]
+                or canonical_digest(context) != data["contextDigest"]
+                or record["subject"] != context["subject"] or record["bindings"] != context["bindings"]
+                or canonical_digest({k: v for k, v in record.items() if k != "recordId"}) != record["recordId"]):
+            _fail("invalid-route-round-link")
+        attempt = state["attempts"].get(state["recordAttempts"].get(data["recordId"]))
+        if (attempt is None or attempt.get("status") != "completed" or "answer" not in attempt
+                or attempt["runId"] != run_id or attempt.get("contextDigest") != data["contextDigest"]
+                or attempt["answer"].get("answers") != record["answers"]
+                or attempt["answer"].get("model") != record["model"]):
+            _fail("invalid-route-round-link")
+        ids, shas = DecisionController._route_members(
+            state, run_id, data["routeRevision"], data["roundNumber"], context)
+        if ids != data["objectIds"] or shas != data["proposalShas"]:
+            _fail("invalid-route-round-link")
+        rounds = DecisionController._rounds(state, run_id, data["routeRevision"])
+        previous_links = [link for link in state["routeLinks"] if link["runId"] == run_id
+                          and link["recordId"] == data["recordId"]
+                          and link["contextDigest"] == data["contextDigest"] and link["proposalShas"] == shas]
+        previous = bool(previous_links)
+        if previous:
+            candidate_facts = rounds[data["roundNumber"] - 1]["initialInputs"]["candidates"]
+            if not any(DecisionController._rounds(state, run_id, link["routeRevision"])[
+                    link["roundNumber"] - 1]["initialInputs"]["candidates"] == candidate_facts
+                    for link in previous_links):
+                _fail("route-round-context-mismatch")
+        dispatched = any(item["runId"] == run_id and item["routeRevision"] == data["routeRevision"]
+                         and item["roundNumber"] == data["roundNumber"]
+                         and item["contextDigest"] == data["contextDigest"]
+                         and item["sequence"] < state["recordSequences"][data["recordId"]]
+                         for item in state["routeDispatches"])
+        if not previous and not dispatched:
+            _fail("route-round-unlinked-record")
+        if state["recordSequences"][data["recordId"]] <= rounds[data["roundNumber"] - 1]["sealedAtSequence"] and not previous:
+            _fail("route-round-unlinked-record")
+        if data in state["routeLinks"]:
+            _fail("duplicate-route-round-link")
+        state["routeLinks"].append(copy.deepcopy(data))
+
+    def _initial_route_binding(self, digest):
+        return {"role": "routing-inputs", "path": f".img2threejs/route-inputs/routing-inputs/{digest}.json",
+                "sha256": digest}
+
+    def seal_route_round(self, *, route_revision, round_number, proposal, initial_inputs_digest,
+                         parent_round_sha256, trigger_decision_ids):
+        """Seal proposed inventory BEFORE consultation, never image completeness.
+
+        The initial inputs use stage-zero's existing content-addressed snapshot.
+        Legacy unlinked model calls cannot be retroactively assigned to a round.
+        """
+        _revision(route_revision)
+        _sha(initial_inputs_digest)
+        proposal = copy.deepcopy(proposal)
+        with self._locked():
+            entries, state = self._load()
+            data = {"runId": self.run_id, "routeRevision": route_revision, "roundNumber": round_number,
+                    "proposal": proposal, "initialInputsDigest": initial_inputs_digest,
+                    "parentRoundSha256": parent_round_sha256,
+                    "triggerDecisionIds": copy.deepcopy(trigger_decision_ids),
+                    "proposalValue": self._binding(proposal, json_value=True),
+                    "initialInputs": self._binding(self._initial_route_binding(initial_inputs_digest), json_value=True),
+                    "sealedAtSequence": len(entries)}
+            rounds = self._rounds(state, self.run_id, route_revision)
+            for prior in rounds:
+                self._binding(prior["proposal"])
+            repeated = type(round_number) is int and 1 <= round_number <= len(rounds)
+            if repeated:
+                existing = rounds[round_number - 1]
+                data["sealedAtSequence"] = existing["sealedAtSequence"]
+                if data != existing:
+                    _fail("route-round-conflict")
+            else:
+                self._reduce_route_round(state, data, len(entries))
+            # Trigger records must still match their immutable local records and
+            # input files; replay validation alone is not a freshness check.
+            for record_id in data["triggerDecisionIds"]:
+                record = state["records"][record_id]
+                if self._read_json(self.record_root / "routing" / (record_id + ".json")) != record:
+                    _fail("record-mismatch")
+                self._context(state["contexts"][record_id])
+            if not repeated:
+                self._commit(entries, "route-round-sealed", data)
+            return copy.deepcopy(data)
+
+    def _binding(self, binding, *, json_value=False):
         if type(binding) is not dict or set(binding) != {"role", "path", "sha256"}:
             _fail("invalid-binding")
         _identifier(binding["role"])
@@ -401,12 +689,27 @@ class DecisionController:
                 if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
                     _fail("unsafe-path")
                 digest = hashlib.sha256()
+                parts_json = [] if json_value else None
+                json_size = 0
                 for chunk in iter(lambda: source.read(1024 * 1024), b""):
                     digest.update(chunk)
+                    if json_value:
+                        json_size += len(chunk)
+                        if json_size > 2 * 1024 * 1024:
+                            _fail("context-too-large")
+                        parts_json.append(chunk)
         finally:
             os.close(directory)
         if digest.hexdigest() != binding["sha256"]:
             _fail("stale-evidence")
+        if json_value:
+            try:
+                value = json.loads(b"".join(parts_json))
+            except (ValueError, UnicodeError):
+                _fail("invalid-json")
+            if canonical_digest(value) != binding["sha256"]:
+                _fail("noncanonical-evidence")
+            return value
 
     def _context(self, context):
         if len(_json_bytes(context)) > 256 * 1024:
@@ -547,11 +850,11 @@ class DecisionController:
         try:
             result = callback()
         except Exception:
-            return {"status": "provider-error"}
+            return {"status": "availability-unproven"}
         if type(result) is not dict or set(result) - {"status", "reasonCode"}:
             _fail("invalid-availability")
         status = result.get("status")
-        if type(status) is not str or status not in {"present", "not-installed", "capability-unavailable"} | _AUTH:
+        if type(status) is not str or status not in {"present", "not-installed", "capability-unavailable", "availability-unproven"} | _AUTH:
             _fail("invalid-availability")
         # Never persist arbitrary provider text, exceptions or secret-bearing messages.
         # Only the trusted CLI probe can attest to an actual refusal/prompt limit.
@@ -867,7 +1170,88 @@ class DecisionController:
             status, reason = "request-input", "budget-overrun"
         return answer, status, reason
 
+    def _route_live(self, state, route_round, context, consent):
+        if type(route_round) is not dict or set(route_round) != {"routeRevision", "roundNumber"}:
+            _fail("invalid-route-round")
+        _revision(route_round["routeRevision"])
+        ids, shas = self._route_members(
+            state, self.run_id, route_round["routeRevision"], route_round["roundNumber"], context)
+        rounds = self._rounds(state, self.run_id, route_round["routeRevision"])
+        for data in rounds[:route_round["roundNumber"]]:
+            self._binding(data["proposal"])
+            self._binding(self._initial_route_binding(data["initialInputsDigest"]))
+            for record_id in data["triggerDecisionIds"]:
+                self._current(state, state["records"][record_id], state["contexts"][record_id], consent=consent)
+        self._context(context)
+        grant = self._grant(consent)
+        initial = rounds[0]["initialInputs"]
+        if "consentSnapshotSha256" in initial and canonical_digest(grant) != initial["consentSnapshotSha256"]:
+            _fail("consent-changed")
+        if context["subject"]["passId"] == "routing":
+            handles = [b for b in context["bindings"] if b["role"] == "candidate-handles"]
+            if len(handles) != 1:
+                _fail("route-round-context-mismatch")
+            mapping = self._binding(handles[0], json_value=True)
+            admitted = {item["id"] for item in initial["candidates"]}
+            if (type(mapping) is not dict or not set(mapping.values()) <= admitted
+                    or set(mapping) != {candidate["id"] for candidate in context["candidates"]}):
+                _fail("route-round-context-mismatch")
+        return ids, shas
+
     def consult(self, context, *, provider=None, fallback=None, availability=None, consent=None,
+                request_token_limit=64000, route_round=None):
+        """Consult without changing per-object context/cache identity.
+
+        ``route_round={routeRevision, roundNumber}`` is trusted host-only metadata.
+        It seals dispatch ordering and links live verified results in the journal;
+        it is never projected to providers or included in their request digest.
+        """
+        arguments = {"provider": provider, "fallback": fallback, "availability": availability,
+                     "consent": consent, "request_token_limit": request_token_limit}
+        if route_round is None:
+            if type(context) is dict and context.get("group") == "routing":
+                with self._locked():
+                    _, state = self._load()
+                    if state["routeRounds"].get(self.run_id):
+                        _fail("route-round-required")
+            return self._consult(context, **arguments)
+        context, route_round = copy.deepcopy((context, route_round))
+        try:
+            self._grant(consent)
+        except DecisionError as exc:
+            if exc.reason_code not in {"consent-unproven", "consent-probe-error"}:
+                raise
+            # Preserve structured suspension without a dispatch/link or a
+            # second, potentially successful consent probe enabling a send.
+            if exc.reason_code == "consent-unproven":
+                arguments["consent"] = None
+            else:
+                def failed_consent():
+                    raise DecisionError("consent-probe-error")
+                arguments["consent"] = failed_consent
+            return self._consult(context, **arguments)
+        with self._locked():
+            entries, state = self._load()
+            ids, shas = self._route_live(state, route_round, context, consent)
+            dispatch = {"runId": self.run_id, **route_round, "contextDigest": canonical_digest(context),
+                        "context": context, "objectIds": ids, "proposalShas": shas}
+            self._reduce_route_dispatch(state, dispatch, len(entries))
+            self._commit(entries, "route-round-dispatch", dispatch)
+        record = self._consult(context, **arguments)
+        if record.get("model") is None:
+            return record
+        with self._locked():
+            entries, state = self._load()
+            ids, shas = self._route_live(state, route_round, context, consent)
+            self._current(state, record, context, consent=consent)
+            link = {"runId": self.run_id, **route_round, "recordId": record["recordId"],
+                    "contextDigest": canonical_digest(context), "objectIds": ids, "proposalShas": shas}
+            if link not in state["routeLinks"]:
+                self._reduce_route_link(state, link)
+                self._commit(entries, "route-round-linked", link)
+        return record
+
+    def _consult(self, context, *, provider=None, fallback=None, availability=None, consent=None,
                 request_token_limit=64000):
         """Consult Jev first, journal proven outages, and constrain optional fallback.
 
@@ -918,7 +1302,7 @@ class DecisionController:
                             and current["consent"] == grant)
             if same_request and current["model"] is not None:
                 return copy.deepcopy(current)
-            if self._now() - obj["startedAt"] >= 3600:
+            if not 0 <= self._now() - obj["startedAt"] < 3600:
                 return self._record(entries, context, projected, grant, "request-input", "deadline-exhausted")
             if obj["total"] >= 6 or obj["perPass"].get(subject["passId"], 0) >= 3:
                 return self._record(entries, context, projected, grant, "request-input", "correction-budget-exhausted")
@@ -997,7 +1381,7 @@ class DecisionController:
                                 decider="model:" + answer["model"], fallback_reason=reason,
                                 attempt_id=fallback_id)
 
-    def _current(self, state, record, context):
+    def _current(self, state, record, context, *, consent=None):
         _json_bytes(record)
         if type(record) is not dict:
             _fail("invalid-record")
@@ -1019,18 +1403,81 @@ class DecisionController:
             _fail("context-digest-mismatch")
         if state["refs"].get(self._ref_key(context)) != record["recordId"]:
             _fail("stale-decision")
-        if self._grant(self._consent) != record["consent"]:
+        if self._grant(consent if consent is not None else self._consent) != record["consent"]:
             _fail("consent-changed")
         return stored
 
-    def consume(self, record, context):
+    def remaining_object_seconds(self, object_id):
+        """Read the durable 60-minute object deadline; never create or reset it."""
+        _identifier(object_id)
+        with self._locked():
+            _, state = self._load()
+            obj = state["runs"][self.run_id]["objects"].get(object_id)
+            if obj is None:
+                _fail("object-not-started")
+            elapsed = self._now() - obj["startedAt"]
+            return max(0.0, 3600.0 - elapsed) if elapsed >= 0 else 0.0
+
+    def consume(self, record, context, *, consent=None):
         """Revalidate immutable authority against live local evidence and consent."""
         context = copy.deepcopy(context)
         with self._locked():
             _, state = self._load()
-            return copy.deepcopy(self._current(state, record, context))
+            return copy.deepcopy(self._current(state, record, context, consent=consent))
 
-    def begin_application(self, record, trial_revision):
+    @contextmanager
+    def workspace_transaction(self, *, consent):
+        """Hold the lease while verifying records and publishing base-owned state.
+
+        Yields ``verify(record, context)``; it becomes unusable when the context
+        exits. ``verify.route_rounds(revision)`` and
+        ``verify.route_round_links(revision)`` return recursively immutable
+        journal-backed snapshots with the same transaction lifetime.
+        The caller may atomically write its own files while locked, but
+        must not call consult/consume/other locking controller methods inside
+        this context: they take the same non-reentrant OS lock.
+        """
+        if not callable(consent):
+            _fail("consent-unproven")
+        active = [True]
+        with self._locked():
+            _, state = self._load()
+
+            def verify(record, context):
+                if not active[0]:
+                    _fail("transaction-closed")
+                return copy.deepcopy(self._current(state, record, copy.deepcopy(context), consent=consent))
+
+            def route_rounds(route_revision):
+                if not active[0]:
+                    _fail("transaction-closed")
+                _revision(route_revision)
+                rounds = self._rounds(state, self.run_id, route_revision)
+                for data in rounds:
+                    self._binding(data["proposal"])
+                    self._binding(self._initial_route_binding(data["initialInputsDigest"]))
+                    for record_id in data["triggerDecisionIds"]:
+                        self._current(state, state["records"][record_id], state["contexts"][record_id], consent=consent)
+                return _immutable(rounds)
+
+            def route_round_links(route_revision):
+                route_rounds(route_revision)
+                links = [link for link in state["routeLinks"] if link["runId"] == self.run_id
+                         and link["routeRevision"] == route_revision]
+                for link in links:
+                    record_id = link["recordId"]
+                    self._current(state, state["records"][record_id], state["contexts"][record_id], consent=consent)
+                return _immutable(links)
+
+            verify.route_rounds = route_rounds
+            verify.route_round_links = route_round_links
+
+            try:
+                yield verify
+            finally:
+                active[0] = False
+
+    def begin_application(self, record, trial_revision, *, consent=None):
         """Pin a strategy/repair decision to exactly one successor, durably."""
         _revision(trial_revision)
         with self._locked():
@@ -1039,7 +1486,7 @@ class DecisionController:
             context = state["contexts"].get(record_id)
             if context is None:
                 _fail("record-mismatch")
-            self._current(state, record, context)
+            self._current(state, record, context, consent=consent)
             if record["group"] not in {"build-strategy", "repair"} or record["status"] != "answered":
                 _fail("application-not-authorized")
             if trial_revision == record["subject"]["revision"]:
@@ -1059,7 +1506,7 @@ class DecisionController:
                     _fail("application-conflict")
             run = state["runs"][self.run_id]
             obj = run["objects"][record["subject"]["objectId"]]
-            if self._now() - obj["startedAt"] >= 3600:
+            if not 0 <= self._now() - obj["startedAt"] < 3600:
                 _fail("deadline-exhausted")
             if obj["total"] >= 6 or obj["perPass"].get(record["subject"]["passId"], 0) >= 3:
                 _fail("correction-budget-exhausted")
@@ -1070,7 +1517,7 @@ class DecisionController:
             self._commit(entries, "application-pending", {"application": application})
             return copy.deepcopy(application)
 
-    def finish_application(self, application_id, outcome):
+    def finish_application(self, application_id, outcome, *, consent=None):
         """Persist an external retention assessment without manufacturing metrics.
 
         ``outcome`` is bounded JSON with status ``completed`` or ``rejected``;
@@ -1089,7 +1536,7 @@ class DecisionController:
             if application is None or application["subject"]["runId"] != self.run_id:
                 _fail("application-missing")
             record = state["records"][application["decisionRef"]]
-            self._current(state, record, state["contexts"][application["decisionRef"]])
+            self._current(state, record, state["contexts"][application["decisionRef"]], consent=consent)
             if application["status"] != "pending":
                 if application["outcome"] != outcome:
                     _fail("application-conflict")
@@ -1099,6 +1546,27 @@ class DecisionController:
             application["outcome"] = copy.deepcopy(outcome)
             self._commit(entries, "application-finished", {"applicationId": application_id, "application": application})
             return application
+
+    def record_probe(self, probe):
+        """Record program-observed discovery metadata; never authorize fallback.
+
+        The caller executes the probe and must omit credentials from argv. Only
+        a stdout digest is retained. Availability for fallback remains governed
+        by the independent program-owned callback in consult().
+        """
+        if (type(probe) is not dict or set(probe) != {"argv", "exitCode", "stdoutSha256", "at"}
+                or type(probe["argv"]) is not list or not 1 <= len(probe["argv"]) <= 64
+                or any(type(arg) is not str or not arg or len(arg) > 1024 or "\x00" in arg
+                       for arg in probe["argv"])
+                or type(probe["exitCode"]) is not int
+                or type(probe["at"]) not in (int, float)
+                or (type(probe["at"]) is float and not math.isfinite(probe["at"]))
+                or probe["at"] < 0):
+            _fail("invalid-probe")
+        _sha(probe["stdoutSha256"])
+        with self._locked():
+            entries, _ = self._load()
+            return self._commit(entries, "probe", copy.deepcopy(probe))["hash"]
 
     def release(self):
         """Explicitly relinquish the durable workspace lease (never PID based)."""

@@ -102,6 +102,59 @@ class DecisionControlTests(unittest.TestCase):
         self.provider.assert_not_called()
         self.fallback.assert_not_called()
 
+    def test_unproven_or_failed_availability_probe_never_enables_fallback(self):
+        def broken_probe():
+            raise OSError("probe failed")
+
+        for probe in (lambda: {"status": "availability-unproven"}, broken_probe):
+            with self.subTest(probe=probe):
+                record = self.consult(availability=probe)
+                self.assertEqual(record["status"], "request-input")
+                self.assertEqual(record["reasonCode"], "availability-unproven")
+        self.provider.assert_not_called()
+        self.fallback.assert_not_called()
+    def test_workspace_transaction_revalidates_consent_and_closes_verifier(self):
+        context = self.context()
+        record = self.consult(context)
+        with self.controller.workspace_transaction(consent=self.consent) as verify:
+            self.assertEqual(verify(record, context)["recordId"], record["recordId"])
+            self.grant["granted"] = False
+            self.assert_reason("consent-changed", verify, record, context)
+        self.assert_reason("transaction-closed", verify, record, context)
+    def test_fresh_controller_consumes_with_explicit_live_consent(self):
+        context = self.context()
+        record = self.consult(context)
+        reopened = DecisionController(self.workspace, "run-1", clock=lambda: self.now)
+        self.assertEqual(reopened.consume(record, context, consent=self.consent)["recordId"], record["recordId"])
+        self.grant["granted"] = False
+        self.assert_reason("consent-changed", reopened.consume, record, context, consent=self.consent)
+    def test_fresh_controller_resumes_and_finishes_application_with_live_consent(self):
+        record = self.consult(self.context("repair"))
+        application = self.controller.begin_application(record, 2)
+        reopened = DecisionController(self.workspace, "run-1", clock=lambda: self.now)
+        resumed = reopened.begin_application(record, 2, consent=self.consent)
+        self.assertEqual(resumed["applicationId"], application["applicationId"])
+        finished = reopened.finish_application(application["applicationId"], {"status": "rejected"},
+                                               consent=self.consent)
+        self.assertEqual(finished["status"], "rejected")
+
+    def test_deadline_read_does_not_reset_when_controller_reopens(self):
+        self.assert_reason("object-not-started", self.controller.remaining_object_seconds, "object-1")
+        self.consult()
+        self.now += 3500
+        reopened = DecisionController(self.workspace, "run-1", clock=lambda: self.now)
+        self.assertEqual(reopened.remaining_object_seconds("object-1"), 100)
+        self.now += 101
+        self.assertEqual(reopened.remaining_object_seconds("object-1"), 0)
+        self.now = 999
+        self.assertEqual(reopened.remaining_object_seconds("object-1"), 0)
+        result = self.consult(self.context("repair"))
+        self.assertEqual(result["reasonCode"], "deadline-exhausted")
+        self.assertEqual(self.provider.call_count, 1)
+
+
+
+
     def test_trusted_login_refusal_is_run_wide_and_allows_fallback(self):
         for status in ("credential-missing", "credential-rejected", "credential-storage-error"):
             with self.subTest(status=status), tempfile.TemporaryDirectory() as temporary:
