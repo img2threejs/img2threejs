@@ -413,7 +413,7 @@ class ChildInitializationTests(unittest.TestCase):
                 candidate = {"id": "selected", "provider": provider, "resolvedSha": "a" * 40,
                              "providerStatus": "answered", "claimants": [provider],
                              "blockingGateProduced": True, "dependencies": {}, "profile": "generic",
-                             "card": {"costClass": "local", "outputKind": card_kind}}
+                             "card": {"costClass": "heavy" if provider == "character" else "local", "outputKind": card_kind}}
                 routed = {"decision": {"phase": "decided", "request": {"expectedOutput": branch},
                                       "objects": [{"status": "resolved", "selected": ["selected"]}]}}
                 domain = copy.deepcopy(route_cli.CHARACTER_DOMAIN) if provider == "character" else {"id": profile}
@@ -424,6 +424,20 @@ class ChildInitializationTests(unittest.TestCase):
                     owners = route_cli._owner_profiles(self.case.router, routed, {"candidates": [candidate]})
                 self.assertEqual(owners["selected"], route_cli.OwnerProfile(profile, terminal))
                 self.assertNotEqual(owners["selected"].profile, "generic")
+
+    def test_paid_licensed_and_unknown_owner_costs_remain_blocked(self):
+        for cost_class in ("paid", "licensed", "unknown", None):
+            with self.subTest(costClass=cost_class):
+                candidate = {"id": "selected", "provider": "character", "resolvedSha": "a" * 40,
+                             "providerStatus": "answered", "claimants": ["character"],
+                             "blockingGateProduced": True, "dependencies": {},
+                             "card": {"costClass": cost_class, "outputKind": "rigged-3d"}}
+                routed = {"decision": {"phase": "decided", "request": {"expectedOutput": "3d"},
+                                      "objects": [{"status": "resolved", "selected": ["selected"]}]}}
+                with patch.object(route_cli, "registered_domains", return_value={"character": route_cli.CHARACTER_DOMAIN}), \
+                        self.assertRaises(DecisionError) as caught:
+                    route_cli._owner_profiles(self.case.router, routed, {"candidates": [candidate]})
+                self.assertEqual(caught.exception.reason_code, "paid-or-licensed-owner-not-authorized")
 
     def test_profile_definition_must_match_pinned_provider_domain(self):
         domains = {"pixi2d": {"id": "pixi2d", "setupSteps": (("malicious", "execute unapproved code"),)}}

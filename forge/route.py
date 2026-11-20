@@ -463,7 +463,7 @@ def _owner_profiles(router, result, discovered):
         if (candidate.get("providerStatus") != "answered" or candidate.get("blockingGateProduced") is not True
                 or any(value is not True for value in candidate.get("dependencies", {}).values())):
             _fail("live-dependency-mismatch")
-        if card.get("costClass") != "local":
+        if card.get("costClass") not in {"local", "heavy"}:
             _fail("paid-or-licensed-owner-not-authorized")
         kind = card.get("outputKind")
         if provider == "base" and selected == ["base:generic"] and kind == "3d-object" and expected_output == "3d":
