@@ -128,6 +128,33 @@ _PIXI2D_STEPS = (
      "python3 \"$SKILL_DIR/tools/pixi2d.py\" gate --workspace ."),
 )
 
+_INTERIOR_STEPS = (
+    ("interior-intake", "setup",
+     "Resolve this child's approved pinned interior provider as SKILL_DIR. Read its "
+     "reference/production-runbook.md, reference/reference-analysis.md and reference/intake-camera.md. "
+     "Run interior_project.py start and preflight for {reference}; author interior-intake.json and "
+     "{spec} from the actual image, preserving source provenance and unknowns."),
+    ("interior-route-exclusions", "setup",
+     "Read $SKILL_DIR/reference/scene-contract.md. From the authenticated parent route inventory, "
+     "map every separately routed object to unique exact identities declared in the interior intake "
+     "and builder. Bind those identities as excludeComponents before authoring; do not guess, "
+     "silently omit an unresolved object, or remove an unrelated component."),
+    ("interior-workflow-init", "setup",
+     "python3 \"$SKILL_DIR/tools/interior_workflow.py\" init --workspace . --image {reference} "
+     "--intake ./interior-intake.json; use its next command on every resume."),
+    ("interior-author-and-review", "setup",
+     "Author and iteratively inspect the actual native Blender room, camera, geometry and materials "
+     "using the interior workflow and preserved routed exclusions. Record each required workflow "
+     "stage against actual renders; do not substitute a bundled scene or invented visual evidence."),
+    ("interior-export-and-audit", "setup",
+     "Run the interior bake, probe and export chain with routing.objectId and actual shell component "
+     "identities in {spec}; run audit_routed_artifact.py against the exact produced artifact.json. "
+     "A mechanical audit does not establish visual acceptance."),
+    ("interior-delivery-gates", "final",
+     "Run the actual interior material, delivery and workflow gates for this child. Independent "
+     "artifact-bound visual and composition gates are still required before terminal acceptance."),
+)
+
 
 
 def _fail(reason):
@@ -314,13 +341,16 @@ class RouteParent:
             directory = f".img2threejs/objects/{object_id}/rev-{revision}"
             child_path = directory + "/state.json"
             crop_path = directory + "/reference" + PurePosixPath(path).suffix
-            child = new_state("reference" + PurePosixPath(path).suffix, profile=owner.profile,
-                              spec="reconstruction.json" if expected == "2d" else "object-sculpt-spec.json")
-            if expected == "2d":
+            interior = owner.profile == "interior" and owner.output_kind == "3d-scene"
+            spec = "reconstruction.json" if expected == "2d" else (
+                "scene-spec.json" if interior else "object-sculpt-spec.json")
+            child = new_state("reference" + PurePosixPath(path).suffix, profile=owner.profile, spec=spec)
+            if expected == "2d" or interior:
+                steps = _PIXI2D_STEPS if expected == "2d" else _INTERIOR_STEPS
                 child["checklist"] = [self._step(step_id, scope, command)
-                                      for step_id, scope, command in _PIXI2D_STEPS]
-                # This sentinel avoids the generic await-pass-transition cursor.
-                # Snapshot/capture/review and the blocking gate remain pending.
+                                      for step_id, scope, command in steps]
+                # These plugin workflows own their progression, not sculpt passes.
+                # Their required steps and independent terminal gates remain pending.
                 child["currentPass"] = "complete"
                 recompute(child)
                 validate_state(child)
@@ -386,7 +416,7 @@ class RouteParent:
                 or [(r["id"], r["scope"]) for r in child["checklist"]] != [
                     (r["id"], r["scope"]) for r in template["checklist"]]):
             _fail("child-state-mismatch")
-        if descriptor["outputKind"] == "2d-scene" and [
+        if (descriptor["outputKind"] == "2d-scene" or descriptor["profile"] == "interior") and [
                 (row["id"], row["scope"], row.get("command")) for row in child["checklist"]] != [
                     (row["id"], row["scope"], row["command"]) for row in template["checklist"]]:
             _fail("child-state-mismatch")
@@ -399,7 +429,7 @@ class RouteParent:
                 or any(row["status"] == "pending" for row in child["checklist"])
                 or any(row["status"] != "done" for row in child["checklist"]
                        if row["scope"] in {"final", "rig"} or row["id"] == "pass-gate-check")
-                or (descriptor["outputKind"] == "2d-scene"
+                or ((descriptor["outputKind"] == "2d-scene" or descriptor["profile"] == "interior")
                     and any(row["status"] != "done" for row in child["checklist"]))):
             _fail("child-terminal-gates-incomplete")
         if descriptor["outputKind"] == "2d-scene":

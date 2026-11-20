@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Routed interior children now use the native interior workflow and an explicit component-exclusion step instead of the generic sculpt checklist. Native evidence and terminal acceptance remain independently gated.
+
 **The Character Split — targets v2.1.** The base `character` domain joins
 `plugin-character`, so the base names no domain and the v2.0 plugin split closes.
 

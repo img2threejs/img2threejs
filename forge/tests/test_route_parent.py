@@ -328,6 +328,56 @@ class RouteParentTests(unittest.TestCase):
                     lambda: self.parent.complete_child(descriptor["objectId"]))
         self.assertEqual(self.read(".img2threejs/state.json")["checklist"][0]["status"], "pending")
 
+    def configure_interior_route(self):
+        home = self.workspace / "fixture-interior-home"
+        plugin = home / "plugins" / "interior"
+        plugin.mkdir(parents=True)
+        (plugin / "domain.json").write_bytes(canonical({"id": "interior"}))
+        (home / "plugins.json").write_bytes(canonical({"plugins": [{"id": "interior"}]}))
+        environment = patch.dict(os.environ, {"IMG2_HOME": str(home)})
+        environment.start()
+        self.addCleanup(environment.stop)
+        route = "profile:interior"
+        self.inventory["objects"][0]["ownerRoute"] = route
+        self.decision["objects"][0]["selected"] = [route]
+        self.owners[route] = OwnerProfile("interior", "3d-scene")
+        self.authenticate_subjects()
+
+    def test_interior_child_uses_native_workflow_and_requires_exclusion_mapping(self):
+        self.configure_interior_route()
+        parent = self.parent.create()
+        scene, prop = parent["objects"]
+        state = self.read(scene["statePath"])
+        self.assertEqual(scene["profile"], "interior")
+        self.assertEqual(scene["outputKind"], "3d-scene")
+        self.assertEqual(state["artifacts"]["spec"], "scene-spec.json")
+        self.assertEqual(state["currentStep"], "interior-intake")
+        self.assertEqual(state["currentPass"], "complete")
+        self.assertEqual([step["id"] for step in state["checklist"]], [
+            "interior-intake", "interior-route-exclusions", "interior-workflow-init",
+            "interior-author-and-review", "interior-export-and-audit", "interior-delivery-gates"])
+        self.assertIn("excludeComponents", state["checklist"][1]["command"])
+        self.assertEqual(prop["profile"], "generic")
+        self.assertIn("build-current-pass", [s["id"] for s in self.read(prop["statePath"])["checklist"]])
+
+    def test_interior_child_cannot_skip_exclusions_or_change_native_workflow(self):
+        self.configure_interior_route()
+        descriptor = self.parent.create()["objects"][0]
+        state = self.read(descriptor["statePath"])
+        for step in state["checklist"]:
+            step.update(status="done", evidence=["fixture-only"])
+        state.update(status="complete", currentStep="complete", currentPass="complete")
+        state["checklist"][1]["status"] = "skipped"
+        state["checklist"][1]["reason"] = "fixture skip"
+        self.put(descriptor["statePath"], canonical(state))
+        self.reject("child-terminal-gates-incomplete",
+                    lambda: self.parent.complete_child(descriptor["objectId"]))
+        state["checklist"][1]["status"] = "done"
+        state["checklist"][1]["command"] = "skip the real exclusions"
+        self.put(descriptor["statePath"], canonical(state))
+        self.reject("child-state-mismatch",
+                    lambda: self.parent.complete_child(descriptor["objectId"]))
+
     def test_cs2_augmentation_manifest_is_not_a_terminal_three_d_artifact(self):
         self.configure_cs2_route()
         parent = self.parent.create()

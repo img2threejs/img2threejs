@@ -93,19 +93,23 @@ class CrossRouteContracts(unittest.TestCase):
             validate_artifact(self.workspace, artifact)
         self.assertEqual(raised.exception.reason_code, "unsupported-output-kind")
 
-    def test_actual_pixi_profile_is_registered_for_routed_child_state(self):
-        root = self.plugin_root("pixi2d", "domain.json")
+    def test_actual_plugin_profiles_are_registered_for_routed_child_state(self):
         home = self.workspace / "home"
         plugins = home / "plugins"
         plugins.mkdir(parents=True)
-        (plugins / "pixi2d").symlink_to(root, target_is_directory=True)
-        (home / "plugins.json").write_text(json.dumps({"plugins": [{"id": "pixi2d"}]}))
+        for profile in ("pixi2d", "interior"):
+            root = self.plugin_root(profile, "domain.json")
+            (plugins / profile).symlink_to(root, target_is_directory=True)
+        (home / "plugins.json").write_text(json.dumps(
+            {"plugins": [{"id": "pixi2d"}, {"id": "interior"}]}))
         with patch.dict(os.environ, {"IMG2_HOME": str(home)}):
             from _shared.domains import registered_domains
             from _shared.workflow_state import new_state
-            self.assertEqual(registered_domains()["pixi2d"], {"id": "pixi2d"})
-            state = new_state("reference.png", profile="pixi2d")
-        self.assertEqual(state["profile"], "pixi2d")
+            domains = registered_domains()
+            for profile in ("pixi2d", "interior"):
+                with self.subTest(profile=profile):
+                    self.assertEqual(domains[profile], {"id": profile})
+                    self.assertEqual(new_state("reference.png", profile=profile)["profile"], profile)
 
     def test_actual_interior_card_rejects_unknown_and_multiple_rooms(self):
         card, inputs = self.card("interior"), self.inputs("interior")
