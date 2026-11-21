@@ -382,8 +382,22 @@ class RouteParent:
         parent["checklist"] = [self._step("object:" + row["objectId"], "setup", row["statePath"])
                                for row in children]
         if expected == "3d":
-            parent["checklist"].extend([self._step("composition", "final", "Compose validated child artifacts"),
-                                        self._step("scene-gates", "final", "Measure D12 scene gates")])
+            # The executable base-owned entry points, not prose: composition writes a
+            # new candidate scene and the gate measures it. Neither grants acceptance.
+            # The inventory path is content-addressed from the digest _verified already
+            # bound to this decision, so the gate cannot read a different inventory.
+            inventory_path = (".img2threejs/route-inputs/object-inventory/"
+                              + decision["inventorySha256"] + ".json")
+            parent["checklist"].extend([
+                self._step("composition", "final",
+                           "python3 forge/compose.py scene --workspace . "
+                           "--request .img2threejs/route/compose-request.json "
+                           "--output-dir .img2threejs/scene"),
+                self._step("scene-gates", "final",
+                           "python3 forge/compose.py gates --workspace . "
+                           "--composed .img2threejs/scene/scene.json "
+                           "--measurements .img2threejs/scene/measurements.json "
+                           "--inventory " + inventory_path)])
         recompute(parent)
         validate_state(parent)
         return parent, writes
