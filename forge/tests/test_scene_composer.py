@@ -434,6 +434,28 @@ class SceneComposerTests(unittest.TestCase):
         self.save_placement()
         self.reject('invalid-session')
 
+    def test_session_outages_use_the_controller_vocabulary(self):
+        from _shared.decision_control import _REQUEST_FAILURES, _UNAVAILABLE
+        from stage6_compose.compose import REQUEST_FAILURES, RUN_UNAVAILABLE
+        # A placement records an outage the controller journalled. If the two
+        # restate their own names, a real 'not-installed' run is rejected here as
+        # an invalid session and composition becomes unreachable after an outage.
+        self.assertEqual(set(RUN_UNAVAILABLE), set(_UNAVAILABLE))
+        self.assertEqual(set(REQUEST_FAILURES), set(_REQUEST_FAILURES))
+        receipt = self.put('outage-receipt.json', {'outcome': 'unavailable'})
+        for reason in sorted(_UNAVAILABLE):
+            with self.subTest(reason=reason):
+                self.placement['jevSession'] = 'unavailable:' + reason
+                # Under a journalled outage every answer is model-decided and must
+                # name that same outage, so the run composes without a new call.
+                for row in self.placement['objects']:
+                    for question in ('size', 'yaw'):
+                        row[question + 'Answer'] = self.change(
+                            row[question + 'Answer'], decider='model:fixture',
+                            reasonCode=reason, unavailableReceipt=receipt)
+                self.save_placement()
+                self.assertFalse(self.compose(output='composed/' + reason)['deliverable'])
+
     def test_model_timeout_answer_retains_receipt_without_new_provider_call(self):
         row = self.placement['objects'][0]
         row['yawAnswer'] = self.change(row['yawAnswer'], decider='model:fixture', reasonCode='timeout',

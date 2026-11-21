@@ -65,10 +65,14 @@ import stat
 import struct
 from urllib.parse import quote
 
+from _shared.decision_control import _REQUEST_FAILURES, _UNAVAILABLE
 from _shared.route_artifact import validate_artifact
 
-REQUEST_FAILURES = frozenset({'provider-error', 'timeout', 'malformed', 'out-of-set', 'capability-unavailable'})
-RUN_UNAVAILABLE = frozenset({'jev-not-installed', 'login-declined', 'consent-declined', 'budget-declined'})
+# Derived from the controller, never restated: a placement records an outage the
+# controller actually journalled, so the two must use one vocabulary. Restating
+# these let 'not-installed' be rejected here as an invalid session.
+REQUEST_FAILURES = frozenset(_REQUEST_FAILURES)
+RUN_UNAVAILABLE = frozenset(_UNAVAILABLE)
 _HASH = re.compile(r'[0-9a-f]{64}\Z')
 _ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}\Z')
 
