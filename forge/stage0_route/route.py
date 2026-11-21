@@ -291,6 +291,10 @@ class Router:
                 row["routeObjectId"] = route_object_id
                 row["groupEligible"] = [c["id"] for c in eligible]
                 entries[member["objectId"]]["routeObjectId"] = route_object_id
+                # The composer names the child whose artifact owns this row. The group
+                # leader is the only member that is actually built; the rest are
+                # placementOnly instances of it, so they share its artifact.
+                entries[member["objectId"]]["artifactObjectId"] = route_object_id
             if decision.get("decompositionBlocker") or any(row["status"] == "request-input" for _, row in members):
                 for _, row in members:
                     if row["status"] == "pending":

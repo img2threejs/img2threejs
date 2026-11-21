@@ -309,6 +309,7 @@ def verify_route(router, decision_ref, verify, discovered):
             object_id = member["objectId"]
             row, entry = row_by_id[object_id], entries[object_id]
             if (row.get("routeObjectId") != leader_id or entry.get("routeObjectId") != leader_id
+                    or entry.get("artifactObjectId") != leader_id
                     or row.get("candidateHandles") != handles or row.get("groupEligible") != eligible
                     or row["selected"] != [selected] or entry["ownerRoute"] != selected
                     or row.get("routeReceiptSha256") != record["recordId"]

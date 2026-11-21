@@ -391,6 +391,10 @@ class Stage0RouteTests(unittest.TestCase):
         inventory = json.loads((self.workspace / result["decision"]["inventoryRef"]).read_bytes())
         self.assertEqual([o["objectId"] for o in inventory["objects"]], ["object-0", "object-1"])
         self.assertTrue(all(o["ownerRoute"] == "base:generic" for o in inventory["objects"]))
+        # The composer resolves each row to the child whose artifact owns it; both
+        # instances are placements of the one leader that is actually built.
+        self.assertEqual([o["artifactObjectId"] for o in inventory["objects"]],
+                         ["object-0", "object-0"])
         self.assertEqual(self.router().verify_decision(result["decisionRef"]), result["decision"])
 
     def test_instance_route_eligibility_is_intersection_not_first_instance(self):
