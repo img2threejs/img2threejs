@@ -181,6 +181,27 @@ by hand ([`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need
 cannot see an installed plugin, and how plugins reach the pipeline: [`docs/PLUGINS.md`](docs/PLUGINS.md).
 To write a plugin, follow [WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
 
+**Routed workflows (advisory).** `python3 forge/route.py` can decide which approved workflow should own
+each object in a reference image, instead of you naming a profile. Routing only recommends: the base
+decides who is eligible and owns consent, gates and acceptance, and a provider answer never grants
+acceptance. The four decision groups (routing, build strategy, quality review, repair) share one
+per-run consent and token budget; only routing has a command-line entry today. The plugins involved:
+
+| Plugin | Adds | Output kind | Reached when |
+|---|---|---|---|
+| `interior` | One enclosed room as metric Blender geometry with PBR, bake, GLB export and a composition handoff | `3d-scene` | the object is a `scene-container` in a single enclosed room |
+| `character` | Rigged characters: GLB skeleton, skin, clips and a routed terminal rig gate | `rigged-3d` | the request states rig intent; its own card says it is not route-eligible until a real rig-gate sweep qualifies it, and that has not happened |
+| `cs2` | CS2 weapon and glove skin spec augmentation, consumed inside a base child | `spec-augmentation`, ending as a `3d-object` | the route card sets no requirement, so the CS2 profile's own authoritative classification is what can veto it |
+| `pixi2d` | Editable 2D artwork in an existing PixiJS host | `2d-scene` | the request is explicitly 2D (`--expected-output 2d`); a 3D request is never downgraded to it |
+| `jev` | Bounded image-aware advisories for the four groups, with explicit login and per-run consent | none; advice only | the user ran `img2-jev login` and authorized the run |
+
+`interior`, `pixi2d` and `jev` are not in the generated table above: confirm with `img2 plugins` and
+`img2 doctor` before relying on them. Routing never installs anything. Qualification is still open:
+no real-image held-out quality, Blender export parity or live terminal delivery is claimed, and a
+routed child is progress, not a finished reconstruction. The full contract, consent steps and every
+reason code: [`grimoire/intake/routing.md`](grimoire/intake/routing.md); the plugin-side view:
+[`docs/PLUGINS.md`](docs/PLUGINS.md#routed-plugins-and-the-advisory-boundary).
+
 ### 4. Run a reconstruction in your agent
 
 Restart the agent (or start a new session) after installing skills.

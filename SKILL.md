@@ -39,19 +39,13 @@ The user attaches/points to an object image and wants a procedural Three.js mode
 reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
 action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
 
-## Jev routing development entry point
+## Route decisions (mandatory before `forge/route.py` or Jev)
 
-`python3 forge/route.py --help` describes the isolated routing entry point. With explicit,
-reviewed harness pins, `--create-children` can initialize separate pending child checklists
-after the route is authenticated; it does not build models, pass terminal gates, or produce
-a deliverable. When an installed, pinned Jev provider is logged out, ask the user to run
-`img2-jev login`; never request their key in chat. Image disclosure and paid calls require
-separate, explicit per-run authorization. Pixi2D is eligible only for an explicit 2D request;
-never silently downgrade a 3D request. Until child execution and terminal gates are qualified,
-report routing decisions and initialized states as progress, not finished reconstructions.
-After completing a child, use `--complete-child OBJECT_ID --decision-ref DECISION_REF` with the
-same run and reviewed harness pins. It revalidates the saved route and child gates without
-rerouting or consulting Jev; a completed child is not an accepted composed scene.
+Before running `python3 forge/route.py`, asking the user for `img2-jev login`, creating or
+completing a routed child, or reporting a routing result, MUST read `grimoire/intake/routing.md`
+completely. Routing is advisory: the base owns eligibility, consent, gates and acceptance. Never
+request a key in chat or downgrade a 3D request to 2D; report decisions and initialized children
+as progress, never as a finished reconstruction.
 
 ## Profile preflight (once per run, before `forge/next.py`)
 
@@ -374,29 +368,23 @@ Full rule + examples: `grimoire/review/self_correction.md`.
 
 ## Left and right
 
-A left/right pair is a **reflection**, never a rotation: negate the lateral axis and nothing else,
-`(x, y, z) → (-x, y, z)`. With `forward: +Z`, Y up and a right-handed frame, the character's own
-left is **+X**. The convention lives as code in `forge/_shared/chirality.py`
-(`CHARACTER_LEFT_SIGN`), with two different gates for the two defects that shipped from getting it
-wrong: `validate_chirality` catches a rotation-mistaken-for-reflection at spec time, and
-`medial_lateral_bias` vs a reference catches a pair that is wrong the same way on both sides.
-Reflecting also inverts triangle winding — flip it back on the mirrored side or `flatShading`
-lights the limb as though lit from behind. Full write-up with the measured defects:
-`grimoire/scripts.md` ("Left and right").
+A left/right pair is a **reflection**, never a rotation: `(x, y, z) → (-x, y, z)`. With `forward: +Z`,
+Y up and a right-handed frame, the character's own left is **+X** (`CHARACTER_LEFT_SIGN` in
+`forge/_shared/chirality.py`). Reflecting inverts triangle winding: flip it back on the mirrored
+side. Gates and measured defects: `grimoire/scripts.md` ("Left and right").
 
 ## Hair
 
-Hair has its own subsystem because it has failure modes no other gate can see. Full contract,
-measurements and non-goals: `docs/HAIR_PIPELINE.md`. The hard rules:
+Hair has failure modes no other gate can see. Full contract, measurements and non-goals:
+`docs/HAIR_PIPELINE.md`. The hard rules:
 
 - Roots bind to the scalp as `(u, v)`, never absolute positions (hard validation error).
-- `standProud` is enforced by the generator, not advisory.
-- `scalp_exposure.py` is a HARD gate on geometry before any render; a coverage shortfall never on
-  its own authorises widening the masses.
-- Default representation tier is `shell`, not locks; strand impression comes from faceting and
-  material (`hair.human.code-only`), since this skill emits no textures.
-- `plane-card` is rejected for hair (needs an alpha texture this skill cannot emit).
-- Hair is rigidly parented, never smooth-skinned (the geodesic field runs through the skull).
+- `standProud` is generator-enforced, not advisory.
+- `scalp_exposure.py` is a HARD pre-render geometry gate; a coverage shortfall never authorises
+  widening the masses.
+- Default tier is `shell`, not locks; strand impression comes from faceting and material
+  (`hair.human.code-only`). No textures are emitted, so `plane-card` is rejected.
+- Hair is rigidly parented, never smooth-skinned.
 
 ## Domain plugins
 
