@@ -610,11 +610,10 @@ result carries `deliverable: false`). Composition refusals (`CompositionError`, 
 `ownership-mismatch`, `scale-outside-prior`, `source-consumer-unavailable`, `stale-placement`,
 `stale-placement-answer`, `stale-placement-evidence`, `unsafe-output-path`, `unsafe-path`,
 `unsupported-camera`, `unsupported-environment`, `unsupported-output-kind`. Input and gate
-refusals added by the command: `unreadable-input`, `input-too-large`, `invalid-record`,
-`stale-scene-measurement` and `stale-reference-measurement` (exit 2 for unreadable or malformed
-input, exit 3 for a stale-measurement refusal or a gate failure). An invalid D18 manifest raises
-`ArtifactError` inside composition; `forge/compose.py` catches only `CompositionError`, so that
-exception is not converted into a JSON refusal.
+refusals added by the command include `unreadable-input`, `input-too-large`, `invalid-record`,
+`stale-scene-module`, `stale-scene-input`, `stale-scene-measurement`, and
+`stale-reference-measurement`. Hash checks do not authenticate the supplied manifest or producer.
+Invalid D18 artifacts are reported as JSON refusals using their `ArtifactError` reason code.
 
 ## 11. Known gaps and contract mismatches
 
@@ -622,20 +621,12 @@ State these when they matter; do not paper over them.
 
 - Terminal completion is unavailable for every owner (section 9).
 - Strategy, quality review and repair have no command-line entry and no state integration (section 2).
-- The stage-zero `img2.object-inventory` rows carry no `artifactObjectId`, and `compose_scene`
-  requires one on every row, so composing from the stage-zero inventory refuses with
-  `invalid-inventory`. An inventory augmented with it has a different SHA-256 from the stage-zero
-  inventory the parent checklist hands to `forge/compose.py gates --inventory`, and `gates` refuses
-  a composed manifest whose `inventorySha256` differs from that file's hash (`inventory-mismatch`).
-  No component here bridges the two, so treat the `composition` and `scene-gates` steps as unproven
-  end to end.
-- Composition accepts `jevSession` of `unavailable:jev-not-installed`, `login-declined`,
-  `consent-declined` or `budget-declined`. Its fallback check uses its own `REQUEST_FAILURES`, which
-  contains `capability-unavailable` and not `ambiguous-paid-attempt`; the controller's set is the
-  reverse. The controller names the outage `not-installed` (no `jev-` prefix) and has no
-  `budget-declined`. The router writes `jevSession: "unavailable:<controller reason>"`, so
-  `unavailable:not-installed` is refused by composition as `invalid-session`. Whoever writes a
-  placement record must translate; nothing here does.
+- Stage-zero inventory rows now bind `artifactObjectId` to their instance-group leader. The
+  router-to-composer structural join is tested, but does not establish terminal artifact ownership
+  or end-to-end scene delivery. Composition requests and independent placement measurements still
+  require producers and authenticated parent authority.
+- Composition treats `capability-unavailable` as a group-scoped fallback reason, not a run-wide
+  outage. Run-wide outage names follow the controller; receipts still require independent authority.
 - `base:generic` children may emit a TypeScript factory; composition needs a GLB and refuses
   source-only artifacts.
 - `best-of-n` and `compare-plans` outcomes are recorded but never executed by `forge/route.py`.

@@ -106,6 +106,17 @@ class ComposeCliTests(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertEqual(value["reasonCode"], "hash-mismatch")
 
+    def test_invalid_artifact_reports_json_refusal(self):
+        request = deepcopy(self.case.request)
+        artifact_ref = request["artifacts"][0]
+        artifact_path = self.root / artifact_ref["path"]
+        artifact = json.loads(artifact_path.read_bytes())
+        del artifact["frame"]
+        artifact_ref["sha256"] = self.case.put(artifact_ref["path"], artifact)["sha256"]
+        self.request_path.write_bytes(canonical(request))
+        code, value = self.compose()
+        self.assertEqual((code, value["reasonCode"]), (3, "missing-evidence"))
+
     def test_unreadable_and_malformed_requests_are_usage_refusals(self):
         code, value = self.run_cli("scene", "--workspace", str(self.root),
                                    "--request", str(self.root / "absent.json"), "--output-dir", "x")

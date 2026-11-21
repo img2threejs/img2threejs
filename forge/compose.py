@@ -32,6 +32,7 @@ for _entry in (str(ROOT), str(ROOT / "_shared")):
         sys.path.insert(0, _entry)
 
 from scene_quality import assess_scene  # noqa: E402
+from _shared.route_artifact import ArtifactError  # noqa: E402
 from stage6_compose.compose import CompositionError, _read, compose_scene  # noqa: E402
 
 _MAX_INPUT = 64 * 1024 * 1024
@@ -78,7 +79,7 @@ def _scene(args: argparse.Namespace) -> int:
         raise _InputError("unreadable-input", "workspace") from exc
     try:
         manifest = compose_scene(workspace, request, output_dir=args.output_dir)
-    except CompositionError as error:
+    except (CompositionError, ArtifactError) as error:
         _emit(_refusal(error.reason_code, getattr(error, "field", "request")))
         return 3
     _emit({"kind": "img2.compose-command", "version": 1, "status": manifest.get("status", "composed"),
