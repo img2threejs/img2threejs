@@ -501,6 +501,49 @@ class ChildInitializationTests(unittest.TestCase):
         self.assertEqual(child["profile"], "pixi2d")
         self.assertEqual(child["routeChild"]["outputKind"], "2d-scene")
 
+    def test_cli_completion_revalidates_pending_child_without_rerouting(self):
+        self.generic()
+        parent = self.initialize(self.routed, {})
+        object_id = parent["objects"][0]["objectId"]
+        state_path = self.case.workspace / ".img2threejs/state.json"
+        before = state_path.read_bytes()
+        host_consent = Mock(side_effect=self.case.consent)
+        host_consent.executable = Path(sys.executable).resolve()
+        host_consent.last_failure = None
+        self.case.router.consent = host_consent
+        argv = ["--workspace", str(self.case.workspace), "--run-id", "route-run",
+                "--complete-child", object_id, "--decision-ref", self.routed["decisionRef"],
+                "--harness-root", str(self.case.runtime), "--harness-sha", "b" * 40,
+                "--harness-executable", str(self.case.runtime / "bin/img2.mjs"),
+                "--harness-sha256", "d" * 64]
+        output = io.StringIO()
+        with patch.object(route_cli, "DecisionController", return_value=self.case.controller), \
+                patch.object(route_cli, "PinnedDiscovery", return_value=self.case.discovery), \
+                patch.object(route_cli, "LiveConsent", return_value=host_consent), \
+                patch.object(route_cli, "HarnessPin", return_value=self.harness), \
+                patch.object(route_cli, "JevProviderFactory") as factory, \
+                patch.object(route_cli, "Router", return_value=self.case.router), \
+                patch.object(self.case.router, "route", side_effect=AssertionError("rerouted")) as route, \
+                patch.object(route_cli, "registered_domains", return_value={}), \
+                patch("domains.registered_domains", return_value={}), redirect_stdout(output):
+            status = route_cli.main(argv)
+        result = json.loads(output.getvalue())
+        self.assertEqual(status, 3)
+        self.assertEqual(result["reasonCode"], "child-terminal-gates-incomplete")
+        self.assertFalse(result["deliverable"])
+        self.assertEqual(state_path.read_bytes(), before)
+        route.assert_not_called()
+        factory.assert_not_called()
+
+    def test_completion_rejects_unbound_decision_bytes(self):
+        self.generic()
+        reference = self.routed["decisionRef"]
+        path = self.case.workspace / reference
+        path.write_bytes(path.read_bytes() + b" ")
+        with self.assertRaises(DecisionError) as caught:
+            route_cli._load_decision(self.case.workspace, reference, "route-run")
+        self.assertEqual(caught.exception.reason_code, "invalid-routing-result")
+
     def test_help_and_required_harness_approval_flags(self):
         help_text = io.StringIO()
         with redirect_stdout(help_text), self.assertRaises(SystemExit) as caught:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Route decisions and explicitly requested child-state initialization, not delivery.
+"""Route decisions and authenticated child-state operations, not scene delivery.
 
 Run ``python3 forge/route.py --workspace WORKSPACE --run-id RUN --image ref.png
 --objects objects.json``. Image and object paths are workspace-relative. Real Jev
@@ -10,6 +10,8 @@ Only the base-owned reviewed Jev release lock is accepted; there is no Jev lock 
 creates pending child checklists only after concrete aggregate authentication.
 Routing may consult Jev after consent; child initialization does not execute child builders,
 complete terminal gates, or produce a deliverable.
+``--complete-child OBJECT_ID --decision-ref REF`` revalidates a saved decision and
+child with the same explicit harness pins, without a new model consultation.
 """
 from __future__ import annotations
 
@@ -507,9 +509,7 @@ def _owner_profiles(router, result, discovered):
     return owners
 
 
-def _create_children(router, result, harness, consent):
-    if (router.workspace / ".img2threejs/state.json").exists() or (router.workspace / ".img2threejs/state.json").is_symlink():
-        _fail("existing-parent-preserved")
+def _route_parent(router, result, harness, consent):
     rows = result.get("decision", {}).get("objects")
     if (result.get("decision", {}).get("phase") != "decided" or type(rows) is not list or not rows
             or any(row.get("status") not in {"resolved", "dropped", "merged"} for row in rows)):
@@ -521,23 +521,52 @@ def _create_children(router, result, harness, consent):
     authority = RouteAuthority(router, result["decisionRef"], discovered=discovered, owners=owners,
                                harness=harness.argv, runtime_provider=harness.runtime_provider,
                                runner=harness.runner)
-    parent = RouteParent(router.controller, verify_aggregate=authority, consent=consent)
+    return RouteParent(router.controller, verify_aggregate=authority, consent=consent)
+
+
+def _create_children(router, result, harness, consent):
+    if (router.workspace / ".img2threejs/state.json").exists() or (router.workspace / ".img2threejs/state.json").is_symlink():
+        _fail("existing-parent-preserved")
+    parent = _route_parent(router, result, harness, consent)
     with read_only_probes(router.discovery):
         return parent.create()
+
+
+def _complete_child(router, result, harness, consent, object_id):
+    parent = _route_parent(router, result, harness, consent)
+    with read_only_probes(router.discovery):
+        return parent.complete_child(object_id)
+
+
+def _load_decision(workspace, reference, run_id):
+    match = re.fullmatch(r"\.img2threejs/route/decision-([0-9a-f]{64})\.json", reference)
+    if match is None:
+        _fail("invalid-routing-result")
+    raw = _file(workspace, reference, maximum=1024 * 1024, capture=True)
+    if hashlib.sha256(raw).hexdigest() != match.group(1):
+        _fail("invalid-routing-result")
+    decision = _json(raw)
+    if (type(decision) is not dict or decision.get("kind") != "img2.route-decision"
+            or decision.get("version") != 1 or decision.get("runId") != run_id):
+        _fail("invalid-routing-result")
+    return {"decision": decision, "decisionRef": reference, "sha256": match.group(1)}
 
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--image", required=True, help="Workspace-relative PNG or baseline JPEG")
+    parser.add_argument("--image", help="Workspace-relative PNG or baseline JPEG")
     parser.add_argument("--objects", help="Workspace-relative img2.object-proposals v1 JSON (required for 3D)")
     parser.add_argument("--expected-output", choices=("2d", "3d"), default="3d")
     parser.add_argument("--intent", action="append", default=[])
     parser.add_argument("--explicit-route")
     parser.add_argument("--create-children", action="store_true",
                         help="Initialize pending child states after concrete route verification; not model execution or delivery")
-    parser.add_argument("--harness-root", type=Path, help="Host-approved canonical harness checkout (required for child creation)")
+    parser.add_argument("--complete-child", metavar="OBJECT_ID",
+                        help="Revalidate and complete one existing child without rerouting")
+    parser.add_argument("--decision-ref", help="Content-addressed route decision for --complete-child")
+    parser.add_argument("--harness-root", type=Path, help="Host-approved canonical harness checkout (required for child operations)")
     parser.add_argument("--harness-sha", help="Host-approved exact harness Git commit")
     parser.add_argument("--harness-executable", type=Path, help="Canonical harness bin/img2.mjs launcher")
     parser.add_argument("--harness-sha256", help="Host-approved launcher SHA256; never calculated from workspace input")
@@ -575,37 +604,59 @@ def _output(*, reason=None, result=None):
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.expected_output == "3d" and args.objects is None:
-        parser.error("--objects is required for --expected-output 3d")
+    if args.complete_child:
+        if args.create_children or not args.decision_ref or args.image or args.objects or args.intent or args.explicit_route:
+            parser.error("--complete-child requires --decision-ref and excludes routing and creation options")
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,159}", args.complete_child) is None:
+            parser.error("--complete-child must be a valid object ID")
+    else:
+        if args.decision_ref:
+            parser.error("--decision-ref requires --complete-child")
+        if args.image is None:
+            parser.error("--image is required for routing")
+        if args.expected_output == "3d" and args.objects is None:
+            parser.error("--objects is required for --expected-output 3d")
     pins = (args.harness_root, args.harness_sha, args.harness_executable, args.harness_sha256)
-    if args.create_children and any(value is None for value in pins):
-        parser.error("--create-children requires --harness-root, --harness-sha, --harness-executable and --harness-sha256")
-    if not args.create_children and any(value is not None for value in pins):
-        parser.error("harness approval flags require --create-children")
+    if (args.create_children or args.complete_child) and any(value is None for value in pins):
+        parser.error("child operations require --harness-root, --harness-sha, --harness-executable and --harness-sha256")
+    if not (args.create_children or args.complete_child) and any(value is not None for value in pins):
+        parser.error("harness approval flags require a child operation")
     consent, result, harness = None, None, None
     try:
         workspace = args.workspace.resolve(strict=True)
         if args.create_children and ((workspace / ".img2threejs/state.json").exists()
                                     or (workspace / ".img2threejs/state.json").is_symlink()):
             _fail("existing-parent-preserved")
-        _file(workspace, args.image, maximum=64 * 1024 * 1024)
-        objects = _json(_file(workspace, args.objects, maximum=256 * 1024, capture=True)) if args.objects else None
+        if args.complete_child:
+            result = _load_decision(workspace, args.decision_ref, args.run_id)
+        else:
+            _file(workspace, args.image, maximum=64 * 1024 * 1024)
+            objects = _json(_file(workspace, args.objects, maximum=256 * 1024, capture=True)) if args.objects else None
         release = _approved_lock()
         controller = DecisionController(workspace, args.run_id)
         discovery = PinnedDiscovery(controller)
         consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
         discovery.consent_probe = consent
-        if args.create_children:
+        if args.create_children or args.complete_child:
             harness = HarnessPin(*pins, consent)
             discovery.harness = harness.argv
             discovery.runner = harness.runner
-        factory = JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
-                                     consent=consent, python_executable=consent.executable)
+        factory = None if args.complete_child else JevProviderFactory(
+            discovery, approved_release=release, run_id=args.run_id,
+            consent=consent, python_executable=consent.executable)
         router = Router(workspace, args.run_id, controller=controller, discovery=discovery,
                         consent=consent, provider_factory=factory, fallback=None)
-        result = router.route(image=args.image, objects=objects, expected_output=args.expected_output,
-                              intent=args.intent, explicit_route=args.explicit_route)
-        value = _output(reason=consent.last_failure, result=result)
+        if args.complete_child:
+            discovery.enumerate()
+            parent = _complete_child(router, result, harness, consent, args.complete_child)
+            value = _output(result=result)
+            value.update(mode="child-completed", status="child-completed",
+                         childObjectId=args.complete_child, parentStatePath=".img2threejs/state.json",
+                         parentStatus=parent["status"])
+        else:
+            result = router.route(image=args.image, objects=objects, expected_output=args.expected_output,
+                                  intent=args.intent, explicit_route=args.explicit_route)
+            value = _output(reason=consent.last_failure, result=result)
         if args.create_children and value["status"] == "decided":
             parent = _create_children(router, result, harness, consent)
             value.update(status="children-initialized", childrenCreated=True,
@@ -619,13 +670,14 @@ def main(argv=None):
         if reason == "consent-probe-error" and consent is not None and consent.last_failure:
             reason = consent.last_failure
         value = _output(reason=reason)
-    if args.create_children:
+    if args.create_children or args.complete_child:
         value.update(terminalStatus="incomplete", terminalAcceptance=False, deliverable=False)
-        value.setdefault("childrenCreated", False)
-        if value["childrenCreated"]:
-            value["mode"] = "children-initialized"
+        if args.create_children:
+            value.setdefault("childrenCreated", False)
+            if value["childrenCreated"]:
+                value["mode"] = "children-initialized"
     print(json.dumps(value, sort_keys=True))
-    return 0 if value["status"] in {"decided", "children-initialized"} else 3
+    return 0 if value["status"] in {"decided", "children-initialized", "child-completed"} else 3
 
 
 if __name__ == "__main__":

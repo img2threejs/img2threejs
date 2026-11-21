@@ -49,6 +49,9 @@ a deliverable. When an installed, pinned Jev provider is logged out, ask the use
 separate, explicit per-run authorization. Pixi2D is eligible only for an explicit 2D request;
 never silently downgrade a 3D request. Until child execution and terminal gates are qualified,
 report routing decisions and initialized states as progress, not finished reconstructions.
+After completing a child, use `--complete-child OBJECT_ID --decision-ref DECISION_REF` with the
+same run and reviewed harness pins. It revalidates the saved route and child gates without
+rerouting or consulting Jev; a completed child is not an accepted composed scene.
 
 ## Profile preflight (once per run, before `forge/next.py`)
 
