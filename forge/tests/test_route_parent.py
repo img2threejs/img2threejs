@@ -367,6 +367,7 @@ class RouteParentTests(unittest.TestCase):
                + struct.pack("<II", len(payload), 0x4E4F534A) + payload)
         model = self.put(directory + "/protocol.glb", glb)
         artifact.update(outputKind="3d-scene", excludeComponents=excluded,
+                        ownerRoute=descriptor["ownerRoute"], ownedObjectIds=[descriptor["objectId"]],
                         roomDimensions={"width": 4, "height": 3, "depth": 5},
                         files=[{"path": "protocol.glb", "sha256": model["sha256"]}])
         self.put(descriptor["artifactPath"], canonical(artifact))
@@ -546,6 +547,13 @@ class RouteParentTests(unittest.TestCase):
             for exclusions in (None, [], ["other"]):
                 with self.subTest(artifact_exclusions=exclusions):
                     self.put(scene["artifactPath"], canonical({**artifact, "excludeComponents": exclusions}))
+                    self.reject("interior-exclusion-binding-mismatch",
+                                lambda: self.parent.complete_child(scene["objectId"]))
+                    terminal_gate.assert_not_called()
+            for field, value in (("ownerRoute", "other-route"), ("ownerRoute", None),
+                                 ("ownedObjectIds", []), ("ownedObjectIds", ["other"])):
+                with self.subTest(field=field, value=value):
+                    self.put(scene["artifactPath"], canonical({**artifact, field: value}))
                     self.reject("interior-exclusion-binding-mismatch",
                                 lambda: self.parent.complete_child(scene["objectId"]))
                     terminal_gate.assert_not_called()

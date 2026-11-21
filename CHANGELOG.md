@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Routed interior children now use the native interior workflow and an explicit component-exclusion step instead of the generic sculpt checklist. Native evidence and terminal acceptance remain independently gated.
 - Routed interior scene children receive sorted `routeChild.excludedObjectIds` from the authenticated aggregate. Each excluded object ID must also be its intake component identity and Blender component tag; no label mapping is inferred. Completion independently rederives the list and rejects missing, malformed or stale admitted intake/spec exclusions before terminal verification. Multiple interior containers are refused; other child profiles and independent native/visual authority gates are unchanged.
+- Validate each interior artifact's owner route and owned object IDs against its verified child descriptor before terminal review.
 
 **The Character Split — targets v2.1.** The base `character` domain joins
 `plugin-character`, so the base names no domain and the v2.0 plugin split closes.

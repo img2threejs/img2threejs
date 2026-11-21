@@ -481,7 +481,9 @@ class RouteParent:
                 or artifact["outputKind"] != descriptor["outputKind"]):
             _fail("child-artifact-mismatch")
         if (descriptor["profile"] == "interior" and descriptor["outputKind"] == "3d-scene"
-                and artifact.get("excludeComponents") != template["routeChild"]["excludedObjectIds"]):
+                and (artifact.get("excludeComponents") != template["routeChild"]["excludedObjectIds"]
+                     or artifact.get("ownerRoute") != descriptor["ownerRoute"]
+                     or artifact.get("ownedObjectIds") != [descriptor["objectId"]])):
             _fail("interior-exclusion-binding-mismatch")
         if receipt.verify_terminal(verify, object_id=descriptor["objectId"],
                                    child_workspace=child_workspace,
