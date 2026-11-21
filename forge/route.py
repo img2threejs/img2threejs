@@ -8,7 +8,8 @@ command; this CLI never enrolls, revokes, prompts for keys, or selects a fallbac
 Only the base-owned reviewed Jev release lock is accepted; there is no Jev lock override.
 ``--create-children`` requires explicit local harness release/launcher pins. It
 creates pending child checklists only after concrete aggregate authentication.
-It does not execute models, complete terminal gates, or produce a deliverable.
+Routing may consult Jev after consent; child initialization does not execute child builders,
+complete terminal gates, or produce a deliverable.
 """
 from __future__ import annotations
 

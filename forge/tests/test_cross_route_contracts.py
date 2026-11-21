@@ -111,6 +111,42 @@ class CrossRouteContracts(unittest.TestCase):
                     self.assertEqual(domains[profile], {"id": profile})
                     self.assertEqual(new_state("reference.png", profile=profile)["profile"], profile)
 
+    def test_parent_exclusion_ids_are_consumed_by_actual_interior_authoring(self):
+        root = self.plugin_root("interior", "authoring/__init__.py")
+        from forge.tests.test_route_parent import RouteParentTests
+
+        case = RouteParentTests("test_interior_child_uses_native_workflow_and_requires_exclusion_mapping")
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        case.configure_interior_route()
+        parent = case.parent.create()
+        scene = next(row for row in parent["objects"] if row["profile"] == "interior")
+        case.interior_terminal(scene, approve=False)
+        child = case.workspace / Path(scene["statePath"]).parent
+        program = """
+import json, pathlib, sys
+sys.path.insert(0, sys.argv[1])
+from authoring import Context
+workspace = pathlib.Path(sys.argv[2])
+spec = json.loads((workspace / 'scene-spec.json').read_text())
+context = Context(workspace, spec, workspace / 'assets', workspace / 'evidence')
+accepted = context.ownership_binding['excludeComponents']
+spec['excludeComponents'] = []
+try:
+    context.ownership_binding
+except ValueError:
+    rejected = True
+else:
+    rejected = False
+print(json.dumps({'accepted': accepted, 'rejected': rejected}))
+"""
+        result = subprocess.run(
+            [sys.executable, "-I", "-B", "-c", program, str(root), str(child)],
+            cwd=child, capture_output=True, text=True, timeout=30, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout), {"accepted": ["right"], "rejected": True})
+
     def test_actual_interior_card_rejects_unknown_and_multiple_rooms(self):
         card, inputs = self.card("interior"), self.inputs("interior")
         self.assertEqual(card["outputKind"], "3d-scene")

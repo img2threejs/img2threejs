@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import pickle
+import struct
 import sys
 import tempfile
 import unittest
@@ -328,7 +329,7 @@ class RouteParentTests(unittest.TestCase):
                     lambda: self.parent.complete_child(descriptor["objectId"]))
         self.assertEqual(self.read(".img2threejs/state.json")["checklist"][0]["status"], "pending")
 
-    def configure_interior_route(self):
+    def configure_interior_route(self, *, scene_object_ids=("left",)):
         home = self.workspace / "fixture-interior-home"
         plugin = home / "plugins" / "interior"
         plugin.mkdir(parents=True)
@@ -338,10 +339,41 @@ class RouteParentTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
         route = "profile:interior"
-        self.inventory["objects"][0]["ownerRoute"] = route
-        self.decision["objects"][0]["selected"] = [route]
+        for entry, row in zip(self.inventory["objects"], self.decision["objects"]):
+            if entry["objectId"] in scene_object_ids:
+                entry["ownerRoute"] = route
+                row["selected"] = [route]
         self.owners[route] = OwnerProfile("interior", "3d-scene")
         self.authenticate_subjects()
+
+    def interior_terminal(self, descriptor, *, approve=True):
+        """Protocol fixture only: no native admission, geometry or visual approval."""
+        state, artifact = self.terminal(descriptor, approve=False)
+        directory = descriptor["statePath"].rsplit("/", 1)[0]
+        excluded = state["routeChild"]["excludedObjectIds"]
+        intake = {"schemaVersion": 1, "sourceKind": "photo",
+                  "authorization": "fixture-owned reference",
+                  "scale": {"unit": "m", "basis": "authored-estimate", "note": "fixture only"},
+                  "components": ["room-shell", *excluded], "excludeComponents": excluded,
+                  "unknowns": ["native geometry and visual quality unmeasured"],
+                  "interactionRequired": False}
+        spec = {"routing": {"objectId": descriptor["objectId"]}, "excludeComponents": excluded}
+        self.put(directory + "/.img2/artifacts/interior/intake.json", canonical(intake))
+        self.put(directory + "/scene-spec.json", canonical(spec))
+        # Match the existing D18 container-only fixture convention, not a room.
+        payload = canonical({"asset": {"version": "2.0"}})
+        payload += b" " * (-len(payload) % 4)
+        glb = (struct.pack("<4sII", b"glTF", 2, 20 + len(payload))
+               + struct.pack("<II", len(payload), 0x4E4F534A) + payload)
+        model = self.put(directory + "/protocol.glb", glb)
+        artifact.update(outputKind="3d-scene", excludeComponents=excluded,
+                        roomDimensions={"width": 4, "height": 3, "depth": 5},
+                        files=[{"path": "protocol.glb", "sha256": model["sha256"]}])
+        self.put(descriptor["artifactPath"], canonical(artifact))
+        if approve:
+            self.receipt.terminals[descriptor["objectId"]] = (
+                sha(canonical(state)), [("protocol.glb", model["sha256"])])
+        return state, artifact
 
     def test_interior_child_uses_native_workflow_and_requires_exclusion_mapping(self):
         self.configure_interior_route()
@@ -357,8 +389,13 @@ class RouteParentTests(unittest.TestCase):
             "interior-intake", "interior-route-exclusions", "interior-workflow-init",
             "interior-author-and-review", "interior-export-and-audit", "interior-delivery-gates"])
         self.assertIn("excludeComponents", state["checklist"][1]["command"])
+        self.assertEqual(state["routeChild"]["excludedObjectIds"], ["right"])
+        self.assertEqual(scene["excludedObjectIds"], ["right"])
+        self.assertIn("identical objectId", state["checklist"][1]["command"])
         self.assertEqual(prop["profile"], "generic")
         self.assertIn("build-current-pass", [s["id"] for s in self.read(prop["statePath"])["checklist"]])
+        self.assertNotIn("excludedObjectIds", prop)
+        self.assertNotIn("excludedObjectIds", self.read(prop["statePath"])["routeChild"])
 
     def test_interior_child_cannot_skip_exclusions_or_change_native_workflow(self):
         self.configure_interior_route()
@@ -377,6 +414,197 @@ class RouteParentTests(unittest.TestCase):
         self.put(descriptor["statePath"], canonical(state))
         self.reject("child-state-mismatch",
                     lambda: self.parent.complete_child(descriptor["objectId"]))
+
+    def test_interior_exclusions_are_sorted_from_other_authenticated_objects(self):
+        for object_id in ("z-prop", "a-prop"):
+            binding = self.put("crops/" + object_id + ".png", object_id.encode())
+            self.inventory["objects"].append({
+                "objectId": object_id, "reference": binding, "ownerRoute": "base:generic"})
+            self.decision["objects"].append({
+                "objectId": object_id, "reference": binding, "revision": 1,
+                "status": "resolved", "selected": ["base:generic"]})
+        self.configure_interior_route()
+        parent = self.parent.create()
+        scene = parent["objects"][0]
+        self.assertEqual(self.read(scene["statePath"])["routeChild"]["excludedObjectIds"],
+                         ["a-prop", "right", "z-prop"])
+        self.assertEqual(self.receipt.authenticated_subjects, ["left", "right", "z-prop", "a-prop"])
+        for prop in parent["objects"][1:]:
+            state = self.read(prop["statePath"])
+            self.assertNotIn("excludedObjectIds", state["routeChild"])
+            self.assertEqual(state["checklist"], new_state(
+                state["artifacts"]["reference"], profile="generic")["checklist"])
+        self.interior_terminal(scene)
+        directory = scene["statePath"].rsplit("/", 1)[0]
+        for path in ("/.img2/artifacts/interior/intake.json", "/scene-spec.json"):
+            doc = self.read(directory + path)
+            original = deepcopy(doc)
+            doc["excludeComponents"].reverse()
+            self.put(directory + path, canonical(doc))
+            self.reject("interior-exclusion-binding-mismatch",
+                        lambda: self.parent.complete_child(scene["objectId"]))
+            self.put(directory + path, canonical(original))
+
+    def test_multiple_interior_containers_are_rejected_before_publication(self):
+        self.configure_interior_route(scene_object_ids=("left", "right"))
+        self.reject("multiple-containers", self.parent.create)
+        self.assertFalse(self.parent_path.exists())
+        self.assertFalse((self.workspace / ".img2threejs/objects").exists())
+
+    def test_interior_identity_handoff_completes_only_with_independent_fixture_authority(self):
+        self.configure_interior_route()
+        scene, prop = self.parent.create()["objects"]
+        state, artifact = self.interior_terminal(scene, approve=False)
+        directory = scene["statePath"].rsplit("/", 1)[0]
+        intake = self.read(directory + "/.img2/artifacts/interior/intake.json")
+        spec = self.read(directory + "/scene-spec.json")
+        self.assertEqual(intake["excludeComponents"], ["right"])
+        self.assertEqual(spec["excludeComponents"], ["right"])
+        self.assertIn("right", intake["components"])
+        original = self.parent_path.read_bytes()
+        self.reject("fixture-terminal-measurements-unverified",
+                    lambda: self.parent.complete_child(scene["objectId"]))
+        self.assertEqual(self.parent_path.read_bytes(), original)
+        self.receipt.terminals[scene["objectId"]] = (
+            sha(canonical(state)), [(row["path"], row["sha256"]) for row in artifact["files"]])
+        parent = self.parent.complete_child(scene["objectId"])
+        self.assertEqual(parent["currentStep"], "object:right")
+        self.terminal(prop)
+        parent = self.parent.complete_child(prop["objectId"])
+        self.assertEqual(parent["currentStep"], "composition")
+        self.assertEqual(parent["status"], "active")
+
+    def test_interior_without_other_objects_requires_explicit_empty_bindings(self):
+        self.inventory["objects"] = self.inventory["objects"][:1]
+        self.decision["objects"] = self.decision["objects"][:1]
+        self.configure_interior_route()
+        scene = self.parent.create()["objects"][0]
+        self.assertEqual(scene["excludedObjectIds"], [])
+        self.interior_terminal(scene)
+        directory = scene["statePath"].rsplit("/", 1)[0]
+        for path in ("/.img2/artifacts/interior/intake.json", "/scene-spec.json"):
+            doc = self.read(directory + path)
+            original = deepcopy(doc)
+            del doc["excludeComponents"]
+            self.put(directory + path, canonical(doc))
+            self.reject("interior-exclusion-binding-mismatch",
+                        lambda: self.parent.complete_child(scene["objectId"]))
+            self.put(directory + path, canonical(original))
+        parent = self.parent.complete_child(scene["objectId"])
+        self.assertEqual(parent["currentStep"], "composition")
+        self.assertEqual(parent["status"], "active")
+
+    def test_interior_missing_malformed_or_stale_admitted_bindings_are_rejected(self):
+        self.configure_interior_route()
+        scene = self.parent.create()["objects"][0]
+        self.interior_terminal(scene)
+        directory = scene["statePath"].rsplit("/", 1)[0]
+        paths = [directory + "/.img2/artifacts/interior/intake.json",
+                 directory + "/scene-spec.json"]
+        originals = {path: (self.workspace / path).read_bytes() for path in paths}
+        parent_bytes = self.parent_path.read_bytes()
+        with patch.object(self.receipt, "verify_terminal",
+                          wraps=self.receipt.verify_terminal) as terminal_gate:
+            for path in paths:
+                invalid = [None, b"{", canonical([])]
+                doc = json.loads(originals[path])
+                for value in (None, [], ["stale-object"], ["right", "right"], "right",
+                              ["room-shell", "right"], [False], [{}]):
+                    invalid.append(canonical({**doc, "excludeComponents": value}))
+                missing = deepcopy(doc)
+                del missing["excludeComponents"]
+                invalid.append(canonical(missing))
+                for data in invalid:
+                    with self.subTest(path=path, data=data):
+                        if data is None:
+                            (self.workspace / path).unlink()
+                        else:
+                            self.put(path, data)
+                        self.reject("interior-exclusion-binding-mismatch",
+                                    lambda: self.parent.complete_child(scene["objectId"]))
+                        self.assertEqual(self.parent_path.read_bytes(), parent_bytes)
+                        terminal_gate.assert_not_called()
+                        self.put(path, originals[path])
+            intake = json.loads(originals[paths[0]])
+            for components in (None, [], ["room-shell"], "right", ["right", "right"],
+                               ["right", {}], ["right", ""]):
+                with self.subTest(components=components):
+                    self.put(paths[0], canonical({**intake, "components": components}))
+                    self.reject("interior-exclusion-binding-mismatch",
+                                lambda: self.parent.complete_child(scene["objectId"]))
+                    terminal_gate.assert_not_called()
+            self.put(paths[0], originals[paths[0]])
+            spec = json.loads(originals[paths[1]])
+            for routing in (None, {}, {"objectId": "another-room"}):
+                with self.subTest(routing=routing):
+                    self.put(paths[1], canonical({**spec, "routing": routing}))
+                    self.reject("interior-exclusion-binding-mismatch",
+                                lambda: self.parent.complete_child(scene["objectId"]))
+                    terminal_gate.assert_not_called()
+            self.put(paths[1], originals[paths[1]])
+            artifact = self.read(scene["artifactPath"])
+            for exclusions in (None, [], ["other"]):
+                with self.subTest(artifact_exclusions=exclusions):
+                    self.put(scene["artifactPath"], canonical({**artifact, "excludeComponents": exclusions}))
+                    self.reject("interior-exclusion-binding-mismatch",
+                                lambda: self.parent.complete_child(scene["objectId"]))
+                    terminal_gate.assert_not_called()
+
+    def test_interior_child_exclusion_list_is_not_an_authority(self):
+        self.configure_interior_route()
+        scene = self.parent.create()["objects"][0]
+        original, _ = self.interior_terminal(scene)
+        with patch.object(self.receipt, "verify_terminal",
+                          wraps=self.receipt.verify_terminal) as terminal_gate:
+            for value in (None, [], ["room-shell"], ["right", "right"], "right"):
+                with self.subTest(excluded=value):
+                    state = deepcopy(original)
+                    state["routeChild"]["excludedObjectIds"] = value
+                    self.put(scene["statePath"], canonical(state))
+                    self.reject("child-state-mismatch",
+                                lambda: self.parent.complete_child(scene["objectId"]))
+                    terminal_gate.assert_not_called()
+            state = deepcopy(original)
+            del state["routeChild"]["excludedObjectIds"]
+            self.put(scene["statePath"], canonical(state))
+            self.reject("child-state-mismatch",
+                        lambda: self.parent.complete_child(scene["objectId"]))
+            terminal_gate.assert_not_called()
+
+    def test_rewriting_all_local_exclusions_cannot_change_authenticated_plan(self):
+        self.configure_interior_route()
+        scene = self.parent.create()["objects"][0]
+        state, _ = self.interior_terminal(scene)
+        state["routeChild"]["excludedObjectIds"] = []
+        self.put(scene["statePath"], canonical(state))
+        parent = self.read(".img2threejs/state.json")
+        parent["objects"][0]["excludedObjectIds"] = []
+        self.put(".img2threejs/state.json", canonical(parent))
+        directory = scene["statePath"].rsplit("/", 1)[0]
+        for path in ("/.img2/artifacts/interior/intake.json", "/scene-spec.json", "/artifact.json"):
+            doc = self.read(directory + path)
+            doc["excludeComponents"] = []
+            self.put(directory + path, canonical(doc))
+        with patch.object(self.receipt, "verify_terminal",
+                          wraps=self.receipt.verify_terminal) as terminal_gate:
+            self.reject("stale-parent", lambda: self.parent.complete_child(scene["objectId"]))
+            terminal_gate.assert_not_called()
+        self.assertEqual(self.receipt.authenticated_subjects, ["left", "right", "left", "right"])
+
+    def test_completed_interior_bindings_are_rechecked_when_another_child_completes(self):
+        self.configure_interior_route()
+        scene, prop = self.parent.create()["objects"]
+        self.interior_terminal(scene)
+        self.parent.complete_child(scene["objectId"])
+        self.terminal(prop)
+        path = scene["statePath"].rsplit("/", 1)[0] + "/scene-spec.json"
+        spec = self.read(path)
+        spec["excludeComponents"] = []
+        self.put(path, canonical(spec))
+        original_parent = self.parent_path.read_bytes()
+        self.reject("interior-exclusion-binding-mismatch",
+                    lambda: self.parent.complete_child(prop["objectId"]))
+        self.assertEqual(self.parent_path.read_bytes(), original_parent)
 
     def test_cs2_augmentation_manifest_is_not_a_terminal_three_d_artifact(self):
         self.configure_cs2_route()

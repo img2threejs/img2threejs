@@ -135,10 +135,11 @@ _INTERIOR_STEPS = (
      "Run interior_project.py start and preflight for {reference}; author interior-intake.json and "
      "{spec} from the actual image, preserving source provenance and unknowns."),
     ("interior-route-exclusions", "setup",
-     "Read $SKILL_DIR/reference/scene-contract.md. From the authenticated parent route inventory, "
-     "map every separately routed object to unique exact identities declared in the interior intake "
-     "and builder. Bind those identities as excludeComponents before authoring; do not guess, "
-     "silently omit an unresolved object, or remove an unrelated component."),
+     "Read $SKILL_DIR/reference/scene-contract.md. Use routeChild.excludedObjectIds from this "
+     "child's state.json as the exact excludeComponents list in interior-intake.json and {spec}. "
+     "Declare every excluded objectId unchanged in intake.components and use that identical "
+     "objectId as the Blender component tag; never infer or manually guess a label mapping. "
+     "The admitted .img2/artifacts/interior/intake.json must preserve this exact binding."),
     ("interior-workflow-init", "setup",
      "python3 \"$SKILL_DIR/tools/interior_workflow.py\" init --workspace . --image {reference} "
      "--intake ./interior-intake.json; use its next command on every resume."),
@@ -358,6 +359,8 @@ class RouteParent:
             child["routeChild"] = {"runId": self.controller.run_id, "objectId": object_id,
                                    "revision": revision, "ownerRoute": owner_route,
                                    "outputKind": owner.output_kind, "cropSha256": sha}
+            if interior:
+                child["routeChild"]["excludedObjectIds"] = sorted(resolved - {object_id})
             writes.extend([(crop_path, data), (child_path, _encode(child))])
             children.append({**child["routeChild"], "statePath": child_path,
                              "artifactPath": directory + ("/.img2/artifacts/pixi2d/artifact.json"
@@ -365,6 +368,9 @@ class RouteParent:
                              "reference": deepcopy(binding), "profile": owner.profile})
         if seen != resolved:
             _fail("inventory-object-mismatch")
+        if sum(row["profile"] == "interior" and row["outputKind"] == "3d-scene"
+               for row in children) > 1:
+            _fail("multiple-containers")
         if expected == "2d" and (seen != {"whole-image"} or len(children) != 1):
             _fail("explicit-2d-mismatch")
         parent = new_state(children[0]["reference"]["path"])
@@ -447,10 +453,36 @@ class RouteParent:
                     state=deepcopy(child)) is not None:
                 _fail("invalid-terminal-receipt")
             return
+        if descriptor["profile"] == "interior" and descriptor["outputKind"] == "3d-scene":
+            # The template is rederived from the revalidated aggregate, not an
+            # editable child exclusion list or a guessed component-label mapping.
+            excluded = template["routeChild"]["excludedObjectIds"]
+            try:
+                intake = _decode(_read(child_workspace, ".img2/artifacts/interior/intake.json")[0])
+                spec = _decode(_read(child_workspace, template["artifacts"]["spec"])[0])
+            except (OSError, ParentError) as exc:
+                raise ParentError("interior-exclusion-binding-mismatch") from exc
+            if (type(intake) is not dict or type(spec) is not dict
+                    or type(spec.get("routing")) is not dict
+                    or spec["routing"].get("objectId") != descriptor["objectId"]
+                    or type(intake.get("excludeComponents")) is not list
+                    or intake["excludeComponents"] != excluded
+                    or type(spec.get("excludeComponents")) is not list
+                    or spec["excludeComponents"] != excluded):
+                _fail("interior-exclusion-binding-mismatch")
+            components = intake.get("components")
+            if (type(components) is not list or not components
+                    or any(type(item) is not str or not item.strip() for item in components)
+                    or len({item.strip() for item in components}) != len(components)
+                    or not set(excluded) <= set(components)):
+                _fail("interior-exclusion-binding-mismatch")
         artifact = load_artifact(child_workspace)
         if (artifact["objectId"] != descriptor["objectId"]
                 or artifact["outputKind"] != descriptor["outputKind"]):
             _fail("child-artifact-mismatch")
+        if (descriptor["profile"] == "interior" and descriptor["outputKind"] == "3d-scene"
+                and artifact.get("excludeComponents") != template["routeChild"]["excludedObjectIds"]):
+            _fail("interior-exclusion-binding-mismatch")
         if receipt.verify_terminal(verify, object_id=descriptor["objectId"],
                                    child_workspace=child_workspace,
                                    state=deepcopy(child), artifact=deepcopy(artifact)) is not None:
