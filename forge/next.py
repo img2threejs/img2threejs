@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -49,7 +51,11 @@ def main(argv: list[str]) -> int:
         except WorkflowStateError as error:
             print(f"state error: {error}", file=sys.stderr)
             return 2
-        if spec_path is None:
+        if local_state.get("routeDecision"):
+            if spec_path is not None:
+                print("state error: routed parent does not accept a positional spec", file=sys.stderr)
+                return 2
+        elif spec_path is None:
             stored_spec = local_state.get("artifacts", {}).get("spec")
             spec_path = Path(stored_spec) if isinstance(stored_spec, str) and stored_spec else None
         else:
@@ -75,6 +81,26 @@ def main(argv: list[str]) -> int:
         if local_state is None:
             parser.error("spec is required unless --state points to an initialized pre-spec workflow")
         payload = status_payload(local_state)
+        if (args.state and local_state.get("routeDecision")
+                and isinstance(local_state.get("objects"), list)
+                and isinstance(payload["currentStep"], str)
+                and payload["currentStep"].startswith("object:")):
+            object_id = payload["currentStep"][len("object:"):]
+            matches = [row for row in local_state["objects"]
+                       if isinstance(row, dict) and row.get("objectId") == object_id]
+            if len(matches) == 1:
+                row = matches[0]
+                revision = row.get("revision")
+                expected = f".img2threejs/objects/{object_id}/rev-{revision}/state.json"
+                if (re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,159}", object_id)
+                        and isinstance(revision, int) and not isinstance(revision, bool) and revision > 0
+                        and row.get("statePath") == expected
+                        and payload["nextCommand"] == expected):
+                    child = args.state.resolve().parent.parent / expected
+                    payload["nextCommand"] = (
+                        f"cd {shlex.quote(str(child.parent))} && "
+                        f"{shlex.quote(sys.executable)} {shlex.quote(str(ROOT / 'next.py'))} "
+                        "--state state.json")
         emit_local_state(payload)
         return 3 if payload["status"] == "stopped" else 0
 

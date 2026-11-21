@@ -11,11 +11,14 @@ from __future__ import annotations
 from copy import deepcopy
 import hashlib
 import json
+import math
 from pathlib import Path, PurePosixPath
 
 from _shared.decision_control import DecisionError, canonical_digest
 from _shared.decision_quality import assess_candidate, compare_repair
 from _shared.plan_eligibility import filter_plans
+from stage4_review.quality_decision import _prepare, _read_bindings
+from stage2_spec.strategy_decision import _read_binding
 
 _HYPOTHESES = {'camera', 'geometry', 'material', 'lighting', 'rig', 'placement', 'spec', 'input-evidence'}
 _ACTIONS = {'refine-spec', 'refine-code', 'request-input', 'stop'}
@@ -93,10 +96,145 @@ def _bound_failure(workspace, subject, bindings, failure):
             raise DecisionError('stale-evidence')
 
 
+def _capture_configuration(controller, context, documents):
+    """Semantic comparisons require explicit, closed physical capture metadata.
+
+    The camera binding uses img2.repair-camera v1. Its per-view matrices,
+    framing rectangle, complete pose transforms, time and dimensions plus the
+    renderer configuration are compared verbatim, not normalized heuristically.
+    This is evidence, not provenance authority: the host must independently
+    admit these bytes against the actual capture program/configuration.
+    """
+    def require(condition):
+        if not condition:
+            raise DecisionError('semantic-capture-incomparable')
+    def number(value):
+        return type(value) in (int, float) and math.isfinite(value)
+    def vector(value, length):
+        return type(value) is list and len(value) == length and all(number(item) for item in value)
+    camera_binding = next(binding for binding in context['bindings'] if binding['role'] == 'camera')
+    try:
+        camera = json.loads(_read_binding(controller.workspace, camera_binding))
+    except (ValueError, UnicodeError):
+        raise DecisionError('semantic-capture-incomparable') from None
+    require(type(camera) is dict and set(camera) == {'kind', 'version', 'subject', 'views', 'renderer'}
+            and camera['kind'] == 'img2.repair-camera' and type(camera['version']) is int and camera['version'] == 1
+            and camera['subject'] == context['subject'])
+    views = documents['view-set']
+    require(set(views) == {'subject', 'inputs', 'views', 'features'})
+    require(type(camera['views']) is list
+            and [item.get('id') for item in camera['views'] if type(item) is dict]
+            == [item['id'] for item in views['views']])
+    for view in camera['views']:
+        require(type(view) is dict and set(view) == {
+            'id', 'matrixWorld', 'projectionMatrix', 'framing', 'pose', 'timeMs', 'width', 'height'})
+        require(type(view['id']) is int and 0 <= view['id'] <= 360)
+        require(vector(view['matrixWorld'], 16) and vector(view['projectionMatrix'], 16)
+                and vector(view['framing'], 4) and view['framing'][2] > 0 and view['framing'][3] > 0
+                and number(view['timeMs']) and view['timeMs'] >= 0
+                and all(type(view[key]) is int and view[key] > 0 for key in ('width', 'height')))
+        pose = view['pose']
+        require(type(pose) is dict and set(pose) == {'id', 'transforms'}
+                and type(pose['id']) is str and bool(pose['id']) and type(pose['transforms']) is list)
+        seen = set()
+        for transform in pose['transforms']:
+            require(type(transform) is dict and set(transform) == {'id', 'matrixWorld'}
+                    and type(transform['id']) is str and bool(transform['id'])
+                    and transform['id'] not in seen and vector(transform['matrixWorld'], 16))
+            seen.add(transform['id'])
+    render = camera['renderer']
+    require(type(render) is dict and set(render) == {
+        'engine', 'version', 'width', 'height', 'samples', 'exposure', 'worldColor', 'worldStrength', 'lights'})
+    require(all(type(render[key]) is str and bool(render[key]) for key in ('engine', 'version'))
+            and all(type(render[key]) is int and render[key] > 0 for key in ('width', 'height', 'samples'))
+            and number(render['exposure']) and vector(render['worldColor'], 3)
+            and number(render['worldStrength']) and render['worldStrength'] >= 0
+            and type(render['lights']) is list
+            and render['width'] * render['height'] <= 16_000_000 and render['samples'] <= 256
+            and all(view['width'] == render['width'] and view['height'] == render['height']
+                    for view in camera['views']))
+    for light in render['lights']:
+        require(type(light) is dict and set(light) == {'position', 'target', 'energy', 'size', 'color'}
+                and all(vector(light[key], 3) for key in ('position', 'target', 'color'))
+                and light['position'] != light['target']
+                and all(number(light[key]) and light[key] > 0 for key in ('energy', 'size')))
+    return {'views': camera['views'], 'renderer': render,
+            'viewRoles': [{'id': item['id'], 'role': item['role']} for item in views['views']],
+            'features': [{key: item[key] for key in ('id', 'referenceRole', 'referenceSha256', 'renderRole')}
+                         for item in views['features']]}
+
+
+def _quality_evidence(controller, review, subject, bindings, report, semantic, *, consent=None, verify=None):
+    if (type(review) is not dict or set(review) != {'context', 'record'}
+            or type(semantic) is not dict):
+        raise DecisionError('semantic-quality-review-required')
+    context, record = review['context'], review['record']
+    if context.get('group') != 'quality-review' or context.get('subject') != subject:
+        raise DecisionError('subject-mismatch')
+    # The controller authenticates the record; JSON-shaped scores alone never
+    # supply semantic repair authority, including on a resumed process.
+    try:
+        current = verify(record, context) if verify else controller.consume(record, context, consent=consent)
+    except ValueError as exc:
+        if hasattr(exc, 'reason_code'):
+            raise DecisionError(exc.reason_code) from None
+        raise
+    if current['status'] != 'answered':
+        raise DecisionError('semantic-quality-review-required')
+    assessment = _prepare(controller, context)
+    hashes, documents = _read_bindings(controller, context)
+    envelope_hashes = {item['role']: item['sha256'] for item in bindings}
+    if (any(hashes[role] != envelope_hashes.get(role)
+            for role in ('reference', 'spec', 'source', 'camera', 'view-set'))
+            or canonical_digest(assessment['report']) != canonical_digest(report)):
+        raise DecisionError('evidence-mismatch')
+    scores, thresholds = {}, {}
+    requirements = context['requirements']
+    for dimension in requirements['dimensions']:
+        item = {'id': dimension} if type(dimension) is str else dimension
+        key = 'dimension:' + item['id']
+        answer = current['answers'].get(key, {})
+        if answer.get('type') != 'score':
+            raise DecisionError('semantic-quality-unevaluated')
+        scores[key], thresholds[key] = answer['score'], item.get('threshold', 3)
+    if requirements['criticalFeatures'] and semantic.get('choiceScores') != {'pass': 4, 'fail': 0}:
+        raise DecisionError('semantic-choice-map-required')
+    for feature in requirements['criticalFeatures']:
+        key = 'critical:' + feature['id']
+        answer = current['answers'].get(key, {})
+        if answer.get('type') != 'choice' or answer.get('choice') not in {'pass', 'fail'}:
+            raise DecisionError('semantic-quality-unevaluated')
+        scores[key], thresholds[key] = semantic['choiceScores'][answer['choice']], 4
+    capture = _capture_configuration(controller, context, documents)
+    return {'scores': scores, 'thresholds': thresholds,
+            'captureDigest': canonical_digest(capture), 'rubricDigest': canonical_digest(requirements)}, {
+        'contextDigest': canonical_digest(context), 'recordId': current['recordId'],
+        'recordDigest': canonical_digest(current)}, capture
+
+
+def _semantic_pair(controller, before_review, after_review, context, after_subject, after_bindings,
+                   after_report, *, consent=None, verify=None):
+    criteria = context['observations']['criteria']
+    first, first_proof, first_capture = _quality_evidence(controller, before_review, context['subject'],
+        context['bindings'], context['observations']['before'], criteria['semantic'], consent=consent, verify=verify)
+    second, second_proof, second_capture = _quality_evidence(controller, after_review, after_subject,
+        after_bindings, after_report, criteria['semantic'], consent=consent, verify=verify)
+    if (first_proof != context['observations'].get('qualityReview')
+            or canonical_digest(before_review['context']['requirements'])
+            != canonical_digest(after_review['context']['requirements'])
+            or before_review['context']['questionSetVersion'] != after_review['context']['questionSetVersion']
+            or before_review['context']['policyVersion'] != after_review['context']['policyVersion']
+            or first_capture != second_capture):
+        raise DecisionError('semantic-capture-or-rubric-incomparable')
+    comparison = compare_repair(context['observations']['before'], after_report, criteria,
+                               semantic_before=first, semantic_after=second)
+    return comparison, {'before': first_proof, 'after': second_proof}
+
+
 def prepare_repair(controller, *, subject, bindings, failure, candidates, scope, criteria,
                    requirements, policy_version='repair-policy-v1', requested_model='jev-1.14.0',
                    provider=None, fallback=None, availability=None, consent=None,
-                   request_token_limit=64000):
+                   request_token_limit=64000, quality_review=None):
     """Preflight, consult and consume a selection without authorizing mutation.
 
     ``failure`` is the exact bound gate-report JSON envelope
@@ -126,11 +264,22 @@ def prepare_repair(controller, *, subject, bindings, failure, candidates, scope,
     if type(scope.get('permissions')) not in (set, frozenset):
         raise ValueError('invalid-trusted-permissions')
     before = failure['report']
+    semantic_scores, quality_proof = None, None
     if assess_candidate(before)['status'] != 'fail':
-        return _blocked('fresh-failed-gate-required')
-    # Comparing a report with itself validates the complete frozen criterion;
-    # a legitimate failure is comparable but has insufficient improvement.
-    if compare_repair(before, before, criteria)['status'] == 'unevaluated':
+        if quality_review is None:
+            return _blocked('fresh-failed-gate-required')
+        try:
+            semantic_scores, quality_proof, unused_capture = _quality_evidence(controller, quality_review,
+                subject, bindings, before, criteria.get('semantic'), consent=consent)
+        except DecisionError as exc:
+            return _blocked(exc.reason_code)
+        if not any(semantic_scores['scores'][key] < threshold
+                   for key, threshold in semantic_scores['thresholds'].items()):
+            return _blocked('fresh-failed-quality-required')
+    # Validate frozen measured/semantic criteria without fabricating a failed
+    # gate or a measurement merely to make a semantic repair selectable.
+    if compare_repair(before, before, criteria, semantic_before=semantic_scores,
+                      semantic_after=semantic_scores)['status'] == 'unevaluated':
         return _blocked('missing-or-incomparable-repair-criteria')
     if type(candidates) is not list:
         raise ValueError('invalid-repair-candidates')
@@ -179,6 +328,8 @@ def prepare_repair(controller, *, subject, bindings, failure, candidates, scope,
                                 'criteria': deepcopy(criteria), 'remainingTrials': scope['remainingTrials']},
                'requirements': deepcopy(requirements), 'policyVersion': policy_version,
                'questionSetVersion': 'repair-decision-questions-v1', 'requestedModel': requested_model}
+    if quality_proof is not None:
+        context['observations']['qualityReview'] = quality_proof
     # Persist exact execution scope as JSON, with deterministic set ordering.
     context['requirements']['repairScope'] = {
         key: sorted(value) if isinstance(value, (set, frozenset)) else deepcopy(value)
@@ -192,6 +343,8 @@ def prepare_repair(controller, *, subject, bindings, failure, candidates, scope,
         return _blocked(exc.reason_code, rejected=rejected)
     result = {'status': 'request-input', 'reasonCode': record['reasonCode'],
               'deliverable': False, 'context': context, 'record': record, 'rejected': rejected}
+    if quality_proof is not None:
+        result['qualityReview'] = deepcopy(quality_review)
     if record['status'] == 'answered':
         selected = next(item for item in eligible if item['id'] == record['answers']['selection']['choice'])
         result.update(status=selected['action'], selected=deepcopy(selected))
@@ -209,6 +362,12 @@ def _selected(controller, selection, *, consent=None):
                      if item['id'] == record['answers']['selection']['choice'])
     if candidate['action'] not in {'refine-spec', 'refine-code'}:
         raise DecisionError('application-not-authorized')
+    if 'qualityReview' in context['observations']:
+        unused_scores, proof, unused_capture = _quality_evidence(controller, selection.get('qualityReview'),
+            context['subject'], context['bindings'], context['observations']['before'],
+            context['observations']['criteria']['semantic'], consent=consent)
+        if proof != context['observations']['qualityReview']:
+            raise DecisionError('semantic-quality-review-required')
     return context, record, candidate
 
 
@@ -224,7 +383,7 @@ def begin_repair(controller, selection, trial_revision, *, consent=None):
 
 
 def finish_repair(controller, selection, *, trial_revision, after, after_subject, after_bindings,
-                  consent=None):
+                  consent=None, after_quality_review=None):
     """Compare independently produced successor evidence, then journal retention.
 
     ``after`` uses the same bound envelope as ``failure``. Input snapshots remain
@@ -240,16 +399,20 @@ def finish_repair(controller, selection, *, trial_revision, after, after_subject
     before = context['observations']['before']
     criteria = context['observations']['criteria']
     after_hashes = []
+    quality_proofs = None
     try:
         if after_subject != expected_subject:
             raise DecisionError('stale-evidence')
         _bound_failure(controller.workspace, after_subject, after_bindings, after)
         after_hashes = _hashes(after_bindings)
+        if 'qualityReview' in context['observations']:
+            comparison, quality_proofs = _semantic_pair(controller, selection.get('qualityReview'),
+                after_quality_review, context, after_subject, after_bindings, after['report'], consent=consent)
+        else:
+            comparison = compare_repair(before, after['report'], criteria)
     except DecisionError as exc:
         comparison = {'status': 'unevaluated', 'retained': False, 'passed': False,
                       'deliverable': False, 'reasons': [exc.reason_code]}
-    else:
-        comparison = compare_repair(before, after['report'], criteria)
     retained = comparison['retained']
     incumbent = trial_revision if retained else context['subject']['revision']
     outcome = {'status': 'completed' if retained else 'rejected', 'comparison': comparison,
@@ -259,6 +422,8 @@ def finish_repair(controller, selection, *, trial_revision, after, after_subject
                'criteriaSha256': canonical_digest(criteria),
                'beforeBindings': _hashes(context['bindings']), 'afterBindings': after_hashes,
                'remainingTrials': max(0, context['observations']['remainingTrials'] - 1)}
+    if quality_proofs is not None:
+        outcome['qualityReviews'] = quality_proofs
     finished = controller.finish_application(application['applicationId'], outcome, consent=consent)
     return {'status': 'request-input' if comparison['status'] == 'unevaluated' else comparison['status'],
             'incumbentRevision': incumbent, 'retained': retained,

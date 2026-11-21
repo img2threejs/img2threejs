@@ -18,6 +18,8 @@ for _entry in (str(_FORGE), str(_FORGE / "_shared"), str(_FORGE / "tests")):
         sys.path.insert(0, _entry)
 
 import test_stage0_route as _stage0  # noqa: E402
+from test_route_parent import FixtureAuthority  # noqa: E402
+from route_parent import OwnerProfile, RouteParent, VerifiedAggregate  # noqa: E402
 from stage0_route.storage import snapshot  # noqa: E402
 from stage6_compose.compose import CompositionError, compose_scene  # noqa: E402
 
@@ -74,6 +76,17 @@ class RouteComposeJoinTests(unittest.TestCase):
         # therefore shares the leader's artifact rather than owning its own.
         self.assertEqual([row["artifactObjectId"] for row in rows], ["object-0", "object-0"])
         self.assertEqual(len({row["ownerRoute"] for row in rows}), 1)
+
+    def test_routed_repeated_instances_create_only_the_artifact_owner_child(self):
+        decision, inventory = self.routed_inventory()
+        owners = {"base:generic": OwnerProfile("generic", "3d-object")}
+        receipt = FixtureAuthority(self, decision, inventory, owners)
+        aggregate = VerifiedAggregate(decision, inventory, owners, receipt)
+        parent = RouteParent(self.case.controller, verify_aggregate=lambda verify: aggregate,
+                             consent=self.case.consent).create()
+        self.assertEqual([row["objectId"] for row in parent["objects"]], ["object-0"])
+        self.assertEqual(parent["objects"][0]["ownedObjectIds"], ["object-0", "object-1"])
+        self.assertFalse((self.workspace / ".img2threejs/objects/object-1").exists())
 
     def test_a_routed_inventory_passes_every_composer_structural_check(self):
         decision, _ = self.routed_inventory()

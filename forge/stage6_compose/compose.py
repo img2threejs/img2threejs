@@ -12,9 +12,10 @@ Inventory is {kind:'img2.object-inventory',version:1,objects:[{objectId,role,
  ownerRoute,artifactObjectId,instanceOf?}]}. artifactObjectId names the child whose
 artifact owns that row; a container can own embedded props. Repeated separately
 placed instances must share a nonempty instanceOf, ownerRoute and artifactObjectId.
-Artifact manifests use validate_artifact's D18 schema plus ownerRoute,
-ownedObjectIds (exact inventory coverage), and, for the container, excludeComponents
-(exact list of all independently routed instances). A unique GLB is required; an
+Artifact manifests use validate_artifact's D18 schema, with file paths relative to
+the manifest's child workspace, plus ownerRoute, ownedObjectIds (exact inventory
+coverage), and, for the container, excludeComponents (exact list of all independently
+routed instances). A unique GLB is required; an
 optional entrypoint explicitly selects among multiple GLBs. Source-only factories
 fail closed: no compiled and verified source consumer exists here.
 
@@ -31,6 +32,9 @@ Each answer is {kind:'img2.placement-answer',version:1,objectId,question:'size'|
  reasonCode,value, ...}; model answers additionally require unavailableReceipt:REF.
 For a healthy session model fallback needs reasonCode in REQUEST_FAILURES. No
 answer is created here. Receipts/evidence are retained, NOT authenticated here.
+New producer answers retain sessionAtDecision and decisionEvidence:{context:REF,
+ record:REF}. This preserves earlier healthy answers after a later run outage;
+the parent still authenticates those records through the base journal.
 The parent must establish controller provenance/consent and prior-policy authority.
 sizePrior is {objectId,minScale:[x,y,z],maxScale:[x,y,z]}; correction factors must
 fall within it. Missing placement producers fail rather than inventing positions.
@@ -42,7 +46,8 @@ actual support/depth measurements and semantic exclusion from container geometry
 are prerequisites for parent review, not facts established by metadata checks.
 
 Camera record: {type:'perspective',position:[x,y,z],target:[x,y,z],fov,aspect,
- near,far}. Environment: {type:'hemisphere',skyColor:0..0xffffff,
+ near,far,up?:[x,y,z]}. A supplied up vector retains the solved camera roll.
+ Environment: {type:'hemisphere',skyColor:0..0xffffff,
  groundColor:0..0xffffff,intensity:positive}. No light is inferred. Without a
 container baseContainer explicitly records ground and backdrop, each {width,height,
  position:[x,y,z],rotation:[x,y,z],color:0..0xffffff}. These are parent-generated
@@ -295,7 +300,18 @@ def compose_scene(workspace, request, *, output_dir):
             _fail('missing-evidence', 'artifacts')
         for ref in refs:
             original = record_ref(ref)
-            artifact = validate_artifact(root, original)
+            # D18 paths are relative to the child workspace that owns artifact.json.
+            # Resolve them against its directory, without changing the hashed manifest.
+            rooted = dict(original)
+            if type(rooted.get('files')) is list:
+                rooted['files'] = [
+                    dict(entry, path=str(_path(ref['path']).parent / _path(entry['path'])))
+                    if type(entry) is dict and type(entry.get('path')) is str else entry
+                    for entry in rooted['files']
+                ]
+            if type(rooted.get('entrypoint')) is str:
+                rooted['entrypoint'] = str(_path(ref['path']).parent / _path(rooted['entrypoint']))
+            artifact = validate_artifact(root, rooted)
             aid = artifact['objectId']
             if aid in artifacts:
                 _fail('duplicate-artifact', aid)
@@ -364,13 +380,28 @@ def compose_scene(workspace, request, *, output_dir):
                 decider = answer.get('decider')
                 if type(decider) is not str or not re.fullmatch(r'(jev|model):[^\s]+', decider):
                     _fail('invalid-decider', oid)
+                answer_session = answer.get('sessionAtDecision', session)
+                if answer_session != 'healthy' and (type(answer_session) is not str
+                        or not answer_session.startswith('unavailable:') or answer_session[12:] not in RUN_UNAVAILABLE):
+                    _fail('invalid-session', oid + '.' + question)
+                if 'sessionAtDecision' in answer:
+                    retained = answer.get('decisionEvidence')
+                    if type(retained) is not dict or set(retained) != {'context', 'record'}:
+                        _fail('missing-evidence', oid + '.decisionEvidence')
+                    context = record_ref(retained['context'])
+                    decision = record_ref(retained['record'])
+                    if (type(answer.get('decisionRef')) is not str or not _HASH.fullmatch(answer['decisionRef'])
+                            or decision.get('recordId') != answer['decisionRef']
+                            or context.get('requirements', {}).get('placement') != {'question': question}
+                            or context.get('subject', {}).get('objectId') != oid):
+                        _fail('stale-placement-answer', oid + '.decisionEvidence')
                 if decider.startswith('model:'):
                     record_ref(answer.get('unavailableReceipt'))
-                    if session == 'healthy' and answer.get('reasonCode') not in REQUEST_FAILURES:
+                    if answer_session == 'healthy' and answer.get('reasonCode') not in REQUEST_FAILURES:
                         _fail('invalid-fallback', oid)
-                    if session != 'healthy' and answer.get('reasonCode') != session[12:]:
+                    if answer_session != 'healthy' and answer.get('reasonCode') != answer_session[12:]:
                         _fail('invalid-fallback', oid)
-                elif session != 'healthy' or answer.get('reasonCode') != 'answered':
+                elif answer_session != 'healthy' or answer.get('reasonCode') != 'answered':
                     _fail('invalid-session', oid)
             prior = record_ref(row.get('sizePrior'))
             low = _vector(prior.get('minScale'), oid + '.minScale', True)
@@ -403,13 +434,23 @@ def compose_scene(workspace, request, *, output_dir):
         camera = record_ref(placements.get('camera'))
         if camera.get('type') != 'perspective':
             _fail('unsupported-camera', 'camera')
-        camera = {key: camera.get(key) for key in ('position', 'target', 'fov', 'aspect', 'near', 'far')}
+        camera = {key: camera.get(key) for key in ('position', 'target', 'fov', 'aspect', 'near', 'far') + (('up',) if 'up' in camera else ())}
+        if 'up' in camera:
+            camera['up'] = _vector(camera['up'], 'camera.up')
         _vector(camera['position'], 'camera.position')
         _vector(camera['target'], 'camera.target')
         for key in ('fov', 'aspect', 'near', 'far'):
             _number(camera[key], 'camera.' + key, True)
         if camera['position'] == camera['target'] or not 0 < camera['fov'] < 180 or camera['far'] <= camera['near']:
             _fail('invalid-camera', 'camera')
+        if 'up' in camera:
+            direction = [b - a for a, b in zip(camera['position'], camera['target'])]
+            up = camera['up']
+            cross = [direction[1]*up[2]-direction[2]*up[1],
+                     direction[2]*up[0]-direction[0]*up[2],
+                     direction[0]*up[1]-direction[1]*up[0]]
+            if abs(sum(v*v for v in up)-1) > 1e-8 or sum(v*v for v in cross) <= 1e-12:
+                _fail('invalid-camera', 'camera.up')
         environment = record_ref(placements.get('environment'))
         if environment.get('type') != 'hemisphere':
             _fail('unsupported-environment', 'environment')

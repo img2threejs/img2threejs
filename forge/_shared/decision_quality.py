@@ -281,12 +281,21 @@ def _metric(candidate, name):
     return values.get(name) if isinstance(values, dict) else None
 
 
-def compare_repair(before, after, criteria, policy=None) -> dict:
-    """Retain only measured improvement with explicit protected tolerances.
+def compare_repair(before, after, criteria, policy=None, *, semantic_before=None, semantic_after=None) -> dict:
+    """Retain only actual measured or authenticated semantic improvement.
 
     Hard/critical failures are legitimate repair inputs. A retained revision may
     still fail acceptance: ``retained`` is not ``passed`` or ``deliverable``.
     Missing, changed-contract and incomparable evidence yields unevaluated.
+
+    Optional semantic projections are supplied by repair_decision only after
+    authenticating the two quality records and physical capture configurations.
+    They contain complete 0..4 scores/thresholds and equal capture/rubric
+    digests; caller-written scores alone are never execution authority.
+    criteria.semantic freezes targetQuestion/minImprovement, a tolerance for
+    every other question, and explicit pass=4/fail=0 choiceScores when needed.
+    Semantic comparison permits new camera/view-set hashes only with matching
+    authenticated physical meaning; the measured reports remain untouched.
     """
     first, second = assess_candidate(before, policy), assess_candidate(after, policy)
     result = {"status": "unevaluated", "retained": False, "passed": False,
@@ -304,7 +313,12 @@ def compare_repair(before, after, criteria, policy=None) -> dict:
     if unknown:
         reasons.extend(check["reason"] for check in unknown)
         return result
-    if _comparison_key(before) != _comparison_key(after):
+    semantic = criteria.get("semantic") if isinstance(criteria, dict) else None
+    semantic_mode = semantic_before is not None or semantic_after is not None
+    first_key, second_key = _comparison_key(before), _comparison_key(after)
+    if semantic_mode:
+        first_key, second_key = first_key[:3] + first_key[5:], second_key[:3] + second_key[5:]
+    if first_key != second_key or (semantic_mode and before["views"] != after["views"]):
         reasons.append("comparison:unmatched-output-evidence-or-rubric")
         return result
     old_gates = {gate["id"] for gate in before["gateResults"]}
@@ -312,29 +326,71 @@ def compare_repair(before, after, criteria, policy=None) -> dict:
     if old_gates != new_gates:
         reasons.append("comparison:changed-gate-inventory")
         return result
+    if semantic_mode and ({gate["id"]: gate["producer"] for gate in before["gateResults"]}
+                          != {gate["id"]: gate["producer"] for gate in after["gateResults"]}):
+        reasons.append("comparison:changed-gate-producers")
+        return result
     if not isinstance(criteria, dict):
         reasons.append("criteria:missing")
         return result
-    target, direction = criteria.get("targetMetric"), criteria.get("direction")
-    minimum, tolerances = criteria.get("minImprovement"), criteria.get("tolerances")
-    if not _text(target) or direction not in ("min", "max") or not _number(minimum) or minimum < 0 or not isinstance(tolerances, dict):
-        reasons.append("criteria:invalid")
-        return result
-    target_name = target.split(".")[-1]
-    normalized = {name.split(".")[-1] for name in tolerances if isinstance(name, str)}
-    if not (set(rules["protectedMetrics"]) - {target_name}).issubset(normalized):
-        reasons.append("criteria:missing-protected-tolerances")
-        return result
-    old, new = _metric(before, target), _metric(after, target)
-    if not _number(old) or not _number(new):
-        reasons.append("target:missing-measurement")
-        return result
-    improvement = new - old if direction == "max" else old - new
+    tolerances = criteria.get("tolerances")
+    semantic_passed = True
+    if semantic_mode:
+        if (not isinstance(semantic, dict)
+                or set(semantic) not in ({"targetQuestion", "minImprovement", "tolerances"},
+                                       {"targetQuestion", "minImprovement", "tolerances", "choiceScores"})
+                or any(not isinstance(value, dict) or set(value) != {
+                    "scores", "thresholds", "captureDigest", "rubricDigest"}
+                       for value in (semantic_before, semantic_after))
+                or any(not isinstance(semantic_before[key], str)
+                       or re.fullmatch(r"[0-9a-f]{64}", semantic_before[key]) is None
+                       or semantic_before[key] != semantic_after[key]
+                       for key in ("captureDigest", "rubricDigest"))):
+            reasons.append("semantic:invalid-criteria-or-evidence")
+            return result
+        old_scores, new_scores = semantic_before["scores"], semantic_after["scores"]
+        thresholds = semantic_before["thresholds"]
+        target, minimum = semantic.get("targetQuestion"), semantic.get("minImprovement")
+        protected = semantic.get("tolerances")
+        if (any(not isinstance(value, dict) for value in (old_scores, new_scores, thresholds, protected))
+                or set(old_scores) != set(new_scores) or set(old_scores) != set(thresholds)
+                or thresholds != semantic_after["thresholds"] or not _text(target) or target not in old_scores
+                or set(protected) != set(old_scores) - {target}
+                or not _number(minimum) or not 0 < minimum <= 4
+                or any(not _number(value) or not 0 <= value <= 4
+                       for values in (old_scores, new_scores, thresholds, protected) for value in values.values())):
+            reasons.append("semantic:incomplete-or-incomparable-rubric")
+            return result
+        improvement = new_scores[target] - old_scores[target]
+        semantic_passed = all(new_scores[key] >= thresholds[key] for key in thresholds)
+        semantic_regressions = ["regression:semantic:" + key for key, tolerance in protected.items()
+                                if old_scores[key] - new_scores[key] > tolerance]
+        normalized = {name.split(".")[-1] for name in tolerances if isinstance(name, str)} if isinstance(tolerances, dict) else set()
+        if not set(rules["protectedMetrics"]) <= normalized:
+            reasons.append("criteria:missing-protected-tolerances")
+            return result
+        result["semantic"] = {"before": deepcopy(semantic_before), "after": deepcopy(semantic_after)}
+    else:
+        target, direction = criteria.get("targetMetric"), criteria.get("direction")
+        minimum = criteria.get("minImprovement")
+        if not _text(target) or direction not in ("min", "max") or not _number(minimum) or minimum < 0 or not isinstance(tolerances, dict):
+            reasons.append("criteria:invalid")
+            return result
+        target_name = target.split(".")[-1]
+        normalized = {name.split(".")[-1] for name in tolerances if isinstance(name, str)}
+        if not (set(rules["protectedMetrics"]) - {target_name}).issubset(normalized):
+            reasons.append("criteria:missing-protected-tolerances")
+            return result
+        old, new = _metric(before, target), _metric(after, target)
+        if not _number(old) or not _number(new):
+            reasons.append("target:missing-measurement")
+            return result
+        improvement = new - old if direction == "max" else old - new
     if not math.isfinite(improvement):
         reasons.append("target:nonfinite-improvement")
         return result
     result["improvement"] = improvement
-    regressions = []
+    regressions = semantic_regressions if semantic_mode else []
     for name, tolerance in tolerances.items():
         metric_direction = rules["metricDirections"].get(name.split(".")[-1]) if isinstance(name, str) else None
         old_value, new_value = _metric(before, name) if isinstance(name, str) else None, _metric(after, name) if isinstance(name, str) else None
@@ -360,6 +416,8 @@ def compare_repair(before, after, criteria, policy=None) -> dict:
     if regressions:
         result.update(status="reject", reasons=regressions)
         return result
-    result.update(status="retain", retained=True, passed=second["passed"], deliverable=second["deliverable"])
-    reasons.append("repair:measured-improvement" if second["passed"] else "repair:improved-but-not-deliverable")
+    passed = second["passed"] and semantic_passed
+    result.update(status="retain", retained=True, passed=passed, deliverable=passed)
+    reasons.append("repair:semantic-improvement" if semantic_mode and passed else
+                   "repair:measured-improvement" if passed else "repair:improved-but-not-deliverable")
     return result

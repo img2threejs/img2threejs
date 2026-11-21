@@ -128,6 +128,12 @@ class ComposeCliTests(unittest.TestCase):
         code, value = self.compose()
         self.assertEqual((code, value["reasonCode"]), (2, "invalid-record"))
 
+    def test_oversized_request_is_refused(self):
+        with self.request_path.open("wb") as output:
+            output.truncate(64 * 1024 * 1024 + 1)
+        code, value = self.compose()
+        self.assertEqual((code, value["reasonCode"]), (2, "input-too-large"))
+
     def test_measured_gates_pass_without_granting_delivery(self):
         _, scene_sha, reference_sha = self.composed()
         code, value = self.gates(self.measurements(scene_sha, reference_sha))

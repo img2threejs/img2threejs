@@ -10,21 +10,23 @@ builds a model and never accepts one.
 
 ## 0. What is and is not proven
 
-The code paths below exist and have fixture tests under `forge/tests/`. None of them has been
-qualified against any of the following, so none of the following may be claimed:
+Distinguish implemented mechanisms, narrow runtime observations and qualification:
 
-- **Real-image held-out quality.** `forge/benchmark_decisions.py` scores frozen labels against
-  measured reports. Its manifest declares `corpusKind` as `real` or `protocol-fixture`; protocol
-  fixtures never qualify real-image quality, and authority attestations are caller-supplied
-  provenance, not authenticated expert credentials.
-- **Blender or GLB export parity.** `forge/_shared/route_artifact.py` validates artifact integrity
-  only and always writes `validation: {runtime, visualQuality, rigParity: "unevaluated"}`.
-  `forge/stage6_compose/compose.py` writes `runtime`, `visualQuality`, `sceneQuality` and `rigParity`
-  as `unevaluated` and `deliverable: false`.
-- **Live Jev delivery.** No code path here proves a live Jev provider returns correct decisions.
-  The Jev release lock (`forge/_shared/jev_release_lock.json`) pins bytes, not behaviour.
-- **Live terminal delivery.** See section 9: at this revision no provider has a terminal
-  authority that can complete a child.
+- **Real-image held-out quality remains unqualified.** `forge/benchmark_decisions.py` distinguishes
+  `real` from `protocol-fixture` corpora. Fixture labels and caller-supplied authority attestations
+  do not establish independent expert provenance or real-image quality.
+- **Integrity is not native parity.** `route_artifact.py` checks D18 bytes/container structure and
+  leaves runtime, visual quality and rig parity unevaluated. Separate host-approved native terminal
+  producers now execute real geometry/capture checks; composed-scene/D12 acceptance remains separate.
+- **Narrow observations are not release qualification.** A character live probe compared 925
+  world-space vertex samples: maximum delta `1.21e-8 m`, below `9.97e-5 m`. Pixi's four authority
+  probes and eight live replay probes passed with explicitly selected Playwright 1.64. These do not
+  qualify arbitrary characters, arbitrary JavaScript, artwork quality or a held-out corpus.
+- **Live Jev delivery is not demonstrated.** The release lock pins bytes, not answer quality; no
+  renewed live Jev disclosure/paid-call grant or Jev network qualification is claimed here.
+- **Terminal mechanisms are conditional, not blanket blockers or blanket passes.** Section 9 names
+  the required host approvals, independent producers, fresh replay and authenticated semantic review.
+  Scene and CS2 live verification is not claimed complete merely because those mechanisms exist.
 
 Report routing decisions and initialized child states as progress. Never describe them as a
 finished reconstruction, an accepted scene or a deliverable.
@@ -65,9 +67,9 @@ A provider answer never grants acceptance. Concretely:
   semantic answers pass; either failing returns `refine`; missing evidence returns `request-input`
   (`stage4_review/quality_decision.py`). A `continue` is a pass-level action, not terminal scene
   acceptance.
-- An applied strategy or repair successor is recorded as `completed` or `rejected` from the
-  caller's own retention assessment; the controller says it does not measure quality
-  (`DecisionController.finish_application`).
+- Application/retention adapters validate actual outputs and measured or authenticated semantic
+  comparison evidence before journalling `completed` or `rejected`. The shared
+  `DecisionController.finish_application` records that outcome; it does not itself measure quality.
 
 ## 2. The four groups and their typed edges
 
@@ -97,14 +99,15 @@ Where each group is wired:
 | Group | Base-side entry | Command-line entry |
 |---|---|---|
 | `routing` | `Router` in `forge/stage0_route/route.py` | `python3 forge/route.py` |
-| `build-strategy` | `StrategyDecision`, `NativeStrategyDecision`, optional `BestOfN` (`stage3_build/best_of_n.py`, 2 or 3 Jev-decided trials) | none |
-| `quality-review` | `review_quality` in `stage4_review/quality_decision.py` | none |
-| `repair` | `prepare_repair`, `begin_repair`, `finish_repair` in `stage4_review/repair_decision.py` | none |
+| `build-strategy` | `StrategyDecision`, `NativeStrategyDecision`, optional `BestOfN` | `python3 forge/decision.py strategy-spec` or `strategy-build` |
+| `quality-review` | `review_quality`; provider-specific terminal context/consumers | `python3 forge/decision.py quality` for pass review |
+| `repair` | `prepare_repair`, `begin_repair`, `finish_repair` | `python3 forge/decision.py repair` |
 
-Only routing has a command-line entry. The other three are library APIs that a trusted host calls
-at its own admitted boundary; no non-test code in this repository calls them, and each module's
-docstring states that state integration, evidence admission and persistence belong to the caller.
-Do not tell the user that strategy, review or repair "ran" because routing ran.
+`workflow_decisions.WorkflowDecisions` calls these actual adapters, not a generic consult that
+skips their preflight. New routed children receive the lifecycle steps through
+`workflow_state.attach_lifecycle_steps`; ordinary legacy states are not implicitly migrated.
+Routing alone still does not mean strategy, review or repair ran. `BestOfN` remains a separate
+trusted-host API, not an automatically executed route outcome.
 
 ## 3. The entry point and its output
 
@@ -114,13 +117,14 @@ python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects obj
 
 `--image` and `--objects` are workspace-relative. `--objects` is required for `--expected-output 3d`
 (the default) and optional for `2d`. Other flags: `--intent ID` (repeatable), `--explicit-route ID`.
-Child operations are separate, need all four harness pins, and are never combined with routing:
+Child operations need all four harness pins; completion is separate from routing:
 
 ```bash
 python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json \
   --create-children --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
 python3 forge/route.py --workspace WS --run-id RUN \
   --complete-child OBJECT_ID --decision-ref .img2threejs/route/decision-HEX.json \
+  --policy-module /absolute/host/route-policy.py --policy-sha256 POLICY_SHA256 \
   --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
 ```
 
@@ -184,11 +188,11 @@ anything:
    `harness-version-incompatible`, `route-card-missing`, `provider-pin-mismatch`,
    `provider-unpinned`, `unsafe-provider-path`, `provider-file-missing`, `invalid-provider-data`,
    `unapproved-provider`).
-4. Declared dependency probes run as `--version` checks (`blender>=`, `node>=`, `python3>=`). The
-   character probes (`character-node`, `character-chromium`, `character-three`) resolve fixed
-   host-configured executables (`IMG2_CHARACTER_NODE`, `IMG2_CHARACTER_BROWSER`) and a host-approved
-   Three package (`IMG2_CHARACTER_THREE_ROOT`, `IMG2_CHARACTER_THREE_SHA256`). These establish
-   runtime availability only, never that a gate passed.
+4. Declared dependency probes run as version checks (`blender>=`, `node>=`, `python3>=`).
+   Character additionally requires actual Node, Chromium, bpy and approved Three facts; host
+   selections include `IMG2_CHARACTER_NODE`, `IMG2_CHARACTER_BROWSER`, `IMG2_CHARACTER_BPY_PYTHON`,
+   `IMG2_CHARACTER_THREE_ROOT` and `IMG2_CHARACTER_THREE_SHA256`. Availability alone never means
+   the fixed terminal gate ran or passed.
 5. `blockingGateProduced` is true only when a blocking `program` gate has a real pinned producer
    file. For `character` it is the fixed `tools/gate_routed_terminal.py` named by the card's
    `routedTerminalGate`. This is not evidence that any gate passed.
@@ -217,13 +221,14 @@ The route cards shipped with the sibling plugins:
 | Card | Requires | Not for | Cost | Dependencies |
 |---|---|---|---|---|
 | `interior` | role `scene-container`, `enclosure` `enclosed-room`, `roomCount` 1 | `roomCount` greater than 1 | heavy | `blender>=4.3` |
-| `character` | intent `rig` | none declared | heavy | `python3>=3.10`, `character-node>=22.0`, `character-chromium>=1.0` |
+| `character` | intent `rig` | none declared | heavy | Python, Node, Chromium, bpy and approved Three (section 4.2) |
 | `cs2` | none | none | local | `python3>=3.10` |
 | `pixi2d` | none (explicit 2D enforced by the base) | none | local | `python3>=3.10` |
 | `base:generic` | none | explicit 2D | local | none |
 
-The `character` card states in its own `display.notFor` that it is not route-eligible until a
-complete real oracle and browser sweep qualifies a blocking rig gate. That has not happened.
+The character card's `display.notFor` still states the conservative readiness prerequisite. The
+implementation now has an actual GLB/native rig oracle, frozen-world-vertex comparison and browser
+sweep; the narrow observed probe in section 0 does not waive missing per-child measurements.
 
 ### 4.4 Decomposition (3D)
 
@@ -298,10 +303,13 @@ with `paid-or-licensed-owner-not-authorized`; heavy local cost is not paid conse
   "--run-id", "--token-budget", "--accept-image-disclosure", "--accept-paid-calls"]` and
   `purposes: [routing, build-strategy, quality-review, repair]`. Show the user the exact run id and
   token budget. Never authorize for them.
-- **Four purposes.** The live consent probe accepts only a grant with `granted: true`, `purposes`
-  exactly the four group names, a SHA-256 and an integer `tokenBudget` from 1 to 2^53-1
-  (`LiveConsent.__call__`); any other shape is reported as `malformed`. The controller itself
-  returns `consent-required` for a grant that covers fewer than four purposes.
+- **Four purposes or an explicit refusal.** `LiveConsent` accepts an enabled grant only with exactly
+  the four purposes, a SHA-256 and integer `tokenBudget` from 1 to 2^53-1. An explicit user-run
+  `img2-jev consent decline-decisions --workspace WS --run-id RUN --token-budget N` records a
+  private disabled entry: `decision-status` returns `granted: false`, `purposes: []` and that exact
+  entry's digest/budget. It authorizes no Jev image disclosure or call. It is distinct from missing
+  consent, and can support the separately host-approved fallback path (section 6). Never decline
+  or authorize on the user's behalf.
 - **One shared budget.** `tokenBudget` is one run-wide number across all four groups. Each send
   reserves its request limit (default 64000 tokens) before dispatch and publishes its real usage
   after; `used + reserved + limit` above the budget is `budget-exhausted`; usage above the limit is
@@ -309,36 +317,36 @@ with `paid-or-licensed-owner-not-authorized`; heavy local cost is not paid conse
   (`budget-exhausted`). Reservations survive crashes and group switches. After a crash, one retry is
   allowed, then `ambiguous-paid-attempt`. Raising a budget is the user's act; repeat the
   authorization with the same run id and a larger number (plugin-jev `DECISIONS.md`).
-- **Image disclosure.** The base context carries opaque `{role, asset}` image placeholders and
-  hash-only bindings. Only after a live grant check does the provider factory read each bound
-  image, prepare it with the pinned Jev package's own helper and write private workspace assets;
-  only the pinned Jev CLI sends them. The controller hands every provider a projection with all
-  local paths removed.
+- **Image disclosure.** Jev receives only its admitted bound images after a live Jev grant check;
+  its pinned helper prepares private workspace assets and its pinned CLI sends them. Context
+  projections remove original local paths. Separately approved fallback programs can now receive
+  the exact declared bound PNG/JPEG images through a private hash-pinned manifest (section 6);
+  a Jev refusal alone never enrolls another program or approves that disclosure.
 - **Changes mid-flight.** Consent is re-probed live at every consult, consume and verification. A
   grant that changed since the decision was made is `consent-changed`.
-- **Ceilings.** 60 minutes per object from first consultation (`deadline-exhausted`); 3 applied
-  corrections per pass and 6 per object (`correction-budget-exhausted`).
+- **Ceilings.** 60 minutes per object from first consultation (`deadline-exhausted`); only started
+  repair applications count toward 3 per pass and 6 per object (`correction-budget-exhausted`).
+  Rejected repair starts still count; strategy applications and reviews do not consume correction slots.
 
 ## 6. Host-model fallback and the proven-outage rule
 
 The controller alone gates the fallback (`DecisionController._consult`). A fallback may be asked
 only after a journalled, proven Jev outage, once per request, never after a Jev answer.
 
-What `forge/route.py` can actually observe is narrower than what the controller accepts. The
-controller reads the consent grant BEFORE it probes availability. In `forge/route.py` the live
-consent probe (`LiveConsent`) raises whenever Jev is not `present` (`capability-unavailable` or
-`availability-unproven`) or logged out, and it never reports `granted: false`. The controller turns
-that into `consent-probe-error`, the run suspends, and the CLI prints the probe's own cause
-(`capability-unavailable`, `credential-missing`, `consent-required` and so on). So through
-`forge/route.py` the ONLY fallback trigger is a recorded Jev request failure while Jev is present,
-authenticated and consented: `provider-error`, `timeout`, `malformed`, `out-of-set` or
-`ambiguous-paid-attempt`. The controller collapses any other `DecisionError` raised inside the
-provider callback (a release-pin mismatch, unusable image assets) to `malformed`, which is a request
-failure, so those are fallback-eligible too.
+The controller reads consent before availability. `LiveConsent` authenticates the pinned local
+Jev package and its private consent store. Missing/unprovable consent, or an enabled grant without
+usable credentials, suspends; neither is a synthetic refusal or fallback authorization. A valid
+explicit disabled entry is returned even when credentials are absent. With a separately approved
+fallback, the controller journals that run-wide `consent-declined` outcome and may consult the
+fallback without disclosing to or calling Jev. Disclosure to the separately approved fallback is
+its own host authorization (below). Without a verifiable local provider/consent
+contract it still suspends; it never invents a grant from missing storage.
 
-A host that calls `DecisionController.consult` directly with its own consent and availability
-callbacks can also reach the fallback through a proven `not-installed`, `capability-unavailable`,
-`consent-declined` or a probe-attested `login-declined`. `forge/route.py` never produces those.
+Other CLI-reachable fallback triggers are journalled Jev request failures while the provider is
+present, authenticated and consented: `provider-error`, `timeout`, `malformed`, `out-of-set` or
+`ambiguous-paid-attempt`. Errors collapsed to `malformed` by the controller also follow that rule.
+A direct trusted host API can additionally supply independently proven `not-installed`,
+`capability-unavailable` or probe-attested `login-declined`; unproven availability never suffices.
 
 These never activate a fallback; the run suspends with `request-input`:
 
@@ -349,7 +357,8 @@ These never activate a fallback; the run suspends with `request-input`:
   `deadline-exhausted`, `missing-evidence`, `stale-evidence`, `vision-forbidden`,
   `permission-denied`, `consent-changed`, `consent-required`, `consent-probe-error`).
 
-Absent, declined or unprovable consent therefore suspends and never reaches the fallback.
+Missing or unprovable consent suspends. An explicit authenticated refusal follows the distinct
+declined-consent path above; fallback payment/model approval is still the host's responsibility.
 
 Properties of an accepted fallback record: `decider` is `model:<id>`, `unavailableReason` records the
 proven outage, the 0.82 floor applies, and a fallback answer is never `best-of-n`. It shares the same
@@ -360,19 +369,30 @@ neither (`--fallback-command PATH --fallback-sha256 HEX`; not accepted with `--c
 
 - the program is named by the host and pinned by exact SHA-256 (`stage0_route/fallback.py`). It is
   never discovered on `PATH` and never chosen from workspace or model input;
-- it must be a strictly resolved, canonical regular executable with no symlink hop. Its bytes are
-  re-verified at construction, before every call and after the run;
+- its resolved target must be a regular executable. The target's bytes are re-verified at
+  construction, before every call and after the run. The digest covers only that file: a script's
+  interpreter, imports and configuration remain host trust, and the verify-to-exec window is not closed;
 - no shell, no arguments, no retry. A private scratch directory is its working directory, not the
-  workspace. The environment is an allow-list with no proxy, credential or startup variables. One
-  process group is killed on every exit path. The timeout defaults to 60 s (maximum 300 s).
-  stdout is capped at 256 KiB and stderr at 64 KiB;
-- stdin is the canonical JSON projection the controller built: hash-only bindings, opaque image
-  placeholders, no image bytes and no local paths, so a fallback decides without seeing any image.
-  stdout must be exactly one `img2.decision-advisory` v1 object with matching `contextDigest`, and
-  the exit status must be 0;
+  workspace. The child inherits the host environment minus `NODE_*`, `PYTHON*` and
+  `TYPESAFE_API_KEY` (the same strip `HarnessPin.runner` applies); this is not an allow-list, so
+  proxy and other host variables still reach it. One process group is killed on every exit path.
+  The timeout defaults to 60 s (maximum 300 s). stdout is capped at 256 KiB and stderr at 64 KiB;
+- stdin remains the canonical path-stripped JSON projection, with hash-only bindings and opaque
+  image placeholders. `HostFallback.bind_context` retains original validated bindings locally;
+  only if the controller actually chooses this independently approved fallback does it copy the
+  exact declared PNG/JPEG bytes into private scratch and produce `img2.host-fallback-images` v1.
+  The private manifest and its digest travel via `IMG2_FALLBACK_IMAGE_MANIFEST` and
+  `IMG2_FALLBACK_IMAGE_MANIFEST_SHA256`, never original workspace paths in stdin. Limits are 64
+  images, 48 MiB total and 32 MiB per image; roles, assets, context digest, hashes and decoded image
+  formats must match. A direct image-bearing call without the bound context fails closed.
+  stdout must be one `img2.decision-advisory` v1 with matching `contextDigest` and exit status 0;
 - this is not a sandbox. The approved program runs with the host user's privileges and can still
   reach the network or filesystem. Whether it needs its own consent for paid use is the host's
   responsibility.
+
+The image-capable external program needs a **fresh exact program-digest approval**. An old digest
+does not approve changed image-disclosure behavior. Explicit Jev decline changes only Jev's grant;
+it never selects/enrolls a fallback program or grants that program independent payment/disclosure rights.
 
 Startup refusals (exit 3): `fallback-command-unsafe`, `fallback-digest-mismatch`. A fallback that ran
 and failed is journalled and emitted as `fallback-invalid`, which collapses timeout, non-zero exit,
@@ -381,6 +401,23 @@ malformed output and oversized output. When a fallback answered, the output gain
 
 A model fallback has never been qualified against real images. Treat its answer as an advisory with
 a stricter floor, not as equivalent evidence to Jev.
+
+The concrete no-argv adapter is `forge/omp_model_fallback.py`. The host explicitly supplies
+`IMG2_FALLBACK_OMP` (absolute canonical executable) and `IMG2_FALLBACK_MODEL` (exact provider/model);
+there is no default model. The adapter requires `omp/19.0.1`, uses `--no-tools --no-extensions
+--no-skills --no-rules --no-context-files --no-session --mode json -p`, fixed system/append prompts,
+and a private per-run configuration disabling all twelve compiled MCP discovery sources and
+retry/model substitution. `--no-tools` alone does **not** disable MCP. It shares a bounded 55-second
+deadline and the transport output caps; installed configuration is untouched. The adapter rechecks
+the private manifest and copies only its exact approved image bytes to program-generated scratch
+filenames, supplied to OMP as positional `@images`; arbitrary requested attachments are not allowed.
+Model/provider and fresh/cache-read/cache-write/output counts come from the actual OMP event,
+never model-authored counters or estimates. Completed turns return observed usage even for invalid
+answers so the shared controller can reject and debit truthfully; transport failures retain the
+reservation. An earlier **no-image** nonprivate fixture observed 655 fresh input, zero cache
+read/write and 46 output tokens in 4.56 seconds. It does not verify the new image attachment path,
+image understanding, Jev delivery, held-out quality or general filesystem/network confinement.
+
 
 ## 7. Explicit 2D
 
@@ -395,7 +432,7 @@ nothing infers 2D from a failed or awkward 3D request. In code:
   (`unapproved-owner-profile`); verification and parent assembly refuse a 2D route whose inventory
   is not exactly the one `whole-image` object (`explicit-2d-mismatch`);
 - 2D sets `skipComposition: true`: the parent checklist has no `composition` or `scene-gates` step;
-- a 2D child is a `2d-scene` with the Pixi checklist only.
+- a 2D child is a `2d-scene` using native Pixi work plus base-owned decision lifecycle boundaries.
 
 Never run `--expected-output 2d` to get around a failed 3D route.
 
@@ -419,23 +456,81 @@ Owner profiles are approved by the base, never by a card or an answer:
 
 Layout written:
 
-- one child per resolved object: `.img2threejs/objects/<objectId>/rev-<revision>/state.json` plus its own
-  copy of the reference crop. `revision` is the object's revision (section 4.6), so a changed object
-  gets a new directory;
+- one child per artifact-owning resolved object:
+  `.img2threejs/objects/<objectId>/rev-<revision>/state.json`, plus its own copy of
+  the reference crop. Repeated placement-only instances share their group leader's
+  child; that child's artifact must name the owner route and every grouped object
+  in `ownedObjectIds`. `revision` is the leader's object revision (section 4.6),
+  so a changed leader gets a new directory;
 - a parent `.img2threejs/state.json` holding the decision, the child descriptors and a checklist:
   one `object:<id>` setup step per child, then, for 3D only, `composition` and `scene-gates`
   final steps. The parent's `composition` and `scene-gates` commands name
   `python3 forge/compose.py scene` and `python3 forge/compose.py gates` (section 9).
 
-Child checklists: `generic`, `character` and `cs2` children use the ordinary sculpt checklist for
-their profile. `interior` children get six native steps (`interior-intake`,
-`interior-route-exclusions`, `interior-workflow-init`, `interior-author-and-review`,
-`interior-export-and-audit`, `interior-delivery-gates`). `pixi2d` children get six (`pixi2d-snapshot`,
-`pixi2d-native-host-capture`, `pixi2d-evidence-produce`, `pixi2d-native-visual-review`,
-`pixi2d-publish`, `pixi2d-editable-review`). All start `pending`. Creating them builds nothing.
+Run `python3 forge/next.py --state .img2threejs/state.json` from the parent workspace.
+For a pending child it prints a command that changes into that child's workspace
+and reports its current step; this reports progress, not terminal acceptance.
+
+Child checklists: `generic`, `character` and `cs2` retain their sculpt/profile work. Interior retains
+its six native intake/exclusion/workflow/authoring/export/delivery steps; Pixi retains its six
+snapshot/capture/produce/visual-review/publish/editable-review steps. New routed children also
+receive `strategy-spec`, `strategy-build`, `quality-review` and `repair-decision` at the relevant
+spec/build/review/publication boundaries. All start pending. Creating them builds nothing.
 
 An `interior` child receives `routeChild.excludedObjectIds`: every other resolved object, sorted. Two
 interior containers are refused (`multiple-containers`).
+
+**Run a child decision boundary from the base checkout**, naming the parent workspace:
+
+```bash
+python3 forge/decision.py strategy-spec --workspace WS --run-id RUN \
+  --child-state .img2threejs/objects/ID/rev-N/state.json --request REQUEST \
+  --policy-module /absolute/host/policy.py --policy-sha256 POLICY_SHA256 \
+  --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
+```
+
+Use `strategy-build`, `quality` or `repair` for the corresponding next boundary. The host policy
+module exports `build_policy(workspace: Path, state_path: str) -> WorkflowPolicy`; candidate JSON
+cannot supply scope, permission or provenance authority. Its canonical regular `.py` file must
+be outside the workspace/provider/harness trees, with an independently approved exact digest.
+The shared `host_policy.pinned_policy_module` pins that file only: Python, imports and callback
+dependencies remain trusted host code, not an importer sandbox or authenticated provenance.
+Missing policy never auto-approves. Native strategy requires its actual host-approved validator,
+pass resolver and live native permission authority; base strategy runs the real strict spec validator.
+
+Strategy/repair requests use `operation: select`, `begin` or `finish`. Selection leaves the step
+pending. Strategy completion requires an actual separate `candidates/rev-N/` spec matching the
+selected validated full proposal; original inputs and the incumbent remain intact. The lifecycle's
+`candidateRevision` is not a promotion of `routeChild.revision` or the parent artifact. Pass quality
+requires current matched diagnostics before consulting; a passing review skips only unnecessary
+repair. A fresh deterministic failure or an authenticated failed semantic review and scoped
+permissions are required for repair; retained repairs require fresh build/capture/review, and
+rejected trials never replace the incumbent.
+
+Semantic-only repair binds before `quality_review` and after `after_quality_review` as
+`{context, record}` pairs consumed from the actual controller journal. After `repair` operation
+`begin`, submit the successor's matched evidence through `quality` operation `trial`, using the
+begun application's `trialRevision`. This records `decisionPending.afterQualityReview` without
+completing quality, retaining the repair or promoting the incumbent. Repair `finish` consumes that
+stored review; an optional request `afterQualityReview` must exactly match it, never supply authority.
+Frozen `criteria.semantic` specifies `targetQuestion`, `minImprovement`, tolerances for every
+protected question and, for critical choices, explicit `choiceScores: {pass: 4, fail: 0}`.
+Matching caller-written scores are not authority.
+The camera binding must be `img2.repair-camera` v1 with actual per-view `matrixWorld`,
+`projectionMatrix`, `framing`, complete pose transforms, `timeMs`, dimensions and renderer
+configuration. Before/after physical capture meaning and rubric must match; the host independently
+admits those bytes against the real producer. Arbitrary matching JSON cannot authenticate a capture.
+
+A nonvisual deterministic hard-gate failure can reach repair through a journalled
+`workflow-quality-blocked` receipt and child `decisionBlocks`, without pretending visual review
+ran or passed. Completion verifies that block and its successful repair; final acceptance still
+requires current answered passing quality, never an unrepaired/skipped block.
+
+Only current `controller.consume` plus held-lease verification may persist `decisionRefs` and mark
+the matching boundary. Terminal verification revalidates the journal-backed applications, revision
+chain and mandatory prior-pass receipts against immutable candidate snapshots. Deleting lifecycle
+metadata or receipts from a routed child is a refusal, not a legacy-state exemption. Login
+suspension returns the existing command and a two-prompt limit; no command loops over login prompts.
 
 `--complete-child` revalidates the saved decision and the child without rerouting and without a
 model call. It marks the parent's `object:<id>` row done only after all of these hold: the parent
@@ -447,22 +542,69 @@ an accepted composed scene.
 
 ## 9. Terminal artifact ownership and composition
 
-**Terminal authority status.** `RouteAuthority.verify_terminal` raises for every 3D owner at this
-revision, and the 2D path never returns success:
+**Terminal authority is conditional.** `RouteAuthority.verify_terminal` dispatches CS2 to
+`CS2TerminalAuthority` and base/interior/character to `NativeTerminalAuthority`; Pixi uses its
+reviewed gate, semantic consumer and `PixiCaptureAuthority`. Missing or revoked host policy,
+unsupported input, stale evidence, a failed measurement or an unauthenticated review blocks that
+child. A file digest, provider-authored pass flag or editable `review.json` is never authority.
 
-| Owner | Reason code today |
+| Owner | Required independent boundary |
 |---|---|
-| `generic` | `base-terminal-measurement-contract-unavailable` |
-| `interior` | `interior-terminal-quality-producer-unavailable` |
-| `cs2` | `cs2-terminal-artifact-provenance-unavailable` |
-| `character` | `character-blocking-terminal-gates-unavailable` |
-| `pixi2d` | the last step of `_terminal` always raises `terminal-native-capture-authority-unavailable`; before it, `consume_pixi_quality` raises `terminal-authenticated-quality-review-unavailable` unless the host passed a `PixiQualityPolicy` for the object, and `forge/route.py` passes none |
+| `generic`, `interior` | Host-reviewed exact source/dependency closure; actual native/static geometry and approved-camera material/part captures; matched journal semantic review; fresh native replay at completion |
+| `character` | The same source/runtime approval plus actual GLB skin/animation data, frozen world-space vertex parity across pose fractions, at least twelve blocking gates and meaningful browser views |
+| `cs2` | Explicit source/classification/calibration and complete browser-bundle approval; actual delivered-GLB two-phase capture and measured mechanical gates; shared semantic identity/finish/critical-feature review; independent rerender and blocking gate |
+| `pixi2d` | Independently approved requirements and exact editable ESM source/asset/dependency closure; answered journal-authenticated semantic review; fresh independently owned CDP replay plus reviewed blocking gate |
 
-So `--complete-child` cannot succeed for any owner here. That is a stated qualification gap, not an
-error to work around. A Pixi child that reaches its terminal check has already passed artifact,
-evidence-binding and reviewed-gate checks; none of that is acceptance. Re-read
-`forge/_shared/route_authority.py` (`_UNSUPPORTED` and `_terminal`) for the current codes before
-reporting.
+Native structural/material captures do not establish semantic identity: each required part and
+critical feature still needs the bound semantic judgment. Interior's actual bpy audit and four
+views are structural evidence, not a substituted identity/visual pass. Pixi executes trusted,
+reviewed code in the same realm; it is **not** arbitrary-JavaScript confinement or proof of
+source/build equivalence. CS2 pixel/mechanical surrogates do not authenticate source truth, recover
+a physical BRDF or prove asset identity. These are per-child gates, not scene acceptance.
+
+CS2 host policy requires `browser_root` and the complete immutable `browser_files` inventory from
+`browser_runtime.snapshot_browser_bundle`; a hash of only the launcher is insufficient. Hashing is
+not host review. Provider cache exemptions are relative to the approved provider root; ancestor
+directory names cannot exempt unapproved imports.
+
+**Terminal prepare/consult/completion handoff.** The landed
+`RouteAuthority.prepare_terminal_review(verify, object_id)` runs fixed approved local producers and
+returns the exact shared quality-review context without a paid consultation or acceptance.
+Consultation must occur outside the held parent transaction; final verification consumes the actual
+journal record and independently reruns the capture/gates. Pixi, native and CS2 semantic consumers
+accept only actual controller-authenticated `jev:` or proven-outage `model:` records with matching
+subject/evidence. A decider string or saved provider-authored review alone cannot authorize one.
+
+`forge/terminal.py` and the route CLI policy plumbing are implemented. The invocations below
+describe that landed interface, **not a claim that an integrated runtime or terminal acceptance
+gate passed**. Missing policy must never be replaced with an empty auto-approval or a
+candidate-authored flag.
+
+```bash
+python3 forge/terminal.py prepare --workspace WS --run-id RUN --object-id ID --decision-ref REF \
+  --policy-module /absolute/host/route-policy.py --policy-sha256 POLICY_SHA256 \
+  --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
+python3 forge/terminal.py consult --workspace WS --run-id RUN --object-id ID --decision-ref REF \
+  --policy-module /absolute/host/route-policy.py --policy-sha256 POLICY_SHA256 \
+  --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
+python3 forge/route.py --workspace WS --run-id RUN --complete-child ID --decision-ref REF \
+  --policy-module /absolute/host/route-policy.py --policy-sha256 POLICY_SHA256 \
+  --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
+```
+
+The route policy factory interface is
+`build_route_policies(workspace: Path, run_id: str) -> route_authority.RoutePolicies`. Its four live
+maps are `pixi_quality`, `pixi_capture`, `cs2_terminal` and `native_terminal`; they contain the
+separately reviewed per-object policy objects described above. The shared pinned-module loader
+checks the host-approved file outside workspace/provider/harness roots and the base checkout, not
+the authenticity of that module's imports or the truth of its source-review claims. Both terminal
+commands regenerate context from actual approved producers; `consult` never trusts a caller's
+saved context, even after `prepare`. Preparation makes no paid call and writes no review link.
+Consultation runs outside the parent transaction and links only an answered, reverified
+`quality-review` journal record to the immutable hash-named context. Neither command accepts a child.
+Only subsequent verified completion can mark the parent child row ready, never the whole scene
+delivered. Paired `--fallback-command`/`--fallback-sha256` flags apply to terminal consultation, not
+`route.py --complete-child`; consumer decider restrictions and shared outage/budget rules still apply.
 
 **Artifact ownership (3D).** Each child terminal artifact is a D18 manifest
 (`route_artifact.validate_artifact`: `objectId`, `outputKind`, `files` with SHA-256, metre/+Y/+Z
@@ -477,23 +619,53 @@ output). Composition adds three ownership fields (`stage6_compose/compose.py`):
   requires `ownedObjectIds == [objectId]` and `excludeComponents == routeChild.excludedObjectIds`
   (`interior-exclusion-binding-mismatch`).
 
+File paths in the manifest are relative to its child workspace, not the parent
+workspace. The composer resolves them against the artifact manifest directory
+and checks the resulting files without modifying the manifest.
+
 **Composition.** `python3 forge/compose.py scene --workspace WS --request REQ --output-dir DIR`
 writes a NEW candidate directory with `scene.mjs` and `scene.json`; it never advances state,
 consults a provider or accepts delivery. `gates --workspace WS --composed scene.json --measurements M
 --inventory INVENTORY` runs the scene gates over externally produced measurements, taking the
 expected object ids from the inventory, never from the scene. A measurement is `{value, producer,
 sceneSha256, referenceSha256}`; a missing or stale one is `unevaluated`, never a pass. Exit `0`
-success or pass, `2` usage or unreadable input, `3` refusal or gate failure. Output always carries
-`deliverable: false`. 2D returns a bypass without reading files.
+success or pass, `2` usage or unreadable input, `3` refusal or gate failure. Scene and gate
+results carry `deliverable: false`. 2D returns a bypass without reading files.
 
-Composition fails closed on source-only artifacts (`source-consumer-unavailable`): it needs a GLB
-and has no compiled-source consumer, GLB extensions for lights or compression are refused, and
-placement needs size and yaw answers whose `decider` is `jev:<id>` or `model:<id>`. No placement,
-measurement or compose-request producer exists in this repository: a host or plugin must write them.
+Source-only artifacts still refuse composition (`source-consumer-unavailable`): the current consumer
+needs actual supported GLBs; unsupported light/compression extensions remain blocked. The actual
+placement/measurement producer commands in `forge/compose.py` are:
+
+```bash
+python3 forge/compose.py prepare-placement --workspace WS --request INPUTS --output-dir PREP \
+  --host-pins HOST_PINS --host-pins-sha256 HEX
+python3 forge/compose.py consult-placement --workspace WS --request PREPARATION_REQUEST --run-id RUN \
+  --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
+python3 forge/compose.py place --workspace WS --request DECIDED_PLACEMENT_REQUEST --run-id RUN \
+  --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX \
+  --output-dir PLACEMENT
+python3 forge/compose.py measure --workspace WS --request MEASUREMENT_INPUTS --output-dir MEASURED \
+  --host-pins HOST_PINS --host-pins-sha256 HEX
+```
+
+`HOST_PINS` has exactly `chrome` and `modules`; its independently supplied SHA-256 is host approval,
+not a value proposed by the request. Preparation uses actual GLB dimensions, a rerun camera solve,
+explicit depth/support observations and an admitted metric landmark span. Non-container objects
+need a known `classId` in `_shared/size_priors.json`; unknown classes block. Those frozen bands are
+provisional engineering bounds, **not** independent corpus calibration. Size/yaw choices are
+journal-backed shared `build-strategy` decisions, consumed under the parent lease before placement.
+The producer name and digest alone never authenticate depth, support, camera landmarks or masks.
+
+`measure` renders the exact current scene with host-pinned Chrome/modules and derives scene
+geometry, object-ID foreground and image metrics. An optional `reference_mask` must bind the exact
+reference digest, dimensions and Boolean pixels; the parent independently admits its producer.
+No caller scores substitute for these measurements. The older `request` command still joins
+`--state`, `--inventory`, `--reference` and `--placement` into a compose request; it is a structural
+join, not producer authentication or permission to deliver.
 
 ## 10. Reason codes a caller can observe
 
-Three layers carry reason codes. Report the one the caller can see, and open the decision file for
+Several layers carry reason codes. Report the one the caller can see, and open the decision file for
 the rest.
 
 **1. `forge/route.py` top-level `reasonCode`.** A code is printed only if it is on the CLI allow-list
@@ -585,10 +757,11 @@ workspace journal and decision files to see the specific cause; the CLI does not
   `terminal-produced-evidence-mismatch`, `terminal-reference-not-bound`,
   `unreviewed-terminal-gate-command`, `unsupported-blocking-terminal-gate`,
   `unsupported-terminal-gate-prerequisite`.
-- Terminal authority unavailable (section 9): `base-terminal-measurement-contract-unavailable`,
-  `interior-terminal-quality-producer-unavailable`, `cs2-terminal-artifact-provenance-unavailable`,
-  `character-blocking-terminal-gates-unavailable`, `unsupported-terminal-gate-contract`,
+- Missing/revoked terminal approval (section 9): `native-policy-unavailable`,
+  `native-policy-revoked-or-changed`, `host-native-policies-required`, `cs2-source-approval-required`,
+  `cs2-independent-critical-checks-required`, `pixi-capture-policy-revoked`,
   `terminal-native-capture-authority-unavailable`, `terminal-authenticated-quality-review-unavailable`.
+  These name absent or invalid prerequisites, not an unconditional ban on an entire owner.
 - Pixi quality review binding: `invalid-pixi-quality-link`, `invalid-pixi-quality-policy`,
   `pixi-quality-ambiguous-image`, `pixi-quality-baseline-missing`,
   `pixi-quality-behavior-captures-missing`, `pixi-quality-critical-crops-missing`,
@@ -619,12 +792,14 @@ Invalid D18 artifacts are reported as JSON refusals using their `ArtifactError` 
 
 State these when they matter; do not paper over them.
 
-- Terminal completion is unavailable for every owner (section 9).
-- Strategy, quality review and repair have no command-line entry and no state integration (section 2).
-- Stage-zero inventory rows now bind `artifactObjectId` to their instance-group leader. The
-  router-to-composer structural join is tested, but does not establish terminal artifact ownership
-  or end-to-end scene delivery. Composition requests and independent placement measurements still
-  require producers and authenticated parent authority.
+- Terminal completion requires the explicit per-owner approvals and real evidence in section 9;
+  missing approval blocks instead of auto-approving. Implemented producers are not themselves live
+  qualification, held-out quality or a release verdict.
+- Strategy/review/repair commands and lifecycle persistence now exist (sections 2 and 8). The host
+  must still authenticate producer, provenance and permission facts separately from candidate data.
+- The router-to-composer structural join and instance ownership checks do not establish end-to-end
+  scene delivery. Depth/support/mask provenance and independent composed-scene acceptance remain
+  parent responsibilities even when the placement/measurement commands run.
 - Composition treats `capability-unavailable` as a group-scoped fallback reason, not a run-wide
   outage. Run-wide outage names follow the controller; receipts still require independent authority.
 - `base:generic` children may emit a TypeScript factory; composition needs a GLB and refuses
@@ -646,6 +821,7 @@ State these when they matter; do not paper over them.
   `forge/tests/test_compose_cli.py`.
 - Groups 2 to 4: `forge/tests/test_strategy_decision.py`, `forge/tests/test_native_strategy_decision.py`,
   `forge/tests/test_quality_decision.py`, `forge/tests/test_repair_decision.py`,
+  `forge/tests/test_workflow_decisions.py`, `forge/tests/test_omp_model_fallback.py`,
   `forge/tests/test_best_of_n.py`.
 
 These are fixture tests. A passing run proves the protocol and the fail-closed paths, not real-image

@@ -10,8 +10,8 @@ are used here; direct read-only capability/git/version probes do not journal.
 The approved owner mapping is retained live to detect revocation; all other
 inputs are detached. Candidate/provider/model JSON cannot grant an owner profile.
 
-Only Pixi's reviewed deterministic gate + artifact-binding contract is enabled
-by default. Every declared blocking gate must have an exact reviewed command,
+Every terminal producer requires explicit host approval of its exact source and
+runtime closure. Every declared blocking gate must have a reviewed command,
 run successfully, and return the exact current artifact binding. Each child-local
 source, asset, snapshot binding, produced evidence and review is independently
 rehashed before AND after execution. This proves integrity, NOT review authority:
@@ -19,11 +19,11 @@ Pixi's editable review.json does not authenticate a Jev or human visual review.
 The dedicated 2D projection/consumer binds the exact child subject, artifact,
 snapshot, reference, render, capture and critical crops to an answered controller
 quality-review record. Independently approved requirements cannot be shrunk by
-workspace JSON. This semantic evidence still does NOT authenticate native capture:
-terminal promotion remains blocked until a reviewed confined/independent native-node
-producer binds those nodes to the captured pixels. Live CDP replay of arbitrary
-same-realm scene JavaScript is diagnostic evidence only: it cannot exclude scene
-identity spoofing, renderer mutation or an overlaid raster.
+workspace JSON. Semantic evidence alone does NOT authenticate native capture.
+Native promotion additionally requires an explicit host-reviewed source/dependency
+closure and a fresh independently owned CDP run via PixiCaptureAuthority. Without
+that approval, arbitrary same-realm JavaScript replay remains diagnostic only.
+Reviewed code is a trust prerequisite, not a claim of arbitrary-JS confinement.
 
 Pixi's import bootstrap must also be pinned: runtime_provider is a trusted
 {dir, resolvedSha} for the harness checkout named 'harness'. Its Python package
@@ -40,14 +40,13 @@ is recognized as available only with its pinned marker/script and fresh exact
 host Node/Chromium/approved Three facts. Raw host selection and executable/module
 bytes are frozen before the transaction and rechecked without probe journaling.
 Availability never means that its gate ran or that 3D terminal checks passed.
-The unsupported 3D terminal paths still fail with named reasons. Heavy local
-resource cost is not paid/licensed consent; paid and licensed owners stay blocked
-without explicit additional approval.
+Heavy local resource cost is not paid/licensed consent; paid and licensed owners
+stay blocked without explicit additional approval.
 """
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import math
 import os
@@ -65,19 +64,18 @@ from workflow_state import new_state
 from stage0_route.images import decode
 from stage0_route.discovery import (
     EDGES, _CHARACTER_DEPENDENCIES, _CHARACTER_GATE_PROBES,
-    character_three_facts, read_only_probes, resolve_character_executable)
-from stage0_route.route import Router
+    character_three_facts, character_bpy_probe, character_bpy_environment,
+    character_bpy_version, read_only_probes, resolve_character_executable)
+from pixi_capture_authority import PixiCaptureAuthority
+from cs2_terminal_authority import CS2TerminalAuthority
+from native_terminal_authority import NativeTerminalAuthority
+from workflow_decisions import verify_lifecycle
+from decision_control import canonical_digest
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _PIN = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 _DEPENDENCY = re.compile(r"(blender|node|python3)>=(\d+(?:\.\d+)*)\Z")
 _ARTIFACT = ".img2/artifacts/pixi2d/artifact.json"
-_UNSUPPORTED = {
-    "base": "base-terminal-measurement-contract-unavailable",
-    "interior": "interior-terminal-quality-producer-unavailable",
-    "cs2": "cs2-terminal-artifact-provenance-unavailable",
-    "character": "character-blocking-terminal-gates-unavailable",
-}
 
 
 def _fail(reason):
@@ -128,6 +126,22 @@ class PixiQualityPolicy:
     requested_model: str = "jev-1.14.0"
 
 
+@dataclass(frozen=True)
+class RoutePolicies:
+    """Explicit host-owned approvals; never construct from candidate JSON."""
+    pixi_quality: dict = field(default_factory=dict)
+    pixi_capture: dict = field(default_factory=dict)
+    cs2_terminal: dict = field(default_factory=dict)
+    native_terminal: dict = field(default_factory=dict)
+    revalidate: object = None
+
+    def __post_init__(self):
+        if (any(type(value) is not dict for value in
+                (self.pixi_quality, self.pixi_capture, self.cs2_terminal, self.native_terminal))
+                or (self.revalidate is not None and not callable(self.revalidate))):
+            _fail("invalid-route-policies")
+
+
 PIXI_CONTRACT = GateContract(
     provider="pixi2d", output_kind="2d-scene", artifact_kind="img2.pixi2d-scene",
     artifact_relative=_ARTIFACT,
@@ -140,7 +154,9 @@ class RouteAuthority(AggregateAuthority):
 
     def __init__(self, router, decision_ref, *, discovered, owners, harness,
                  runtime_provider=None, contracts=(PIXI_CONTRACT,), timeout=30,
-                 runner=subprocess.run, pixi_quality_policies=None):
+                 runner=subprocess.run, pixi_quality_policies=None, pixi_capture_policies=None,
+                 cs2_terminal_policies=None, native_terminal_policies=None, policy_check=None):
+        from stage0_route.route import Router
         if type(router) is not Router:
             _fail("actual-router-required")
         if (type(discovered) is not dict or set(discovered) != {"candidates", "rejected"}
@@ -160,6 +176,15 @@ class RouteAuthority(AggregateAuthority):
         self._runtime = deepcopy(runtime_provider)
         self._timeout = timeout
         self._runner = runner
+        if policy_check is not None and not callable(policy_check):
+            _fail("invalid-route-policies")
+        self._policy_check = policy_check
+        self._pixi_capture_authority = PixiCaptureAuthority(
+            {} if pixi_capture_policies is None else pixi_capture_policies)
+        self._cs2_terminal_authority = CS2TerminalAuthority(
+            {} if cs2_terminal_policies is None else cs2_terminal_policies)
+        self._native_terminal_authority = NativeTerminalAuthority(
+            self.workspace, {} if native_terminal_policies is None else native_terminal_policies)
         if pixi_quality_policies is None:
             pixi_quality_policies = {}
         if (type(pixi_quality_policies) is not dict
@@ -297,7 +322,8 @@ class RouteAuthority(AggregateAuthority):
         digest = None
         if path is not None:
             try:
-                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                target = Path(path).resolve(strict=True) if name == "character-bpy" else Path(path)
+                fd = os.open(target, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
                 with os.fdopen(fd, "rb") as source:
                     if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
                         path = None
@@ -326,6 +352,22 @@ class RouteAuthority(AggregateAuthority):
             if actual != self._character_three:
                 _fail("character-three-binding-changed")
             return actual["facts"] is not None
+        bpy = re.fullmatch(r"character-bpy>=(\d+(?:\.\d+){0,3})", name)
+        if bpy:
+            saved = self._character_hosts.get("character-bpy")
+            if saved is None:
+                return False
+            if self._character_executable_facts("character-bpy") != saved:
+                _fail("character-host-binding-changed")
+            command = character_bpy_probe()
+            if command is None:
+                return False
+            code, raw = self._run(command, env=character_bpy_environment())
+            if self._character_executable_facts("character-bpy") != saved:
+                _fail("character-host-binding-changed")
+            actual = character_bpy_version(code, raw, command[0])
+            required = tuple(map(int, bpy[1].split(".")))
+            return actual is not None and actual >= required + (0,) * max(0, len(actual) - len(required))
         character = re.fullmatch(r"(character-node|character-chromium)>=(\d+(?:\.\d+){0,3})", name)
         if character:
             saved = self._character_hosts.get(character[1])
@@ -430,6 +472,8 @@ class RouteAuthority(AggregateAuthority):
         return row, gates
 
     def _verify(self, verify):
+        if self._policy_check is not None:
+            self._policy_check()
         if not callable(verify) or not callable(getattr(verify, "route_rounds", None)) or not callable(getattr(verify, "route_round_links", None)):
             _fail("held-route-transaction-required")
         if self._live_owners != self._owners:
@@ -489,9 +533,10 @@ class RouteAuthority(AggregateAuthority):
                 or route_child.get("ownerRoute") != ident or route_child.get("outputKind") != owner.output_kind
                 or route_child.get("cropSha256") != entries[0]["reference"]["sha256"]):
             _fail("child-owner-binding-mismatch")
+        verify_lifecycle(verify, state, child_workspace, self.workspace)
         contract = self._contracts.get((candidate["provider"], owner.output_kind))
         if contract is None:
-            _fail(_UNSUPPORTED.get(candidate["provider"], "unsupported-terminal-gate-contract"))
+            _fail("unsupported-terminal-gate-contract")
         if artifact_relative != contract.artifact_relative:
             _fail("terminal-artifact-path-mismatch")
         actual_bytes, _ = _read(child_workspace, artifact_relative)
@@ -560,20 +605,77 @@ class RouteAuthority(AggregateAuthority):
             _fail("gate-interpreter-changed")
         self._verify(verify)
         self.consume_pixi_quality(verify, object_id, child_workspace)
-        # An authenticated semantic decision is necessary, not sufficient:
-        # capture.json's producer/renderer strings still do not prove that the
-        # pinned helper ran inside the real host with these source bytes loaded.
-        # Even live CDP pixels from arbitrary same-realm source cannot prove that
-        # the required native nodes, rather than an overlay/spoof, produced them.
-        # No reviewed confinement/independent native-node producer exists here.
-        _fail("terminal-native-capture-authority-unavailable")
+        # Only explicit host-reviewed source approval plus a fresh independent
+        # browser run can admit native provenance. Arbitrary JS remains refused.
+        self._pixi_capture_authority.verify_capture(
+            child_workspace, object_id=object_id, revision=state["routeChild"]["revision"],
+            artifact_binding={"path": artifact_relative, "sha256": _sha(artifact_bytes)},
+            snapshot_binding={"path": ".img2/artifacts/pixi2d/snapshot.json",
+                              "sha256": _sha(_read(child_workspace, ".img2/artifacts/pixi2d/snapshot.json")[0])},
+            reference_binding={"path": state["artifacts"]["reference"],
+                               "sha256": state["routeChild"]["cropSha256"]},
+            requirements=self._pixi_policies[object_id].requirements)
+        if self._evidence(child_workspace, artifact, contract) != evidence_before:
+            _fail("terminal-evidence-changed-during-gate")
+        self._verify(verify)
+
+    def prepare_terminal_review(self, verify, object_id):
+        """Run approved producers locally; never consult or grant acceptance."""
+        decision, inventory, owners = self._verify(verify)
+        entries = [row for row in inventory["objects"] if row["objectId"] == object_id]
+        if len(entries) != 1:
+            _fail("unknown-child")
+        entry = entries[0]
+        row = next(row for row in decision["objects"] if row["objectId"] == object_id)
+        child = self.workspace / f".img2threejs/objects/{object_id}/rev-{row['revision']}"
+        state = _decode(_read(child, "state.json")[0])
+        subject = state.get("routeChild", {})
+        owner = owners[entry["ownerRoute"]]
+        if (subject.get("runId") != self.router.run_id or subject.get("objectId") != object_id
+                or subject.get("revision") != row["revision"] or subject.get("ownerRoute") != entry["ownerRoute"]
+                or subject.get("cropSha256") != entry["reference"]["sha256"]
+                or subject.get("outputKind") != owner.output_kind or state.get("profile") != owner.profile):
+            _fail("child-owner-binding-mismatch")
+        provider = self._candidates[entry["ownerRoute"]]["provider"]
+        if provider == "pixi2d":
+            context = self.pixi_quality_context(object_id, child)
+            snapshot_path = ".img2/artifacts/pixi2d/snapshot.json"
+            self._pixi_capture_authority.verify_capture(
+                child, object_id=object_id, revision=row["revision"],
+                artifact_binding={"path": _ARTIFACT, "sha256": _sha(_read(child, _ARTIFACT)[0])},
+                snapshot_binding={"path": snapshot_path, "sha256": _sha(_read(child, snapshot_path)[0])},
+                reference_binding={"path": state["artifacts"]["reference"], "sha256": subject["cropSha256"]},
+                requirements=self._pixi_policies[object_id].requirements)
+            area = ".img2/artifacts/pixi2d/"
+            link = area + "quality-review-link.json"
+        elif provider == "cs2":
+            policy = self._cs2_terminal_authority._policy(object_id, child)
+            context = self._cs2_terminal_authority.prepare(
+                child, object_id=object_id,
+                artifact={"path": "artifact.json", "sha256": _sha(_read(child, "artifact.json")[0])},
+                inputs={"path": policy.inputs_binding[0], "sha256": policy.inputs_binding[1]})
+            produced_scene = next(binding["path"] for binding in context["bindings"]
+                                  if binding["role"] == "produced-scene")
+            prefix = child.relative_to(self.workspace).as_posix() + "/"
+            if not produced_scene.startswith(prefix):
+                _fail("cs2-produced-context-path-mismatch")
+            area = produced_scene[len(prefix):].rsplit("/", 1)[0] + "/"
+            link = ".img2/cs2-terminal/quality-review-link.json"
+        elif provider in {"base", "interior", "character"}:
+            context = self._native_terminal_authority.prepare(child, provider=provider, state=state)
+            area = ".img2/artifacts/native-terminal/"
+            link = area + "quality-review-link.json"
+        else:
+            _fail("unsupported-terminal-gate-contract")
+        self._verify(verify)
+        return child, area, link, context
 
     def pixi_quality_context(self, object_id, child_workspace):
         """Project an unpromoted candidate for the shared quality-review edge.
 
         Publication order: produce/publish candidate -> build this context ->
         consult the shared controller OUTSIDE the parent transaction -> persist
-        canonical context at .img2/artifacts/pixi2d/quality-review-context.json
+        immutable digest-named context below .img2/artifacts/pixi2d/
         and a quality-review-link.json containing {context:{path,sha256},
         record:{path,sha256}}. Paths in the link are parent-workspace-relative;
         the record path is the controller's quality-review/<recordId>.json.
@@ -708,7 +810,7 @@ class RouteAuthority(AggregateAuthority):
                 _fail("stale-pixi-quality-link")
             values[name] = _decode(raw)
         context, record = values["context"], values["record"]
-        context_path = relative + "/" + area + "quality-review-context.json"
+        context_path = relative + "/" + area + "quality-review-context-" + canonical_digest(context) + ".json"
         if (link["context"]["path"] != context_path or _encode(context) != _encode(expected)
                 or type(record) is not dict
                 or link["record"]["path"] != ".img2threejs/decisions/quality-review/" + str(record.get("recordId")) + ".json"):
@@ -716,7 +818,7 @@ class RouteAuthority(AggregateAuthority):
         with read_only_probes(self.router.discovery):
             record = verify(record, context)
         if (record.get("group") != "quality-review" or record.get("subject") != expected["subject"]
-                or record.get("status") != "answered" or not record.get("decider", "").startswith("jev:")):
+                or record.get("status") != "answered" or not record.get("decider", "").startswith(("jev:", "model:"))):
             _fail("pixi-quality-review-not-authorized")
         for dimension in expected["requirements"]["dimensions"]:
             answer = record["answers"].get("dimension:" + dimension["id"], {})
@@ -801,11 +903,23 @@ class RouteAuthority(AggregateAuthority):
         self._terminal(verify, object_id, child_workspace, state, artifact_bytes, _ARTIFACT)
 
     def verify_terminal(self, verify, *, object_id, child_workspace, state, artifact):
-        # D18 has no required kind/version/bindings envelope. Never reinterpret
-        # it as Pixi or authorize native output through a data-only registration.
         _, inventory, _ = self._verify(verify)
         entries = [entry for entry in inventory["objects"] if entry["objectId"] == object_id]
         if len(entries) != 1:
             _fail("unknown-child")
         candidate = self._candidates[entries[0]["ownerRoute"]]
-        _fail(_UNSUPPORTED.get(candidate["provider"], "unsupported-terminal-gate-contract"))
+        raw = _read(child_workspace, "artifact.json")[0]
+        if _decode(raw) != artifact:
+            _fail("terminal-artifact-bytes-mismatch")
+        verify_lifecycle(verify, state, child_workspace, self.workspace)
+        provider = candidate["provider"]
+        if provider == "cs2":
+            self._cs2_terminal_authority.verify_terminal(
+                verify, object_id=object_id, child_workspace=child_workspace, state=state,
+                artifact={"path": "artifact.json", "sha256": hashlib.sha256(raw).hexdigest()})
+        elif provider in {"base", "interior", "character"}:
+            self._native_terminal_authority.verify_terminal(
+                verify, child_workspace=child_workspace, provider=provider, state=state)
+        else:
+            _fail("unsupported-terminal-gate-contract")
+        self._verify(verify)

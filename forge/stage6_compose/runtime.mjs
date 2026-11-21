@@ -23,7 +23,7 @@ export async function createComposedScene() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(DATA.camera.fov, DATA.camera.aspect, DATA.camera.near, DATA.camera.far);
   camera.position.fromArray(DATA.camera.position);
-  camera.up.set(0, 1, 0);
+  camera.up.fromArray(DATA.camera.up ?? [0, 1, 0]);
   camera.lookAt(...DATA.camera.target);
   const rig = new THREE.Group();
   rig.name = 'recorded-environment';

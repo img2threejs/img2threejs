@@ -98,7 +98,7 @@ class Router:
         seen = set()
         clean = []
         for obj in objects:
-            if (type(obj) is not dict or set(obj) - {"objectId", "label", "role", "approxBox", "observations", "instanceOf"}
+            if (type(obj) is not dict or set(obj) - {"objectId", "label", "role", "approxBox", "observations", "instanceOf", "classId"}
                     or not {"objectId", "label", "role", "approxBox"} <= set(obj)
                     or type(obj["objectId"]) is not str or not _ID.fullmatch(obj["objectId"])
                     or type(obj["label"]) is not str or not _ID.fullmatch(obj["label"])
@@ -108,6 +108,8 @@ class Router:
             if (obj.get("instanceOf") is not None and (type(obj["instanceOf"]) is not str
                     or not _ID.fullmatch(obj["instanceOf"]))):
                 raise RouteError("invalid-instance-group")
+            if "classId" in obj and (type(obj["classId"]) is not str or not _ID.fullmatch(obj["classId"])):
+                raise RouteError("invalid-object-class")
             seen.add(obj["objectId"])
             clean.append(dict(obj, approxBox=box(obj["approxBox"])))
         if distinct_count(clean) > 12:
@@ -261,6 +263,8 @@ class Router:
                      "box": obj["approxBox"], "reference": row["reference"], "cropTransform": row["cropTransform"],
                      "decomposer": obj["decomposer"], "confidence": obj["confidence"],
                      "lowConfidence": obj["lowConfidence"], "instanceOf": obj.get("instanceOf"), "ownerRoute": None}
+            if "classId" in obj:
+                entry["classId"] = obj["classId"]
             entries[obj["objectId"]] = entry
             inventory["objects"].append(entry)
             groups.setdefault(route_key(obj), []).append((obj, row))

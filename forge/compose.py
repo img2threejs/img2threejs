@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Executable entry point for base-owned D11/D18 composition and D12 scene gates.
 
-Two subcommands, both fail-closed and offline:
+Three subcommands, all fail-closed and offline:
 
+    python3 forge/compose.py request --workspace WS --state STATE --inventory INVENTORY --reference IMAGE --placement PLACEMENT
     python3 forge/compose.py scene --workspace WS --request REQ --output-dir DIR
     python3 forge/compose.py gates --workspace WS --composed scene.json \
         --measurements M.json --inventory INVENTORY.json
@@ -25,6 +26,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import re
 
 ROOT = Path(__file__).resolve().parent
 for _entry in (str(ROOT), str(ROOT / "_shared")):
@@ -34,6 +36,9 @@ for _entry in (str(ROOT), str(ROOT / "_shared")):
 from scene_quality import assess_scene  # noqa: E402
 from _shared.route_artifact import ArtifactError  # noqa: E402
 from stage6_compose.compose import CompositionError, _read, compose_scene  # noqa: E402
+from stage6_compose.request import build_request  # noqa: E402
+from stage0_route.storage import snapshot
+from _shared.placement_decision import placement_context, consult_placement, consume_placement
 
 _MAX_INPUT = 64 * 1024 * 1024
 
@@ -50,7 +55,8 @@ def _refusal(reason: str, field: str) -> dict:
 def _read_json(path: Path, field: str) -> tuple[dict, bytes]:
     """Read one bounded JSON object; an unreadable or oversized input refuses."""
     try:
-        data = path.read_bytes()
+        with path.open("rb") as source:
+            data = source.read(_MAX_INPUT + 1)
     except OSError as exc:
         raise _InputError("unreadable-input", field) from exc
     if len(data) > _MAX_INPUT:
@@ -157,9 +163,161 @@ def _gates(args: argparse.Namespace) -> int:
     return 0 if result["status"] == "pass" else 3
 
 
+def _workspace_ref(workspace, path):
+    descriptor = os.open(workspace, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        raw = _read(descriptor, path)
+    finally:
+        os.close(descriptor)
+    return {"path": path, "sha256": hashlib.sha256(raw).hexdigest()}, raw
+
+
+def _bound_json(workspace, reference):
+    if type(reference) is not dict or set(reference) != {"path", "sha256"}:
+        raise _InputError("invalid-reference", "request")
+    current, raw = _workspace_ref(workspace, reference["path"])
+    if current != reference:
+        raise _InputError("stale-evidence", reference["path"])
+    try:
+        value = json.loads(raw)
+    except (ValueError, UnicodeError) as error:
+        raise _InputError("invalid-json", reference["path"]) from error
+    if type(value) is not dict:
+        raise _InputError("invalid-record", reference["path"])
+    return value
+
+
+def _host_pins(args):
+    pins, raw = _read_json(args.host_pins, "host-pins")
+    if (not re.fullmatch(r"[0-9a-f]{64}", args.host_pins_sha256)
+            or hashlib.sha256(raw).hexdigest() != args.host_pins_sha256
+            or set(pins) != {"chrome", "modules"}):
+        raise _InputError("host-pin-mismatch", "host-pins")
+    return pins
+
+
+def _produce(args):
+    request, _ = _read_json(args.request, "request")
+    pins = _host_pins(args)
+    if args.command == "prepare-placement":
+        from stage6_compose.placement import prepare_placement
+        required = {"inventory", "reference", "artifacts", "camera_solve", "depth", "support", "environment"}
+        if not required <= set(request) or set(request) - required - {"base_container"}:
+            raise _InputError("invalid-record", "placement-inputs")
+        request.setdefault("base_container", None)
+        manifest = prepare_placement(args.workspace, **request, chrome=pins["chrome"],
+                                     modules=pins["modules"], output_dir=args.output_dir)
+    else:
+        from stage6_compose.measure import measure_scene
+        required = {"scene", "inventory", "reference", "placement", "viewport"}
+        if not required <= set(request) or set(request) - required - {"background", "reference_mask"}:
+            raise _InputError("invalid-record", "measurement-inputs")
+        manifest = measure_scene(args.workspace, **request, chrome=pins["chrome"],
+                                 modules=pins["modules"], output_dir=args.output_dir)
+    _emit({"kind": "img2.compose-command", "version": 1, "status": "produced",
+           "manifest": manifest, "deliverable": False})
+    return 0
+
+
+def _placement_runtime(args):
+    # Reuse routing's real approved harness, credentials, consent and provider.
+    # No saved consent object or model-authored availability enters this path.
+    from route import (DecisionController, PinnedDiscovery, LiveConsent, HarnessPin,
+                       JevProviderFactory, Router, HostFallback, _approved_lock,
+                       _load_decision, _route_parent)
+    workspace = args.workspace.resolve(strict=True)
+    controller = DecisionController(workspace, args.run_id)
+    discovery = PinnedDiscovery(controller)
+    release = _approved_lock()
+    consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
+    discovery.consent_probe = consent
+    harness = HarnessPin(args.harness_root, args.harness_sha, args.harness_executable,
+                         args.harness_sha256, consent)
+    discovery.harness, discovery.runner = harness.argv, harness.runner
+    factory = JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
+                                 consent=consent, python_executable=consent.executable)
+    fallback = HostFallback(args.fallback_command, args.fallback_sha256) if args.fallback_command else None
+    router = Router(workspace, args.run_id, controller=controller, discovery=discovery, consent=consent)
+    latest_ref, _ = _workspace_ref(workspace, router.latest)
+    latest = _bound_json(workspace, latest_ref)
+    result = _load_decision(workspace, latest["path"], args.run_id)
+    discovery.enumerate()
+    parent = _route_parent(router, result, harness, consent)
+    return workspace, controller, discovery, consent, factory, fallback, parent
+
+
+def _placement(args):
+    from stage0_route.discovery import read_only_probes
+    from stage6_compose.placement import produce_placement
+    request, _ = _read_json(args.request, "request")
+    workspace, controller, discovery, consent, factory, fallback, parent = _placement_runtime(args)
+    preparation = request.get("preparation")
+    plan = _bound_json(workspace, preparation)
+    with read_only_probes(discovery), controller.workspace_transaction(consent=consent) as verify:
+        decision, inventory, _, _ = parent._verified(verify)
+        expected = {"path": decision["inventoryRef"], "sha256": decision["inventorySha256"]}
+        if (plan.get("arguments", {}).get("inventory") != expected
+                or plan.get("inventorySha256") != expected["sha256"]):
+            raise _InputError("inventory-mismatch", "preparation")
+        containers = {row["objectId"] for row in inventory["objects"] if row["role"] == "scene-container"}
+        routed_ids = {row["objectId"] for row in inventory["objects"]
+                      if row["artifactObjectId"] not in containers or row["objectId"] in containers}
+        rows = plan.get("objects")
+        if (type(rows) is not list or len(rows) != len(routed_ids)
+                or {row.get("objectId") for row in rows} != routed_ids):
+            raise _InputError("inventory-mismatch", "preparation.objects")
+    if args.command == "place":
+        if request.get("kind") != "img2.scene-placement-request" or request.get("version") != 1:
+            raise _InputError("invalid-record", "request")
+        with read_only_probes(discovery), controller.workspace_transaction(consent=consent) as verify:
+            parent._verified(verify)
+            manifest = produce_placement(
+                workspace, preparation=preparation, decisions=request["decisions"],
+                verify_answer=lambda context, record: consume_placement(verify, context, record),
+                output_dir=args.output_dir)
+        _emit({"kind": "img2.compose-command", "version": 1, "status": "produced",
+               "manifest": manifest, "deliverable": False})
+        return 0
+    state = _bound_json(workspace, _workspace_ref(workspace, ".img2threejs/state.json")[0])
+    revisions = {row["objectId"]: row["revision"] for row in state["objects"]}
+    revisions = {row["objectId"]: revisions[row["artifactObjectId"]] for row in inventory["objects"]}
+    decisions, suspended = {}, []
+    for row in plan["objects"]:
+        object_id = row["objectId"]
+        decisions[object_id] = {}
+        for question in ("size", "yaw"):
+            context = placement_context(
+                {"runId": args.run_id, "objectId": object_id, "revision": revisions[object_id]},
+                row["decisionBindings"], question=question, options=row[question + "Options"],
+                observations={"images": [{"role": "reference", "asset": "reference-image"}]})
+            context_ref = snapshot(workspace, "placement-context", context)
+            context_ref = {key: context_ref[key] for key in ("path", "sha256")}
+            with read_only_probes(discovery):
+                result = consult_placement(
+                    controller, context, provider=factory.provider(context), fallback=fallback,
+                    availability=discovery.availability, consent=consent)
+            record = result["record"]
+            record_path = ".img2threejs/decisions/build-strategy/" + record["recordId"] + ".json"
+            record_ref, _ = _workspace_ref(workspace, record_path)
+            decisions[object_id][question] = {"context": context_ref, "record": record_ref}
+            if result["answer"] is None:
+                suspended.append({"objectId": object_id, "question": question, "reasonCode": record["reasonCode"]})
+    _emit({"kind": "img2.scene-placement-request", "version": 1, "preparation": preparation,
+           "decisions": decisions, "status": "request-input" if suspended else "decided",
+           "suspended": suspended, "deliverable": False})
+    return 3 if suspended else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
+
+    request = commands.add_parser("request", help="Join existing parent and placement evidence into a request")
+    request.add_argument("--workspace", type=Path, default=Path("."))
+    request.add_argument("--state", required=True, help="workspace-relative parent state")
+    request.add_argument("--inventory", required=True, help="workspace-relative routed inventory")
+    request.add_argument("--reference", required=True, help="workspace-relative source image")
+    request.add_argument("--placement", required=True, help="workspace-relative existing placement record")
 
     scene = commands.add_parser("scene", help="Compose validated child artifacts into a candidate scene")
     scene.add_argument("--workspace", type=Path, default=Path("."))
@@ -175,16 +333,62 @@ def build_parser() -> argparse.ArgumentParser:
                        help="externally produced scene measurements")
     gates.add_argument("--inventory", type=Path, required=True,
                        help="routed img2.object-inventory for the run")
+    for name in ("prepare-placement", "measure"):
+        producer = commands.add_parser(name, help="Produce actual geometry/capture evidence; never accept delivery")
+        producer.add_argument("--workspace", type=Path, required=True)
+        producer.add_argument("--request", type=Path, required=True)
+        producer.add_argument("--output-dir", required=True)
+        producer.add_argument("--host-pins", type=Path, required=True,
+                              help="Host-selected Chrome/module bindings, not model input")
+        producer.add_argument("--host-pins-sha256", required=True,
+                              help="Explicit host approval of exact host-pins JSON bytes")
+    for name in ("consult-placement", "place"):
+        placement = commands.add_parser(name, help="Use shared journalled size/yaw decisions")
+        placement.add_argument("--workspace", type=Path, required=True)
+        placement.add_argument("--request", type=Path, required=True)
+        placement.add_argument("--run-id", required=True)
+        placement.add_argument("--harness-root", type=Path, required=True)
+        placement.add_argument("--harness-sha", required=True)
+        placement.add_argument("--harness-executable", type=Path, required=True)
+        placement.add_argument("--harness-sha256", required=True)
+        placement.add_argument("--fallback-command", type=Path)
+        placement.add_argument("--fallback-sha256")
+        if name == "place":
+            placement.add_argument("--output-dir", required=True)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command in {"place", "consult-placement"} and (
+            (args.fallback_command is None) != (args.fallback_sha256 is None)):
+        build_parser().error("--fallback-command and --fallback-sha256 must be supplied together")
     try:
+        if args.command in {"prepare-placement", "measure"}:
+            return _produce(args)
+        if args.command in {"consult-placement", "place"}:
+            return _placement(args)
+        if args.command == "request":
+            try:
+                _emit(build_request(args.workspace, state_path=args.state, inventory_path=args.inventory,
+                                    reference_path=args.reference, placement_path=args.placement))
+            except CompositionError as error:
+                _emit(_refusal(error.reason_code, error.field))
+                return 3
+            return 0
         return _scene(args) if args.command == "scene" else _gates(args)
     except _InputError as error:
         _emit(_refusal(error.reason_code, error.field))
         return 2
+    except (CompositionError, ArtifactError) as error:
+        _emit(_refusal(error.reason_code, getattr(error, "field", "request")))
+        return 3
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        reason = getattr(error, "reason_code", None)
+        if type(reason) is not str or re.fullmatch(r"[a-z][a-z0-9-]{0,95}", reason) is None:
+            reason = "invalid-producer-input"
+        _emit(_refusal(reason, "request"))
+        return 3
 
 
 if __name__ == "__main__":

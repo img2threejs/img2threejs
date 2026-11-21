@@ -1,12 +1,12 @@
 {
-  "resolvedSha": "a8ec0f8c484dde01fc6041e6a254a03ae36c6054",
+  "resolvedSha": "3d294eba46eae4bfbd6f64db6899c8bb401c337f",
   "contractVersion": "jev-v4-four-decisions",
   "files": {
     "plugin.json": "c9aaa6014203b8a4f90b1706e9841e4b6b43d2736f0c3439eed82237be270299",
     "steps.json": "cc9b6c7ba0a59619014a4b43d6125ebe6a7e126db98d5ac2ba8f63097d78807c",
-    "tools/jev.py": "39304df747050ce55b09a213876b9f13b1dfebaaec3661eb477a4c5bab7792df",
+    "tools/jev.py": "5cc2b87d5b9633e6f559384d8302ec933c93bb5adda45328f8c52f86807d6192",
     "tools/jev_auth.py": "f7f3f725429d0fc4969514c3814e3c59e520ed6b4468555cc31a4d437eee04f8",
-    "tools/jev_consent.py": "8729448d3ce8071f5bdbb36704b25d82fbc728de9ef67b48d39a56bd457a71b8",
+    "tools/jev_consent.py": "a2914057173aa92da0023799a96f6cfa006312e00d9f3d665fd193d878c2aa20",
     "tools/jev_contracts.py": "39a077f67186265333ed7f52426ae29f1a60555e9c865f1aa3740daf4cfebb7c",
     "tools/jev_client.py": "ccd990fd8ff82397ee9b653e286479451772c2c3f1ea26701a1ff7eec43960eb",
     "tools/jev_policy.py": "bbb334f1508119ccf38f3c89c05a6d429af0119e57d9b23097e2df6533bcf4eb",
@@ -15,8 +15,8 @@
     "tools/jev_checkpoint.py": "6ad04ebaef302affc084c2d54b701aac4cbaac3af7fe0b4101ffdeb2dc9055ee",
     "tools/jev_checkpoint_client.py": "1098e4f87504e4217a9bd35cfb8d27401adbc3e2e8fa178a03863d9823992f76",
     "tools/jev_projection.py": "67eb55f70f582e36e120f3d4cf2119d1291249bacdd138ef2e5137a752afc5cb",
-    "tools/jev_decision_questions.py": "b99d97303bb831954910cd4ed04dec53946fe320f9310be8c7e71527ef38ba26",
-    "tools/jev_decision_provider.py": "5fb33859a76c3566dc57868103e3f8d1f1bd2c90f05c60957eaaf4dc40eab73d",
+    "tools/jev_decision_questions.py": "7ca5f4a8bed7c963755768c41da05be3a199580e963169217cb2ae304b7879e4",
+    "tools/jev_decision_provider.py": "716d5bd8f40da3f4717f32b6929469bd903d169eb96dd6a6f297ba0754ea5fc8",
     "tools/jev_decision_transport.py": "f83cbb996d86e66c5d43bab006a6e4345e5cecc1cfef1e60734837428ae7d63d",
     "tools/jev_decision_images.py": "5dec4eaeb252c24fa1fded1f1e0a4ed9aeeb132d8010c2e73620949fde326a97"
   }

@@ -37,7 +37,7 @@ import secrets
 import stat
 
 from route_artifact import load_artifact
-from workflow_state import new_state, recompute, validate_state
+from workflow_state import new_state, recompute, validate_state, attach_lifecycle_steps
 
 
 class ParentError(ValueError):
@@ -309,6 +309,28 @@ class RouteParent:
         resolved = {key for key, row in by_id.items() if row.get("status") == "resolved"}
         if any(row.get("status") not in {"resolved", "dropped", "merged"} for row in rows):
             _fail("route-execution-unresolved")
+        groups, group_ids = {}, set()
+        for entry in entries:
+            if type(entry) is not dict or type(entry.get("objectId")) is not str:
+                _fail("invalid-object-inventory")
+            if not _ID.fullmatch(entry["objectId"]) or entry["objectId"] in group_ids:
+                _fail("duplicate-or-unsafe-object")
+            group_ids.add(entry["objectId"])
+            artifact_id = entry.get("artifactObjectId", entry["objectId"])
+            if type(artifact_id) is not str or not _ID.fullmatch(artifact_id):
+                _fail("invalid-object-inventory")
+            groups.setdefault(artifact_id, []).append(entry)
+        for artifact_id, members in groups.items():
+            if (artifact_id not in {item["objectId"] for item in members}
+                    or type(members[0].get("ownerRoute")) is not str
+                    or any(item.get("ownerRoute") != members[0]["ownerRoute"] for item in members)):
+                _fail("instance-group-mismatch")
+            if len(members) > 1:
+                instance = members[0].get("instanceOf")
+                if (type(instance) is not str or not instance
+                        or any(item.get("instanceOf") != instance
+                               or item.get("role") == "scene-container" for item in members)):
+                    _fail("instance-group-mismatch")
         seen = set()
         children, writes = [], []
         for entry in entries:
@@ -339,6 +361,15 @@ class RouteParent:
             data, _ = _read(self.workspace, path)
             if not data or hashlib.sha256(data).hexdigest() != sha:
                 _fail("stale-reference-crop")
+            artifact_id = entry.get("artifactObjectId", object_id)
+            if "artifactObjectId" in entry and (
+                    row.get("routeObjectId") != artifact_id
+                    or entry.get("routeObjectId") != artifact_id
+                    or type(row.get("execution")) is not dict
+                    or row["execution"].get("placementOnly") is not (object_id != artifact_id)):
+                _fail("instance-group-mismatch")
+            if object_id != artifact_id:
+                continue
             directory = f".img2threejs/objects/{object_id}/rev-{revision}"
             child_path = directory + "/state.json"
             crop_path = directory + "/reference" + PurePosixPath(path).suffix
@@ -359,8 +390,12 @@ class RouteParent:
             child["routeChild"] = {"runId": self.controller.run_id, "objectId": object_id,
                                    "revision": revision, "ownerRoute": owner_route,
                                    "outputKind": owner.output_kind, "cropSha256": sha}
+            if len(groups[object_id]) > 1:
+                child["routeChild"]["ownedObjectIds"] = sorted(
+                    item["objectId"] for item in groups[object_id])
             if interior:
                 child["routeChild"]["excludedObjectIds"] = sorted(resolved - {object_id})
+            attach_lifecycle_steps(child)
             writes.extend([(crop_path, data), (child_path, _encode(child))])
             children.append({**child["routeChild"], "statePath": child_path,
                              "artifactPath": directory + ("/.img2/artifacts/pixi2d/artifact.json"
@@ -493,6 +528,12 @@ class RouteParent:
         artifact = load_artifact(child_workspace)
         if (artifact["objectId"] != descriptor["objectId"]
                 or artifact["outputKind"] != descriptor["outputKind"]):
+            _fail("child-artifact-mismatch")
+        owned = descriptor.get("ownedObjectIds")
+        if owned is not None and (artifact.get("ownerRoute") != descriptor["ownerRoute"]
+                                  or type(artifact.get("ownedObjectIds")) is not list
+                                  or any(type(item) is not str for item in artifact["ownedObjectIds"])
+                                  or sorted(artifact["ownedObjectIds"]) != owned):
             _fail("child-artifact-mismatch")
         if (descriptor["profile"] == "interior" and descriptor["outputKind"] == "3d-scene"
                 and (artifact.get("excludeComponents") != template["routeChild"]["excludedObjectIds"]

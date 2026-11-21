@@ -175,6 +175,52 @@ def new_state(
     return state
 
 
+def attach_lifecycle_steps(state: dict[str, Any]) -> None:
+    """Opt a newly created routed child into base-owned decision boundaries.
+
+    Existing workspaces are never migrated implicitly. Native child workflows
+    without sculpt pass rows receive setup strategy and terminal quality gates.
+    """
+    child = state.get("routeChild")
+    if (type(child) is not dict or type(child.get("revision")) is not int
+            or child["revision"] < 1 or state.get("decisionLifecycle") is not None
+            or any(row["status"] != "pending" for row in state["checklist"])):
+        raise WorkflowStateError("lifecycle attachment requires a new routed child")
+    rows = state["checklist"]
+    ids = {row["id"] for row in rows}
+    setup_anchor = "spec-authoring" if "spec-authoring" in ids else next(
+        (row["id"] for row in rows if row["scope"] == "setup"), rows[0]["id"])
+    def insert(step_id, command, scope, anchor):
+        at = next(index for index, row in enumerate(rows) if row["id"] == anchor)
+        rows.insert(at, _step(step_id, command, scope=scope))
+    child_state = f".img2threejs/objects/{child['objectId']}/rev-{child['revision']}/state.json"
+    command = (
+        "python3 forge/decision.py {command} --workspace <parent-workspace> --run-id "
+        + shlex.quote(child["runId"]) + " --child-state " + shlex.quote(child_state)
+        + " --request <request.json> --policy-module <host-policy.py> --policy-sha256 <host-approved-sha256>"
+        + " --harness-root <host-harness> --harness-sha <host-commit>"
+        + " --harness-executable <host-launcher> --harness-sha256 <host-launcher-sha256>")
+    insert("strategy-spec", command.replace("{command}", "strategy-spec"), "setup", setup_anchor)
+    if "build-current-pass" in ids:
+        insert("strategy-build", command.replace("{command}", "strategy-build"), "pass", "build-current-pass")
+        insert("quality-review", command.replace("{command}", "quality"), "pass", "ai-review-recorded")
+        insert("repair-decision", command.replace("{command}", "repair"), "pass", "ai-review-recorded")
+    else:
+        build_anchor = next((anchor for anchor in ("interior-author-and-review", "pixi2d-evidence-produce")
+                             if anchor in ids), None)
+        review_anchor = next((anchor for anchor in ("interior-export-and-audit", "pixi2d-publish")
+                              if anchor in ids), None)
+        if build_anchor is None or review_anchor is None:
+            raise WorkflowStateError("native lifecycle requires known build and publication boundaries")
+        insert("strategy-build", command.replace("{command}", "strategy-build"), "setup", build_anchor)
+        insert("quality-review", command.replace("{command}", "quality"), "setup", review_anchor)
+        insert("repair-decision", command.replace("{command}", "repair"), "setup", review_anchor)
+    state["decisionLifecycle"] = {"version": 1, "candidateRevision": child["revision"],
+                                  "incumbentRevision": child["revision"]}
+    state["decisionRefs"] = []
+    recompute(state)
+
+
 def validate_state(state: Any) -> dict[str, Any]:
     if not isinstance(state, dict):
         raise WorkflowStateError("state must be a JSON object")
@@ -215,6 +261,15 @@ def validate_state(state: Any) -> dict[str, Any]:
     review_cursor = state.get("reviewCursor", 0)
     if not isinstance(review_cursor, int) or review_cursor < 0:
         raise WorkflowStateError("state reviewCursor must be a non-negative integer")
+    lifecycle = state.get("decisionLifecycle")
+    if lifecycle is not None and (
+            type(lifecycle) is not dict or set(lifecycle) != {"version", "candidateRevision", "incumbentRevision"}
+            or lifecycle["version"] != 1
+            or any(type(lifecycle[key]) is not int or lifecycle[key] < 1
+                   for key in ("candidateRevision", "incumbentRevision"))
+            or lifecycle["candidateRevision"] < lifecycle["incumbentRevision"]
+            or type(state.get("decisionRefs")) is not list):
+        raise WorkflowStateError("invalid decision lifecycle state")
     return state
 
 
@@ -326,6 +381,10 @@ def mark_steps(
     if status == "skipped" and not reason.strip():
         raise WorkflowStateError("skipping a mandatory step requires --reason")
     by_id = {entry["id"]: entry for entry in state["checklist"]}
+    if (state.get("decisionLifecycle") is not None and status != "pending"
+            and any(step_id in {"strategy-spec", "strategy-build", "quality-review", "repair-decision"}
+                    for step_id in step_ids)):
+        raise WorkflowStateError("decision lifecycle steps require forge/decision.py")
     missing = [step_id for step_id in step_ids if step_id not in by_id]
     if missing:
         raise WorkflowStateError(f"unknown checklist step(s): {', '.join(missing)}")

@@ -1,0 +1,13 @@
+{
+  "version": "size-priors-v1",
+  "units": "m",
+  "status": "provisional-engineering-bands-not-corpus-calibrated",
+  "classes": {
+    "mug": {"minHeight": 0.08, "maxHeight": 0.18},
+    "chair": {"minHeight": 0.65, "maxHeight": 1.4},
+    "table": {"minHeight": 0.4, "maxHeight": 1.2},
+    "sofa": {"minHeight": 0.55, "maxHeight": 1.4},
+    "adult-human": {"minHeight": 1.2, "maxHeight": 2.2},
+    "standing-floor-lamp": {"minHeight": 1.0, "maxHeight": 2.4}
+  }
+}

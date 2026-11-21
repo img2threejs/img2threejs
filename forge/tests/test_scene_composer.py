@@ -135,7 +135,16 @@ class SceneComposerTests(unittest.TestCase):
 
     def bind(self):
         self.request['inventory'] = self.put('inventory.json', self.inventory)
-        self.request['artifacts'] = [self.put(f'objects/{oid}/artifact.json', artifact) for oid, artifact in self.artifacts.items()]
+        self.request['artifacts'] = []
+        for oid, artifact in self.artifacts.items():
+            child_artifact = deepcopy(artifact)
+            prefix = f'objects/{oid}/'
+            for entry in child_artifact['files']:
+                if entry['path'].startswith(prefix):
+                    entry['path'] = entry['path'][len(prefix):]
+            if child_artifact.get('entrypoint', '').startswith(prefix):
+                child_artifact['entrypoint'] = child_artifact['entrypoint'][len(prefix):]
+            self.request['artifacts'].append(self.put(f'objects/{oid}/artifact.json', child_artifact))
         hashes = {oid: ref['sha256'] for oid, ref in zip(self.artifacts, self.request['artifacts'])}
         common = {'inventorySha256': self.request['inventory']['sha256'], 'referenceSha256': self.request['reference']['sha256']}
         self.placement.update(common)
@@ -245,7 +254,8 @@ class SceneComposerTests(unittest.TestCase):
 
     def test_duplicate_routed_glb_is_rejected(self):
         self.add_object('second')
-        self.artifacts['second']['files'] = deepcopy(self.artifacts['subject']['files'][:1])
+        source = self.root / self.artifacts['subject']['files'][0]['path']
+        self.artifacts['second']['files'] = [self.put('objects/second/model.glb', source.read_bytes())]
         self.bind()
         self.reject('duplicate-routed-artifact')
 
@@ -260,6 +270,13 @@ class SceneComposerTests(unittest.TestCase):
     def test_stale_model_is_rejected_by_shared_validator(self):
         (self.root / self.artifacts['subject']['files'][0]['path']).write_bytes(b'changed')
         self.reject('hash-mismatch', ArtifactError)
+
+    def test_manifest_file_cannot_escape_child_workspace(self):
+        manifest_ref = self.request['artifacts'][0]
+        manifest = self.get(manifest_ref)
+        manifest['files'][0]['path'] = '../../reference/input.bin'
+        self.request['artifacts'][0] = self.put(manifest_ref['path'], manifest)
+        self.reject('unsafe-path')
 
     def test_stale_manifest_reference_is_rejected(self):
         (self.root / self.request['artifacts'][0]['path']).write_bytes(b'{}')

@@ -29,8 +29,10 @@ _DEPENDENCIES = {"blender": ("blender", "--version"), "node": ("node", "--versio
 _CHARACTER_DEPENDENCIES = {
     "character-node": ("IMG2_CHARACTER_NODE", "node"),
     "character-chromium": ("IMG2_CHARACTER_BROWSER", "chromium"),
+    "character-bpy": ("IMG2_CHARACTER_BPY_PYTHON", "python3"),
 }
-_CHARACTER_GATE_PROBES = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0", "character-three>=0.186.1")
+_CHARACTER_GATE_PROBES = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0",
+                         "character-bpy>=4.3", "character-three>=0.186.1")
 _CHARACTER_THREE_FILES = (
     "build/three.core.js", "build/three.module.js",
     "examples/jsm/loaders/GLTFLoader.js", "examples/jsm/utils/BufferGeometryUtils.js",
@@ -115,9 +117,43 @@ def resolve_character_executable(probe_name):
         resolved = Path(executable).resolve(strict=True)
         if not resolved.is_file() or not os.access(resolved, os.X_OK):
             return None
+        # Python locates pyvenv.cfg via the invocation path, not its native target.
+        if probe_name == "character-bpy":
+            return str(Path(executable).parent.resolve(strict=True) / Path(executable).name)
         return str(resolved)
     except (OSError, ValueError, RuntimeError):
         return None
+
+_BPY_PROBE = (
+    "import bpy,json,sys; print(json.dumps({'kind':'img2.character-bpy-probe',"
+    "'version':1,'executable':sys.executable,'bpyVersion':bpy.app.version_string,"
+    "'bpyModule':bpy.__file__}))"
+)
+
+
+def character_bpy_probe():
+    executable = resolve_character_executable("character-bpy")
+    return (executable, "-I", "-B", "-c", _BPY_PROBE) if executable else None
+
+
+def character_bpy_environment():
+    names = ("HOME", "TMPDIR", "TMP", "TEMP", "LANG", "LC_ALL", "LC_CTYPE", "SYSTEMROOT", "WINDIR")
+    return dict({key: os.environ[key] for key in names if key in os.environ}, PATH=os.defpath)
+
+
+def character_bpy_version(code, raw, executable):
+    try:
+        value = json.loads(raw)
+        if (code != 0 or type(value) is not dict or value.get("kind") != "img2.character-bpy-probe"
+                or value.get("version") != 1 or value.get("executable") != executable
+                or type(value.get("bpyModule")) is not str
+                or type(value.get("bpyVersion")) is not str):
+            return None
+        version = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?", value["bpyVersion"])
+        return tuple(int(part or 0) for part in version.groups()) if version else None
+    except (ValueError, TypeError):
+        return None
+
 
 # Values are immutable and local to the calling thread/async context. A scope
 # applies only to the exact Discovery shared by the controller's callbacks.
@@ -154,12 +190,15 @@ class Discovery:
         self.jev = None
         self.jev_status = None
 
-    def run(self, argv):
+    def run(self, argv, *, env=None):
         """Only callers in this module construct argv; stdout is never journalled verbatim."""
         argv = list(argv)
         try:
-            result = self.runner(argv, capture_output=True, timeout=15, check=False,
-                                 shell=False, cwd=str(self.workspace))
+            arguments = {"capture_output": True, "timeout": 15, "check": False,
+                         "shell": False, "cwd": str(self.workspace)}
+            if env is not None:
+                arguments["env"] = env
+            result = self.runner(argv, **arguments)
             output = result.stdout
             if type(output) is str:
                 output = output.encode()
@@ -216,6 +255,15 @@ class Discovery:
     def dependency(self, name):
         if name == "character-three>=0.186.1":
             return character_three_facts() is not None
+        bpy = re.fullmatch(r"character-bpy>=(\d+(?:\.\d+){0,3})", name)
+        if bpy:
+            command = character_bpy_probe()
+            if command is None:
+                return False
+            code, raw = self.run(command, env=character_bpy_environment())
+            actual = character_bpy_version(code, raw, command[0])
+            required = tuple(map(int, bpy[1].split(".")))
+            return actual is not None and actual >= required + (0,) * max(0, len(actual) - len(required))
         character = re.fullmatch(r"(character-node|character-chromium)>=(\d+(?:\.\d+){0,3})", name)
         if character:
             executable = resolve_character_executable(character[1])

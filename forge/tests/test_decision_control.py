@@ -685,9 +685,11 @@ class DecisionControlTests(unittest.TestCase):
             application = self.controller.begin_application(record, revision + 1)
             self.controller.finish_application(application["applicationId"], {
                 "status": "rejected", "reasonCode": "no-improvement"})
-        result = self.consult(self.context("build-strategy", revision=4))
+        continued = self.consult(self.context("build-strategy", revision=4))
+        self.assertEqual(continued["status"], "answered")
+        result = self.consult(self.context("repair", revision=4))
         self.assertEqual(result["reasonCode"], "correction-budget-exhausted")
-        self.assertEqual(self.provider.call_count, 3)
+        self.assertEqual(self.provider.call_count, 4)
 
     def test_successor_output_does_not_replace_immutable_input_evidence(self):
         context = self.context("repair")

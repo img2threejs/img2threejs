@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import pickle
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -693,6 +694,59 @@ class RouteParentTests(unittest.TestCase):
                          ["object:left", "object:right", "composition", "scene-gates"])
         self.assertEqual(parent["currentStep"], "object:left")
         self.assertEqual(self.read(right["statePath"])["profile"], "generic")
+
+    def test_parent_next_command_opens_first_child_from_its_workspace(self):
+        parent = self.parent.create()
+        next_cli = Path(__file__).resolve().parents[1] / "next.py"
+        result = subprocess.run([sys.executable, str(next_cli), "--state", str(self.parent_path)],
+                                cwd=self.workspace, capture_output=True, text=True, check=True)
+        command = next(line.removeprefix("next command: ") for line in result.stdout.splitlines()
+                       if line.startswith("next command: "))
+        self.assertIn(parent["objects"][0]["objectId"], command)
+        child = subprocess.run(command, cwd=self.workspace, shell=True,
+                               capture_output=True, text=True, check=True)
+        self.assertIn("LOCAL_STATE", child.stdout)
+        self.assertIn("step=" + self.read(parent["objects"][0]["statePath"])["currentStep"],
+                      child.stdout)
+
+    def test_repeated_instances_share_one_child_and_exact_artifact_ownership(self):
+        for entry, row in zip(self.inventory["objects"], self.decision["objects"]):
+            entry.update(artifactObjectId="left", routeObjectId="left",
+                         instanceOf="chairs", role="prop")
+            row.update(routeObjectId="left",
+                       execution={"placementOnly": row["objectId"] != "left"})
+        self.decision["inventorySha256"] = sha(canonical(self.inventory))
+        self.receipt = FixtureAuthority(self, self.decision, self.inventory, self.owners)
+        self.result = VerifiedAggregate(self.decision, self.inventory, self.owners, self.receipt)
+        parent = self.parent.create()
+        self.assertEqual([item["objectId"] for item in parent["objects"]], ["left"])
+        descriptor = parent["objects"][0]
+        self.assertEqual(descriptor["ownedObjectIds"], ["left", "right"])
+        self.assertFalse((self.workspace / ".img2threejs/objects/right").exists())
+        _, artifact = self.terminal(descriptor)
+        self.reject("child-artifact-mismatch", lambda: self.parent.complete_child("left"))
+        artifact.update(ownerRoute=descriptor["ownerRoute"], ownedObjectIds=["left", "right"])
+        self.put(descriptor["artifactPath"], canonical(artifact))
+        completed = self.parent.complete_child("left")
+        self.assertEqual(completed["checklist"][0]["status"], "done")
+
+    def test_parent_next_does_not_sync_a_coincident_sculpt_spec(self):
+        parent = self.parent.create()
+        parent["artifacts"]["spec"] = "object-sculpt-spec.json"
+        self.put(".img2threejs/state.json", canonical(parent))
+        self.put(parent["artifacts"]["spec"], b"not a valid sculpt spec")
+        original = self.parent_path.read_bytes()
+        next_cli = Path(__file__).resolve().parents[1] / "next.py"
+        result = subprocess.run([sys.executable, str(next_cli), "--state", str(self.parent_path)],
+                                cwd=self.workspace, capture_output=True, text=True, check=True)
+        self.assertIn("step=object:left", result.stdout)
+        self.assertEqual(self.parent_path.read_bytes(), original)
+        result = subprocess.run([sys.executable, str(next_cli), parent["artifacts"]["spec"],
+                                 "--state", str(self.parent_path)], cwd=self.workspace,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("routed parent does not accept a positional spec", result.stderr)
+        self.assertEqual(self.parent_path.read_bytes(), original)
 
     def test_stale_crop_prevents_creation_without_partial_states(self):
         self.put("crops/right.png", b"changed-reference")

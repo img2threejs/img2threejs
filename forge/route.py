@@ -4,7 +4,10 @@
 Run ``python3 forge/route.py --workspace WORKSPACE --run-id RUN --image ref.png
 --objects objects.json``. Image and object paths are workspace-relative. Real Jev
 image disclosure and paid use require a separate user-run four-purpose consent
-command; this CLI never enrolls, revokes, prompts for keys, or selects a fallback.
+command; this CLI never enrolls, revokes, prompts for keys, or selects a fallback by itself.
+A model fallback exists only when the host passes both ``--fallback-command`` (an executable it
+approves) and ``--fallback-sha256`` (that file's exact digest); see ``stage0_route/fallback.py``.
+The controller still consults it only after a journalled Jev outage, never after a Jev answer.
 Only the base-owned reviewed Jev release lock is accepted; there is no Jev lock override.
 ``--create-children`` requires explicit local harness release/launcher pins. It
 creates pending child checklists only after concrete aggregate authentication.
@@ -18,6 +21,7 @@ from __future__ import annotations
 import argparse
 import ast
 import copy
+from dataclasses import replace
 import hashlib
 import json
 import io
@@ -34,6 +38,7 @@ import time
 import tarfile
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "_shared"))
 
@@ -44,9 +49,12 @@ from stage0_route.discovery import Discovery, JEV_EDGE
 from stage0_route.route import Router
 from domains import DomainRegistryError, registered_domains
 from domains.character import DOMAIN as CHARACTER_DOMAIN
-from route_authority import RouteAuthority
+from route_authority import RouteAuthority, RoutePolicies
 from route_parent import OwnerProfile, ParentError, RouteParent
-from stage0_route.discovery import EDGES, read_only_probes
+from stage0_route.discovery import (EDGES, read_only_probes, character_bpy_probe,
+                                    resolve_character_executable)
+from stage0_route.fallback import HostFallback, fallback_decisions
+from host_policy import pinned_policy_module
 
 
 _AUTH = {"credential-missing", "credential-rejected", "credential-storage-error"}
@@ -68,6 +76,7 @@ _SAFE_ERRORS |= {"harness-pin-required", "harness-pin-mismatch", "harness-runtim
     "paid-or-licensed-owner-not-authorized", "stale-route-aggregate",
     "invalid-route-authority-input", "route-round-unsealed", "route-round-link-mismatch",
     "authority-command-not-authorized"}
+_SAFE_ERRORS |= {"fallback-command-unsafe", "fallback-digest-mismatch", "fallback-invalid"}
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -234,21 +243,24 @@ class LiveConsent:
     def __call__(self):
         try:
             auth = self.auth_status()["status"]
-            if auth != "present":
-                _fail(auth)
             code, value = self._probe(["consent", "decision-status", "--workspace", str(self.discovery.workspace),
                                        "--run-id", self.run_id])
             if code != 0:
+                if auth != "present":
+                    _fail(auth)
                 reason = value.get("reasonCode")
                 _fail(reason if type(reason) is str and reason in _PROBE_FAILURES else "malformed")
             if (set(value) != {"kind", "version", "status", "granted", "purposes", "sha256", "tokenBudget"}
-                    or value["status"] != "consent-updated" or value["granted"] is not True
+                    or value["status"] != "consent-updated" or type(value["granted"]) is not bool
                     or type(value["purposes"]) is not list
                     or any(type(p) is not str for p in value["purposes"])
-                    or len(value["purposes"]) != len(GROUPS) or set(value["purposes"]) != set(GROUPS)
+                    or (value["granted"] and (len(value["purposes"]) != len(GROUPS) or set(value["purposes"]) != set(GROUPS)))
+                    or (not value["granted"] and value["purposes"] != [])
                     or type(value["sha256"]) is not str or not _HEX.fullmatch(value["sha256"])
                     or type(value["tokenBudget"]) is not int or not 0 < value["tokenBudget"] <= 2**53 - 1):
                 _fail("malformed")
+            if value["granted"] and auth != "present":
+                _fail(auth)
             self.last_failure = None
             return {key: copy.deepcopy(value[key]) for key in ("granted", "purposes", "sha256", "tokenBudget")}
         except DecisionError as error:
@@ -420,9 +432,17 @@ class HarnessPin:
                     len(command) == 6 and command[0:2] == ["capabilities", "--from-kind"]
                     and command[3] == "--to-kind" and command[5] == "--json"):
                 _fail("authority-command-not-authorized")
-        elif argv[0] != "git" and list(argv) not in [
-                ["python3", "--version"], ["node", "--version"], ["blender", "--version"]]:
-            _fail("authority-command-not-authorized")
+        elif argv[0] != "git":
+            allowed = [("python3", "--version"), ("node", "--version"), ("blender", "--version")]
+            for probe in ("character-node", "character-chromium"):
+                executable = resolve_character_executable(probe)
+                if executable is not None:
+                    allowed.append((executable, "--version"))
+            bpy = character_bpy_probe()
+            if bpy is not None:
+                allowed.append(bpy)
+            if tuple(argv) not in allowed:
+                _fail("authority-command-not-authorized")
         environment = dict(os.environ if env is None else env)
         for key in list(environment):
             if key.startswith(("NODE_", "PYTHON")) or key == "TYPESAFE_API_KEY":
@@ -434,6 +454,22 @@ class HarnessPin:
             code, raw = _run_bytes(list(argv), Path(cwd or self.root), timeout=timeout,
                                    maximum=8 * 1024 * 1024, env=environment)
             return subprocess.CompletedProcess(argv, code, raw, b"")
+        finally:
+            self.verify()
+
+    def authority_runner(self, argv, **kwargs):
+        """Run only argv constructed by RouteAuthority's reviewed code paths.
+
+        Discovery's runner remains read-only/allowlisted. Terminal gate execution
+        is separately constructed after provider/script pins have been verified;
+        card/model commands are never forwarded here. Keep harness bytes current
+        around those owned subprocesses without pretending a gate is a probe.
+        """
+        if argv[0] == "git" or tuple(argv[:len(self.argv)]) == self.argv:
+            return self.runner(argv, **kwargs)
+        self.verify()
+        try:
+            return subprocess.run(argv, **kwargs)
         finally:
             self.verify()
 
@@ -509,7 +545,37 @@ def _owner_profiles(router, result, discovered):
     return owners
 
 
-def _route_parent(router, result, harness, consent):
+def load_route_policies(module_path, sha256, *, workspace, run_id, excluded_roots=()):
+    """Load host-approved terminal policies; retain a live source-pin check."""
+    with pinned_policy_module(module_path, sha256, workspace=workspace,
+                              excluded_roots=(ROOT.parent, *excluded_roots)) as (module, pin):
+        factory = getattr(module, "build_route_policies", None)
+        if not callable(factory):
+            _fail("route-policy-required")
+        policies = factory(Path(workspace), run_id)
+        if type(policies) is not RoutePolicies:
+            _fail("route-policy-required")
+        previous = policies.revalidate
+        def revalidate():
+            pin()
+            if previous is not None:
+                previous()
+            pin()
+        return replace(policies, revalidate=revalidate)
+
+
+def route_policy_roots(discovery, harness):
+    roots = [harness.root]
+    for edge in EDGES.values():
+        response = discovery.query(edge)
+        roots.extend(Path(row["dir"]) for row in response.get("providers", [])
+                     if type(row.get("dir")) is str)
+    if discovery.jev is not None:
+        roots.append(Path(discovery.jev["dir"]))
+    return roots
+
+
+def _route_parent(router, result, harness, consent, *, policies=None):
     rows = result.get("decision", {}).get("objects")
     if (result.get("decision", {}).get("phase") != "decided" or type(rows) is not list or not rows
             or any(row.get("status") not in {"resolved", "dropped", "merged"} for row in rows)):
@@ -518,9 +584,17 @@ def _route_parent(router, result, harness, consent):
     discovered = router.verification_snapshot()  # Detailed discovery remains outside locks.
     owners = _owner_profiles(router, result, discovered)
     harness.verify()
+    policies = RoutePolicies() if policies is None else policies
+    if type(policies) is not RoutePolicies:
+        _fail("route-policy-required")
     authority = RouteAuthority(router, result["decisionRef"], discovered=discovered, owners=owners,
                                harness=harness.argv, runtime_provider=harness.runtime_provider,
-                               runner=harness.runner)
+                               runner=harness.authority_runner,
+                               pixi_quality_policies=policies.pixi_quality,
+                               pixi_capture_policies=policies.pixi_capture,
+                               cs2_terminal_policies=policies.cs2_terminal,
+                               native_terminal_policies=policies.native_terminal,
+                               policy_check=policies.revalidate)
     return RouteParent(router.controller, verify_aggregate=authority, consent=consent)
 
 
@@ -532,8 +606,8 @@ def _create_children(router, result, harness, consent):
         return parent.create()
 
 
-def _complete_child(router, result, harness, consent, object_id):
-    parent = _route_parent(router, result, harness, consent)
+def _complete_child(router, result, harness, consent, object_id, *, policies=None):
+    parent = _route_parent(router, result, harness, consent, policies=policies)
     with read_only_probes(router.discovery):
         return parent.complete_child(object_id)
 
@@ -570,6 +644,12 @@ def build_parser():
     parser.add_argument("--harness-sha", help="Host-approved exact harness Git commit")
     parser.add_argument("--harness-executable", type=Path, help="Canonical harness bin/img2.mjs launcher")
     parser.add_argument("--harness-sha256", help="Host-approved launcher SHA256; never calculated from workspace input")
+    parser.add_argument("--policy-module", type=Path, help="Explicit host-approved external terminal policy module")
+    parser.add_argument("--policy-sha256", help="Exact SHA256 of --policy-module; not workspace authority")
+    parser.add_argument("--fallback-command", type=Path, metavar="PATH",
+                        help="Host-approved external model-fallback program; requires --fallback-sha256")
+    parser.add_argument("--fallback-sha256", metavar="HEX",
+                        help="Exact SHA256 of the --fallback-command file; re-verified before every invocation")
     return parser
 
 
@@ -604,6 +684,19 @@ def _output(*, reason=None, result=None):
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    if (args.fallback_command is None) != (args.fallback_sha256 is None):
+        parser.error("--fallback-command and --fallback-sha256 must be supplied together")
+    if (args.policy_module is None) != (args.policy_sha256 is None):
+        parser.error("--policy-module and --policy-sha256 must be supplied together")
+    if args.policy_module is not None and not args.complete_child:
+        parser.error("terminal policy flags require --complete-child")
+    if args.policy_sha256 is not None and _HEX.fullmatch(args.policy_sha256) is None:
+        parser.error("--policy-sha256 must be 64 lowercase hex characters")
+    if args.fallback_command is not None:
+        if args.complete_child:
+            parser.error("fallback approval flags apply to routing, not --complete-child")
+        if _HEX.fullmatch(args.fallback_sha256) is None:
+            parser.error("--fallback-sha256 must be 64 lowercase hex characters")
     if args.complete_child:
         if args.create_children or not args.decision_ref or args.image or args.objects or args.intent or args.explicit_route:
             parser.error("--complete-child requires --decision-ref and excludes routing and creation options")
@@ -633,6 +726,10 @@ def main(argv=None):
             _file(workspace, args.image, maximum=64 * 1024 * 1024)
             objects = _json(_file(workspace, args.objects, maximum=256 * 1024, capture=True)) if args.objects else None
         release = _approved_lock()
+        fallback = None
+        if args.fallback_command is not None:
+            # Refuse an unapproved or changed program before any journal or lease is touched.
+            fallback = HostFallback(args.fallback_command, args.fallback_sha256)
         controller = DecisionController(workspace, args.run_id)
         discovery = PinnedDiscovery(controller)
         consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
@@ -645,10 +742,13 @@ def main(argv=None):
             discovery, approved_release=release, run_id=args.run_id,
             consent=consent, python_executable=consent.executable)
         router = Router(workspace, args.run_id, controller=controller, discovery=discovery,
-                        consent=consent, provider_factory=factory, fallback=None)
+                        consent=consent, provider_factory=factory, fallback=fallback)
         if args.complete_child:
             discovery.enumerate()
-            parent = _complete_child(router, result, harness, consent, args.complete_child)
+            policies = None if args.policy_module is None else load_route_policies(
+                args.policy_module, args.policy_sha256, workspace=workspace, run_id=args.run_id,
+                excluded_roots=route_policy_roots(discovery, harness))
+            parent = _complete_child(router, result, harness, consent, args.complete_child, policies=policies)
             value = _output(result=result)
             value.update(mode="child-completed", status="child-completed",
                          childObjectId=args.complete_child, parentStatePath=".img2threejs/state.json",
@@ -657,6 +757,9 @@ def main(argv=None):
             result = router.route(image=args.image, objects=objects, expected_output=args.expected_output,
                                   intent=args.intent, explicit_route=args.explicit_route)
             value = _output(reason=consent.last_failure, result=result)
+            decisions = fallback_decisions(workspace, result.get("decision"), attempted=fallback is not None)
+            if decisions:
+                value["fallbackDecisions"] = decisions
         if args.create_children and value["status"] == "decided":
             parent = _create_children(router, result, harness, consent)
             value.update(status="children-initialized", childrenCreated=True,

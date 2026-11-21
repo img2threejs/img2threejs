@@ -311,7 +311,7 @@ class DecisionController:
         entries = []
         state = {"runs": {}, "records": {}, "contexts": {}, "refs": {}, "epochs": {},
                  "attempts": {}, "applications": {}, "routeRounds": {}, "routeLinks": [],
-                 "recordSequences": {}, "recordAttempts": {}, "routeDispatches": []}
+                 "recordSequences": {}, "recordAttempts": {}, "routeDispatches": [], "decisionBlocks": {}}
         if not self.journal_path.exists():
             if self.lease_path.exists():
                 _fail("journal-broken")
@@ -386,13 +386,25 @@ class DecisionController:
             DecisionController._reduce_route_link(state, data)
         elif event == "application-pending":
             application = data["application"]
+            previous = state["applications"].get(application["applicationId"])
+            record = state["records"][application["decisionRef"]]
+            if (application["group"] != record["group"] or application["subject"] != record["subject"]
+                    or application["applicationId"] != canonical_digest({
+                        "decisionRef": application["decisionRef"], "trialRevision": application["trialRevision"]})
+                    or application["inputRevision"] != record["subject"]["revision"]
+                    or application["inputBindings"] != record["bindings"]
+                    or (previous is not None and previous != application)):
+                _fail("journal-broken")
             state["applications"][application["applicationId"]] = application
-            subject = application["subject"]
-            obj = state["runs"][run_id]["objects"][subject["objectId"]]
-            obj["total"] += 1
-            obj["perPass"][subject["passId"]] = obj["perPass"].get(subject["passId"], 0) + 1
+            if previous is None and record["group"] == "repair":
+                subject = record["subject"]
+                obj = state["runs"][run_id]["objects"][subject["objectId"]]
+                obj["total"] += 1
+                obj["perPass"][subject["passId"]] = obj["perPass"].get(subject["passId"], 0) + 1
         elif event == "application-finished":
             state["applications"][data["applicationId"]] = data["application"]
+        elif event == "workflow-quality-blocked":
+            state["decisionBlocks"][data["block"]["blockId"]] = data
         elif event not in {"probe", "lease-released", "retried-after-crash"}:
             _fail("journal-broken")
 
@@ -770,9 +782,45 @@ class DecisionController:
         projected["bindings"] = [{"role": b["role"], "sha256": b["sha256"]} for b in context["bindings"]]
         _safe_data(projected)
         self._decomposition(projected)
+        self._placement(projected)
         if group == "quality-review":
             self._quality_items(projected)
         return projected
+
+    @staticmethod
+    def _placement(context):
+        placement = context["requirements"].get("placement")
+        placement_pass = context["subject"]["passId"] in {"placement-size", "placement-yaw"}
+        if placement is None and not placement_pass:
+            return
+        if (context["group"] != "build-strategy" or type(placement) is not dict
+                or set(placement) != {"question"} or placement.get("question") not in {"size", "yaw"}
+                or context["subject"]["passId"] != "placement-" + placement["question"]
+                or context["policyVersion"] != "placement-policy-v1"
+                or "decomposition" in context["requirements"]):
+            _fail("invalid-placement-context")
+        roles = [binding["role"] for binding in context["bindings"]]
+        if any(roles.count(role) != 1 for role in
+               ("reference", "inventory", "artifact", "size-prior", "camera", "depth", "support")):
+            _fail("missing-placement-evidence")
+        values = set()
+        for candidate in context["candidates"]:
+            if set(candidate) != {"id", "value"}:
+                _fail("invalid-placement-candidate")
+            value = candidate["value"]
+            if placement["question"] == "yaw":
+                if type(value) is not int or not 0 <= value <= 7:
+                    _fail("invalid-placement-candidate")
+            else:
+                if type(value) is not list or len(value) != 3:
+                    _fail("invalid-placement-candidate")
+                for axis in value:
+                    if type(axis) not in (int, float) or not math.isfinite(axis) or axis <= 0:
+                        _fail("invalid-placement-candidate")
+            digest = canonical_digest(value)
+            if digest in values:
+                _fail("duplicate-placement-value")
+            values.add(digest)
 
     @staticmethod
     def _decomposition(context):
@@ -1139,13 +1187,14 @@ class DecisionController:
             answer, status, reason, tokens = self._advisory(projected, response, model_fallback=model_fallback)
         except Exception as exc:
             code = getattr(exc, "reason_code", "timeout" if isinstance(exc, TimeoutError) else "provider-error")
-            known = (_AUTH | _REQUEST_FAILURES | {"group-mismatch", "subject-mismatch",
-                     "context-digest-mismatch", "model-mismatch", "missing-evidence",
-                     "vision-forbidden", "permission-denied", "stale-evidence"})
+            unsent = {"missing-evidence", "vision-forbidden", "permission-denied", "stale-evidence",
+                      "fallback-image-invalid", "fallback-image-context-required", "fallback-preflight-timeout"}
+            known = (_AUTH | _REQUEST_FAILURES | unsent | {"group-mismatch", "subject-mismatch",
+                     "context-digest-mismatch", "model-mismatch"})
             code = code if type(code) is str and code in known else (
                 "malformed" if isinstance(exc, DecisionError) else "provider-error")
             tokens, release = 0, 0
-            if code in _AUTH | {"missing-evidence", "vision-forbidden", "permission-denied", "stale-evidence"}:
+            if code in _AUTH | unsent:
                 release = token_limit
             elif type(response) is dict:
                 try:
@@ -1304,7 +1353,8 @@ class DecisionController:
                 return copy.deepcopy(current)
             if not 0 <= self._now() - obj["startedAt"] < 3600:
                 return self._record(entries, context, projected, grant, "request-input", "deadline-exhausted")
-            if obj["total"] >= 6 or obj["perPass"].get(subject["passId"], 0) >= 3:
+            if context["group"] == "repair" and (
+                    obj["total"] >= 6 or obj["perPass"].get(subject["passId"], 0) >= 3):
                 return self._record(entries, context, projected, grant, "request-input", "correction-budget-exhausted")
             reason = run["unavailable"] or run["groupUnavailable"].get(context["group"])
             if same_request and current["reasonCode"] in _REQUEST_FAILURES:
@@ -1364,8 +1414,12 @@ class DecisionController:
                          "status": "unavailable", "reasonCode": reason, "fallbackAuthorized": True})
             fallback_id = canonical_digest(dict(identity, decider="model", unavailableReason=reason))
             try:
+                bind_context = getattr(type(fallback), "bind_context", None)
+                callback = bind_context(fallback, self.workspace, copy.deepcopy(context)) if callable(bind_context) else fallback
+                if not callable(callback):
+                    _fail("fallback-invalid")
                 answer, status, answer_reason = self._attempt(
-                    entries, state, fallback_id, context, projected, grant, fallback, request_token_limit,
+                    entries, state, fallback_id, context, projected, grant, callback, request_token_limit,
                     model_fallback=True)
             except DecisionError as exc:
                 if exc.reason_code in {"group-mismatch", "subject-mismatch", "context-digest-mismatch", "model-mismatch"}:
@@ -1381,7 +1435,7 @@ class DecisionController:
                                 decider="model:" + answer["model"], fallback_reason=reason,
                                 attempt_id=fallback_id)
 
-    def _current(self, state, record, context, *, consent=None):
+    def _current(self, state, record, context, *, consent=None, historical=False):
         _json_bytes(record)
         if type(record) is not dict:
             _fail("invalid-record")
@@ -1401,7 +1455,7 @@ class DecisionController:
         self._context(context)
         if record["contextDigest"] != canonical_digest(context):
             _fail("context-digest-mismatch")
-        if state["refs"].get(self._ref_key(context)) != record["recordId"]:
+        if not historical and state["refs"].get(self._ref_key(context)) != record["recordId"]:
             _fail("stale-decision")
         if self._grant(consent if consent is not None else self._consent) != record["consent"]:
             _fail("consent-changed")
@@ -1425,6 +1479,14 @@ class DecisionController:
             _, state = self._load()
             return copy.deepcopy(self._current(state, record, context, consent=consent))
 
+    def correction_counts(self, object_id):
+        """Return actual repair starts, replayed from application identities."""
+        with self._locked():
+            _, state = self._load()
+            obj = state["runs"][self.run_id]["objects"].get(_identifier(object_id))
+            return copy.deepcopy({"total": obj["total"], "perPass": obj["perPass"]}
+                                 if obj else {"total": 0, "perPass": {}})
+
     @contextmanager
     def workspace_transaction(self, *, consent):
         """Hold the lease while verifying records and publishing base-owned state.
@@ -1441,12 +1503,28 @@ class DecisionController:
             _fail("consent-unproven")
         active = [True]
         with self._locked():
-            _, state = self._load()
+            entries, state = self._load()
 
             def verify(record, context):
                 if not active[0]:
                     _fail("transaction-closed")
                 return copy.deepcopy(self._current(state, record, copy.deepcopy(context), consent=consent))
+
+            def historical_quality(record, context):
+                """Replay only quality proof already pinned by completed repair."""
+                if not active[0]:
+                    _fail("transaction-closed")
+                if (type(record) is not dict or record.get("group") != "quality-review"
+                        or record.get("status") != "answered"):
+                    _fail("historical-quality-proof-required")
+                proof = {"recordId": record.get("recordId"), "recordDigest": canonical_digest(record),
+                         "contextDigest": canonical_digest(context)}
+                if not any(value["group"] == "repair" and value["status"] == "completed"
+                           and proof in value["outcome"].get("qualityReviews", {}).values()
+                           for value in state["applications"].values()):
+                    _fail("historical-quality-proof-required")
+                return copy.deepcopy(self._current(state, record, copy.deepcopy(context),
+                                                   consent=consent, historical=True))
 
             def route_rounds(route_revision):
                 if not active[0]:
@@ -1469,8 +1547,59 @@ class DecisionController:
                     self._current(state, state["records"][record_id], state["contexts"][record_id], consent=consent)
                 return _immutable(links)
 
+            def application(application_id):
+                if not active[0]:
+                    _fail("transaction-closed")
+                value = state["applications"].get(_sha(application_id))
+                if value is None:
+                    _fail("application-not-authorized")
+                record_id = value["decisionRef"]
+                self._current(state, state["records"][record_id], state["contexts"][record_id], consent=consent)
+                return _immutable(value)
+
+            def correction_counts(object_id):
+                if not active[0]:
+                    _fail("transaction-closed")
+                obj = state["runs"][self.run_id]["objects"].get(_identifier(object_id))
+                return _immutable({"total": obj["total"], "perPass": obj["perPass"]}
+                                  if obj else {"total": 0, "perPass": {}})
+
+            def decision_block(block, *, publish=False):
+                if not active[0]:
+                    _fail("transaction-closed")
+                if (type(block) is not dict or set(block) != {
+                        "kind", "version", "blockId", "step", "context", "subject",
+                        "reasonCode", "assessment", "receiptIndex"}
+                        or block["kind"] != "img2.workflow-quality-block" or block["version"] != 1
+                        or block["step"] != "quality-review"
+                        or block["subject"] != block["context"]["subject"]
+                        or block["context"]["group"] != "quality-review"
+                        or block["reasonCode"] != "deterministic-hard-gate-failed"
+                        or type(block["receiptIndex"]) is not int or block["receiptIndex"] < 0
+                        or block["blockId"] != canonical_digest({
+                            key: value for key, value in block.items() if key != "blockId"})):
+                    _fail("workflow-quality-block-invalid")
+                self._context(block["context"])
+                grant = self._grant(consent)
+                if grant["granted"] and set(grant["purposes"]) != set(GROUPS):
+                    _fail("consent-required")
+                saved = state["decisionBlocks"].get(block["blockId"])
+                if saved is None:
+                    if not publish:
+                        _fail("workflow-quality-block-missing")
+                    saved = {"runId": self.run_id, "block": copy.deepcopy(block), "grant": grant}
+                    self._commit(entries, "workflow-quality-blocked", saved)
+                    state["decisionBlocks"][block["blockId"]] = saved
+                if saved["block"] != block or saved["grant"] != grant:
+                    _fail("workflow-quality-block-invalid")
+                return _immutable(block)
+
             verify.route_rounds = route_rounds
             verify.route_round_links = route_round_links
+            verify.application = application
+            verify.correction_counts = correction_counts
+            verify.decision_block = decision_block
+            verify.historical_quality = historical_quality
 
             try:
                 yield verify
@@ -1508,7 +1637,8 @@ class DecisionController:
             obj = run["objects"][record["subject"]["objectId"]]
             if not 0 <= self._now() - obj["startedAt"] < 3600:
                 _fail("deadline-exhausted")
-            if obj["total"] >= 6 or obj["perPass"].get(record["subject"]["passId"], 0) >= 3:
+            if record["group"] == "repair" and (
+                    obj["total"] >= 6 or obj["perPass"].get(record["subject"]["passId"], 0) >= 3):
                 _fail("correction-budget-exhausted")
             application = {"applicationId": canonical_digest({"decisionRef": record_id, "trialRevision": trial_revision}),
                            "decisionRef": record_id, "group": record["group"], "subject": copy.deepcopy(record["subject"]),

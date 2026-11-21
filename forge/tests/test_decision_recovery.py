@@ -552,21 +552,26 @@ class DecisionRecoveryTests(unittest.TestCase):
         self.assertEqual(self.provider.call_count, 1)
 
     def test_correction_ceilings_survive_reopen_and_group_switch(self):
-        for revision in range(1, 7):
-            pass_id = "geometry" if revision <= 3 else "material"
-            group = "build-strategy" if revision % 2 else "repair"
-            context = self.context(group, revision=revision, pass_id=pass_id)
+        initial = self.consult(self.context("build-strategy"))
+        application = self.controller.begin_application(initial, 2)
+        self.controller.finish_application(application["applicationId"], {"status": "rejected"})
+        self.controller = self.reopen()
+        for revision in range(2, 8):
+            pass_id = "geometry" if revision <= 4 else "material"
+            context = self.context("repair", revision=revision, pass_id=pass_id)
             record = self.consult(context)
             application = self.controller.begin_application(record, revision + 1)
             self.controller.finish_application(application["applicationId"], {"status": "rejected"})
             self.controller = self.reopen()
-            if revision == 3:
-                exhausted = self.consult(self.context("repair", revision=4))
+            if revision == 4:
+                exhausted = self.consult(self.context("repair", revision=5))
                 self.assert_persisted(exhausted, "request-input", "correction-budget-exhausted")
-        exhausted = self.consult(self.context("build-strategy", revision=7, pass_id="rig"))
+        continued = self.consult(self.context("build-strategy", revision=8, pass_id="rig"))
+        self.assert_persisted(continued, "answered", "answered")
+        exhausted = self.consult(self.context("repair", revision=8, pass_id="rig"))
         self.assert_persisted(exhausted, "request-input", "correction-budget-exhausted")
-        self.assertEqual(len(self.events("application-pending")), 6)
-        self.assertEqual(self.provider.call_count, 6)
+        self.assertEqual(len(self.events("application-pending")), 7)
+        self.assertEqual(self.provider.call_count, 8)
         self.fallback.assert_not_called()
 
     def test_changed_file_hash_blocks_consult_and_consumption_without_new_call(self):

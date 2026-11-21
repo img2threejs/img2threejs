@@ -181,25 +181,47 @@ by hand ([`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need
 cannot see an installed plugin, and how plugins reach the pipeline: [`docs/PLUGINS.md`](docs/PLUGINS.md).
 To write a plugin, follow [WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
 
-**Routed workflows (advisory).** `python3 forge/route.py` can decide which approved workflow should own
-each object in a reference image, instead of you naming a profile. Routing only recommends: the base
-decides who is eligible and owns consent, gates and acceptance, and a provider answer never grants
-acceptance. The four decision groups (routing, build strategy, quality review, repair) share one
-per-run consent and token budget; only routing has a command-line entry today. The plugins involved:
+**Routed workflows (unreleased integration).** Read
+[`grimoire/intake/routing.md`](grimoire/intake/routing.md) before routing, Jev, child operations or
+reporting results. The mandatory four groups are routing, build strategy, quality review and repair
+when required. `forge/route.py` and `forge/decision.py` provide the actual lifecycle hooks; routing
+alone does not run the other groups. The base owns eligibility, consent, independent hard gates and
+acceptance. Neither provider advice nor parent checklist completion is a deliverable.
 
 | Plugin | Adds | Output kind | Reached when |
 |---|---|---|---|
-| `interior` | One enclosed room as metric Blender geometry with PBR, bake, GLB export and a composition handoff | `3d-scene` | the object is a `scene-container` in a single enclosed room |
-| `character` | Rigged characters: GLB skeleton, skin, clips and a routed terminal rig gate | `rigged-3d` | the request states rig intent; its own card says it is not route-eligible until a real rig-gate sweep qualifies it, and that has not happened |
-| `cs2` | CS2 weapon and glove skin spec augmentation, consumed inside a base child | `spec-augmentation`, ending as a `3d-object` | the route card sets no requirement, so the CS2 profile's own authoritative classification is what can veto it |
-| `pixi2d` | Editable 2D artwork in an existing PixiJS host | `2d-scene` | the request is explicitly 2D (`--expected-output 2d`); a 3D request is never downgraded to it |
-| `jev` | Bounded image-aware advisories for the four groups, with explicit login and per-run consent | none; advice only | the user ran `img2-jev login` and authorized the run |
+| `interior` | One enclosed metric Blender room, PBR/export and composition handoff | `3d-scene` | one enclosed `scene-container`; native geometry, material/part captures and semantic review remain separate gates |
+| `character` | Rigged characters with frozen-pose parity and blocking rig gates | `rigged-3d` | explicit rig intent and actual per-child approved runtime/rig evidence; a narrow live probe is not blanket qualification |
+| `cs2` | CS2 skin spec augmentation inside a base child | `spec-augmentation`, ending as a `3d-object` | authoritative source/classification approval plus mechanical and semantic terminal gates |
+| `pixi2d` | Editable artwork in an existing PixiJS host | `2d-scene` | explicitly `--expected-output 2d`; never a downgrade from 3D |
+| `jev` | Bounded image-aware advice for all four groups | none; advice only | explicit login and per-run four-purpose disclosure/paid-call consent |
 
-`interior`, `pixi2d` and `jev` are not in the generated table above: confirm with `img2 plugins` and
-`img2 doctor` before relying on them. Routing never installs anything. Qualification is still open:
-no real-image held-out quality, Blender export parity or live terminal delivery is claimed, and a
-routed child is progress, not a finished reconstruction. The full contract, consent steps and every
-reason code: [`grimoire/intake/routing.md`](grimoire/intake/routing.md); the plugin-side view:
+`interior`, `pixi2d` and `jev` are absent from the generated catalog table above: confirm local
+availability with `img2 plugins` and `img2 doctor`; routing installs nothing. When requested, the
+**user**, not the agent, runs:
+
+```bash
+img2-jev login
+img2-jev consent authorize-decisions --workspace WS --run-id RUN --token-budget N \
+  --accept-image-disclosure --accept-paid-calls
+```
+
+Never paste a key into chat. One token budget covers all four groups. Missing consent suspends;
+authenticated explicit refusal is distinct. Optional host fallback requires its own executable pin,
+host approval and a journalled proven-outage/refusal path; it never bypasses hard gates.
+
+Host-approved policy modules supply live permissions, source approval and producer authority;
+`--policy-module`/`--policy-sha256` pin executable host code, not the truth of its claims or imports.
+A digest does not approve source rights or provenance. Native/JavaScript source approval is never
+inferred; reviewed Pixi code runs trusted in the same realm, not an arbitrary-JavaScript sandbox.
+
+Observed evidence is narrow: actual Chrome scene placement/composition/measurement and CS2
+capture/replay fixtures, a bpy interior geometry audit with four views, 925 character pose vertex
+comparisons, and Pixi authority/replay probes. Synthetic self-reference does not prove identity or
+artwork quality. No held-out real-image/expert qualification, renewed live Jev delivery or release
+acceptance is claimed. Initialized children and completed child rows remain progress; composition
+and independent scene acceptance are separate. Commands, exact trust boundaries and integration
+status: [`grimoire/intake/routing.md`](grimoire/intake/routing.md); plugin-side contract:
 [`docs/PLUGINS.md`](docs/PLUGINS.md#routed-plugins-and-the-advisory-boundary).
 
 ### 4. Run a reconstruction in your agent
@@ -340,6 +362,9 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 
 | Script | Role |
 | --- | --- |
+| `route.py` | Route eligible owners, initialize children, or independently verify one completed child; never delivery. |
+| `decision.py` | `strategy-spec`, `strategy-build`, `quality`, `repair`: host-policy-gated child lifecycle decisions and receipts. |
+| `terminal.py` | `prepare` actual approved terminal evidence; `consult` shared semantic review and bind its journal record. |
 | `stage1_intake/probe_image.py` | Image metadata and obvious technical issues (not a visual check). |
 | `stage2_spec/new_pre_spec_assessment.py` | Classify the object, score complexity, emit a quality contract. |
 | `stage2_spec/new_sculpt_spec.py` | Author the ObjectSculptSpec from the assessment. |
@@ -373,6 +398,46 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `_shared/pipeline_routing.py` | Fail-closed weapon/character routing; low confidence resolves to `request-input`. |
 
 This is a curated selection — `forge/` holds around ninety modules. The executable reference with every flag is [`grimoire/scripts.md`](grimoire/scripts.md), and the gate-by-gate contract is [`grimoire/review/gates_reference.md`](grimoire/review/gates_reference.md). The rest of `grimoire/` holds the rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
+
+### Routed/native terminal commands (unreleased)
+
+Run from the base checkout. `WS` is the parent workspace; `REF` is its immutable route decision.
+Interior/native 3D uses the object proposals and intent; Pixi requires explicit 2D:
+
+```bash
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json --explicit-route interior
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json --explicit-route base:generic
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --expected-output 2d --explicit-route pixi2d
+```
+
+Child operations additionally need the independently approved harness pins. The host supplies two
+different policy factories: `build_policy(workspace, state_path)` for `decision.py`, and
+`build_route_policies(workspace, run_id)` for terminal/completion authority. Neither is candidate JSON
+or automatic source approval. See the canonical guide for request schemas and per-owner prerequisites.
+
+```bash
+# Bash arrays: independently approved canonical paths/digests, never workspace-supplied approvals.
+PINS=(--harness-root R --harness-sha COMMIT --harness-executable R/bin/img2.mjs --harness-sha256 HEX)
+POLICY=(--policy-module /absolute/host/route-policy.py --policy-sha256 POLICY_SHA256)
+python3 forge/decision.py strategy-spec --workspace WS --run-id RUN \
+  --child-state .img2threejs/objects/ID/rev-N/state.json --request REQUEST.json \
+  --policy-module /absolute/host/workflow-policy.py --policy-sha256 WORKFLOW_SHA256 "${PINS[@]}"
+# Use strategy-build, quality and repair at their matching lifecycle boundaries.
+python3 forge/terminal.py prepare --workspace WS --run-id RUN --object-id ID \
+  --decision-ref REF "${POLICY[@]}" "${PINS[@]}"
+python3 forge/terminal.py consult --workspace WS --run-id RUN --object-id ID \
+  --decision-ref REF "${POLICY[@]}" "${PINS[@]}"
+python3 forge/route.py --workspace WS --run-id RUN --complete-child ID \
+  --decision-ref REF "${POLICY[@]}" "${PINS[@]}"
+```
+
+These entrypoints are implemented but unreleased; command availability is not runtime qualification.
+[`grimoire/intake/routing.md` §9](grimoire/intake/routing.md#9-terminal-artifact-ownership-and-composition)
+defines the per-owner gates. Preparation makes no provider call; consultation occurs outside the held
+parent transaction and binds the actual immutable context/journal record. Completion independently
+replays native/Pixi/CS2 gates and lifecycle proofs; each consumer's decider restrictions still apply.
+All remain `deliverable: false`; source-only artifacts cannot be composed as GLBs, and 3D scene
+placement/measurement/acceptance require separate evidence.
 
 ### Optional reference-fidelity tooling
 

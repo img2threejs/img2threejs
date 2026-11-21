@@ -239,6 +239,7 @@ def verify_route(router, decision_ref, verify, discovered):
         entry = entries.get(object_id)
         if (entry is None or row["status"] != "resolved" or entry["box"] != selected_box
                 or entry["role"] != proposal["role"] or entry["label"] != proposal["label"]
+                or entry.get("classId") != proposal.get("classId")
                 or entry.get("instanceOf") != proposal.get("instanceOf") or entry.get("lowConfidence") is not False
                 or entry["decomposer"] != decomposer or entry["confidence"] != confidence):
             raise RouteError("inventory-object-mismatch")

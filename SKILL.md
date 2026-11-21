@@ -39,31 +39,32 @@ The user attaches/points to an object image and wants a procedural Three.js mode
 reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
 action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
 
-## Route decisions (mandatory before `forge/route.py` or Jev)
+## Route decisions (mandatory for every routed workflow)
 
-Before running `python3 forge/route.py`, asking the user for `img2-jev login`, creating or
-completing a routed child, or reporting a routing result, MUST read `grimoire/intake/routing.md`
-completely. Routing is advisory: the base owns eligibility, consent, gates and acceptance. Never
-request a key in chat or downgrade a 3D request to 2D; report decisions and initialized children
-as progress, never as a finished reconstruction.
+Before `forge/route.py`, `forge/decision.py`, `forge/terminal.py`, Jev, child creation/completion or reporting results, read
+[`grimoire/intake/routing.md`](grimoire/intake/routing.md) completely. Mandatory four-group lifecycle:
+`forge/route.py` routing → `forge/decision.py strategy-spec`/`strategy-build` → `quality` → `repair`
+when required; consume current journal-backed receipts. Four-purpose disclosure/payment consent and
+one shared budget apply; never request keys in chat. Host-pinned `--policy-module`/`--policy-sha256`
+approves code, not source rights; never infer native/JS provenance. Fallback needs separate host
+approval and proven outage; independent hard gates remain mandatory. Terminal handoff:
+`forge/terminal.py prepare|consult`, then independent `route.py --complete-child` verification.
+Parent completion is not delivery; children/advice are progress. Never downgrade 3D to 2D.
 
 ## Profile preflight (once per run, before `forge/next.py`)
 
-Domain knowledge (CS2 skins, animated characters, emission targets) lives in plugins, not in this
-checkout. Pick the profile from the subject, then confirm this environment can start it:
+Domain profiles and emission targets live in plugins. Pick by subject, then check availability:
 
 ```bash
 python3 forge/state.py init --help | grep -- --profile   # profiles available here
 ```
 
-- `generic` / `character` are built in: no harness, no plugin, nothing else to check.
-- A missing domain profile (e.g. `cs2`) is a setup gap: never downgrade to
-  `generic` silently. Installing it edits the user's machine, so give them the commands in
-  [`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one), get their go-ahead,
-  re-check, and continue.
-- Installed but not listed (wrong `$IMG2_HOME`), or a Hermes plugin link: [`docs/PLUGINS.md`](docs/PLUGINS.md).
-- Then read what the profile's own steps name, at the moment you reach them: the plugin's
-  `SKILL.md` and contracts govern that domain.
+- `generic` / `character`: built in; no plugin/harness check.
+- Missing profile (e.g. `cs2`): never silently downgrade. Installation changes the machine: present
+  [`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one) commands, obtain approval,
+  re-check, continue.
+- Installed but absent (wrong `$IMG2_HOME`), or Hermes links: [`docs/PLUGINS.md`](docs/PLUGINS.md).
+- Follow the plugin's `SKILL.md` and step-named contracts as each step arrives.
 
 ## Core Promise
 

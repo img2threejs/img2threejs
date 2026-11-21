@@ -22,7 +22,7 @@ sys.path.insert(0, str(FORGE / "_shared"))
 SPEC = importlib.util.spec_from_file_location("img2_route_cli", FORGE / "route.py")
 route_cli = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(route_cli)
-from decision_control import DecisionError, GROUPS
+from decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
 from jev_cli_bridge import REQUIRED_PROVIDER_FILES
 from stage0_route.images import png
 
@@ -188,14 +188,51 @@ class RouteCliTests(unittest.TestCase):
 
     def test_authentication_failure_is_actionable_not_implicit_decline(self):
         def fail_auth(argv, workspace, **kwargs):
-            self.assertEqual(argv[2], "auth-status")
-            return 3, {"kind": "img2.jev-command", "version": 1, "status": "missing", "reasonCode": "credential-missing"}
+            if argv[2] == "auth-status":
+                return 3, {"kind": "img2.jev-command", "version": 1, "status": "missing", "reasonCode": "credential-missing"}
+            self.assertEqual(argv[2:4], ["consent", "decision-status"])
+            return 0, copy.deepcopy(self.status)
         self.probe = fail_auth
         code, output, _, _ = self.invoke()
         self.assertEqual((code, output["reasonCode"]), (3, "credential-missing"))
         self.assertEqual(output["requestedCommand"], "img2-jev login")
         self.assertNotIn("login-declined", json.dumps(output))
         self.assertFalse(output["executionAuthorized"])
+
+    def test_explicit_decline_enables_only_journalled_fallback_without_credentials(self):
+        from _shared.placement_decision import placement_context
+        self.status.update(granted=False, purposes=[])
+        def probe(argv, workspace, **kwargs):
+            if argv[2] == "auth-status":
+                return 3, {"kind": "img2.jev-command", "version": 1, "status": "missing", "reasonCode": "credential-missing"}
+            return self.probe(argv, workspace, **kwargs)
+        sha = hashlib.sha256((self.workspace / "image.png").read_bytes()).hexdigest()
+        bindings = [{"role": role, "path": "image.png", "sha256": sha} for role in
+                    ("reference", "inventory", "artifact", "size-prior", "camera", "depth", "support")]
+        context = placement_context(
+            {"runId": "run-1", "objectId": "object-1", "revision": 1, "passId": "unused"},
+            bindings, question="size", options=[{"id": "size-0", "value": [1, 1, 1]}])
+        provider = Mock(side_effect=AssertionError("declined Jev must never be called"))
+        availability = Mock(side_effect=AssertionError("explicit decline already proves unavailability"))
+        def fallback(projected):
+            return {"kind": "img2.decision-advisory", "version": 1, "group": projected["group"],
+                    "subject": projected["subject"], "contextDigest": canonical_digest(projected),
+                    "model": "offline-consent-fixture",
+                    "answers": {"selection": {"type": "choice", "choice": "size-0", "confidence": 1,
+                                             "probabilities": {"size-0": 1}},
+                                "anyFits": {"type": "noul", "noul": 1}},
+                    "usage": {"input_tokens": 2, "output_tokens": 1}}
+        controller = DecisionController(self.workspace, "run-1")
+        consent = self.live()
+        with patch.object(route_cli, "_run_cli", side_effect=probe):
+            record = controller.consult(context, consent=consent, provider=provider,
+                                        availability=availability, fallback=fallback, request_token_limit=128)
+            self.assertEqual(controller.consume(record, context, consent=consent), record)
+        self.assertEqual(record["status"], "answered")
+        self.assertEqual(record["unavailableReason"], "consent-declined")
+        self.assertEqual(record["decider"], "model:offline-consent-fixture")
+        provider.assert_not_called()
+        availability.assert_not_called()
 
     def test_missing_or_refused_consent_is_preserved_without_enrollment(self):
         for reason in ("consent-required", "consent-declined"):
@@ -321,7 +358,7 @@ class ChildInitializationTests(unittest.TestCase):
         self.case.setUp()
         self.addCleanup(self.case.doCleanups)
         self.harness = SimpleNamespace(argv=("fixture-img2",), runtime_provider=self.case.runtime_row,
-                                       runner=self.case.command, verify=Mock())
+                                       runner=self.case.command, authority_runner=self.case.command, verify=Mock())
         self.case.pin(self.case.plugin, "domain.json", json.dumps({"id": "pixi2d"}).encode())
 
     def generic(self):
