@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Composition gate checks now re-hash the current scene module and recorded input files before assessing supplied measurements. These checks do not authenticate the manifest or measurement producers.
+- Composition distinguishes group-scoped `capability-unavailable` from run-wide Jev outages when validating fallback placements.
+
 - Document the routed four-group decision lifecycle in `grimoire/intake/routing.md` and add one mandatory decision-lifecycle entry to `SKILL.md`. The page covers the four decision groups and their typed edges (routing, build strategy, quality review, repair); candidate enumeration and eligibility; per-object children, revisions and the parent checklist; login, four-purpose consent and the single shared token budget; the host-model fallback and its proven-outage rule; the explicit-2D rule; terminal artifact ownership (`ownerRoute`, `ownedObjectIds`, `excludeComponents`); and the reason codes a caller can observe.
 - Routing is advisory and base-owned. A provider answer (Jev or a host-approved model fallback) can only choose among candidates the base already admitted and never grants acceptance. Pixi2D is reached only by an explicit 2D request (`--expected-output 2d`); a 3D request is never downgraded to it.
 - Only routing has a command-line entry (`python3 forge/route.py`). Build strategy, quality review and repair remain library APIs with no non-test caller or state integration in this repository.

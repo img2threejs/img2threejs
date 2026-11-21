@@ -68,11 +68,10 @@ from urllib.parse import quote
 from _shared.decision_control import _REQUEST_FAILURES, _UNAVAILABLE
 from _shared.route_artifact import validate_artifact
 
-# Derived from the controller, never restated: a placement records an outage the
-# controller actually journalled, so the two must use one vocabulary. Restating
-# these let 'not-installed' be rejected here as an invalid session.
-REQUEST_FAILURES = frozenset(_REQUEST_FAILURES)
-RUN_UNAVAILABLE = frozenset(_UNAVAILABLE)
+# Capability outages are group-scoped; only the other unavailable reasons
+# apply to the whole session. Keep both sets aligned with the controller.
+REQUEST_FAILURES = frozenset(_REQUEST_FAILURES | {"capability-unavailable"})
+RUN_UNAVAILABLE = frozenset(_UNAVAILABLE - {"capability-unavailable"})
 _HASH = re.compile(r'[0-9a-f]{64}\Z')
 _ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}\Z')
 

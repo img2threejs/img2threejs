@@ -440,10 +440,10 @@ class SceneComposerTests(unittest.TestCase):
         # A placement records an outage the controller journalled. If the two
         # restate their own names, a real 'not-installed' run is rejected here as
         # an invalid session and composition becomes unreachable after an outage.
-        self.assertEqual(set(RUN_UNAVAILABLE), set(_UNAVAILABLE))
-        self.assertEqual(set(REQUEST_FAILURES), set(_REQUEST_FAILURES))
+        self.assertEqual(set(RUN_UNAVAILABLE), set(_UNAVAILABLE) - {'capability-unavailable'})
+        self.assertEqual(set(REQUEST_FAILURES), set(_REQUEST_FAILURES) | {'capability-unavailable'})
         receipt = self.put('outage-receipt.json', {'outcome': 'unavailable'})
-        for reason in sorted(_UNAVAILABLE):
+        for reason in sorted(RUN_UNAVAILABLE):
             with self.subTest(reason=reason):
                 self.placement['jevSession'] = 'unavailable:' + reason
                 # Under a journalled outage every answer is model-decided and must
@@ -455,6 +455,19 @@ class SceneComposerTests(unittest.TestCase):
                             reasonCode=reason, unavailableReceipt=receipt)
                 self.save_placement()
                 self.assertFalse(self.compose(output='composed/' + reason)['deliverable'])
+
+    def test_group_capability_outage_does_not_disable_whole_session(self):
+        self.placement['jevSession'] = 'unavailable:capability-unavailable'
+        self.save_placement()
+        self.reject('invalid-session')
+
+    def test_group_capability_outage_can_fallback_for_one_answer(self):
+        row = self.placement['objects'][0]
+        row['yawAnswer'] = self.change(
+            row['yawAnswer'], decider='model:fixture', reasonCode='capability-unavailable',
+            unavailableReceipt=self.put('group-outage.json', {'outcome': 'unavailable'}))
+        self.save_placement()
+        self.assertFalse(self.compose()['deliverable'])
 
     def test_model_timeout_answer_retains_receipt_without_new_provider_call(self):
         row = self.placement['objects'][0]

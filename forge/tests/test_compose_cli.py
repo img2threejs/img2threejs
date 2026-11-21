@@ -135,6 +135,18 @@ class ComposeCliTests(unittest.TestCase):
         self.assertEqual(value["status"], "fail")
         self.assertFalse(value["result"]["deliverable"])
 
+    def test_changed_scene_module_is_refused(self):
+        manifest, scene_sha, reference_sha = self.composed()
+        (self.root / manifest["module"]["path"]).write_bytes(b"changed module")
+        code, value = self.gates(self.measurements(scene_sha, reference_sha))
+        self.assertEqual((code, value["reasonCode"]), (3, "stale-scene-module"))
+
+    def test_changed_reference_bytes_are_refused(self):
+        _, scene_sha, reference_sha = self.composed()
+        (self.root / self.case.request["reference"]["path"]).write_bytes(b"changed reference")
+        code, value = self.gates(self.measurements(scene_sha, reference_sha))
+        self.assertEqual((code, value["reasonCode"]), (3, "stale-scene-input"))
+
     def test_measurements_bound_to_another_scene_are_refused(self):
         _, scene_sha, reference_sha = self.composed()
         payload = self.measurements(scene_sha, reference_sha)

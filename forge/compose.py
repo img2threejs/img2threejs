@@ -9,11 +9,10 @@ Two subcommands, both fail-closed and offline:
 
 `scene` writes a NEW candidate directory through ``compose_scene``; it never
 advances workflow state, consults a provider, or accepts delivery. `gates`
-assesses externally produced measurements through ``assess_scene``: the expected
-object identities come from the independently routed inventory, never from the
-scene under review, and the measurements must be bound to the exact composed
-module and reference bytes. A pass here is a measured gate result, not canonical
-workflow acceptance; the parent still owns that decision.
+assesses caller-supplied measurements through ``assess_scene`` against a routed
+inventory and the current composed module and input bytes. Hash checks do not
+authenticate the manifest, inventory or measurement producers. A pass here is
+not canonical workflow acceptance; the parent still owns that decision.
 
 Exit codes: 0 success/pass, 2 usage or unreadable input, 3 refusal or gate
 failure. Every refusal prints one JSON object carrying its reason code.
@@ -23,6 +22,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -32,7 +32,7 @@ for _entry in (str(ROOT), str(ROOT / "_shared")):
         sys.path.insert(0, _entry)
 
 from scene_quality import assess_scene  # noqa: E402
-from stage6_compose.compose import CompositionError, compose_scene  # noqa: E402
+from stage6_compose.compose import CompositionError, _read, compose_scene  # noqa: E402
 
 _MAX_INPUT = 64 * 1024 * 1024
 
@@ -87,7 +87,7 @@ def _scene(args: argparse.Namespace) -> int:
 
 
 def _inventory_ids(inventory: dict) -> list[str]:
-    """Routed object identities, taken only from the authenticated inventory."""
+    """Read object identities from the supplied inventory without authenticating it."""
     if inventory.get("kind") != "img2.object-inventory" or inventory.get("version") != 1:
         raise _InputError("invalid-record", "inventory")
     rows = inventory.get("objects")
@@ -110,8 +110,35 @@ def _gates(args: argparse.Namespace) -> int:
     if composed.get("kind") != "img2.composed-scene" or composed.get("version") != 1:
         raise _InputError("invalid-record", "composed")
     module = composed.get("module")
-    if type(module) is not dict or type(module.get("sha256")) is not str:
+    if (type(module) is not dict or type(module.get("path")) is not str
+            or type(module.get("sha256")) is not str):
         raise _InputError("missing-evidence", "composed.module")
+    inputs = composed.get("inputs")
+    if (type(inputs) is not list or not inputs
+            or any(type(ref) is not dict or set(ref) != {"path", "sha256"}
+                   or type(ref["path"]) is not str or type(ref["sha256"]) is not str
+                   for ref in inputs)):
+        raise _InputError("missing-evidence", "composed.inputs")
+    if composed.get("referenceSha256") not in {ref["sha256"] for ref in inputs}:
+        raise _InputError("missing-evidence", "composed.reference")
+    try:
+        workspace_fd = os.open(args.workspace, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            if hashlib.sha256(_read(workspace_fd, module["path"])).hexdigest() != module["sha256"]:
+                _emit(_refusal("stale-scene-module", "composed.module"))
+                return 3
+            for ref in inputs:
+                if hashlib.sha256(_read(workspace_fd, ref["path"])).hexdigest() != ref["sha256"]:
+                    _emit(_refusal("stale-scene-input", ref["path"]))
+                    return 3
+        finally:
+            os.close(workspace_fd)
+    except CompositionError as error:
+        _emit(_refusal(error.reason_code, error.field))
+        return 3
+    except OSError:
+        _emit(_refusal("unsafe-path", "workspace"))
+        return 3
     # The measurements must describe the exact composed module, reference and
     # inventory bytes under review. Any other scene is stale evidence.
     if measurements.get("sceneSha256") != module["sha256"]:
@@ -146,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
     gates.add_argument("--measurements", type=Path, required=True,
                        help="externally produced scene measurements")
     gates.add_argument("--inventory", type=Path, required=True,
-                       help="authenticated img2.object-inventory for the run")
+                       help="routed img2.object-inventory for the run")
     return parser
 
 
