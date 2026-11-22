@@ -25,6 +25,7 @@ SPEC.loader.exec_module(route_cli)
 from decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
 from jev_cli_bridge import REQUIRED_PROVIDER_FILES
 from stage0_route.images import png
+from route_eligibility import evaluate_candidate
 
 
 class RouteCliTests(unittest.TestCase):
@@ -754,6 +755,84 @@ class HarnessPinTests(unittest.TestCase):
         with self.assertRaises(DecisionError) as caught:
             pin.runner([*pin.argv, "add", "unapproved"])
         self.assertEqual(caught.exception.reason_code, "authority-command-not-authorized")
+
+
+class PinnedDependencyRunnerTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.pin = object.__new__(route_cli.HarnessPin)
+        self.pin.root = self.root
+        self.pin.argv = (str(self.root / "missing-node"), "--no-addons",
+                         str(self.root / "img2.mjs"))
+        self.pin.consent = SimpleNamespace(git=self.root / "missing-git", git_env={})
+        self.pin.verify = Mock()
+        controller = SimpleNamespace(workspace=self.root, record_probe=lambda fact: fact)
+        self.discovery = route_cli.PinnedDiscovery(controller, harness=self.pin.argv,
+                                                   runner=self.pin.runner)
+        self.environment = patch.dict(route_cli.os.environ, {"PATH": str(self.root)})
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+
+    def test_missing_allowlisted_dependency_reports_dependency_missing(self):
+        dependencies = {"blender>=4.3": self.discovery.dependency("blender>=4.3")}
+        card = {"kind": "img2.route-card", "version": 1, "outputKind": "3d-scene",
+                "costClass": "heavy", "requires": {"roles": ["scene-container"]},
+                "deps": [{"probe": "blender>=4.3"}]}
+        result = evaluate_candidate(
+            card, expected_output="3d", roles=["scene-container"], observations={},
+            intent=[], provider_status="answered", dependencies=dependencies,
+            blocking_gate_produced=True)
+        self.assertEqual(result, {"eligible": False,
+                                  "reasons": ["dependency-missing:blender>=4.3"]})
+        self.assertEqual(self.discovery.probes[0]["exitCode"], 127)
+        self.assertEqual(self.pin.verify.call_count, 2)
+
+    def test_non_executable_dependency_still_fails_closed(self):
+        executable = self.root / "blender"
+        executable.write_text("#!/bin/sh\nexit 0\n")
+        executable.chmod(0o600)
+        with self.assertRaises(DecisionError) as caught:
+            self.discovery.dependency("blender>=4.3")
+        self.assertEqual(caught.exception.reason_code, "provider-error")
+        self.assertEqual(self.pin.verify.call_count, 2)
+
+    def test_other_os_errors_still_fail_closed(self):
+        for error in (PermissionError("denied"), OSError("io failure")):
+            with self.subTest(error=type(error).__name__):
+                with patch.object(route_cli.subprocess, "Popen", side_effect=error):
+                    with self.assertRaises(DecisionError) as caught:
+                        self.discovery.dependency("blender>=4.3")
+                self.assertEqual(caught.exception.reason_code, "provider-error")
+
+    def test_missing_harness_and_git_executables_still_fail_closed(self):
+        for argv in ((*self.pin.argv, "--version", "--json"), ("git", "--version")):
+            with self.subTest(argv=argv):
+                with self.assertRaises(DecisionError) as caught:
+                    self.discovery.run(argv)
+                self.assertEqual(caught.exception.reason_code, "provider-error")
+
+    def test_missing_working_directory_still_fails_closed(self):
+        with self.assertRaises(DecisionError) as caught:
+            self.pin.runner(["blender", "--version"], cwd=self.root / "missing-cwd")
+        self.assertEqual(caught.exception.reason_code, "provider-error")
+
+    def test_missing_dependency_does_not_mask_pre_or_post_verification_failure(self):
+        for phase in ("before", "after"):
+            with self.subTest(phase=phase):
+                error = DecisionError("harness-pin-mismatch")
+                self.pin.verify.side_effect = [error] if phase == "before" else [None, error]
+                with self.assertRaises(DecisionError) as caught:
+                    self.discovery.dependency("blender>=4.3")
+                self.assertEqual(caught.exception.reason_code, "harness-pin-mismatch")
+
+    def test_missing_verification_executable_still_fails_closed(self):
+        self.pin.verify.side_effect = lambda: route_cli._run_bytes(
+            [str(self.root / "missing-verifier")], self.root)
+        with self.assertRaises(DecisionError) as caught:
+            self.discovery.dependency("blender>=4.3")
+        self.assertEqual(caught.exception.reason_code, "provider-error")
 
 
 if __name__ == "__main__":

@@ -169,6 +169,8 @@ routing: exit 0 requires every selected plugin at its pin, resolved route depend
 usable Jev authentication. Unselected capabilities are reported as `not installed by choice`.
 Older published installers may still install only the skill; bundled install/repair integration
 is not supplied by this core check. See [§3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
+The isolated [E2E runner](docs/E2E.md) accepts object roles and typed observations for room
+routing; interior needs `blender>=4.3` on PATH, not just a bpy interpreter selector.
 
 Manual registry inspection example (not a complete default installation):
 

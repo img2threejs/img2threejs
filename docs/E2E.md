@@ -55,11 +55,35 @@ python3 scripts/e2e/route_one.py \
 ```
 
 It creates the workspace, copies the image to `ref.png` (or `ref.jpg`), and for
-`--kind 3d` writes `objects.json` with one `subject` covering the whole image
-(or `--box`). A 2D run writes no `objects.json`, matching `forge/route.py`. The
-workspace must be new, or a directory this script already prepared for identical
-input. `--label` is lowercase letters, digits and hyphens. Image must be PNG or
-baseline JPEG.
+`--kind 3d` writes `objects.json` with one object covering the whole image
+(or `--box`). `--role` is `subject` (default), `prop`, `scene-container` or
+`set-dressing`. Repeat `--observation key=value` to supply observations: values
+are parsed as JSON when possible, otherwise kept as strings; a repeated key uses
+the last value. For example, `roomCount=1` is numeric and
+`enclosure=enclosed-room` is a string. A 2D run writes no `objects.json`, matching
+`forge/route.py`. The workspace must be new, or a directory this script already
+prepared for identical input, including role and observations. `--label` is
+lowercase letters, digits and hyphens. Image must be PNG or baseline JPEG.
+
+For a single enclosed room:
+
+```bash
+python3 scripts/e2e/route_one.py \
+  --home /tmp/img2-e2e/iso --workspace /tmp/img2-e2e/ws-room \
+  --image /path/to/room.png --label room --kind 3d --run-id room-1 \
+  --role scene-container \
+  --observation enclosure=enclosed-room --observation roomCount=1
+```
+
+Unlike provisioning, the route runner inherits the caller's environment, including
+`IMG2_*` runtime selector variables and `PATH`; it overrides `IMG2_HOME` and
+`IMG2_HARNESS_DIR` with the provisioned pins and prepends the provisioned Node
+directory to `PATH`. Interior requires a genuine **Blender >=4.3 executable named
+`blender` on PATH** until a Blender-executable selector exists.
+`IMG2_BLENDER_PYTHON` selects the separate bpy interpreter; it does not satisfy
+the `blender>=4.3` discovery probe. A missing allowlisted dependency executable
+is reported as `dependency-missing:blender>=4.3`, not `provider-error`;
+permission/non-executable errors and harness verification still fail closed.
 
 It then runs `jev.py consent decision-status` for the workspace and run id.
 

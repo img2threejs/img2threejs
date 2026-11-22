@@ -66,6 +66,19 @@ def parse_box(text):
     return box
 
 
+def parse_observations(values):
+    observations = {}
+    for text in values:
+        key, separator, value = text.partition("=")
+        if not separator or not key.strip():
+            raise Refusal("--observation must be key=value with a non-empty key")
+        try:
+            observations[key] = json.loads(value)
+        except ValueError:
+            observations[key] = value
+    return observations
+
+
 def load_provision(home):
     path = Path(home) / "provision.json"
     try:
@@ -98,16 +111,18 @@ def reference_suffix(raw):
     raise Refusal("--image must be a PNG or baseline JPEG")
 
 
-def prepare_workspace(workspace, image, label, kind, box, run_id, intent, *, create):
+def prepare_workspace(workspace, image, label, kind, box, run_id, intent, *,
+                      role, observations, create):
     """Create a fresh workspace, or reuse one this script created for identical input."""
     raw = Path(image).read_bytes()
     suffix = reference_suffix(raw)
     reference = "ref" + suffix
     proposals = {"kind": "img2.object-proposals", "version": 1, "objects": [{
-        "objectId": label, "label": label, "role": "subject",
-        "approxBox": box, "observations": {}}]}
+        "objectId": label, "label": label, "role": role,
+        "approxBox": box, "observations": observations}]}
     marker = {"kind": "img2.e2e-route-input", "version": 1, "runId": run_id, "label": label,
-              "expectedOutput": kind, "intent": intent, "box": box, "imageSha256": sha256_bytes(raw)}
+              "expectedOutput": kind, "intent": intent, "box": box, "imageSha256": sha256_bytes(raw),
+              "role": role, "observations": observations}
     workspace = Path(workspace)
     if workspace.exists():
         if workspace.is_symlink() or not workspace.is_dir():
@@ -117,9 +132,9 @@ def prepare_workspace(workspace, image, label, kind, box, run_id, intent, *, cre
                 previous = json.loads((workspace / MARKER).read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 previous = None
-            if previous != marker:
+            if json.dumps(previous, sort_keys=True) != json.dumps(marker, sort_keys=True):
                 raise Refusal("--workspace is not empty and was not prepared by this script for "
-                              "the same run id, image, label, kind and intent: %s" % workspace)
+                              "the same run id, image, label, kind, intent, box, role and observations: %s" % workspace)
             return reference
     if create:
         workspace.mkdir(parents=True, exist_ok=True)
@@ -318,6 +333,10 @@ def build_parser():
     parser.add_argument("--image", required=True, type=Path, help="reference PNG or baseline JPEG")
     parser.add_argument("--label", required=True, help="what the object is: lowercase letters, digits, hyphens")
     parser.add_argument("--kind", required=True, choices=("2d", "3d"), help="expected output kind")
+    parser.add_argument("--role", choices=("subject", "prop", "scene-container", "set-dressing"),
+                        default="subject", help="object role (default %(default)s)")
+    parser.add_argument("--observation", action="append", default=[], metavar="KEY=VALUE",
+                        help="object observation; JSON value when possible, otherwise string; repeatable")
     parser.add_argument("--intent", action="append", default=[], help="route intent, e.g. rig; repeatable")
     parser.add_argument("--run-id", required=True, help="run id; consent is bound to it")
     parser.add_argument("--box", help="normalized x0,y0,x1,y1 of the subject (default whole image)")
@@ -341,12 +360,14 @@ def main(argv=None, *, runner=subprocess_runner, out=None):
         if not args.image.is_file():
             raise Refusal("--image is not a file: %s" % args.image)
         box = parse_box(args.box) if args.box else [0, 0, 1, 1]
+        observations = parse_observations(args.observation)
         pins = load_provision(args.home)
         workspace = args.workspace.resolve()
         if workspace == pins["img2Home"] or pins["img2Home"] in workspace.parents or workspace in pins["img2Home"].parents:
             raise Refusal("--workspace must be outside the isolated IMG2_HOME")
         reference = prepare_workspace(workspace, args.image, args.label, args.kind, box,
-                                      args.run_id, args.intent, create=not args.dry_run)
+                                      args.run_id, args.intent, role=args.role,
+                                      observations=observations, create=not args.dry_run)
     except Refusal as error:
         print("refused: %s" % error, file=out)
         return EXIT_REFUSED

@@ -11,6 +11,8 @@ can plan around.
 
 Implemented in the core: validated provisioned selector fallback, selected-plugin preflight,
 visible route rejection reasons, and offline Jev release-lock regeneration/checking.
+The isolated E2E runner accepts role/observations; pinned routing distinguishes missing
+dependency executables from provider errors. Interior still requires Blender >=4.3 on PATH.
 The default installation policy requires all five routed plugins; users may explicitly choose
 a subset. Remaining release gates: bundled installer/repair integration, public Jev packaging
 after secret-history review, clean-home install/routing acceptance, and explicit no-account

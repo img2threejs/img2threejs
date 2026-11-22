@@ -69,6 +69,8 @@ core script. See [installation and provisioning](docs/INSTALL.md#3-required-plug
 Never silently substitute generic for a missing domain. `forge/route.py` exposes per-object
 `pluginRejections` (also retained in the decision/journal); inspect them even on a decided route.
 Follow each installed plugin's `SKILL.md` and step-named contracts.
+For isolated routing checks, see [`docs/E2E.md`](docs/E2E.md): role/observations are explicit;
+interior requires `blender>=4.3` on PATH independently of `IMG2_BLENDER_PYTHON`.
 
 ## Core Promise
 

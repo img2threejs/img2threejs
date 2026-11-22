@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts" / "e2e"
 sys.path.insert(0, str(SCRIPTS))
@@ -443,6 +444,63 @@ class RouteOneTests(unittest.TestCase):
         self.run_main("--box", "0.1,0.2,0.9,0.8")
         proposals = json.loads((self.workspace / "objects.json").read_text())
         self.assertEqual(proposals["objects"][0]["approxBox"], [0.1, 0.2, 0.9, 0.8])
+
+    def test_room_role_and_typed_observations_are_written_and_reusable(self):
+        options = ("--role", "scene-container", "--observation", "enclosure=enclosed-room",
+                   "--observation", "roomCount=1")
+        code, _ = self.run_main(*options)
+        self.assertEqual(code, route_one.EXIT_CONSENT)
+        proposals = json.loads((self.workspace / "objects.json").read_text())
+        self.assertEqual(proposals["objects"][0]["role"], "scene-container")
+        self.assertEqual(proposals["objects"][0]["observations"],
+                         {"enclosure": "enclosed-room", "roomCount": 1})
+        code, _ = self.run_main(*options)
+        self.assertEqual(code, route_one.EXIT_CONSENT)
+        for changed in (
+                ("--role", "prop", "--observation", "enclosure=enclosed-room",
+                 "--observation", "roomCount=1"),
+                ("--role", "scene-container", "--observation", "enclosure=enclosed-room",
+                 "--observation", "roomCount=2"),
+                ("--role", "scene-container", "--observation", "enclosure=enclosed-room",
+                 "--observation", 'roomCount="1"'),
+                ("--role", "scene-container", "--observation", "enclosure=enclosed-room",
+                 "--observation", "roomCount=true")):
+            with self.subTest(changed=changed):
+                self.calls.clear()
+                code, text = self.run_main(*changed)
+                self.assertEqual(code, route_one.EXIT_REFUSED)
+                self.assertIn("not empty", text)
+                self.assertEqual(self.calls, [])
+
+    def test_observation_values_use_json_or_preserve_string_and_equals(self):
+        self.assertEqual(route_one.parse_observations([
+            "roomCount=1", "flatness=0.5", "articulation=false", "enclosure=null",
+            'multiplicity=[1,2]', 'stylization={"style":"toon"}',
+            'quoted="text"', "raw=a=b", "roomCount=2"]),
+            {"roomCount": 2, "flatness": 0.5, "articulation": False, "enclosure": None,
+             "multiplicity": [1, 2], "stylization": {"style": "toon"},
+             "quoted": "text", "raw": "a=b"})
+
+    def test_malformed_observation_is_refused_before_workspace_or_commands(self):
+        for value in ("roomCount", "=1", " =1"):
+            with self.subTest(value=value):
+                code, text = self.run_main("--observation", value)
+                self.assertEqual(code, route_one.EXIT_REFUSED)
+                self.assertIn("key=value", text)
+                self.assertEqual(self.calls, [])
+                self.assertFalse(self.workspace.exists())
+
+    def test_route_inherits_path_and_runtime_selectors(self):
+        selectors = {"IMG2_CHARACTER_NODE": "/selected/node",
+                     "IMG2_CHARACTER_CHROMIUM": "/selected/chromium",
+                     "IMG2_BLENDER_PYTHON": "/selected/python",
+                     "IMG2_CHARACTER_THREE_PACKAGE": "/selected/three"}
+        with patch.dict(os.environ, dict(selectors, PATH="/caller/bin:/usr/bin")):
+            self.run_main()
+        env = self.calls[0]["env"]
+        self.assertEqual(env["PATH"], str(self.base / "bin") + os.pathsep + "/caller/bin:/usr/bin")
+        for key, value in selectors.items():
+            self.assertEqual(env[key], value)
 
 
 if __name__ == "__main__":

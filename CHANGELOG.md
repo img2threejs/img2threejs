@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Report missing allowlisted dependency executables as `dependency-missing:<probe>` in pinned
+  routing; permission errors, harness execution and all pin verification remain fail-closed.
+  Add E2E `--role` and repeatable JSON-or-string `--observation key=value`, binding both to
+  workspace reuse. The runner retains caller PATH/runtime selectors; interior still requires
+  `blender>=4.3` on PATH, independently of `IMG2_BLENDER_PYTHON`. See `docs/E2E.md`.
 - Add fail-closed provisioned runtime selector fallback without changing real environment
   precedence, selected-plugin installation preflight, and visible per-object route rejection
   reasons. The default install policy requires all five plugins; bundling/repair and explicit

@@ -103,13 +103,20 @@ def _approved_lock():
     return value
 
 
-def _run_bytes(argv, workspace, *, timeout=15, maximum=64 * 1024, env=None):
+def _run_bytes(argv, workspace, *, timeout=15, maximum=64 * 1024, env=None,
+               allow_missing_executable=False):
     """Read-only bounded runner; raw child output never reaches terminal or logs."""
     process = None
     try:
-        process = subprocess.Popen(argv, cwd=workspace, stdin=subprocess.DEVNULL,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
-                                   shell=False, start_new_session=True)
+        try:
+            process = subprocess.Popen(argv, cwd=workspace, stdin=subprocess.DEVNULL,
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+                                       shell=False, start_new_session=True)
+        except FileNotFoundError as error:
+            # Only an absent allowlisted executable, never a missing cwd or verifier.
+            if allow_missing_executable and error.filename == argv[0]:
+                return 127, b""
+            raise
         deadline, output, size = time.monotonic() + timeout, bytearray(), 0
         with selectors.DefaultSelector() as selector:
             selector.register(process.stdout, selectors.EVENT_READ)
@@ -428,6 +435,7 @@ class HarnessPin:
 
     def runner(self, argv, *, cwd=None, env=None, timeout=30, **kwargs):
         self.verify()
+        dependency_probe = False
         if tuple(argv[:len(self.argv)]) == self.argv:
             command = list(argv[len(self.argv):])
             if command != ["--version", "--json"] and not (
@@ -445,6 +453,7 @@ class HarnessPin:
                 allowed.append(bpy)
             if tuple(argv) not in allowed:
                 _fail("authority-command-not-authorized")
+            dependency_probe = True
         environment = dict(os.environ if env is None else env)
         for key in list(environment):
             if key.startswith(("NODE_", "PYTHON")) or key == "TYPESAFE_API_KEY":
@@ -454,7 +463,8 @@ class HarnessPin:
             environment = self.consent.git_env
         try:
             code, raw = _run_bytes(list(argv), Path(cwd or self.root), timeout=timeout,
-                                   maximum=8 * 1024 * 1024, env=environment)
+                                   maximum=8 * 1024 * 1024, env=environment,
+                                   allow_missing_executable=dependency_probe)
             return subprocess.CompletedProcess(argv, code, raw, b"")
         finally:
             self.verify()
