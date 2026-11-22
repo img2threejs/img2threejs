@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consumes its stored review without prematurely advancing canonical quality or the incumbent.
   Native setup-scoped workflows preserve their pass sentinel while the actual native resolver
   still validates the requested pass. Fallback deadlines cover preflight and supervised descendants.
+- Allow a complete host-approved harness pin bundle for decision-only routing; partial bundles
+  still refuse before journal creation, and no child is created without `--create-children`.
 - Describe the routed plugins (`interior`, `character`, `cs2`, `pixi2d`, `jev`) in the README and `docs/PLUGINS.md`: what each adds, its output kind and the advisory boundary.
 - Qualification remains limited: no real-image held-out quality, general Blender export parity, live Jev delivery or end-to-end scene/release acceptance is claimed. Narrow observed character parity, reviewed Pixi replay and nonprivate OMP transport results are distinguished from per-child semantic/terminal gates and independent scene acceptance in `grimoire/intake/routing.md`.
 - Trim `SKILL.md` below its word budget by condensing the `Left and right` and `Hair` sections, which restate `grimoire/scripts.md` and `docs/HAIR_PIPELINE.md`, and by replacing the long routing development note with one pointer to `grimoire/intake/routing.md`. The routed-child rules (login, consent, explicit 2D, `--create-children`, `--complete-child`, progress-not-delivery) now live in that page.

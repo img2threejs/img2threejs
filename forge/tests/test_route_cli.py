@@ -328,6 +328,26 @@ class RouteCliTests(unittest.TestCase):
         self.assertFalse(value["deliverable"])
         self.assertFalse((self.workspace / ".img2threejs/state.json").exists())
 
+    def test_pinned_decision_only_routing_never_creates_a_parent(self):
+        harness = SimpleNamespace(argv=("approved-harness",), runner=Mock())
+        flags = ["--harness-root", str(self.root / "harness"),
+                 "--harness-sha", "d" * 40, "--harness-executable", str(self.root / "harness/bin/img2.mjs"),
+                 "--harness-sha256", "e" * 64]
+        with patch.object(route_cli, "HarnessPin", return_value=harness):
+            code, output, unused_router, unused_factory = self.invoke(self.args(*flags))
+        self.assertEqual((code, output["status"]), (0, "decided"))
+        self.assertEqual(output["mode"], "decision-only")
+        self.assertFalse(output["executionAuthorized"])
+        self.assertEqual(self.discovery.harness, harness.argv)
+        self.assertIs(self.discovery.runner, harness.runner)
+        self.assertFalse((self.workspace / ".img2threejs/state.json").exists())
+
+    def test_partial_routing_harness_approval_refuses_before_controller_creation(self):
+        with patch.object(route_cli, "DecisionController") as controller, \
+                redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            route_cli.main(self.args("--harness-root", str(self.root / "harness")))
+        controller.assert_not_called()
+
     def test_git_verification_environment_contains_no_host_credentials(self):
         with patch.dict(route_cli.os.environ, {"TYPESAFE_API_KEY": self.secret, "GIT_CONFIG_COUNT": "99"}):
             consent = self.live()

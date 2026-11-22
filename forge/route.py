@@ -640,7 +640,7 @@ def build_parser():
     parser.add_argument("--complete-child", metavar="OBJECT_ID",
                         help="Revalidate and complete one existing child without rerouting")
     parser.add_argument("--decision-ref", help="Content-addressed route decision for --complete-child")
-    parser.add_argument("--harness-root", type=Path, help="Host-approved canonical harness checkout (required for child operations)")
+    parser.add_argument("--harness-root", type=Path, help="Host-approved canonical harness checkout (optional complete bundle for routing; required for child operations)")
     parser.add_argument("--harness-sha", help="Host-approved exact harness Git commit")
     parser.add_argument("--harness-executable", type=Path, help="Canonical harness bin/img2.mjs launcher")
     parser.add_argument("--harness-sha256", help="Host-approved launcher SHA256; never calculated from workspace input")
@@ -712,8 +712,8 @@ def main(argv=None):
     pins = (args.harness_root, args.harness_sha, args.harness_executable, args.harness_sha256)
     if (args.create_children or args.complete_child) and any(value is None for value in pins):
         parser.error("child operations require --harness-root, --harness-sha, --harness-executable and --harness-sha256")
-    if not (args.create_children or args.complete_child) and any(value is not None for value in pins):
-        parser.error("harness approval flags require a child operation")
+    if any(value is not None for value in pins) and any(value is None for value in pins):
+        parser.error("harness approval requires all four --harness-* pins")
     consent, result, harness = None, None, None
     try:
         workspace = args.workspace.resolve(strict=True)
@@ -734,7 +734,7 @@ def main(argv=None):
         discovery = PinnedDiscovery(controller)
         consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
         discovery.consent_probe = consent
-        if args.create_children or args.complete_child:
+        if all(value is not None for value in pins):
             harness = HarnessPin(*pins, consent)
             discovery.harness = harness.argv
             discovery.runner = harness.runner
