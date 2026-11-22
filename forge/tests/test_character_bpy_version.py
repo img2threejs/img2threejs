@@ -32,6 +32,8 @@ class CharacterBpyVersionTest(unittest.TestCase):
             ("4", None), ("4.5.15.1", None), (" 4.5.15", None), ("4.5.15 ", None),
             ("4.5.15 LTS ", None), ("4.5.15\n", None), ("4.5.15 LTS\n", None),
             ("4.5.15\nLTS", None), (4.5, None), (None, None), (["4.5.15"], None),
+            ("\uff14.\uff15.\uff11\uff15", None), ("\uff14.\uff15.\uff11\uff15 LTS", None),
+            ("4.\u0665.15", None), ("4.5.\u0661\u0665 LTS", None),
         ]
         for text, expected in cases:
             with self.subTest(version=text):
