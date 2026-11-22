@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Fix character dependency probe: `character-bpy>=` now accepts the single `" LTS"` suffix LTS bpy builds print (e.g. `4.5.15 LTS`), so the character plugin is no longer rejected as `dependency-missing:character-bpy>=4.3` and the router no longer falls back to the generic route. Every other version shape still fails closed.
 - Fix routed character owner profile: `forge/route.py` now writes the plugin-declared domain id `animated-character` (was `character`), so a routed character child can pass the native terminal authority profile check. The pinned `domain.json` id and definition are now verified for the character provider like every other plugin; the in-repo `character` domain is no longer trusted for routing. A state file written with profile `character` fails closed (no bypass).
 
 - Reject unsafe native state locks (symlinks, non-regular files, multiple links or the controller lock's device/inode) with `state-lock-unsafe`. Nonblocking acquisition retries for at most 10 seconds before `state-lock-timeout`; either refusal publishes nothing and releases the controller lock.

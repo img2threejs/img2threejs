@@ -149,7 +149,7 @@ def character_bpy_version(code, raw, executable):
                 or type(value.get("bpyModule")) is not str
                 or type(value.get("bpyVersion")) is not str):
             return None
-        version = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?", value["bpyVersion"])
+        version = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?(?: LTS)?", value["bpyVersion"])
         return tuple(int(part or 0) for part in version.groups()) if version else None
     except (ValueError, TypeError):
         return None
