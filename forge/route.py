@@ -48,7 +48,6 @@ from jev_provider_factory import JevProviderFactory
 from stage0_route.discovery import Discovery, JEV_EDGE
 from stage0_route.route import Router
 from domains import DomainRegistryError, registered_domains
-from domains.character import DOMAIN as CHARACTER_DOMAIN
 from route_authority import RouteAuthority, RoutePolicies
 from route_parent import OwnerProfile, ParentError, RouteParent
 from stage0_route.discovery import (EDGES, read_only_probes, character_bpy_probe,
@@ -511,7 +510,7 @@ def _owner_profiles(router, result, discovered):
         if provider == "base" and selected == ["base:generic"] and kind == "3d-object" and expected_output == "3d":
             owner = OwnerProfile("generic", "3d-object")
         else:
-            profiles = {"character": ("character", "rigged-3d"), "cs2": ("cs2", "3d-object"),
+            profiles = {"character": ("animated-character", "rigged-3d"), "cs2": ("cs2", "3d-object"),
                         "interior": ("interior", "3d-scene"), "pixi2d": ("pixi2d", "2d-scene")}
             if (provider not in profiles or candidate.get("claimants") != [provider]
                     or expected_output != ("2d" if provider == "pixi2d" else "3d")):
@@ -521,26 +520,22 @@ def _owner_profiles(router, result, discovered):
                 _fail("owner-output-mismatch")
             if profile not in domains:
                 _fail("owner-profile-unavailable")
-            if provider == "character":
-                if domains[profile] != CHARACTER_DOMAIN:
-                    _fail("owner-profile-provider-mismatch")
-            else:
-                response = router.discovery.query(EDGES[provider])
-                providers = response.get("providers", []) if type(response) is dict else []
-                if (type(response) is not dict or response.get("status") != "answered" or len(providers) != 1
-                        or providers[0].get("plugin") != provider
-                        or providers[0].get("resolvedSha") != candidate.get("resolvedSha")):
-                    _fail("live-provider-unavailable-or-ambiguous")
-                trusted = providers[0]
-                declared = _json(router.discovery._pinned_file(trusted, "domain.json"))
-                if type(declared) is not dict or declared.get("id") != profile:
-                    _fail("owner-profile-provider-mismatch")
-                for key in ("setupSteps", "passSteps", "rigSteps"):
-                    if key in declared:
-                        declared[key] = tuple((ident, command.replace("{plugin_dir}", trusted["dir"]))
-                                              for ident, command in declared[key])
-                if declared != domains[profile]:
-                    _fail("owner-profile-provider-mismatch")
+            response = router.discovery.query(EDGES[provider])
+            providers = response.get("providers", []) if type(response) is dict else []
+            if (type(response) is not dict or response.get("status") != "answered" or len(providers) != 1
+                    or providers[0].get("plugin") != provider
+                    or providers[0].get("resolvedSha") != candidate.get("resolvedSha")):
+                _fail("live-provider-unavailable-or-ambiguous")
+            trusted = providers[0]
+            declared = _json(router.discovery._pinned_file(trusted, "domain.json"))
+            if type(declared) is not dict or declared.get("id") != profile:
+                _fail("owner-profile-provider-mismatch")
+            for key in ("setupSteps", "passSteps", "rigSteps"):
+                if key in declared:
+                    declared[key] = tuple((ident, command.replace("{plugin_dir}", trusted["dir"]))
+                                          for ident, command in declared[key])
+            if declared != domains[profile]:
+                _fail("owner-profile-provider-mismatch")
             owner = OwnerProfile(profile, output_kind)
         owners[selected[0]] = owner
     if not owners:

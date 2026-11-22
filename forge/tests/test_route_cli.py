@@ -516,7 +516,7 @@ class ChildInitializationTests(unittest.TestCase):
 
     def test_fixed_character_cs2_interior_and_pixi_terminal_mappings(self):
         for provider, card_kind, profile, terminal, branch in (
-                ("character", "rigged-3d", "character", "rigged-3d", "3d"),
+                ("character", "rigged-3d", "animated-character", "rigged-3d", "3d"),
                 ("cs2", "spec-augmentation", "cs2", "3d-object", "3d"),
                 ("interior", "3d-scene", "interior", "3d-scene", "3d"),
                 ("pixi2d", "2d-scene", "pixi2d", "2d-scene", "2d")):
@@ -527,7 +527,7 @@ class ChildInitializationTests(unittest.TestCase):
                              "card": {"costClass": "heavy" if provider == "character" else "local", "outputKind": card_kind}}
                 routed = {"decision": {"phase": "decided", "request": {"expectedOutput": branch},
                                       "objects": [{"status": "resolved", "selected": ["selected"]}]}}
-                domain = copy.deepcopy(route_cli.CHARACTER_DOMAIN) if provider == "character" else {"id": profile}
+                domain = {"id": profile}
                 row = {"plugin": provider, "resolvedSha": "a" * 40, "dir": str(self.case.plugin)}
                 with patch.object(route_cli, "registered_domains", return_value={profile: domain}), \
                         patch.object(self.case.discovery, "query", return_value={"status": "answered", "providers": [row]}), \
@@ -545,7 +545,7 @@ class ChildInitializationTests(unittest.TestCase):
                              "card": {"costClass": cost_class, "outputKind": "rigged-3d"}}
                 routed = {"decision": {"phase": "decided", "request": {"expectedOutput": "3d"},
                                       "objects": [{"status": "resolved", "selected": ["selected"]}]}}
-                with patch.object(route_cli, "registered_domains", return_value={"character": route_cli.CHARACTER_DOMAIN}), \
+                with patch.object(route_cli, "registered_domains", return_value={"animated-character": {"id": "animated-character"}}), \
                         self.assertRaises(DecisionError) as caught:
                     route_cli._owner_profiles(self.case.router, routed, {"candidates": [candidate]})
                 self.assertEqual(caught.exception.reason_code, "paid-or-licensed-owner-not-authorized")
