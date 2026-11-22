@@ -39,6 +39,7 @@ from pathlib import PurePosixPath
 import re
 import secrets
 import stat
+import time
 
 try:  # POSIX advisory locking; absent on e.g. Windows. See state_lock().
     import fcntl
@@ -128,6 +129,7 @@ class VerifiedAggregate:
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,159}\Z")
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _PARENT = ".img2threejs/state.json"
+STATE_LOCK_TIMEOUT = 10.0
 _PIXI2D_STEPS = (
     ("pixi2d-snapshot", "setup",
      "Resolve this child's approved pinned Pixi provider as SKILL_DIR. Author "
@@ -287,6 +289,8 @@ def state_lock(workspace, relative):
     serialised. The lock file is created beside the state, never replaced, and is
     released when the descriptor closes (including on crash). Lock order is always the
     controller lease first, then this lock.
+    Only single-link regular files distinct from the controller lock are admitted;
+    contention fails closed after STATE_LOCK_TIMEOUT seconds.
 
     Where ``fcntl.flock`` is unavailable (non-POSIX) no lock is taken and the section
     degrades to the guarded compare-and-swap in ``_write`` alone: drift is still
@@ -295,10 +299,33 @@ def state_lock(workspace, relative):
     whose remaining window is the rename syscall itself.
     """
     with _directory(workspace, relative) as (directory, name):
-        fd = os.open(name + ".lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=directory)
         try:
+            fd = os.open(name + ".lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
+                         0o600, dir_fd=directory)
+        except OSError as exc:
+            raise ParentError("state-lock-unsafe") from exc
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                _fail("state-lock-unsafe")
+            try:
+                with _directory(workspace, ".img2threejs/route/lock") as (control_dir, control_name):
+                    controller = os.stat(control_name, dir_fd=control_dir, follow_symlinks=False)
+            except FileNotFoundError:
+                controller = None
+            if controller is not None and (info.st_dev, info.st_ino) == (controller.st_dev, controller.st_ino):
+                _fail("state-lock-unsafe")
             if fcntl is not None:
-                fcntl.flock(fd, fcntl.LOCK_EX)
+                deadline = time.monotonic() + STATE_LOCK_TIMEOUT
+                while True:
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            _fail("state-lock-timeout")
+                        time.sleep(min(0.05, remaining))
             yield
         finally:
             os.close(fd)

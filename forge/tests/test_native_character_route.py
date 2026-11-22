@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from dataclasses import replace
 from unittest.mock import patch
@@ -25,6 +26,7 @@ from workflow_decisions import NativePolicy, WorkflowDecisions, WorkflowPolicy
 from workflow_state import mark_steps, new_state, recompute, validate_state
 from forge.tests.test_route_parent import FixtureAuthority, canonical, sha
 import forge.next as next_cli
+import route_parent
 
 WORKFLOW = "native-character-v1"
 ROUTE = "character:native"
@@ -649,6 +651,140 @@ def build_policy(workspace, state_path):
                 with self.assertRaises(DecisionError) as raised:
                     self.workflow(self.policy(current="complete")).resolve_native_pass()
                 self.assertEqual(raised.exception.reason_code, "native-setup-incomplete")
+
+    def assert_controller_lock_free(self):
+        with (self.controller.control_dir / "lock").open("r+b") as stream:
+            route_parent.fcntl.flock(stream, route_parent.fcntl.LOCK_EX | route_parent.fcntl.LOCK_NB)
+
+    def run_native_lock_cli(self, source, pin, *, lock_timeout=None):
+        args = [sys.executable, str(ROOT / "forge/next.py")]
+        if lock_timeout is not None:
+            script = (
+                "import sys, runpy; "
+                f"sys.path.insert(0, {str(ROOT / 'forge/_shared')!r}); "
+                f"import route_parent; route_parent.STATE_LOCK_TIMEOUT = {lock_timeout!r}; "
+                "sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')"
+            )
+            args = [sys.executable, "-c", script, str(ROOT / "forge/next.py")]
+        return subprocess.run(
+            [*args, "--state", str(self.workspace / self.state_path), *self.policy_args(source, pin)],
+            cwd=self.workspace, capture_output=True, text=True, timeout=3)
+
+    @unittest.skipIf(route_parent.fcntl is None, "requires POSIX flock")
+    def test_unsafe_state_locks_fail_closed_and_release_controller(self):
+        self.ready_child()
+        source, pin = self.external_policy()
+        lock = self.workspace / (self.state_path + ".lock")
+        other = self.workspace / "other-lock"
+        other.write_bytes(b"unrelated file")
+        controller_lock = self.controller.control_dir / "lock"
+        for kind in ("controller-hardlink", "other-hardlink", "symlink", "fifo", "directory"):
+            with self.subTest(kind=kind):
+                if kind == "controller-hardlink":
+                    lock.hardlink_to(controller_lock)
+                elif kind == "other-hardlink":
+                    lock.hardlink_to(other)
+                elif kind == "symlink":
+                    lock.symlink_to(other)
+                elif kind == "fifo":
+                    os.mkfifo(lock)
+                else:
+                    lock.mkdir()
+                try:
+                    before = self.snapshot()
+                    result = self.run_native_lock_cli(source, pin)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("state-lock-unsafe", result.stdout + result.stderr)
+                    self.assertEqual(self.snapshot(), before)
+                    self.assertEqual(other.read_bytes(), b"unrelated file")
+                    self.assert_controller_lock_free()
+                finally:
+                    if kind == "directory":
+                        lock.rmdir()
+                    else:
+                        lock.unlink()
+
+    @unittest.skipIf(route_parent.fcntl is None, "requires POSIX flock")
+    def test_state_lock_contention_times_out_without_publication(self):
+        import select
+        self.ready_child()
+        source, pin = self.external_policy()
+        lock = self.workspace / (self.state_path + ".lock")
+        holder = subprocess.Popen(
+            [sys.executable, "-c",
+             "import fcntl, sys; f = open(sys.argv[1], 'w'); "
+             "fcntl.flock(f, fcntl.LOCK_EX); print('locked', flush=True); sys.stdin.read(1)",
+             str(lock)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True)
+        try:
+            self.assertTrue(select.select([holder.stdout], [], [], 5)[0], "holder did not start")
+            self.assertEqual(holder.stdout.readline(), "locked\n")
+            before = self.snapshot()
+            started = time.monotonic()
+            result = self.run_native_lock_cli(source, pin, lock_timeout=0.2)
+            elapsed = time.monotonic() - started
+            self.assertGreaterEqual(elapsed, 0.2)
+            self.assertLess(elapsed, 3)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("state-lock-timeout", result.stdout + result.stderr)
+            self.assertEqual(self.snapshot(), before)
+            self.assert_controller_lock_free()
+            # Exercise context-manager cleanup, not just OS cleanup on CLI exit.
+            with patch.object(route_parent, "STATE_LOCK_TIMEOUT", 0.05):
+                with self.assertRaisesRegex(ParentError, "state-lock-timeout"):
+                    self.workflow(self.policy()).resolve_native_pass()
+            self.assertEqual(self.snapshot(), before)
+            self.assert_controller_lock_free()
+        finally:
+            holder.communicate(input="x", timeout=5)
+        # Once the contender releases, the same normal CLI resolution succeeds.
+        result = self.run_native_lock_cli(source, pin)
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
+        self.assertEqual(self.read(self.state_path)["currentPass"], "native-build")
+
+    def test_state_lock_rejects_controller_identity_even_with_single_link_metadata(self):
+        self.ready_child()
+        lock = self.workspace / (self.state_path + ".lock")
+        lock.hardlink_to(self.controller.control_dir / "lock")
+        info = lock.stat()
+        from types import SimpleNamespace
+        single_link = SimpleNamespace(st_mode=info.st_mode, st_nlink=1,
+                                      st_dev=info.st_dev, st_ino=info.st_ino)
+        before = self.snapshot()
+        with patch.object(route_parent.os, "fstat", return_value=single_link):
+            with self.assertRaisesRegex(ParentError, "state-lock-unsafe"):
+                with route_parent.state_lock(self.workspace, self.state_path):
+                    self.fail("controller inode admitted")
+        self.assertEqual(self.snapshot(), before)
+
+    def test_state_lock_permissions_and_descriptors_on_success_and_failure(self):
+        import errno
+        import stat
+        self.ready_child()
+        lock = self.workspace / (self.state_path + ".lock")
+        opened = []
+        real_open = os.open
+        def track_open(*args, **kwargs):
+            fd = real_open(*args, **kwargs)
+            opened.append(fd)
+            return fd
+        with patch.object(route_parent.os, "open", side_effect=track_open):
+            for _ in range(100):
+                with route_parent.state_lock(self.workspace, self.state_path):
+                    self.assertEqual(stat.S_IMODE(lock.stat().st_mode), 0o600)
+                with self.assertRaisesRegex(RuntimeError, "inside-lock"):
+                    with route_parent.state_lock(self.workspace, self.state_path):
+                        raise RuntimeError("inside-lock")
+            lock.unlink()
+            lock.hardlink_to(self.controller.control_dir / "lock")
+            for _ in range(100):
+                with self.assertRaisesRegex(ParentError, "state-lock-unsafe"):
+                    with route_parent.state_lock(self.workspace, self.state_path):
+                        self.fail("unsafe lock acquired")
+        for fd in set(opened):
+            with self.assertRaises(OSError) as raised:
+                os.fstat(fd)
+            self.assertEqual(raised.exception.errno, errno.EBADF)
 
     def test_concurrent_writer_holding_the_state_lock_is_serialised_not_lost(self):
         import threading
