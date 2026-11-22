@@ -38,10 +38,70 @@ def emit_local_state(payload: dict) -> None:
         print(f"- {step_id}")
 
 
+_NATIVE_WORKFLOW = "native-character-v1"
+_NATIVE_STATE = re.compile(r"\.img2threejs/objects/[A-Za-z0-9][A-Za-z0-9_-]{0,159}/rev-[1-9][0-9]*/state\.json\Z")
+
+
+def native_main(args, local_state) -> int:
+    """Resolve an authenticated native child's pass; never sculpt synchronization.
+
+    Fails closed (exit 2) without a pinned host policy carrying native callbacks and
+    live authorization. Only currentPass and its derived step fields are updated:
+    loop counts and budgets are never recomputed or reset here.
+    """
+    if args.spec is not None:
+        print("state error: native child does not accept a positional spec", file=sys.stderr)
+        return 2
+    pending = {row["id"]: row["status"] for row in local_state["checklist"]}
+    if pending.get("native-plan-author") == "pending":
+        # Pre-plan phase: report the checklist only. No plan exists to validate, nothing
+        # is written, and currentPass stays untouched.
+        payload = status_payload(local_state)
+        emit_local_state(payload)
+        return 3 if payload["status"] == "stopped" else 0
+    if args.policy_module is None or args.policy_sha256 is None:
+        print("native error: native-authority-unavailable", file=sys.stderr)
+        return 2
+    try:
+        parts = args.state.resolve(strict=True).parts
+        if (local_state["routeChild"].get("workflow") != _NATIVE_WORKFLOW or len(parts) < 7
+                or parts[-5:-3] != (".img2threejs", "objects")
+                or _NATIVE_STATE.fullmatch("/".join(parts[-5:])) is None):
+            print("native error: child-state-mismatch", file=sys.stderr)
+            return 2
+        workspace = Path(*parts[:-5])
+        state_path = "/".join(parts[-5:])
+        if not (workspace / ".img2threejs/route/lease.json").is_file():
+            print("native error: lease-lost", file=sys.stderr)
+            return 2
+        # Lazy: only a native child pays for, or depends on, the decision stack.
+        sys.path.insert(0, str(ROOT.parent))
+        from forge.decision import load_policy
+        from decision_control import DecisionController, DecisionError
+        from workflow_decisions import WorkflowDecisions
+        controller = DecisionController(workspace, local_state["routeChild"]["runId"])
+        policy = load_policy(args.policy_module, args.policy_sha256, workspace=workspace,
+                             state_path=state_path, excluded_roots=[Path(root) for root in args.excluded_root])
+        workflow = WorkflowDecisions(controller, state_path, policy,
+                                     consent=lambda: None, availability=lambda: {"status": "absent"})
+        resolved = workflow.resolve_native_pass()
+    except (DecisionError, WorkflowStateError, OSError, ValueError, KeyError) as error:
+        print(f"native error: {getattr(error, 'reason_code', error)}", file=sys.stderr)
+        return 2
+    payload = status_payload(resolved)
+    emit_local_state(payload)
+    return 3 if payload["status"] == "stopped" else 0
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Report the exact next sculpt pipeline command")
     parser.add_argument("spec", type=Path, nargs="?")
     parser.add_argument("--state", type=Path, help="local checklist state created by forge/state.py init")
+    parser.add_argument("--policy-module", type=Path,
+                        help="native child only: canonical host-approved policy module")
+    parser.add_argument("--policy-sha256", help="native child only: exact policy module sha256")
+    parser.add_argument("--excluded-root", action="append", default=[],
+                        help="native child only: provider/harness tree the policy module must not live in")
     args = parser.parse_args(argv)
     local_state = None
     spec_path = args.spec
@@ -51,6 +111,12 @@ def main(argv: list[str]) -> int:
         except WorkflowStateError as error:
             print(f"state error: {error}", file=sys.stderr)
             return 2
+        route_child = local_state.get("routeChild")
+        if type(route_child) is dict and route_child.get("workflow") is not None:
+            if route_child["workflow"] != _NATIVE_WORKFLOW:
+                print("native error: native-selection-invalid", file=sys.stderr)
+                return 2
+            return native_main(args, local_state)
         if local_state.get("routeDecision"):
             if spec_path is not None:
                 print("state error: routed parent does not accept a positional spec", file=sys.stderr)

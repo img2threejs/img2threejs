@@ -206,9 +206,11 @@ def attach_lifecycle_steps(state: dict[str, Any]) -> None:
         insert("quality-review", command.replace("{command}", "quality"), "pass", "ai-review-recorded")
         insert("repair-decision", command.replace("{command}", "repair"), "pass", "ai-review-recorded")
     else:
-        build_anchor = next((anchor for anchor in ("interior-author-and-review", "pixi2d-evidence-produce")
+        build_anchor = next((anchor for anchor in ("interior-author-and-review", "pixi2d-evidence-produce",
+                                              "native-build")
                              if anchor in ids), None)
-        review_anchor = next((anchor for anchor in ("interior-export-and-audit", "pixi2d-publish")
+        review_anchor = next((anchor for anchor in ("interior-export-and-audit", "pixi2d-publish",
+                                               "native-publish")
                               if anchor in ids), None)
         if build_anchor is None or review_anchor is None:
             raise WorkflowStateError("native lifecycle requires known build and publication boundaries")

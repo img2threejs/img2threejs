@@ -34,6 +34,7 @@ from forge.stage4_review.repair_decision import (
 from forge.stage3_build.orchestrate_passes import sync_pipeline
 from forge.stage2_spec.validate_sculpt_spec import validate_spec
 
+_NATIVE_WORKFLOW = "native-character-v1"
 _STATE = re.compile(r"\.img2threejs/objects/([A-Za-z0-9][A-Za-z0-9_-]{0,159})/rev-([1-9][0-9]*)/state\.json\Z")
 _SCOPE = {"components", "operations", "field_paths", "authorized_sources", "source_operations",
           "available_dependencies", "rig_required", "rig_available"}
@@ -210,6 +211,8 @@ class WorkflowDecisions:
             with self.controller.workspace_transaction(consent=self.consent) as held:
                 return self._live(command, request, verify=held)
         state = self._load()
+        if state["routeChild"].get("workflow") == _NATIVE_WORKFLOW and self.policy.native is None:
+            _fail("native-authority-unavailable")
         subject, bindings = request.get("subject"), request.get("bindings")
         if type(subject) is not dict or type(bindings) is not list:
             _fail("invalid-request")
@@ -257,6 +260,55 @@ class WorkflowDecisions:
         if self.policy.authorize(command, deepcopy(subject), deepcopy(bindings)) is not True:
             _fail("workflow-evidence-not-authorized")
         return state, spec
+
+    def resolve_native_pass(self):
+        """Resolve an authenticated native child's current pass; the only writer of its pass.
+
+        Never calls sculpt synchronization. Validates the stored native plan and resolves
+        the pass ONLY through the host-approved NativePolicy callbacks, then requires live
+        policy authorization before writing. ``complete`` additionally requires every setup
+        row done and its own authorization command, so progress.complete is never inferred
+        from the plan alone. Only currentPass and the derived step fields change; loops,
+        journal counts, history and budgets are preserved verbatim.
+        """
+        native = self.policy.native
+        if native is None:
+            _fail("native-authority-unavailable")
+        # The lease transaction only serialises the state write: no journal record is
+        # verified here, so any attempt to consult consent fails closed.
+        def no_consent():
+            _fail("consent-unproven")
+        with self.controller.workspace_transaction(consent=no_consent):
+            state = self._load()
+            if state["routeChild"].get("workflow") != _NATIVE_WORKFLOW:
+                _fail("native-child-required")
+            spec_path = self.child_root + "/" + _relative(state["artifacts"].get("spec"))
+            raw = _read(self.workspace, spec_path)[0]
+            binding = {"role": "spec", "path": spec_path, "sha256": hashlib.sha256(raw).hexdigest()}
+            spec = _spec(raw)
+            if native.validate_spec(deepcopy(spec)) is not True:
+                _fail("spec-validation-failed")
+            current = native.current_pass(deepcopy(spec))
+            held = state.get("currentPass")
+            if (type(current) is not str or not current or current.strip() != current
+                    or held == "complete" and current != "complete"
+                    or held not in {"", "complete", current} and current != "complete"):
+                _fail("locked-or-wrong-pass")
+            if current == "complete" and any(
+                    row["status"] == "pending" for row in state["checklist"] if row["scope"] == "setup"):
+                _fail("native-setup-incomplete")
+            subject = {"runId": self.controller.run_id, "objectId": state["routeChild"]["objectId"],
+                       "revision": state["decisionLifecycle"]["candidateRevision"], "passId": current}
+            command = "native-complete" if current == "complete" else "native-pass"
+            if self.policy.authorize(command, deepcopy(subject), [deepcopy(binding)]) is not True:
+                _fail("workflow-evidence-not-authorized")
+            updated = deepcopy(state)
+            updated["currentPass"] = current
+            recompute(updated)
+            validate_state(updated)
+            if canonical_digest(updated) != canonical_digest(state):
+                _write(self.workspace, self.state_path, _encode(updated), replace=True)
+            return updated
 
     def _trial_application(self, state, verify):
         pending = state.get("decisionPending")

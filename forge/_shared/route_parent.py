@@ -21,6 +21,10 @@ own local copy and independent state, never shared mutable execution files.
 Legacy state is never migrated or overwritten. No alternate workspace lease exists.
 Explicit 2D children use only the Pixi snapshot/capture/evidence/review/publish/gate
 checklist. Their complete pass sentinel bypasses sculpt passes, not required 2D work.
+A native-character-v1 child (profile animated-character, rigged-3d) is created only when the
+authority's approve_native_character approves it, and is re-approved on every resume. It gets a
+native checklist and native-plan.json, never the sculpt spec, and keeps currentPass empty:
+only forge/next.py's host-policy resolution plus live authorization may set it to complete.
 """
 from __future__ import annotations
 
@@ -63,6 +67,19 @@ class AggregateAuthority(ABC):
     def revalidate(self, verify, *, decision, inventory, owners):
         """Raise unless these exact current inputs have authenticated completeness."""
 
+    def approve_native_character(self, verify, *, decision, inventory, owners, selection):
+        """Additive contract: independently approve one native-character-v1 selection.
+
+        ``selection`` names the exact workflow/profile/output kind, owner route (the
+        provider identity the authority maps from it), subject, revision and crop for
+        a child, under the held ``verify`` transaction. Return None only when the
+        host authority itself approves; an owner profile's ``workflow`` field, a JSON
+        flag or a digest is a claim, never this approval. The default rejects, so every
+        authority that predates this method keeps its behaviour and can never
+        authorize a native child.
+        """
+        raise ParentError("native-selection-unapproved")
+
     @abstractmethod
     def verify_terminal(self, verify, *, object_id, child_workspace, state, artifact):
         """Raise unless actual, current, artifact-bound terminal measurements pass."""
@@ -85,10 +102,14 @@ class OwnerProfile:
     ``output_kind`` is not the selected route card's advisory ``outputKind``.
     A spec-augmentation route must have an explicitly approved consuming profile
     and terminal 3D output; this value never performs or authorizes that mapping.
+    ``workflow`` is an unauthenticated claim; ``"native-character-v1"`` takes effect
+    only when the aggregate authority's ``approve_native_character`` independently
+    approves that exact selection. ``None`` is the unchanged sculpt behaviour.
     """
 
     profile: str
     output_kind: str
+    workflow: str | None = None
 
 
 @dataclass(frozen=True)
@@ -156,6 +177,30 @@ _INTERIOR_STEPS = (
      "artifact-bound visual and composition gates are still required before terminal acceptance."),
 )
 
+
+
+_NATIVE_CHARACTER = "native-character-v1"
+_NATIVE_PLAN = "native-plan.json"
+_NATIVE_PLAN_VERSION = "img2.character-native-plan/v1"
+_NATIVE_CHARACTER_STEPS = (
+    ("native-plan-author", "setup",
+     "Author native-plan.json (schema img2.character-native-plan/v1: native.source is the authorized "
+     ".blend path and sha256, native.spec lists armature/meshes/actions, progress.nativeBuild stays "
+     "pending) from the actual source. The host-approved pinned native validator, not this file, "
+     "decides whether the plan is valid; a capture-only or sculpt spec is not a native plan."),
+    ("native-build", "setup",
+     "python3 \"$SKILL_DIR/tools/produce_routed_rig.py\" native --workspace . "
+     "--request <native-request.json> --out <new-output-dir>"),
+    ("native-capture-deliver", "setup",
+     "python3 \"$SKILL_DIR/tools/produce_routed_rig.py\" deliver --workspace . "
+     "--request <deliver-request.json> --out <new-output-dir> using actual browser captures and "
+     "evaluated Blender poses; this produces evidence, never acceptance."),
+    ("native-publish", "setup",
+     "Publish the delivered artifact.json at this child's root only after the quality and repair "
+     "decisions above; publication does not grant terminal acceptance."),
+    ("native-terminal-gate", "final",
+     "python3 \"$SKILL_DIR/tools/gate_routed_terminal.py\" --workspace . --artifact artifact.json"),
+)
 
 
 def _fail(reason):
@@ -289,7 +334,29 @@ class RouteParent:
             _fail("invalid-aggregate-receipt")
         return decision, inventory, owners, result.authority_receipt
 
-    def _assemble(self, decision, inventory, owners):
+    def _native_selection(self, verify, receipt, decision, inventory, owners, *, owner, owner_route,
+                          object_id, revision, sha, expected):
+        """True only for an authority-approved native-character-v1 selection.
+
+        ``owner.workflow`` is a claim. Anything but an exact, recognised claim fails,
+        and the claim then needs the host AggregateAuthority's own approval for this
+        subject/revision/crop under the held transaction.
+        """
+        if owner.workflow is None:
+            return False
+        if (owner.workflow != _NATIVE_CHARACTER or owner.profile != "animated-character"
+                or owner.output_kind != "rigged-3d" or expected != "3d"):
+            _fail("native-selection-invalid")
+        selection = {"workflow": owner.workflow, "profile": owner.profile,
+                     "outputKind": owner.output_kind, "ownerRoute": owner_route,
+                     "objectId": object_id, "revision": revision, "cropSha256": sha}
+        if receipt.approve_native_character(
+                verify, decision=deepcopy(decision), inventory=deepcopy(inventory),
+                owners=deepcopy(owners), selection=selection) is not None:
+            _fail("native-selection-unapproved")
+        return True
+
+    def _assemble(self, verify, receipt, decision, inventory, owners):
         lease = _decode(_read(self.workspace, ".img2threejs/route/lease.json")[0])
         if (lease.get("runId") != self.controller.run_id
                 or type(lease.get("token")) is not str or not _SHA.fullmatch(lease["token"])):
@@ -361,6 +428,10 @@ class RouteParent:
             data, _ = _read(self.workspace, path)
             if not data or hashlib.sha256(data).hexdigest() != sha:
                 _fail("stale-reference-crop")
+            # Approved before any child is assembled or written, for leaders and placements alike.
+            native = self._native_selection(
+                verify, receipt, decision, inventory, owners, owner=owner, owner_route=owner_route,
+                object_id=object_id, revision=revision, sha=sha, expected=expected)
             artifact_id = entry.get("artifactObjectId", object_id)
             if "artifactObjectId" in entry and (
                     row.get("routeObjectId") != artifact_id
@@ -375,7 +446,8 @@ class RouteParent:
             crop_path = directory + "/reference" + PurePosixPath(path).suffix
             interior = owner.profile == "interior" and owner.output_kind == "3d-scene"
             spec = "reconstruction.json" if expected == "2d" else (
-                "scene-spec.json" if interior else "object-sculpt-spec.json")
+                "scene-spec.json" if interior else
+                _NATIVE_PLAN if native else "object-sculpt-spec.json")
             child = new_state("reference" + PurePosixPath(path).suffix, profile=owner.profile, spec=spec)
             if expected == "2d" or interior:
                 steps = _PIXI2D_STEPS if expected == "2d" else _INTERIOR_STEPS
@@ -384,6 +456,14 @@ class RouteParent:
                 # These plugin workflows own their progression, not sculpt passes.
                 # Their required steps and independent terminal gates remain pending.
                 child["currentPass"] = "complete"
+                recompute(child)
+                validate_state(child)
+            elif native:
+                child["checklist"] = [self._step(step_id, scope, command)
+                                      for step_id, scope, command in _NATIVE_CHARACTER_STEPS]
+                # No sculpt passes. currentPass stays empty, so the final rows stay locked
+                # until forge/next.py resolves "complete" through the host-approved native
+                # resolver under live authorization; this module never sets that sentinel.
                 recompute(child)
                 validate_state(child)
             child["leaseToken"] = lease["token"]
@@ -395,8 +475,16 @@ class RouteParent:
                     item["objectId"] for item in groups[object_id])
             if interior:
                 child["routeChild"]["excludedObjectIds"] = sorted(resolved - {object_id})
+            if native:
+                child["routeChild"]["workflow"] = _NATIVE_CHARACTER
             attach_lifecycle_steps(child)
             writes.extend([(crop_path, data), (child_path, _encode(child))])
+            if native:
+                # An unfilled draft, never a sculpt spec: it fails the host's native
+                # validator until the author step binds an authorized source.
+                writes.append((directory + "/" + _NATIVE_PLAN, _encode(
+                    {"schemaVersion": _NATIVE_PLAN_VERSION, "ownerId": object_id,
+                     "progress": {"nativeBuild": "pending"}})))
             children.append({**child["routeChild"], "statePath": child_path,
                              "artifactPath": directory + ("/.img2/artifacts/pixi2d/artifact.json"
                                                           if expected == "2d" else "/artifact.json"),
@@ -445,10 +533,10 @@ class RouteParent:
     def create(self):
         """Authenticate and publish separate ordinary child states, then the parent."""
         with self.controller.workspace_transaction(consent=self.consent) as verify:
-            decision, inventory, owners, _ = self._verified(verify)
+            decision, inventory, owners, receipt = self._verified(verify)
             if _existing(self.workspace, _PARENT) is not None:
                 _fail("existing-parent-preserved")
-            parent, writes = self._assemble(decision, inventory, owners)
+            parent, writes = self._assemble(verify, receipt, decision, inventory, owners)
             # Validate all collisions before publishing any child. Never reset an
             # existing child, even if it was left by an interrupted prior create.
             for path, data in writes:
@@ -471,7 +559,8 @@ class RouteParent:
                 or [(r["id"], r["scope"]) for r in child["checklist"]] != [
                     (r["id"], r["scope"]) for r in template["checklist"]]):
             _fail("child-state-mismatch")
-        if (descriptor["outputKind"] == "2d-scene" or descriptor["profile"] == "interior") and [
+        if (descriptor["outputKind"] == "2d-scene" or descriptor["profile"] == "interior"
+                or descriptor.get("workflow") == _NATIVE_CHARACTER) and [
                 (row["id"], row["scope"], row.get("command")) for row in child["checklist"]] != [
                     (row["id"], row["scope"], row["command"]) for row in template["checklist"]]:
             _fail("child-state-mismatch")
@@ -481,8 +570,9 @@ class RouteParent:
             _fail("stale-reference-crop")
         skipped_repair = any(row["id"] == "repair-decision" and row["status"] == "skipped"
                              for row in child["checklist"])
-        if skipped_repair:
-            # Only journal-authenticated passing quality can justify no repair.
+        if skipped_repair or descriptor.get("workflow") == _NATIVE_CHARACTER:
+            # Only journal-authenticated passing quality can justify no repair. A native
+            # child's lifecycle receipts are always re-verified here, never trusted.
             # Import here: workflow_decisions uses this module's state I/O.
             from workflow_decisions import verify_lifecycle
             verify_lifecycle(verify, child, child_workspace, self.workspace)
@@ -492,7 +582,8 @@ class RouteParent:
                 or any(row["status"] != "done" for row in child["checklist"]
                        if (row["scope"] in {"final", "rig"} or row["id"] == "pass-gate-check")
                        and not (row["id"] == "repair-decision" and row["status"] == "skipped"))
-                or ((descriptor["outputKind"] == "2d-scene" or descriptor["profile"] == "interior")
+                or ((descriptor["outputKind"] == "2d-scene" or descriptor["profile"] == "interior"
+                     or descriptor.get("workflow") == _NATIVE_CHARACTER)
                     and any(row["status"] != "done" for row in child["checklist"]
                             if not (row["id"] == "repair-decision" and row["status"] == "skipped")))):
             _fail("child-terminal-gates-incomplete")
@@ -558,7 +649,7 @@ class RouteParent:
         """Complete after current state, measured gates and the route's artifact pass."""
         with self.controller.workspace_transaction(consent=self.consent) as verify:
             decision, inventory, owners, receipt = self._verified(verify)
-            expected, writes = self._assemble(decision, inventory, owners)
+            expected, writes = self._assemble(verify, receipt, decision, inventory, owners)
             parent = _decode(_read(self.workspace, _PARENT)[0])
             validate_state(parent)
             if (parent.get("routeDecision") != decision or parent.get("objects") != expected["objects"]
