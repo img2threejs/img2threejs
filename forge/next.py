@@ -39,7 +39,54 @@ def emit_local_state(payload: dict) -> None:
 
 
 _NATIVE_WORKFLOW = "native-character-v1"
+_NATIVE_PLAN = "native-plan.json"
+_NATIVE_ROWS = {"native-plan-author", "native-build", "native-capture-deliver", "native-publish",
+                "native-terminal-gate"}
 _NATIVE_STATE = re.compile(r"\.img2threejs/objects/[A-Za-z0-9][A-Za-z0-9_-]{0,159}/rev-[1-9][0-9]*/state\.json\Z")
+
+
+def native_binding(state_path: Path, local_state: dict) -> tuple[bool, bool]:
+    """Return (native claimed by ANY source, every source agrees it is native).
+
+    Native-ness is never read from the child marker alone: a child-state edit can delete
+    or null it. The parent's descriptor (written by route_parent at creation), the child's
+    plan artifact and its sibling native-plan.json are independent signals. Any signal
+    makes the child native; a marker that is missing, null or altered then fails closed
+    instead of downgrading to the sculpt path.
+    """
+    child = local_state.get("routeChild")
+    child = child if type(child) is dict else {}
+    claimed = ["workflow" in child, local_state.get("artifacts", {}).get("spec") == _NATIVE_PLAN,
+               any(row.get("id") in _NATIVE_ROWS for row in local_state.get("checklist", ()))]
+    agreed = [child.get("workflow") == _NATIVE_WORKFLOW, claimed[1], claimed[2]]
+    parts = state_path.resolve().parts
+    if len(parts) >= 7 and _NATIVE_STATE.fullmatch("/".join(parts[-5:])) is not None:
+        relative = "/".join(parts[-5:])
+        claimed.append((state_path.resolve().parent / _NATIVE_PLAN).exists())
+        parent_path = Path(*parts[:-5]) / ".img2threejs/state.json"
+        if parent_path.exists():
+            try:
+                parent = json.loads(parent_path.read_text(encoding="utf-8"))
+                rows = [row for row in parent["objects"] if row.get("statePath") == relative]
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                return any(claimed), False
+            if len(rows) != 1:
+                return any(claimed), False
+            claimed.append("workflow" in rows[0])
+            agreed.append(rows[0].get("workflow") == _NATIVE_WORKFLOW)
+    return any(claimed), all(agreed)
+
+
+def _run_known(workspace: Path, run_id: str) -> bool:
+    """Read-only: the lease is this run's and the journal already started it."""
+    try:
+        lease = json.loads((workspace / ".img2threejs/route/lease.json").read_text(encoding="utf-8"))
+        journal = (workspace / ".img2threejs/route/journal.jsonl").read_text(encoding="utf-8")
+        return type(lease) is dict and lease.get("runId") == run_id and any(
+            entry.get("event") == "run-started" and entry.get("data", {}).get("runId") == run_id
+            for entry in map(json.loads, journal.splitlines()))
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 def native_main(args, local_state) -> int:
@@ -51,6 +98,9 @@ def native_main(args, local_state) -> int:
     """
     if args.spec is not None:
         print("state error: native child does not accept a positional spec", file=sys.stderr)
+        return 2
+    if not native_binding(args.state, local_state)[1]:
+        print("native error: native-selection-invalid", file=sys.stderr)
         return 2
     pending = {row["id"]: row["status"] for row in local_state["checklist"]}
     if pending.get("native-plan-author") == "pending":
@@ -79,9 +129,15 @@ def native_main(args, local_state) -> int:
         from forge.decision import load_policy
         from decision_control import DecisionController, DecisionError
         from workflow_decisions import WorkflowDecisions
-        controller = DecisionController(workspace, local_state["routeChild"]["runId"])
+        run_id = local_state["routeChild"]["runId"]
+        # Host approval and run identity are proven BEFORE any write: constructing the
+        # controller would otherwise append run-started to the journal for an unseen run.
         policy = load_policy(args.policy_module, args.policy_sha256, workspace=workspace,
                              state_path=state_path, excluded_roots=[Path(root) for root in args.excluded_root])
+        if not _run_known(workspace, run_id):
+            print("native error: lease-lost", file=sys.stderr)
+            return 2
+        controller = DecisionController(workspace, run_id)
         workflow = WorkflowDecisions(controller, state_path, policy,
                                      consent=lambda: None, availability=lambda: {"status": "absent"})
         resolved = workflow.resolve_native_pass()
@@ -112,10 +168,7 @@ def main(argv: list[str]) -> int:
             print(f"state error: {error}", file=sys.stderr)
             return 2
         route_child = local_state.get("routeChild")
-        if type(route_child) is dict and route_child.get("workflow") is not None:
-            if route_child["workflow"] != _NATIVE_WORKFLOW:
-                print("native error: native-selection-invalid", file=sys.stderr)
-                return 2
+        if native_binding(args.state, local_state)[0]:
             return native_main(args, local_state)
         if local_state.get("routeDecision"):
             if spec_path is not None:

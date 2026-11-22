@@ -195,6 +195,7 @@ class WorkflowDecisions:
                 or parent.get("runId") != self.controller.run_id
                 or child.get("objectId") != match[1] or child.get("revision") != int(match[2])
                 or any(child.get(key) != descriptors[0].get(key) for key in child)
+                or child.get("workflow") != descriptors[0].get("workflow")
                 or state.get("leaseToken") != parent.get("leaseToken")
                 or state.get("leaseToken") != self.controller._token
                 or type(lifecycle) is not dict or lifecycle.get("version") != 1
@@ -294,8 +295,14 @@ class WorkflowDecisions:
                     or held == "complete" and current != "complete"
                     or held not in {"", "complete", current} and current != "complete"):
                 _fail("locked-or-wrong-pass")
+            # Exactly "done": a skipped or pending setup row never completes a native child.
+            # The one exception is the quality-proven no-repair skip, whose receipts
+            # verify_lifecycle re-proves independently at terminal completion.
             if current == "complete" and any(
-                    row["status"] == "pending" for row in state["checklist"] if row["scope"] == "setup"):
+                    row["status"] != "done" and not (
+                        row["id"] == "repair-decision" and row["status"] == "skipped"
+                        and row.get("reason") == "quality-passed-no-repair" and row.get("evidence"))
+                    for row in state["checklist"] if row["scope"] == "setup"):
                 _fail("native-setup-incomplete")
             subject = {"runId": self.controller.run_id, "objectId": state["routeChild"]["objectId"],
                        "revision": state["decisionLifecycle"]["candidateRevision"], "passId": current}
@@ -307,6 +314,12 @@ class WorkflowDecisions:
             recompute(updated)
             validate_state(updated)
             if canonical_digest(updated) != canonical_digest(state):
+                # Compare-and-swap: the decision covers exactly the plan bytes (binding
+                # digest) and child state that were authorized. Re-read both immediately
+                # before publishing, still under the lease; any drift publishes nothing.
+                if (_read(self.workspace, spec_path)[0] != raw
+                        or canonical_digest(self._load()) != canonical_digest(state)):
+                    _fail("child-state-changed")
                 _write(self.workspace, self.state_path, _encode(updated), replace=True)
             return updated
 

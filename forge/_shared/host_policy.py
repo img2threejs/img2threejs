@@ -17,10 +17,12 @@ from jev_cli_bridge import _file
 def pinned_policy_module(module_path, sha256, *, workspace, excluded_roots=()):
     path = Path(module_path)
     try:
+        # Exclusions are canonical absolute paths: a relative root resolves against the
+        # cwd and symlinks are followed, so it excludes exactly what it names.
+        roots = [Path(root).expanduser().resolve() for root in (workspace, *excluded_roots)]
         if (not path.is_absolute() or path.resolve(strict=True) != path or path.is_symlink()
                 or path.suffix != ".py" or not path.is_file()
-                or any(path == Path(root) or Path(root) in path.parents
-                       for root in (workspace, *excluded_roots))):
+                or any(path == root or root in path.parents for root in roots)):
             raise DecisionError("policy-module-unsafe")
     except (OSError, RuntimeError):
         raise DecisionError("policy-module-unsafe") from None

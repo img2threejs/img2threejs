@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,7 +22,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "forge"), str(ROOT / "forge/_shared")]
 from decision_control import DecisionController, DecisionError
 from route_parent import OwnerProfile, ParentError, RouteParent, VerifiedAggregate
 from workflow_decisions import NativePolicy, WorkflowDecisions, WorkflowPolicy
-from workflow_state import mark_steps, new_state, validate_state
+from workflow_state import mark_steps, new_state, recompute, validate_state
 from forge.tests.test_route_parent import FixtureAuthority, canonical, sha
 import forge.next as next_cli
 
@@ -347,6 +348,237 @@ class NativeRouteTests(unittest.TestCase):
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 2)
         self.assertIn("native-selection-invalid", result.stderr)
+
+    # -- security review regressions ---------------------------------------------------
+
+    POLICY_SOURCE = '''from workflow_decisions import NativePolicy, WorkflowPolicy
+
+
+def build_policy(workspace, state_path):
+    return WorkflowPolicy(scope={"components": {"root"}, "operations": {"reposition"},
+        "field_paths": {"transform.position"}, "authorized_sources": set(), "source_operations": set(),
+        "available_dependencies": set(), "rig_required": False, "rig_available": False},
+        requirements={"criticalFeatures": [], "requiredViews": []},
+        authorize=lambda command, subject, bindings: True,
+        draft_spec="draft.json", request_token_limit=128,
+        native=NativePolicy(validate_spec=lambda spec: True, current_pass=lambda spec: "native-build",
+            authorize_native=lambda context, rules: True, rules=({"fieldPath": "x"},),
+            frozen_paths=frozenset(), forbidden_components=frozenset()))
+'''
+
+    def external_policy(self):
+        temporary = tempfile.TemporaryDirectory(prefix="img2-native-policy-")
+        self.addCleanup(temporary.cleanup)
+        source = Path(temporary.name).resolve() / "policy.py"
+        source.write_text(self.POLICY_SOURCE)
+        return source, hashlib.sha256(source.read_bytes()).hexdigest()
+
+    def next_cli(self, *extra, cwd=None):
+        return subprocess.run([sys.executable, str(ROOT / "forge/next.py"), "--state",
+                               str(self.workspace / self.state_path), *extra],
+                              capture_output=True, text=True, cwd=cwd or self.workspace)
+
+    def journal(self):
+        return (self.workspace / ".img2threejs/route/journal.jsonl").read_bytes()
+
+    def policy_args(self, source, digest):
+        return ["--policy-module", str(source), "--policy-sha256", digest,
+                "--excluded-root", str(ROOT)]
+
+    def test_real_pinned_policy_cli_success_path_writes_only_the_resolved_pass(self):
+        original = self.ready_child()
+        source, digest = self.external_policy()
+        journal = self.journal()
+        result = self.next_cli(*self.policy_args(source, digest))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("pass=native-build", result.stdout)
+        updated = self.read(self.state_path)
+        self.assertEqual(updated["currentPass"], "native-build")
+        self.assertEqual(updated["loops"], original["loops"])
+        self.assertEqual(self.journal(), journal)
+        stale = self.next_cli(*self.policy_args(source, "0" * 64))
+        self.assertEqual(stale.returncode, 2)
+
+    def test_deleted_null_or_altered_workflow_marker_fails_closed_never_sculpt(self):
+        self.ready_child()
+        plan_path = ".img2threejs/objects/hero/rev-1/native-plan.json"
+        # The adversarial plan a sculpt downgrade would have consumed.
+        plan = self.read(plan_path)
+        plan.update(buildPasses=[{"id": "native-build"}],
+                    reviewHistory=[{"passId": "native-build", "action": "continue"}])
+        self.put(plan_path, canonical(plan))
+        pristine = self.read(self.state_path)
+        child = self.workspace / ".img2threejs/objects/hero/rev-1"
+        source, digest = self.external_policy()
+        for name, change in (("deleted", lambda row: row.pop("workflow")),
+                             ("null", lambda row: row.__setitem__("workflow", None)),
+                             ("altered", lambda row: row.__setitem__("workflow", "native-character-v2"))):
+            forged = deepcopy(pristine)
+            change(forged["routeChild"])
+            self.put(self.state_path, canonical(forged))
+            before = self.snapshot()
+            for extra, cwd in (((), self.workspace), ((), child),
+                               (tuple(self.policy_args(source, digest)), child)):
+                with self.subTest(marker=name, extra=bool(extra), cwd=cwd.name):
+                    result = self.next_cli(*extra, cwd=cwd)
+                    self.assertEqual(result.returncode, 2, result.stdout)
+                    self.assertIn("native-selection-invalid", result.stderr)
+                    self.assertEqual(result.stdout, "")
+                    self.assertEqual(self.snapshot(), before)
+            with self.subTest(marker=name, path="dispatch"):
+                with self.assertRaises(DecisionError):
+                    self.workflow(self.policy()).resolve_native_pass()
+                self.assertEqual(self.snapshot(), before)
+        # A marker deleted from a state that never carried a native signal stays legacy: the
+        # descriptor in the parent is the independent source for native-ness.
+        parent = self.read(".img2threejs/state.json")
+        parent["objects"][0].pop("workflow")
+        self.put(".img2threejs/state.json", canonical(parent))
+        self.put(self.state_path, canonical(pristine))
+        self.assertEqual(self.next_cli().returncode, 2)
+
+    def test_relative_excluded_root_is_rejected_like_an_absolute_one(self):
+        from host_policy import pinned_policy_module
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory).resolve()
+            (home / "provider").mkdir()
+            module = home / "provider/policy.py"
+            module.write_text("x = 1\n")
+            digest = hashlib.sha256(module.read_bytes()).hexdigest()
+            workspace = home / "ws"
+            workspace.mkdir()
+            previous = Path.cwd()
+            os.chdir(home)
+            try:
+                for root in (str(home / "provider"), "provider", "./provider", "provider/../provider"):
+                    with self.subTest(root=root):
+                        with self.assertRaises(DecisionError) as raised:
+                            with pinned_policy_module(module, digest, workspace=workspace,
+                                                      excluded_roots=[Path(root)]):
+                                pass
+                        self.assertEqual(raised.exception.reason_code, "policy-module-unsafe")
+                with pinned_policy_module(module, digest, workspace=workspace, excluded_roots=[Path("other")]):
+                    pass
+                with self.assertRaises(DecisionError):
+                    with pinned_policy_module("provider/policy.py", digest, workspace=workspace):
+                        pass
+            finally:
+                os.chdir(previous)
+
+    def test_binding_replaced_between_verification_and_publish_publishes_nothing(self):
+        self.ready_child()
+        plan_path = ".img2threejs/objects/hero/rev-1/native-plan.json"
+        for attack in ("plan", "state"):
+            with self.subTest(attack=attack):
+                self.ready_child_state_done()
+                before = self.snapshot()
+                policy = self.policy(current="complete")
+                approved = policy.authorize
+                def swap(command, subject, bindings, approved=approved, attack=attack):
+                    result = approved(command, subject, bindings)
+                    if attack == "plan":
+                        self.put(plan_path, canonical({"unapproved": True}))
+                    else:
+                        state = self.read(self.state_path)
+                        state["loops"]["total"] = 7
+                        self.put(self.state_path, canonical(state))
+                    return result
+                with self.assertRaises(DecisionError) as raised:
+                    self.workflow(replace(policy, authorize=swap)).resolve_native_pass()
+                self.assertEqual(raised.exception.reason_code, "child-state-changed")
+                after = self.snapshot()
+                changed = {key for key in after if after[key] != before.get(key)}
+                self.assertEqual(changed, {plan_path if attack == "plan" else self.state_path})
+                if attack == "plan":
+                    self.assertNotEqual(self.read(self.state_path)["currentPass"], "complete")
+                self.put(plan_path, before[plan_path])
+                self.put(self.state_path, before[self.state_path])
+
+    def test_rejection_before_policy_and_run_verification_leaves_every_byte_unchanged(self):
+        self.ready_child()
+        source, digest = self.external_policy()
+        before, journal = self.snapshot(), self.journal()
+        result = self.next_cli(*self.policy_args(source, "0" * 64))
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual((self.snapshot(), self.journal()), (before, journal))
+        # A run the journal has never started, whose lease and child agree on it: the
+        # controller used to append run-started before the policy pin was checked.
+        lease = self.read(".img2threejs/route/lease.json")
+        lease["runId"] = "unseen-run"
+        self.put(".img2threejs/route/lease.json", canonical(lease))
+        child = self.read(self.state_path)
+        child["routeChild"]["runId"] = "unseen-run"
+        self.put(self.state_path, canonical(child))
+        before = self.snapshot()
+        for pin in ("0" * 64, digest):
+            with self.subTest(pin=pin[:4]):
+                result = self.next_cli(*self.policy_args(source, pin))
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual((self.snapshot(), self.journal()), (before, journal))
+
+    def test_skipped_setup_row_cannot_complete(self):
+        self.ready_child()
+        state = self.read(self.state_path)
+        row = next(row for row in state["checklist"] if row["id"] == "native-publish")
+        row.update(status="skipped", reason="operator waived", evidence=["claimed"])
+        recompute(state)
+        self.put(self.state_path, canonical(state))
+        before = (self.workspace / self.state_path).read_bytes()
+        with self.assertRaises(DecisionError) as raised:
+            self.workflow(self.policy(current="complete")).resolve_native_pass()
+        self.assertEqual(raised.exception.reason_code, "native-setup-incomplete")
+        self.assertEqual(self.authorized_calls, [])
+        self.assertEqual((self.workspace / self.state_path).read_bytes(), before)
+
+    def test_populated_journal_correction_counts_survive_native_resolution(self):
+        from decision_control import GROUPS
+        self.ready_child()
+        grant = {"granted": True, "purposes": list(GROUPS), "sha256": "b" * 64, "tokenBudget": 10000}
+        crop = (self.workspace / ".img2threejs/objects/hero/rev-1/reference.png").read_bytes()
+        kind, questions = GROUPS["repair"]
+        context = {"kind": kind, "version": 1, "group": "repair",
+                   "subject": {"runId": "native-run", "objectId": "hero", "revision": 1, "passId": "native-build"},
+                   "bindings": [{"role": "reference", "path": ".img2threejs/objects/hero/rev-1/reference.png",
+                                 "sha256": sha(crop)}],
+                   "candidates": [{"id": "a"}, {"id": "b"}], "observations": {"partCount": 2},
+                   "requirements": {"criticalFeatures": [], "requiredViews": []},
+                   "policyVersion": "policy-v1", "questionSetVersion": questions, "requestedModel": "jev-1.14.0"}
+        def advisory(ctx):
+            return {"kind": "img2.decision-advisory", "version": 1, "group": ctx["group"],
+                    "subject": deepcopy(ctx["subject"]), "model": "jev-1.14.0",
+                    "contextDigest": __import__("decision_control").canonical_digest(ctx),
+                    "answers": {"selection": {"type": "choice", "choice": "a",
+                                              "probabilities": {"a": 0.9, "b": 0.1}, "confidence": 0.8},
+                                "anyFits": {"type": "noul", "noul": 1}},
+                    "usage": {"input_tokens": 10, "output_tokens": 2}}
+        record = self.controller.consult(context, provider=advisory, fallback=None,
+                                         availability=lambda: {"status": "present"},
+                                         consent=lambda: deepcopy(grant), request_token_limit=128)
+        self.controller.begin_application(record, 2, consent=lambda: deepcopy(grant))
+        counts = self.controller.correction_counts("hero")
+        self.assertEqual(counts, {"total": 1, "perPass": {"native-build": 1}})
+        state = self.read(self.state_path)
+        state["loops"].update(counts)
+        self.put(self.state_path, canonical(state))
+        journal = self.journal()
+        self.workflow(self.policy()).resolve_native_pass()
+        updated = self.read(self.state_path)
+        self.assertEqual({key: updated["loops"][key] for key in counts}, counts)
+        self.assertEqual(updated["loops"], state["loops"])
+        self.assertEqual(self.journal(), journal)
+        self.assertEqual(self.controller.correction_counts("hero"), counts)
+
+    def test_native_completion_then_independent_terminal_rejection_without_evidence(self):
+        self.ready_child()
+        self.workflow(self.policy(current="complete")).resolve_native_pass()
+        done = self.read(self.state_path)
+        self.assertEqual(done["currentPass"], "complete")
+        self.assertEqual(self.authorized_calls, [("native-complete", "complete")])
+        before = self.snapshot()
+        with self.assertRaises((ParentError, DecisionError)) as raised:
+            self.parent.complete_child("hero")
+        self.assertEqual(raised.exception.reason_code, "workflow-decisions-missing")
+        self.assertEqual(self.snapshot(), before)
 
     # -- legacy ------------------------------------------------------------------------
 
