@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Routing questions v3 separate typed object localization from route selection, expose the full current inventory, and keep valid absence as reconciliation data. File-backed second-proposal inputs are pinned into routing identity and proof verification; all existing routing and crop gates remain unchanged.
+- Child completion accepts a skipped repair only after journal-backed lifecycle verification proves passing quality; every other required native, final and rig gate remains mandatory.
+
 - Composition gate checks now re-hash the current scene module and recorded input files before assessing supplied measurements. These checks do not authenticate the manifest or measurement producers.
 - Composition distinguishes group-scoped `capability-unavailable` from run-wide Jev outages when validating fallback placements.
 - Invalid composition artifacts return structured JSON refusals instead of uncaught exceptions.

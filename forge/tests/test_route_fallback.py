@@ -36,15 +36,17 @@ from stage0_route.images import png
 BUILDER = '''
 def build(context, model, probability, digest):
     ids = [c["id"] for c in context["candidates"]]
-    chosen = ids[0]
-    if len(ids) == 1:
-        probabilities = {chosen: 1.0}
-    else:
-        probabilities = {key: (probability if key == chosen else (1 - probability) / (len(ids) - 1))
-                         for key in ids}
-    answers = {"selection": {"type": "choice", "choice": chosen, "probabilities": probabilities,
-                             "confidence": 0.9},
-               "anyFits": {"type": "noul", "noul": 1}}
+    answers = {}
+    if ids:
+        chosen = ids[0]
+        if len(ids) == 1:
+            probabilities = {chosen: 1.0}
+        else:
+            probabilities = {key: (probability if key == chosen else (1 - probability) / (len(ids) - 1))
+                             for key in ids}
+        answers = {"selection": {"type": "choice", "choice": chosen, "probabilities": probabilities,
+                                 "confidence": 0.9},
+                   "anyFits": {"type": "noul", "noul": 1}}
     decomposition = context["requirements"].get("decomposition")
     if decomposition is not None:
         answers["missingObjects"] = {"type": "noul", "noul": 0}
@@ -71,8 +73,8 @@ with open(MARKER, "a") as stream:
                              "stripped": [k for k in ("NODE_OPTIONS", "PYTHONSTARTUP", "TYPESAFE_API_KEY") if k in os.environ],
                              "inherited": os.environ.get("IMG2_FALLBACK_TEST_MARKER")}) + "\\n")
 advisory = build(context, MODEL, PROBABILITY, digest)
-selection = advisory["answers"]["selection"]
-ids = list(selection["probabilities"])
+selection = advisory["answers"].get("selection")
+ids = list(selection["probabilities"]) if selection is not None else []
 if MODE == "bad-json" or (MODE == "bad-json-routing" and context["subject"]["passId"] == "routing"):
     sys.stdout.write("{not json")
     sys.exit(0)
@@ -186,7 +188,7 @@ def projected_context(object_id="object-1"):
             "bindings": [{"role": "reference", "sha256": "a" * 64}],
             "candidates": [{"id": "a"}, {"id": "b"}], "observations": {"partCount": 2},
             "requirements": {"criticalFeatures": [], "requiredViews": []},
-            "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v2",
+            "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v3",
             "requestedModel": "jev-1.14.0"}
 
 
@@ -621,7 +623,7 @@ class FallbackControllerTests(FallbackFixture):
                               "sha256": hashlib.sha256((self.workspace / "reference.png").read_bytes()).hexdigest()}],
                 "candidates": [{"id": "a"}, {"id": "b"}], "observations": {"partCount": 2},
                 "requirements": {"criticalFeatures": [], "requiredViews": []},
-                "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v2",
+                "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v3",
                 "requestedModel": "jev-1.14.0"}
 
     def consult(self, fallback, *, object_id="object-1", status="not-installed"):

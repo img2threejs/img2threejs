@@ -27,7 +27,7 @@ from types import MappingProxyType
 
 
 GROUPS = {
-    "routing": ("img2.route-context", "route-questions-v2"),
+    "routing": ("img2.route-context", "route-questions-v3"),
     "build-strategy": ("img2.build-strategy-context", "strategy-questions-v1"),
     "quality-review": ("img2.quality-review-context", "quality-review-questions-v1"),
     "repair": ("img2.repair-context", "repair-decision-questions-v1"),
@@ -37,6 +37,7 @@ _UNAVAILABLE = {"not-installed", "capability-unavailable", "consent-declined", "
 _REQUEST_FAILURES = {"provider-error", "timeout", "malformed", "out-of-set", "ambiguous-paid-attempt"}
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}\Z")
+_SEMANTIC_LABEL = re.compile(r"[a-z][a-z0-9-]{0,95}\Z")
 _FORBIDDEN = {
     "apikey", "api_key", "authorization", "credential", "credentials", "secret",
     "password", "token", "data_base64", "instructions", "prompt", "usertext",
@@ -757,7 +758,10 @@ class DecisionController:
                 _fail("invalid-binding")
             seen.add(key)
         candidates = context["candidates"]
-        if type(candidates) is not list or (not candidates and group != "quality-review"):
+        localization = (group == "routing" and type(context["requirements"]) is dict
+                        and "decomposition" in context["requirements"])
+        if (type(candidates) is not list or (localization and candidates)
+                or (not candidates and group != "quality-review" and not localization)):
             _fail("invalid-candidates")
         ids = []
         for candidate in candidates:
@@ -828,7 +832,8 @@ class DecisionController:
         if decomposition is None:
             return None
         if (context["group"] != "routing" or type(decomposition) is not dict
-                or set(decomposition) != {"image", "objects"}):
+                or set(decomposition) != {"image", "objects", "inventory"}
+                or context["candidates"]):
             _fail("invalid-requirements")
         image_id = _identifier(decomposition["image"])
         images = context["observations"].get("images", [])
@@ -848,24 +853,48 @@ class DecisionController:
         objects = decomposition["objects"]
         if type(objects) is not list or not 1 <= len(objects) <= 12:
             _fail("invalid-requirements")
-        object_ids = set()
-        for obj in objects:
-            if (type(obj) is not dict or not {"id", "label"} <= set(obj)
-                    or set(obj) - {"id", "label", "approxBox"}):
+        inventory = decomposition["inventory"]
+        if type(inventory) is not list or not 1 <= len(inventory) <= 256:
+            _fail("invalid-requirements")
+        inventory_by_id = {}
+        for obj in inventory:
+            if (type(obj) is not dict or set(obj) != {"id", "label", "role", "approxBox"}
+                    or type(obj["role"]) is not str
+                    or obj["role"] not in {"scene-container", "subject", "prop", "set-dressing"}):
                 _fail("invalid-requirements")
             object_id = _identifier(obj["id"])
-            _identifier(obj["label"])
+            if type(obj["label"]) is not str or not _SEMANTIC_LABEL.fullmatch(obj["label"]):
+                _fail("invalid-requirements")
+            if object_id in inventory_by_id:
+                _fail("invalid-requirements")
+            bounds = obj["approxBox"]
+            if type(bounds) is not list or len(bounds) != 4:
+                _fail("invalid-requirements")
+            for edge in bounds:
+                _number(edge)
+            if bounds[0] >= bounds[2] or bounds[1] >= bounds[3]:
+                _fail("invalid-requirements")
+            inventory_by_id[object_id] = obj
+        object_ids = set()
+        for obj in objects:
+            if type(obj) is not dict or set(obj) != {"id", "label", "approxBox"}:
+                _fail("invalid-requirements")
+            object_id = _identifier(obj["id"])
+            if type(obj["label"]) is not str or not _SEMANTIC_LABEL.fullmatch(obj["label"]):
+                _fail("invalid-requirements")
+            bounds = obj["approxBox"]
+            if type(bounds) is not list or len(bounds) != 4:
+                _fail("invalid-requirements")
+            for edge in bounds:
+                _number(edge)
+            if bounds[0] >= bounds[2] or bounds[1] >= bounds[3]:
+                _fail("invalid-requirements")
             if object_id in object_ids:
                 _fail("invalid-requirements")
             object_ids.add(object_id)
-            if "approxBox" in obj:
-                box = obj["approxBox"]
-                if type(box) is not list or len(box) != 4:
-                    _fail("invalid-requirements")
-                for edge in box:
-                    _number(edge)
-                if box[0] >= box[2] or box[1] >= box[3]:
-                    _fail("invalid-requirements")
+            entry = inventory_by_id.get(object_id)
+            if entry is None or obj != {key: entry[key] for key in ("id", "label", "approxBox")}:
+                _fail("invalid-requirements")
         return objects
 
     @staticmethod
@@ -969,33 +998,33 @@ class DecisionController:
             status, reason = self._quality_answers(projected, answers)
         else:
             objects = self._decomposition(projected)
-            expected = {"selection", "anyFits"}
+            expected = {"selection", "anyFits"} if objects is None else {"missingObjects"}
             if objects is not None:
-                expected.add("missingObjects")
                 for obj in objects:
                     expected.update({"object:" + obj["id"] + ":visible", "object:" + obj["id"] + ":box"})
             if set(answers) != expected:
                 _fail("malformed")
-            choice, fits = answers["selection"], answers["anyFits"]
-            if (type(choice) is not dict or set(choice) != {"type", "choice", "probabilities", "confidence"}
-                    or choice["type"] != "choice" or type(fits) is not dict
-                    or set(fits) != {"type", "noul"} or fits["type"] != "noul"):
-                _fail("malformed")
-            ids = {candidate["id"] for candidate in projected["candidates"]}
-            if type(choice["choice"]) is not str or choice["choice"] not in ids:
-                _fail("out-of-set")
-            probabilities = choice["probabilities"]
-            if type(probabilities) is not dict or set(probabilities) != ids:
-                _fail("out-of-set")
-            for probability in probabilities.values():
-                _number(probability)
-            if abs(sum(probabilities.values()) - 1) > 1e-6:
-                _fail("malformed")
-            probability = probabilities[choice["choice"]]
-            if probability < max(probabilities.values()):
-                _fail("malformed")
-            confidence = _number(choice["confidence"])
-            noul = _number(fits["noul"])
+            if objects is None:
+                choice, fits = answers["selection"], answers["anyFits"]
+                if (type(choice) is not dict or set(choice) != {"type", "choice", "probabilities", "confidence"}
+                        or choice["type"] != "choice" or type(fits) is not dict
+                        or set(fits) != {"type", "noul"} or fits["type"] != "noul"):
+                    _fail("malformed")
+                ids = {candidate["id"] for candidate in projected["candidates"]}
+                if type(choice["choice"]) is not str or choice["choice"] not in ids:
+                    _fail("out-of-set")
+                probabilities = choice["probabilities"]
+                if type(probabilities) is not dict or set(probabilities) != ids:
+                    _fail("out-of-set")
+                for probability in probabilities.values():
+                    _number(probability)
+                if abs(sum(probabilities.values()) - 1) > 1e-6:
+                    _fail("malformed")
+                probability = probabilities[choice["choice"]]
+                if probability < max(probabilities.values()):
+                    _fail("malformed")
+                confidence = _number(choice["confidence"])
+                noul = _number(fits["noul"])
             for key in expected - {"selection", "anyFits"}:
                 answer = answers[key]
                 if key.endswith(":box"):
@@ -1015,7 +1044,9 @@ class DecisionController:
                     if type(answer) is not dict or set(answer) != {"type", "noul"} or answer["type"] != "noul":
                         _fail("malformed")
                     _number(answer["noul"])
-            if noul < 0.5:
+            if objects is not None:
+                status, reason = "answered", "answered"
+            elif noul < 0.5:
                 status, reason = "request-input", "none-fits"
             elif probability < (0.82 if model_fallback else 0.80) or (not model_fallback and confidence < 0.50):
                 status = "uncertain" if len(ids) > 1 and not model_fallback else "request-input"

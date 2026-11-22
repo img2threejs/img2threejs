@@ -75,11 +75,13 @@ class Stage0RouteTests(unittest.TestCase):
     def answer(context, *, model="jev-1.14.0", probability=1, confidence=1, fits=1,
                visible=1, missing=0, bounds=None, choice=None):
         ids = [c["id"] for c in context["candidates"]]
-        selection = choice or ids[0]
-        probabilities = {key: (probability if key == selection else (1 - probability) / (len(ids) - 1)) for key in ids}
-        answers = {"selection": {"type": "choice", "choice": selection,
-                                  "probabilities": probabilities, "confidence": confidence},
-                   "anyFits": {"type": "noul", "noul": fits}}
+        answers = {}
+        if ids:
+            selection = choice or ids[0]
+            probabilities = {key: (probability if key == selection else (1 - probability) / (len(ids) - 1)) for key in ids}
+            answers = {"selection": {"type": "choice", "choice": selection,
+                                      "probabilities": probabilities, "confidence": confidence},
+                       "anyFits": {"type": "noul", "noul": fits}}
         if "decomposition" in context["requirements"]:
             answers["missingObjects"] = {"type": "noul", "noul": missing}
             for obj in context["requirements"]["decomposition"]["objects"]:
@@ -94,11 +96,153 @@ class Stage0RouteTests(unittest.TestCase):
     def router(self, **kwargs):
         return Router(self.workspace, "run-1", controller=self.controller, discovery=self.discovery,
                       provider=kwargs.get("provider", self.provider), fallback=kwargs.get("fallback", self.fallback),
-                      consent=kwargs.get("consent", self.consent), second_proposals=kwargs.get("second_proposals"))
+                      consent=kwargs.get("consent", self.consent), second_proposals=kwargs.get("second_proposals"),
+                      second_proposal_binding=kwargs.get("second_proposal_binding"))
 
     def route(self, **kwargs):
         objects = kwargs.pop("objects", self.proposals())
         return self.router().route(image="reference.png", objects=objects, **kwargs)
+
+    def test_localization_primitives_reach_ordinary_route_without_choice(self):
+        result = self.route()
+        self.assertEqual(result["decision"]["phase"], "decided")
+        row = result["decision"]["objects"][0]
+        self.assertEqual((row["status"], row["selected"]), ("resolved", ["base:generic"]))
+        localization, routing = [call.args[0] for call in self.provider.call_args_list]
+        self.assertEqual(localization["candidates"], [])
+        self.assertEqual(set(self.answer(localization)["answers"]),
+                         {"missingObjects", "object:object-0:visible", "object:object-0:box"})
+        self.assertTrue(routing["candidates"])
+        self.assertIsNone(row["consultations"][0]["answer"])
+        self.assertEqual(row["consultations"][1]["answer"]["anyFitsNoul"], 1)
+        self.assertNotIn("noneFitsNoul", row["consultations"][1]["answer"])
+        self.assertEqual(self.router().verify_decision(result["decisionRef"]), result["decision"])
+
+    def test_valid_absence_is_answered_then_dropped_without_route_selection(self):
+        self.provider.side_effect = lambda ctx: self.answer(ctx,
+            visible=0 if ctx["subject"]["objectId"] == "object-1" else 1)
+        result = self.route(objects=self.proposals(2))
+        self.assertEqual(result["decision"]["phase"], "decided")
+        self.assertEqual([row["status"] for row in result["decision"]["objects"]], ["resolved", "dropped"])
+        absent = result["decision"]["objects"][1]["consultations"][0]
+        record = json.loads((self.workspace / absent["decisionRef"]).read_bytes())
+        self.assertEqual((record["status"], record["reasonCode"]), ("answered", "answered"))
+        self.assertEqual(result["decision"]["objects"][1]["reasonCode"], "object-not-visible")
+        self.assertEqual(self.provider.call_count, 3)
+        self.fallback.assert_not_called()
+        self.assertEqual(self.router().verify_decision(result["decisionRef"]), result["decision"])
+
+    def test_each_localization_sees_all_current_inventory_not_only_its_target(self):
+        proposals = self.proposals(2)
+        result = self.route(objects=proposals)
+        expected = [{"id": obj["objectId"], "label": obj["label"], "role": obj["role"],
+                     "approxBox": obj["approxBox"]} for obj in proposals["objects"]]
+        for call in self.provider.call_args_list[:2]:
+            decomposition = call.args[0]["requirements"]["decomposition"]
+            self.assertEqual(decomposition["inventory"], expected)
+            self.assertEqual(len(decomposition["objects"]), 1)
+        self.assertEqual(self.router().verify_decision(result["decisionRef"]), result["decision"])
+
+    def test_file_backed_second_proposals_reject_wrong_or_incomplete_bindings(self):
+        source = self.workspace / "second.json"
+        source.write_bytes(b'{"objects":[]}')
+        good = {"role": "second-proposal-source", "path": "second.json",
+                "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
+        for bad in ({key: value for key, value in good.items() if key != "sha256"},
+                    dict(good, role="object-proposals"), dict(good, sha256="0" * 64),
+                    dict(good, path="../second.json")):
+            with self.subTest(binding=bad), self.assertRaises(RouteError):
+                self.router(second_proposals=Mock(), second_proposal_binding=bad)
+        self.provider.assert_not_called()
+
+    def test_changed_second_source_cannot_resume_or_verify_old_round_two(self):
+        additions = self.proposals()
+        additions["objects"][0].update(objectId="object-new", label="new-prop")
+        source = self.workspace / "second.json"
+        source.write_bytes(encode(additions))
+        source_binding = {"role": "second-proposal-source", "path": "second.json",
+                          "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
+        callback = Mock(return_value=additions)
+        self.provider.side_effect = lambda ctx: self.answer(ctx,
+            missing=.8 if ctx["subject"]["objectId"] == "object-0" else 0)
+        router = self.router(second_proposals=callback, second_proposal_binding=source_binding)
+        first = router.route(image="reference.png", objects=self.proposals())
+        self.assertEqual(router.verify_decision(first["decisionRef"]), first["decision"])
+        for call in self.provider.call_args_list:
+            self.assertIn({"role": "second-proposal-source", "sha256": source_binding["sha256"]},
+                          call.args[0]["bindings"])
+            self.assertNotIn("path", call.args[0]["bindings"][0])
+        second_localization = self.provider.call_args_list[1].args[0]["requirements"]["decomposition"]
+        self.assertEqual([obj["id"] for obj in second_localization["inventory"]], ["object-0", "object-new"])
+        self.assertEqual([obj["id"] for obj in second_localization["objects"]], ["object-new"])
+        source.write_bytes(encode(additions) + b"\n")
+        with self.assertRaises(RouteError) as caught:
+            router.route(image="reference.png", objects=self.proposals())
+        self.assertEqual(caught.exception.reason_code, "stale-second-proposal-source")
+        with self.assertRaises(DecisionError) as caught:
+            self.router().verify_decision(first["decisionRef"])
+        self.assertEqual(caught.exception.reason_code, "stale-evidence")
+        self.assertEqual(callback.call_count, 1)
+        refreshed = dict(source_binding, sha256=hashlib.sha256(source.read_bytes()).hexdigest())
+        second = self.router(second_proposals=callback, second_proposal_binding=refreshed).route(
+            image="reference.png", objects=self.proposals())
+        self.assertEqual(second["decision"]["revision"], first["decision"]["revision"] + 1)
+        self.assertNotEqual(second["decision"]["baseInputsDigest"], first["decision"]["baseInputsDigest"])
+        self.assertEqual(callback.call_count, 2)
+        self.assertEqual(self.provider.call_count, 8)
+        self.assertEqual(self.router().verify_decision(second["decisionRef"]), second["decision"])
+
+    def test_second_source_is_required_in_immutable_decision_proof(self):
+        source = self.workspace / "second.json"
+        source.write_bytes(b"host-supplied source")
+        source_binding = {"role": "second-proposal-source", "path": "second.json",
+                          "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
+        result = self.router(second_proposal_binding=source_binding).route(
+            image="reference.png", objects=self.proposals())
+        for bad in (None, dict(source_binding, role="object-proposals"),
+                    {key: value for key, value in source_binding.items() if key != "sha256"}):
+            forged = copy.deepcopy(result["decision"])
+            if bad is None:
+                forged.pop("secondProposalBinding")
+            else:
+                forged["secondProposalBinding"] = bad
+            raw = encode(forged)
+            ref = ".img2threejs/route/decision-" + hashlib.sha256(raw).hexdigest() + ".json"
+            atomic_write(self.workspace, ref, raw, immutable=True)
+            with self.subTest(binding=bad), self.assertRaises(RouteError) as caught:
+                self.router().verify_decision(ref)
+            self.assertEqual(caught.exception.reason_code, "second-proposal-binding-mismatch")
+
+    def test_proof_rejects_authenticated_localization_hiding_other_inventory_entries(self):
+        router = self.router()
+        consult = router._consult
+        def hide_other(context, *, route_round):
+            if "decomposition" in context["requirements"]:
+                target = context["subject"]["objectId"]
+                context["requirements"]["decomposition"]["inventory"] = [
+                    item for item in context["requirements"]["decomposition"]["inventory"] if item["id"] == target]
+            return consult(context, route_round=route_round)
+        router._consult = hide_other
+        result = router.route(image="reference.png", objects=self.proposals(2))
+        self.assertEqual(result["decision"]["phase"], "decided")
+        with self.assertRaises(RouteError) as caught:
+            router.verify_decision(result["decisionRef"])
+        self.assertEqual(caught.exception.reason_code, "proposal-mismatch")
+
+    def test_known_empty_second_proposals_stay_refused_and_do_not_replay_callback(self):
+        empty = {"kind": "img2.object-proposals", "version": 1, "objects": []}
+        callback = Mock(return_value=empty)
+        self.provider.side_effect = lambda ctx: self.answer(ctx, missing=.8)
+        router = self.router(second_proposals=callback)
+        for _ in range(2):
+            result = router.route(image="reference.png", objects=self.proposals())
+            self.assertEqual(result["decision"]["suspendedAt"]["reasonCode"], "second-proposals-empty")
+            self.assertEqual(len(result["decision"]["proposalRounds"]), 2)
+            self.assertTrue(result["decision"]["proposalRounds"][0]["missingObjectDecisionIds"])
+            returned = result["decision"]["proposalRounds"][1]["proposal"]
+            self.assertEqual(json.loads((self.workspace / returned["path"]).read_bytes()), empty)
+        self.assertEqual(callback.call_count, 1)
+        self.assertEqual(self.provider.call_count, 1)
 
     def test_explicit_2d_is_whole_image_and_has_no_decomposition_or_3d_downgrade(self):
         unavailable = self.route(expected_output="2d")
@@ -737,7 +881,8 @@ else:
         directory = self.workspace / "character-provider"
         (directory / "tools").mkdir(parents=True, exist_ok=True)
         sha = "c" * 40
-        probes = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0", "character-three>=0.186.1")
+        probes = ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0",
+                  "character-bpy>=4.3", "character-three>=0.186.1")
         card = {"kind": "img2.route-card", "version": 1, "outputKind": "rigged-3d",
                 "requires": {"intent": ["rig"]}, "costClass": "heavy",
                 "deps": [] if omit_deps else [{"probe": probe} for probe in probes],
@@ -817,7 +962,8 @@ else:
         self.assertFalse(candidate["blockingGateProduced"])
 
     def test_character_routed_producer_requires_each_actual_runtime_probe(self):
-        for missing in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0", "character-three>=0.186.1"):
+        for missing in ("python3>=3.10", "character-node>=22.0", "character-chromium>=1.0",
+                        "character-bpy>=4.3", "character-three>=0.186.1"):
             with self.subTest(missing=missing):
                 discovery, row, probes = self.character_provider_fixture()
                 discovery.dependency.side_effect = lambda probe: probe != missing
@@ -1161,7 +1307,7 @@ class ReadOnlyProbeScopeTests(unittest.TestCase):
                 {"kind": "img2.object-proposals", "version": 1, "objects": [proposal]})
             inputs = {"reference": reference["sha256"], "request": request,
                 "proposals": [proposal], "candidates": [{"id": "base:generic"}],
-                "policyVersion": "route-quality-policy-v1", "questionSetVersion": "route-questions-v2",
+                "policyVersion": "route-quality-policy-v1", "questionSetVersion": "route-questions-v3",
                 "requestedModel": "jev-1.14.0", "consentSnapshotSha256": canonical_digest(grant)}
             initial = snapshot(workspace, "routing-inputs", inputs)
             controller.seal_route_round(route_revision=1, round_number=1, proposal=proposal_ref,

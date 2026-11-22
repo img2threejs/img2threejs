@@ -75,6 +75,7 @@ def crop_context(router, proposal, row, located, decoded, base_bindings, request
 
 def _next_proposals(router, decision, initial, triggers):
     """Durably publish the exact host response before admission; never replay the callback."""
+    router._second_proposal_source()
     first = decision["proposalRounds"][0]
     request = {"kind": "img2.decomposition-proposal-request", "version": 1, "runId": router.run_id,
                "round": 2, "baseInputsDigest": decision["baseInputsDigest"],
@@ -102,6 +103,7 @@ def _next_proposals(router, decision, initial, triggers):
         response = router.second_proposals(copy.deepcopy(request))
     except Exception as exc:
         raise RouteError("second-proposal-error") from exc
+    router._second_proposal_source()
     proposal_binding = snapshot(router.workspace, "object-proposals", response)
     atomic_write(router.workspace, result_path, encode({"request": request_binding, "proposal": proposal_binding}), immutable=True)
     return response, request_binding, proposal_binding
@@ -127,9 +129,12 @@ def decompose(router, decision, proposals, decoded, image_binding, request_bindi
         except ValueError as exc:
             decision["decompositionBlocker"] = getattr(exc, "reason_code", "proposal-seal-rejected")
             break
+        inventory = [{"id": item["objectId"], "label": item["label"], "role": item["role"],
+                      "approxBox": item["approxBox"]} for item in [p for p, _ in prepared] + current]
+        round_common = dict(common, localizationInventory=inventory)
         round_rows = []
         for proposal in current:
-            row = row_for(router, proposal, round_number, common, prior)
+            row = row_for(router, proposal, round_number, round_common, prior)
             decision["objects"].append(row)
             prepared.append((copy.deepcopy(proposal), row))
             round_rows.append((proposal, row))
@@ -143,8 +148,9 @@ def decompose(router, decision, proposals, decoded, image_binding, request_bindi
             original_binding = snapshot(router.workspace, "object-proposal", proposal)
             base_bindings = list(image_binding) + [request_binding, original_binding]
             if not explicit_2d:
-                context = router._context(proposal, row["revision"], [{"id": "inventory-keep"}],
-                    base_bindings, request=decision["request"], decomposition=True)
+                context = router._context(proposal, row["revision"], [],
+                    base_bindings, request=decision["request"], decomposition=True,
+                    inventory=[item for item, _ in prepared])
                 record = router._consult(context, route_round={"routeRevision": decision["revision"], "roundNumber": round_number})
                 row["consultations"].append(router._consultation(record, context))
                 grant = record.get("consent")
@@ -207,7 +213,9 @@ def decompose(router, decision, proposals, decoded, image_binding, request_bindi
             decision["proposalRounds"].append({"round": 2, "proposal": proposal_ref,
                 "parentRoundSha256": decision["proposalRounds"][0]["proposal"]["sha256"],
                 "request": request_ref, "triggerDecisionIds": list(triggers), "missingObjectDecisionIds": []})
-            current = router._objects(response)
+            current = router._objects(response, allow_empty=True)
+            if not current:
+                raise RouteError("second-proposals-empty")
             all_objects = [p for p, _ in prepared] + current
             if len({p["objectId"] for p in all_objects}) != len(all_objects):
                 raise RouteError("duplicate-round-object-id")

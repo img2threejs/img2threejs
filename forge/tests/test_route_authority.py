@@ -2,6 +2,7 @@
 from copy import deepcopy
 from contextlib import contextmanager
 import hashlib
+from dataclasses import replace
 import json
 import multiprocessing
 import os
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 FORGE = Path(__file__).resolve().parents[1]
@@ -23,6 +25,7 @@ from stage0_route.images import png
 from stage0_route.route import Router
 from stage0_route.storage import RouteError, encode, snapshot
 from workflow_state import recompute
+from workflow_decisions import WorkflowDecisions, WorkflowPolicy
 
 
 AREA = ".img2/artifacts/pixi2d/"
@@ -131,7 +134,7 @@ class RouteAuthorityTests(unittest.TestCase):
         ids = [candidate["id"] for candidate in context["candidates"]]
         answers = {"selection": {"type": "choice", "choice": ids[0],
             "probabilities": {ident: int(index == 0) for index, ident in enumerate(ids)}, "confidence": 1},
-            "anyFits": {"type": "noul", "noul": 1}}
+            "anyFits": {"type": "noul", "noul": 1}} if ids else {}
         if "decomposition" in context["requirements"]:
             answers["missingObjects"] = {"type": "noul", "noul": 0}
             for obj in context["requirements"]["decomposition"]["objects"]:
@@ -184,17 +187,118 @@ class RouteAuthorityTests(unittest.TestCase):
             function(*args, **kwargs)
         self.assertEqual(caught.exception.reason_code, reason)
 
+    def journal_lifecycle(self, controller, descriptor, *, consent):
+        """Publish real controller receipts using synthetic sculpt evidence, not native approval."""
+        from forge.tests.test_quality_decision import QualityDecisionTests
+
+        workspace = controller.workspace
+        state_path = workspace / descriptor["statePath"]
+        child = state_path.parent
+        relative = child.relative_to(workspace).as_posix()
+        state = json.loads(state_path.read_bytes())
+        state["currentPass"] = "blockout"
+        state_path.write_bytes(encode(state))
+
+        def bind(role, path, value):
+            raw = value if type(value) is bytes else encode(value)
+            target = child / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(raw)
+            return {"role": role, "path": relative + "/" + path, "sha256": hashlib.sha256(raw).hexdigest()}
+
+        def advance_to(step):
+            state = json.loads(state_path.read_bytes())
+            for row in state["checklist"]:
+                if row["id"] == step:
+                    break
+                if row["id"] in {"strategy-spec", "strategy-build", "quality-review", "repair-decision"}:
+                    self.assertIn(row["status"], {"done", "skipped"})
+                else:
+                    row.update(status="done", evidence=["synthetic lifecycle fixture; not a native gate"])
+            recompute(state)
+            state_path.write_bytes(encode(state))
+
+        spec = json.loads((FORGE / "tests/fixtures/reference_target_conformance_spec.json").read_bytes())
+        policy = WorkflowPolicy(
+            scope={"components": {"root"}, "operations": {"reposition"},
+                   "field_paths": {"transform.position"}, "authorized_sources": set(),
+                   "source_operations": set(), "available_dependencies": set(),
+                   "rig_required": False, "rig_available": False},
+            requirements={"criticalFeatures": [], "requiredViews": []},
+            authorize=lambda *args: True, draft_spec="lifecycle/draft.json", request_token_limit=128)
+        reference = {"role": "reference", "path": relative + "/" + state["artifacts"]["reference"],
+                     "sha256": descriptor["cropSha256"]}
+        spec_binding = bind("spec", policy.draft_spec, spec)
+        source = bind("source", "lifecycle/source.ts", b"synthetic lifecycle input, not native scene.ts")
+        critical = bind("critical-features", "lifecycle/critical.json", {"fixture": "synthetic"})
+        factory = SimpleNamespace(provider=lambda context: lambda projected: dict(
+            self.answer(projected), group=projected["group"]))
+        workflow = WorkflowDecisions(controller, descriptor["statePath"], policy,
+            provider_factory=factory, consent=consent, availability=lambda: {"status": "present"})
+        revision = descriptor["revision"]
+        for step in ("strategy-spec", "strategy-build"):
+            advance_to(step)
+            proposed = deepcopy(spec)
+            proposed["componentTree"][0]["transform"]["position"][0] += 0.01
+            request = {
+                "subject": {"runId": controller.run_id, "objectId": descriptor["objectId"],
+                            "revision": revision, "passId": "blockout"},
+                "bindings": [reference, spec_binding, source, critical],
+                "candidates": [{"id": "shift", "passId": "blockout", "components": ["root"],
+                    "operations": ["reposition"], "fieldPaths": ["transform.position"],
+                    "materialSources": [], "dependencies": [], "rigHandoff": False}],
+                "observations": {}, "proposals": {"shift": proposed},
+            }
+            self.assertEqual(workflow.dispatch(step, request)["action"], "selected")
+            begin = dict(request, operation="begin", trialRevision=revision + 1)
+            started = workflow.dispatch(step, begin)
+            output = bind("spec", "candidates/rev-" + str(revision + 1) + "/spec.json", started["spec"])
+            finished = workflow.dispatch(step, dict(begin, operation="finish", outputBinding=output))
+            self.assertEqual(finished["application"]["status"], "completed")
+            spec, spec_binding = started["spec"], output
+            (child / state["artifacts"]["spec"]).write_bytes((workspace / output["path"]).read_bytes())
+            revision += 1
+
+        quality = QualityDecisionTests()
+        quality.setUp()
+        self.addCleanup(quality.doCleanups)
+        quality.subject = {"runId": controller.run_id, "objectId": descriptor["objectId"],
+                           "revision": revision, "passId": "blockout"}
+        quality.transforms["spec"] = lambda unused: (workspace / spec_binding["path"]).read_bytes()
+        quality.transforms["reference"] = lambda unused: (workspace / reference["path"]).read_bytes()
+        quality.refresh()
+        advance_to("quality-review")
+        request = {"subject": deepcopy(quality.subject), "candidates": quality.context["candidates"],
+                   "observations": quality.context["observations"], "bindings": []}
+        for role, binding in quality.bindings.items():
+            path = (state["artifacts"]["reference"] if role == "reference" else
+                    "candidates/rev-" + str(revision) + "/spec.json" if role == "spec" else
+                    "lifecycle/quality/" + role + ".fixture")
+            request["bindings"].append(bind(role, path, (quality.workspace / binding["path"]).read_bytes()))
+        workflow = WorkflowDecisions(controller, descriptor["statePath"], replace(policy, requirements=quality.requirements),
+            provider_factory=SimpleNamespace(provider=lambda context: quality.advisory),
+            consent=consent, availability=lambda: {"status": "present"})
+        self.assertEqual(workflow.dispatch("quality", request)["action"], "continue")
+        state = json.loads(state_path.read_bytes())
+        self.assertEqual([receipt["step"] for receipt in state["decisionRefs"]],
+                         ["strategy-spec", "strategy-build", "quality-review"])
+        repair = next(row for row in state["checklist"] if row["id"] == "repair-decision")
+        self.assertEqual(repair["status"], "skipped")
+        self.assertEqual(repair["evidence"], [state["decisionRefs"][-1]["record"]["recordId"]])
+        for row in state["checklist"]:
+            if row["id"] not in {"strategy-spec", "strategy-build", "quality-review", "repair-decision"}:
+                row.update(status="done", evidence=["synthetic lifecycle fixture; not a native gate"])
+        if not any(row["id"] == "strategy-build" and row["scope"] == "pass" for row in state["checklist"]):
+            state["currentPass"] = "complete"
+        recompute(state)
+        state_path.write_bytes(encode(state))
+        return state
+
     def published_child(self, *, review_document=None):
         parent = self.parent.create()
         descriptor = parent["objects"][0]
         child = self.workspace / descriptor["statePath"].rsplit("/", 1)[0]
-        state_path = self.workspace / descriptor["statePath"]
-        state = json.loads(state_path.read_bytes())
-        for step in state["checklist"]:
-            step.update(status="done", evidence=["fixture only; not authority"])
-        state["currentPass"] = "complete"
-        recompute(state)
-        state_path.write_bytes(encode(state))
+        state = self.journal_lifecycle(self.controller, descriptor, consent=self.consent)
         def binding(path, data):
             target = child / path
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -294,7 +398,7 @@ class RouteAuthorityTests(unittest.TestCase):
             provider=lambda request: self.quality_answer(request, score=score, critical_choice=critical_choice),
             availability=lambda: {"status": "present"}, consent=self.consent, request_token_limit=128)
         relative = child.relative_to(self.workspace).as_posix()
-        context_path = relative + "/" + AREA + "quality-review-context.json"
+        context_path = relative + "/" + AREA + "quality-review-context-" + canonical_digest(context) + ".json"
         context_raw = encode(context)
         (self.workspace / context_path).write_bytes(context_raw)
         record_path = ".img2threejs/decisions/quality-review/" + record["recordId"] + ".json"
@@ -591,11 +695,11 @@ class RouteAuthorityTests(unittest.TestCase):
         parent = RouteParent(self.controller, verify_aggregate=authority, consent=self.consent).create()
         descriptor = parent["objects"][0]
         child = self.workspace / descriptor["statePath"].rsplit("/", 1)[0]
-        state = json.loads((self.workspace / descriptor["statePath"]).read_bytes())
+        state = self.journal_lifecycle(self.controller, descriptor, consent=self.consent)
         artifact = {"objectId": "solid", "outputKind": "3d-object"}
         (child / "artifact.json").write_bytes(encode(artifact))
         with self.controller.workspace_transaction(consent=self.consent) as verify:
-            self.assert_reason("base-terminal-measurement-contract-unavailable", authority.verify_terminal, verify,
+            self.assert_reason("native-policy-unavailable", authority.verify_terminal, verify,
                 object_id="solid", child_workspace=child, state=state, artifact=artifact)
         self.assertEqual(self.gate_commands, [])
 
@@ -641,7 +745,7 @@ class RouteAuthorityTests(unittest.TestCase):
 
     @contextmanager
     def character_case(self, *, cost="heavy", marker=True, overrides=True):
-        """Disposable real Git pin + real executable probes; never a rig gate."""
+        """Disposable real Git pin/executables + synthetic bpy probe seam; never a rig gate."""
         git = shutil.which("git")
         if git is None:
             self.fail("git is required for the pinned character fixture")
@@ -666,13 +770,17 @@ class RouteAuthorityTests(unittest.TestCase):
                 executable = host / name
                 executable.write_text("#!" + sys.executable + "\nprint(" + repr(version) + ")\n")
                 executable.chmod(0o755)
+            # Only availability is synthesized; no bpy import, capture or rig gate is claimed.
+            bpy_python = host / "python3"
+            bpy_python.symlink_to(sys.executable)
             manifest = {"name": "character", "version": "1.0.0",
                         "capabilities": [{"from": "character-mesh", "to": "rigged-character"}],
                         "requires": {"harness": ">=0.5.0", "coreApi": 1}}
             card = {"kind": "img2.route-card", "version": 1, "outputKind": "rigged-3d",
                     "requires": {"intent": ["rig"]}, "notFor": {}, "costClass": cost,
                     "deps": [{"probe": "python3>=3.10"}, {"probe": "character-node>=22.0"},
-                             {"probe": "character-chromium>=1.0"}], "display": {}}
+                             {"probe": "character-chromium>=1.0"}, {"probe": "character-bpy>=4.3"}],
+                    "display": {}}
             if marker:
                 card["routedTerminalGate"] = {"id": "character-routed-terminal",
                                               "script": "tools/gate_routed_terminal.py"}
@@ -708,6 +816,10 @@ class RouteAuthorityTests(unittest.TestCase):
                     return subprocess.CompletedProcess(argv, 0, encode(value), b"")
                 if str(plugin / "tools/gate_routed_terminal.py") in argv:
                     self.fail("availability revalidation executed the terminal gate")
+                if len(argv) == 5 and argv[1:4] == ["-I", "-B", "-c"]:
+                    value = {"kind": "img2.character-bpy-probe", "version": 1,
+                             "executable": argv[0], "bpyVersion": "4.3.0", "bpyModule": "synthetic-bpy-fixture"}
+                    return subprocess.CompletedProcess(argv, 0, encode(value), b"")
                 actual = list(argv)
                 if actual[0] == "git":
                     actual[0] = git
@@ -718,11 +830,13 @@ class RouteAuthorityTests(unittest.TestCase):
                            "PATH": str(host) + os.pathsep + os.defpath}
             if overrides:
                 environment.update(IMG2_CHARACTER_NODE=str(host / "node"),
-                                   IMG2_CHARACTER_BROWSER=str(host / "chromium"))
+                                   IMG2_CHARACTER_BROWSER=str(host / "chromium"),
+                                   IMG2_CHARACTER_BPY_PYTHON=str(bpy_python))
             with patch.dict(os.environ, environment):
                 if not overrides:
                     os.environ.pop("IMG2_CHARACTER_NODE", None)
                     os.environ.pop("IMG2_CHARACTER_BROWSER", None)
+                    os.environ.pop("IMG2_CHARACTER_BPY_PYTHON", None)
                 controller = DecisionController(root, "character-run", clock=lambda: 1000)
                 discovery = Discovery(controller, harness=("fixture-character-img2",), runner=runner)
                 discovery.availability = Mock(return_value={"status": "present"})
@@ -746,16 +860,25 @@ class RouteAuthorityTests(unittest.TestCase):
             self.assertTrue(case["candidate"]["blockingGateProduced"])
             self.assertEqual(case["candidate"]["dependencies"], {
                 "python3>=3.10": True, "character-node>=22.0": True,
-                "character-chromium>=1.0": True, "character-three>=0.186.1": True})
+                "character-chromium>=1.0": True, "character-bpy>=4.3": True,
+                "character-three>=0.186.1": True})
+            self.assertEqual(case["routed"]["decision"]["phase"], "decided")
+            parent = RouteParent(case["controller"], verify_aggregate=case["authority"], consent=self.consent).create()
+            descriptor = parent["objects"][0]
+            child = case["root"] / descriptor["statePath"].rsplit("/", 1)[0]
+            state = self.journal_lifecycle(case["controller"], descriptor, consent=self.consent)
+            artifact = {"objectId": "figure", "outputKind": "rigged-3d"}
+            (child / "artifact.json").write_bytes(encode(artifact))
             with case["controller"].workspace_transaction(consent=self.consent) as verify:
                 with patch.object(case["controller"], "record_probe", side_effect=AssertionError("nested probe lock")):
                     aggregate = case["authority"](verify)
                     self.assertEqual(aggregate.owners[case["candidate"]["id"]].output_kind, "rigged-3d")
-                    self.assert_reason("character-blocking-terminal-gates-unavailable",
+                    self.assert_reason("native-policy-unavailable",
                         case["authority"].verify_terminal, verify, object_id="figure",
-                        child_workspace=case["root"], state={}, artifact={})
+                        child_workspace=child, state=state, artifact=artifact)
             commands = [argv for argv, _ in case["commands"]]
             self.assertIn([str(case["host"] / "node"), "--version"], commands)
+            self.assertTrue(any(argv[1:4] == ["-I", "-B", "-c"] for argv in commands))
             self.assertIn([str(case["host"] / "chromium"), "--version"], commands)
 
     def test_character_path_fallback_matches_discovery_resolution(self):

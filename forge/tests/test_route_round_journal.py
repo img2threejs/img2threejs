@@ -65,7 +65,7 @@ class RouteRoundJournalTests(unittest.TestCase):
     def inputs(self, objects, **changes):
         initial = {"reference": self.reference["sha256"], "request": deepcopy(self.request_value),
                    "proposals": deepcopy(objects), "candidates": [{"id": "base:generic", "resolvedSha": "b" * 64}],
-                   "policyVersion": "route-policy-v1", "questionSetVersion": "route-questions-v2",
+                   "policyVersion": "route-policy-v1", "questionSetVersion": "route-questions-v3",
                    "requestedModel": "jev-1.14.0", "consentSnapshotSha256": canonical_digest(self.grant)}
         initial.update(changes)
         return self.json_binding("routing-inputs", initial), self.proposal(objects)
@@ -88,8 +88,11 @@ class RouteRoundJournalTests(unittest.TestCase):
         observations = {"images": [{"role": "reference", "asset": "source"}]}
         candidates = [{"id": "keep"}]
         if pass_id == "decomposition":
+            candidates = []
             requirements["decomposition"] = {"image": "source", "objects": [{
-                "id": obj["objectId"], "label": obj["label"], "approxBox": obj["approxBox"]}]}
+                "id": obj["objectId"], "label": obj["label"], "approxBox": obj["approxBox"]}],
+                "inventory": [{"id": item["objectId"], "label": item["label"], "role": item["role"],
+                               "approxBox": item["approxBox"]} for item in (objects or [obj])]}
         if pass_id == "routing":
             handles = {"keep": "base:generic"}
             bindings.append(self.json_binding("candidate-handles", handles))
@@ -97,13 +100,13 @@ class RouteRoundJournalTests(unittest.TestCase):
                 "subject": {"runId": "round-run", "objectId": obj["objectId"], "revision": 1, "passId": pass_id},
                 "bindings": bindings, "candidates": candidates, "observations": observations,
                 "requirements": requirements, "policyVersion": "route-policy-v1",
-                "questionSetVersion": "route-questions-v2", "requestedModel": "jev-1.14.0"}
+                "questionSetVersion": "route-questions-v3", "requestedModel": "jev-1.14.0"}
 
     def advisory(self, context):
         self.assertNotIn("routeRound", context["requirements"])
         self.assertNotIn("route_round", context)
         answers = {"selection": {"type": "choice", "choice": "keep", "probabilities": {"keep": 1.0},
-                                  "confidence": .9}, "anyFits": {"type": "noul", "noul": 1.0}}
+                                  "confidence": .9}, "anyFits": {"type": "noul", "noul": 1.0}} if context["candidates"] else {}
         for obj in context["requirements"].get("decomposition", {}).get("objects", []):
             left, top, right, bottom = obj["approxBox"]
             answers.update({f"object:{obj['id']}:visible": {"type": "noul", "noul": 1.0},

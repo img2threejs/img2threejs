@@ -119,7 +119,7 @@ class JevCliBridgeTests(unittest.TestCase):
                                       "sha256": self.sha(self.workspace / "reference.png")}],
                         "candidates": [{"id": "a"}, {"id": "b"}], "observations": {"partCount": 2},
                         "requirements": {"criticalFeatures": [], "requiredViews": []},
-                        "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v2",
+                        "policyVersion": "policy-v1", "questionSetVersion": "route-questions-v3",
                         "requestedModel": "jev-1.14.0"}
         (self.workspace / "context.json").write_text(json.dumps(self.context))
         (self.workspace / "assets.json").write_text("{}")
@@ -180,7 +180,7 @@ class JevCliBridgeTests(unittest.TestCase):
         self.assertEqual(projection, self.projection())
 
     def test_exact_command_mapping_for_all_four_groups(self):
-        questions = {"routing": "route-questions-v2", "build-strategy": "strategy-questions-v1",
+        questions = {"routing": "route-questions-v3", "build-strategy": "strategy-questions-v1",
                      "quality-review": "quality-review-questions-v1", "repair": "repair-decision-questions-v1"}
         for group, edge in EDGES.items():
             with self.subTest(group=group):

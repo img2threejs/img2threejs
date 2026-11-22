@@ -29,6 +29,11 @@ D9: independently validated placements, real crops with 10% margin, visibility
 rejection, same-label overlap merging (never collapsing explicit instances),
 maximum 12 distinct route groups. All instance placements retain their own id,
 validation, Box, crop and eligibility; routing runs once on their intersection.
+Routing questions v3 localize with only missingObjects:Noul and each targeted
+object's visible:Noul/box:Box. Localization has no route candidates or Choice;
+its full inventory includes every first-round proposal and, in round 2, every
+new addition, without changing or resurrecting the first-round objects. A valid
+invisible answer is authenticated data for dropping the target, not a failure.
 ``Router(..., second_proposals=callback)`` may invoke the trusted host callback
 once when first-round missingObjects >= .7. It receives an
 img2.decomposition-proposal-request v1 with the exact initial proposal set,
@@ -36,12 +41,18 @@ source/input/first-round digests and authenticated trigger decision IDs, and
 returns img2.object-proposals v1 ADDITIONS with new object IDs. Exact request and
 response snapshots are durable before admission; completed responses replay
 without calling the host again, interrupted unresolved callbacks request input.
+An empty returned additions list is durably recorded and requests input as
+second-proposals-empty; it is not retried or treated as inventory completeness.
 There is no third round; remaining missing objects request input. This host
 adapter must independently enforce consent for any paid/licensed host action.
 Low-IoU boxes trigger controller-backed Choice over the actual model/Jev crops.
 Unresolved Choice retains Jev's box flagged low-confidence and blocks promotion;
 valid uncertainty never activates model override. All calls share controller
 object deadlines, run budget and fresh consent checks.
+File-backed callbacks may additionally supply ``second_proposal_binding`` with
+exact role ``second-proposal-source``, workspace-relative path and SHA256. The
+file is re-hashed before use and during proof verification; its identity binds
+inputs, per-object contexts and replay. Trusted callbacks need no file binding.
 
 Baseline JPEG normalization is stdlib-only and supports all eight EXIF
 orientations. Progressive/unsupported JPEG, malformed/ambiguous orientation,

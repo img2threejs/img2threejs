@@ -149,7 +149,7 @@ class BestOfNTests(unittest.TestCase):
                 "bindings": [self.shared["reference"]], "candidates": [{"id": handle} for handle in ids],
                 "observations": {}, "requirements": {"criticalFeatures": [], "requiredViews": []},
                 "policyVersion": "route-quality-policy-v1", "questionSetVersion":
-                "route-questions-v2" if group == "routing" else "strategy-questions-v1", "requestedModel": "jev-1.14.0"}
+                "route-questions-v3" if group == "routing" else "strategy-questions-v1", "requestedModel": "jev-1.14.0"}
 
     def decide(self, *, group="routing", probabilities=None, confidence=0.8):
         context = self.context(group)

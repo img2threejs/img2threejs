@@ -16,7 +16,7 @@ from decision_control import DecisionController, DecisionError, canonical_digest
 
 
 GROUPS = {
-    "routing": ("img2.route-context", "route-questions-v2"),
+    "routing": ("img2.route-context", "route-questions-v3"),
     "build-strategy": ("img2.build-strategy-context", "strategy-questions-v1"),
     "quality-review": ("img2.quality-review-context", "quality-review-questions-v1"),
     "repair": ("img2.repair-context", "repair-decision-questions-v1"),
@@ -265,14 +265,17 @@ class DecisionControlTests(unittest.TestCase):
 
     def decomposition_context(self):
         context = self.context()
+        context["candidates"] = []
         context["observations"]["images"] = [{"role": "reference", "asset": "source"}]
         context["requirements"]["decomposition"] = {
             "image": "source", "objects": [
-                {"id": "cup", "label": "cup", "approxBox": [0.2, 0.1, 0.9, 0.8]}]}
+                {"id": "cup", "label": "cup", "approxBox": [0.2, 0.1, 0.9, 0.8]}],
+            "inventory": [{"id": "cup", "label": "cup", "role": "prop", "approxBox": [0.2, 0.1, 0.9, 0.8]}]}
         return context
 
     def decomposition_advisory(self, context):
         result = self.advisory(context)
+        result["answers"] = {}
         # Actual TypeSafe wire shape: Box is an edge map and may have null confidence.
         result["answers"].update({
             "object:cup:visible": {"type": "noul", "noul": 1.0},
@@ -296,6 +299,57 @@ class DecisionControlTests(unittest.TestCase):
         provider.assert_called_once()
         self.fallback.assert_not_called()
 
+    def test_localization_absence_is_answered_by_jev_and_host_fallback(self):
+        for index, absent in enumerate((False, True)):
+            context = self.decomposition_context()
+            context["subject"]["objectId"] = "localization-" + str(index)
+            def answer(projected):
+                result = self.decomposition_advisory(projected)
+                result["answers"]["object:cup:visible"]["noul"] = 0 if absent else 1
+                return result
+            record = self.consult(context, provider=answer)
+            self.assertEqual((record["status"], record["reasonCode"]), ("answered", "answered"))
+            self.assertNotIn("selection", record["answers"])
+            self.assertNotIn("anyFits", record["answers"])
+        context = self.decomposition_context()
+        context["subject"]["objectId"] = "fallback-localization"
+        def fallback(projected):
+            result = self.decomposition_advisory(projected)
+            result["model"] = "host-model"
+            result["answers"]["object:cup:visible"]["noul"] = 0
+            return result
+        record = self.consult(context, fallback=fallback, availability=lambda: {"status": "not-installed"})
+        self.assertEqual((record["status"], record["decider"]), ("answered", "model:host-model"))
+
+    def test_localization_semantic_labels_reject_filenames_uppercase_and_punctuation_before_dispatch(self):
+        provider = Mock(side_effect=self.decomposition_advisory)
+        for label in ("private-name.png", "Garden-chair", "garden_chair", "chair:prop", "a" * 97):
+            for placement in ("target-and-inventory", "inventory-only"):
+                context = self.decomposition_context()
+                decomposition = context["requirements"]["decomposition"]
+                if placement == "target-and-inventory":
+                    decomposition["objects"][0]["label"] = label
+                    decomposition["inventory"][0]["label"] = label
+                else:
+                    decomposition["inventory"].append({
+                        "id": "opaque.ID:7", "label": label, "role": "prop", "approxBox": [0, 0, 1, 1]})
+                with self.subTest(label=label, placement=placement), self.assertRaises(DecisionError):
+                    self.consult(context, provider=provider)
+                provider.assert_not_called()
+                self.fallback.assert_not_called()
+        for index, label in enumerate(("garden-chair", "prop-2")):
+            context = self.decomposition_context()
+            context["subject"]["objectId"] = "valid-label-" + str(index)
+            decomposition = context["requirements"]["decomposition"]
+            decomposition["objects"][0]["label"] = label
+            decomposition["inventory"][0]["label"] = label
+            decomposition["inventory"].append({
+                "id": "opaque.ID:7", "label": "scene-container", "role": "scene-container", "approxBox": [0, 0, 1, 1]})
+            record = self.consult(context, provider=provider)
+            self.assertEqual(record["status"], "answered")
+            self.assertEqual(provider.call_args.args[0]["requirements"]["decomposition"], decomposition)
+        self.assertEqual(provider.call_count, 2)
+
     def test_invalid_decomposition_context_is_rejected_before_provider(self):
         mutations = [
             lambda ctx: ctx["requirements"]["decomposition"].update(image="unlisted"),
@@ -307,6 +361,13 @@ class DecisionControlTests(unittest.TestCase):
             lambda ctx: ctx["requirements"]["decomposition"]["objects"][0].update(approxBox=[0, 0, True, 1]),
             lambda ctx: ctx["requirements"]["decomposition"]["objects"][0].update(extra="uncontrolled"),
             lambda ctx: ctx["requirements"]["decomposition"]["objects"][0].update(label="uncontrolled free text"),
+            lambda ctx: ctx["requirements"]["decomposition"].pop("inventory"),
+            lambda ctx: ctx["requirements"]["decomposition"].update(inventory=[]),
+            lambda ctx: ctx["requirements"]["decomposition"]["inventory"][0].update(role="unknown"),
+            lambda ctx: ctx["requirements"]["decomposition"]["inventory"][0].update(label="other"),
+            lambda ctx: ctx["requirements"]["decomposition"]["inventory"].append(
+                copy.deepcopy(ctx["requirements"]["decomposition"]["inventory"][0])),
+            lambda ctx: ctx.update(candidates=[{"id": "inventory-keep"}]),
             lambda ctx: ctx["observations"]["images"].append({"role": "reference", "asset": "source"}),
         ]
         for mutate in mutations:
@@ -316,7 +377,8 @@ class DecisionControlTests(unittest.TestCase):
                 self.consult(context)
         for group in ("repair", "build-strategy", "quality-review"):
             context = self.decomposition_context()
-            context.update(group=group, kind=GROUPS[group][0], questionSetVersion=GROUPS[group][1])
+            context.update(group=group, kind=GROUPS[group][0], questionSetVersion=GROUPS[group][1],
+                           candidates=[{"id": "a"}])
             self.assert_reason("invalid-requirements", self.consult, context)
         self.provider.assert_not_called()
         self.fallback.assert_not_called()
@@ -326,6 +388,9 @@ class DecisionControlTests(unittest.TestCase):
             answer["answers"]["object:foreign:visible"] = {"type": "noul", "noul": 1}
         mutations = [
             extra,
+            lambda answer: answer["answers"].update(selection={
+                "type": "choice", "choice": "a", "probabilities": {"a": 1}, "confidence": 1}),
+            lambda answer: answer["answers"].update(anyFits={"type": "noul", "noul": 0}),
             lambda answer: answer["answers"].pop("missingObjects"),
             lambda answer: answer["answers"]["object:cup:visible"].update(noul=1.1),
             lambda answer: answer["answers"]["missingObjects"].update(noul=True),

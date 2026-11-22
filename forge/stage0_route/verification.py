@@ -67,6 +67,15 @@ def verify_route(router, decision_ref, verify, discovered):
         raise RouteError("decision-not-decided")
     inputs = _read(router, {"path": decision["inputsRef"], "sha256": decision["inputsDigest"]})
     proposals = router._objects(_read(router, {"path": decision["proposalRef"], "sha256": decision["proposalSha256"]}))
+    second_source = inputs.get("secondProposalBinding")
+    if (decision.get("secondProposalBinding") != second_source
+            or (router.second_proposal_binding is not None and router._second_proposal_source() != second_source)):
+        raise RouteError("second-proposal-binding-mismatch")
+    if second_source is not None:
+        if (type(second_source) is not dict or set(second_source) != {"role", "path", "sha256"}
+                or second_source["role"] != "second-proposal-source"):
+            raise RouteError("invalid-second-proposal-binding")
+        router.controller._binding(second_source)
     available = {c["id"]: c for c in discovered["candidates"]}
     facts = [{k: c[k] for k in ("id", "resolvedSha", "providerStatus", "dependencies", "blockingGateProduced")}
              for c in available.values()]
@@ -166,6 +175,8 @@ def verify_route(router, decision_ref, verify, discovered):
                     or context["questionSetVersion"] != inputs["questionSetVersion"]
                     or context["requestedModel"] != inputs["requestedModel"]):
                 raise RouteError("context-request-mismatch")
+            if _bindings(context, "second-proposal-source") != ([] if second_source is None else [second_source]):
+                raise RouteError("second-proposal-binding-mismatch")
             if context["observations"].get("label") != proposal["label"]:
                 raise RouteError("crop-choice-mismatch" if step == "crop-choice" else "context-target-mismatch")
             common_reference = references[0] if common_reference is None else common_reference
@@ -192,8 +203,11 @@ def verify_route(router, decision_ref, verify, discovered):
                 raise RouteError("decomposition-not-verified")
             localization, context = consultations["decomposition"]
             expected_decomposition = {"image": "reference-image", "objects": [{
-                "id": object_id, "label": proposal["label"], "approxBox": proposal["approxBox"]}]}
-            if context["requirements"].get("decomposition") != expected_decomposition:
+                "id": object_id, "label": proposal["label"], "approxBox": proposal["approxBox"]}],
+                "inventory": [{"id": item["objectId"], "label": item["label"], "role": item["role"],
+                               "approxBox": item["approxBox"]}
+                              for group in round_objects[:round_of[object_id]] for item in group]}
+            if context["candidates"] or context["requirements"].get("decomposition") != expected_decomposition:
                 raise RouteError("proposal-mismatch")
             choice = consultations.get("crop-choice")
             selected_box, low_confidence, reason = reconcile_box(proposal, localization, choice[0] if choice else None)

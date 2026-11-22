@@ -78,7 +78,7 @@ version, one typed Jev edge and one Jev command (`jev_cli_bridge.EDGES`):
 
 | Group | Context kind | Advisory kind | Question set | Jev step / command |
 |---|---|---|---|---|
-| `routing` | `img2.route-context` | `img2.route-advisory` | `route-questions-v2` | `jev-decision-routing` / `decision-routing` |
+| `routing` | `img2.route-context` | `img2.route-advisory` | `route-questions-v3` | `jev-decision-routing` / `decision-routing` |
 | `build-strategy` | `img2.build-strategy-context` | `img2.build-strategy-advisory` | `strategy-questions-v1` | `jev-decision-build-strategy` |
 | `quality-review` | `img2.quality-review-context` | `img2.quality-review-advisory` | `quality-review-questions-v1` | `jev-decision-quality-review` |
 | `repair` | `img2.repair-context` | `img2.repair-advisory` | `repair-decision-questions-v1` | `jev-decision-repair` |
@@ -130,9 +130,10 @@ python3 forge/route.py --workspace WS --run-id RUN \
 
 The harness pins are host-approved: a canonical checkout named `harness`, its exact Git commit, its
 `bin/img2.mjs` launcher and that launcher's SHA-256. They are never computed from workspace input.
-Harness approval flags without a child operation, or a child operation without all four, are
-usage errors. The pin proves an exact local package, not third-party release authenticity; Git,
-Node and the OS standard libraries stay trust dependencies (`HarnessPin` docstring).
+Decision-only routing may also supply that complete bundle for pinned read-only discovery without
+creating a child. A partial bundle, or a child operation without all four pins, is a usage error.
+The pin proves an exact local package, not third-party release authenticity; Git, Node and the OS
+standard libraries stay trust dependencies (`HarnessPin` docstring).
 
 `forge/stage0_route/route.py` is a separate standalone CLI. It performs real read-only probes but
 has no consent, model or paid adapter, so it requests input (exit 3) and never consults Jev. Use
@@ -232,9 +233,12 @@ sweep; the narrow observed probe in section 0 does not waive missing per-child m
 
 ### 4.4 Decomposition (3D)
 
-Before any routing question, every proposed object is localised by Jev (`passId: decomposition`).
-Rounds are sealed in the journal BEFORE their first consultation. All of this is advisory; the base
-reconciles it:
+Before route selection, every proposed object is localised by Jev (`passId: decomposition`).
+Routing-v3 localization has empty candidates and asks only visibility, Box and `missingObjects`
+primitives—not a forced route Choice or candidate-fit judgment. A valid absence is answered data;
+it does not grant route or execution authority. Each call sees the full accumulated inventory,
+while its target list names only the objects being localized in that round.
+Rounds are sealed in the journal BEFORE their first consultation. The base reconciles the answers:
 
 - `object:<id>:visible` below 0.5: the object is `dropped` (`object-not-visible`).
 - Box IoU between the proposal and Jev's box of at least 0.3: Jev's box is adopted.
@@ -246,8 +250,20 @@ reconciles it:
   Explicit instances (`instanceOf`) stay separate placements even when boxes overlap.
 - `missingObjects` at 0.7 or above in round 1 invokes a trusted host callback once
   (`Router(second_proposals=...)`) for ADDITIONS with new ids. There is no third round
-  (`missing-objects-after-round-limit`). `forge/route.py` constructs `Router` without that callback,
-  so a round-1 missing-objects trigger suspends with `second-proposal-adapter-required`.
+  (`missing-objects-after-round-limit`). Empty additions are a recorded negative
+  (`second-proposals-empty`), never success or permission to replay the callback.
+
+`forge/route.py` can supply that callback through the optional pair
+`--second-objects FILE --second-objects-sha256 HEX`, for 3D routing only. The workspace-relative
+regular JSON file is exact-byte hash-approved host data, not a model attestation or executable.
+Its closed envelope has `kind: "img2.recorded-second-proposals"`, integer `version: 1`,
+`imageSha256`, `firstRoundProposalSha256`, and an `objects` additions array. The first-round hash
+is SHA256 of the original proposal document's strict compact canonical JSON, without a newline.
+Existing ids cannot be replaced. Image and initial-proposal scope are checked before a decision
+session; the file is rehashed on consumption and bound into route identity and proof revalidation.
+The CLI does not launch a model, enroll consent, guess missing objects or retry an empty result.
+Without this explicit data adapter, a missing-objects trigger still requests input with
+`second-proposal-adapter-required`.
 
 ### 4.5 Consultation and selection
 
@@ -537,8 +553,10 @@ model call. It marks the parent's `object:<id>` row done only after all of these
 still matches the re-derived plan (`stale-parent`, `invalid-parent-checklist`), no final row has
 started (`composition-already-started`), the child state is complete with every final and rig step
 done (`child-terminal-gates-incomplete`), the child's artifact loads and names this object and kind
-(`child-artifact-mismatch`), and the provider's terminal authority passes. A completed child is not
-an accepted composed scene.
+(`child-artifact-mismatch`), and the provider's terminal authority passes. The sole no-repair exception
+is a skipped `repair-decision` authenticated by the held journal-backed lifecycle verifier against
+passing quality; other skipped native/final/rig gates still block completion. A completed child is
+not an accepted composed scene.
 
 ## 9. Terminal artifact ownership and composition
 
@@ -713,9 +731,10 @@ workspace journal and decision files to see the specific cause; the CLI does not
 - Decomposition: `object-not-visible`, `decomposition-crop-choice-required`,
   `decomposition-low-confidence`, `decomposition-incomplete`, `duplicate-object`,
   `instance-reconciliation-unresolved`, `missing-objects-after-round-limit`,
-  `second-proposal-adapter-required`, `second-proposal-error`, `ambiguous-proposal-attempt`,
-  `duplicate-round-object-id`, `proposal-request-mismatch`, `stale-proposal-round`,
-  `proposal-seal-rejected`, `no-visible-objects`.
+  `second-proposal-adapter-required`, `second-proposal-error`, `second-proposals-empty`,
+  `invalid-second-proposals`, `second-proposal-context-mismatch`, `invalid-second-proposal-binding`,
+  `stale-second-proposal-source`, `ambiguous-proposal-attempt`, `duplicate-round-object-id`,
+  `proposal-request-mismatch`, `stale-proposal-round`, `proposal-seal-rejected`, `no-visible-objects`.
 - Routing: `none-fits`, `choice-uncertain`, `no-common-instance-route`, `explicit-2d-unavailable`,
   `route-action-consent-required`, `provider-unbound`, `availability-unproven`, `deadline-exhausted`,
   `correction-budget-exhausted`, `budget-overrun`, `missing-evidence`, `fallback-invalid`,

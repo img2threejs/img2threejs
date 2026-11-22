@@ -479,13 +479,22 @@ class RouteParent:
         crop, _ = _read(child_workspace, child["artifacts"]["reference"])
         if hashlib.sha256(crop).hexdigest() != descriptor["cropSha256"]:
             _fail("stale-reference-crop")
+        skipped_repair = any(row["id"] == "repair-decision" and row["status"] == "skipped"
+                             for row in child["checklist"])
+        if skipped_repair:
+            # Only journal-authenticated passing quality can justify no repair.
+            # Import here: workflow_decisions uses this module's state I/O.
+            from workflow_decisions import verify_lifecycle
+            verify_lifecycle(verify, child, child_workspace, self.workspace)
         if (child.get("status") != "complete" or child.get("currentPass") != "complete"
                 or child.get("currentStep") != "complete"
                 or any(row["status"] == "pending" for row in child["checklist"])
                 or any(row["status"] != "done" for row in child["checklist"]
-                       if row["scope"] in {"final", "rig"} or row["id"] == "pass-gate-check")
+                       if (row["scope"] in {"final", "rig"} or row["id"] == "pass-gate-check")
+                       and not (row["id"] == "repair-decision" and row["status"] == "skipped"))
                 or ((descriptor["outputKind"] == "2d-scene" or descriptor["profile"] == "interior")
-                    and any(row["status"] != "done" for row in child["checklist"]))):
+                    and any(row["status"] != "done" for row in child["checklist"]
+                            if not (row["id"] == "repair-decision" and row["status"] == "skipped")))):
             _fail("child-terminal-gates-incomplete")
         if descriptor["outputKind"] == "2d-scene":
             artifact_bytes = _read(self.workspace, descriptor["artifactPath"])[0]

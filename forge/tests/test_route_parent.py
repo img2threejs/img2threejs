@@ -7,6 +7,7 @@ Shared-crop cases additionally consume real controller-journal object records un
 the held verifier; their aggregate approval remains explicitly fixture-owned.
 """
 from copy import deepcopy
+from dataclasses import replace
 import hashlib
 import json
 import os
@@ -19,14 +20,17 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-_SHARED = str(Path(__file__).resolve().parents[1] / "_shared")
-if _SHARED not in sys.path:
-    sys.path.insert(0, _SHARED)
+_FORGE = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(_FORGE), str(_FORGE / "_shared")]
 
 from decision_control import DecisionController, DecisionError
 from route_artifact import ArtifactError
 from route_parent import AggregateAuthority, OwnerProfile, ParentError, RouteParent, VerifiedAggregate
-from workflow_state import mark_steps, new_state, validate_state
+from workflow_state import (mark_steps, new_state, validate_state, attach_lifecycle_steps,
+                            WorkflowStateError)
+from workflow_decisions import WorkflowDecisions, WorkflowPolicy, NativePolicy, _validate_base, verify_lifecycle
+from forge.tests.test_workflow_decisions import FixtureFactory
+from forge.tests import test_quality_decision as quality_fixtures
 
 
 def canonical(value):
@@ -187,7 +191,7 @@ class RouteParentTests(unittest.TestCase):
                        "bindings": [reference, proposal_binding, entry["reference"]],
                        "candidates": [{"id": entry["ownerRoute"]}], "observations": {},
                        "requirements": {"criticalFeatures": [], "requiredViews": [], "objectProposal": proposal},
-                       "policyVersion": "fixture-policy-v1", "questionSetVersion": "route-questions-v2",
+                       "policyVersion": "fixture-policy-v1", "questionSetVersion": "route-questions-v3",
                        "requestedModel": "jev-1.14.0"}
             if card_binding is not None:
                 context["bindings"].append(card_binding)
@@ -385,15 +389,17 @@ class RouteParentTests(unittest.TestCase):
         self.assertEqual(scene["profile"], "interior")
         self.assertEqual(scene["outputKind"], "3d-scene")
         self.assertEqual(state["artifacts"]["spec"], "scene-spec.json")
-        self.assertEqual(state["currentStep"], "interior-intake")
+        self.assertEqual(state["currentStep"], "strategy-spec")
         self.assertEqual(state["currentPass"], "complete")
         self.assertEqual([step["id"] for step in state["checklist"]], [
-            "interior-intake", "interior-route-exclusions", "interior-workflow-init",
-            "interior-author-and-review", "interior-export-and-audit", "interior-delivery-gates"])
-        self.assertIn("excludeComponents", state["checklist"][1]["command"])
+            "strategy-spec", "interior-intake", "interior-route-exclusions", "interior-workflow-init",
+            "strategy-build", "interior-author-and-review", "quality-review", "repair-decision",
+            "interior-export-and-audit", "interior-delivery-gates"])
+        exclusions = next(step for step in state["checklist"] if step["id"] == "interior-route-exclusions")
+        self.assertIn("excludeComponents", exclusions["command"])
         self.assertEqual(state["routeChild"]["excludedObjectIds"], ["right"])
         self.assertEqual(scene["excludedObjectIds"], ["right"])
-        self.assertIn("identical objectId", state["checklist"][1]["command"])
+        self.assertIn("identical objectId", exclusions["command"])
         self.assertEqual(prop["profile"], "generic")
         self.assertIn("build-current-pass", [s["id"] for s in self.read(prop["statePath"])["checklist"]])
         self.assertNotIn("excludedObjectIds", prop)
@@ -406,13 +412,14 @@ class RouteParentTests(unittest.TestCase):
         for step in state["checklist"]:
             step.update(status="done", evidence=["fixture-only"])
         state.update(status="complete", currentStep="complete", currentPass="complete")
-        state["checklist"][1]["status"] = "skipped"
-        state["checklist"][1]["reason"] = "fixture skip"
+        exclusions = next(step for step in state["checklist"] if step["id"] == "interior-route-exclusions")
+        exclusions["status"] = "skipped"
+        exclusions["reason"] = "fixture skip"
         self.put(descriptor["statePath"], canonical(state))
         self.reject("child-terminal-gates-incomplete",
                     lambda: self.parent.complete_child(descriptor["objectId"]))
-        state["checklist"][1]["status"] = "done"
-        state["checklist"][1]["command"] = "skip the real exclusions"
+        exclusions["status"] = "done"
+        exclusions["command"] = "skip the real exclusions"
         self.put(descriptor["statePath"], canonical(state))
         self.reject("child-state-mismatch",
                     lambda: self.parent.complete_child(descriptor["objectId"]))
@@ -434,8 +441,10 @@ class RouteParentTests(unittest.TestCase):
         for prop in parent["objects"][1:]:
             state = self.read(prop["statePath"])
             self.assertNotIn("excludedObjectIds", state["routeChild"])
-            self.assertEqual(state["checklist"], new_state(
-                state["artifacts"]["reference"], profile="generic")["checklist"])
+            template = new_state(state["artifacts"]["reference"], profile="generic")
+            template["routeChild"] = deepcopy(state["routeChild"])
+            attach_lifecycle_steps(template)
+            self.assertEqual(state["checklist"], template["checklist"])
         self.interior_terminal(scene)
         directory = scene["statePath"].rsplit("/", 1)[0]
         for path in ("/.img2/artifacts/interior/intake.json", "/scene-spec.json"):
@@ -928,54 +937,167 @@ class RouteParentTests(unittest.TestCase):
         self.assertFalse(self.receipt.verifiers)
 
     def complete_pixi_checklist(self, state):
-        """Exercise real checklist ordering; these marks are not gate authority."""
+        """Real lifecycle journals with synthetic reports; never native quality evidence."""
         self.assertEqual(state["currentPass"], "complete")
         self.assertEqual(state["passHistory"], [])
-        for step in state["checklist"]:
-            self.assertEqual(state["currentStep"], step["id"])
-            mark_steps(state, [step["id"]], status="done",
-                       evidence=["fixture Pixi step progression, not native approval"])
-            self.assertNotEqual(state["currentStep"], "await-pass-transition")
-        self.assertEqual(state["status"], "complete")
+        object_id = state["routeChild"]["objectId"]
+        descriptor = next(item for item in self.read(".img2threejs/state.json")["objects"]
+                          if item["objectId"] == object_id)
+        state_path = descriptor["statePath"]
+        root = state_path.rsplit("/", 1)[0]
+        source_spec = json.loads((Path(__file__).parent / "fixtures/reference_target_conformance_spec.json").read_bytes())
+        grant = {"granted": True, "purposes": ["routing", "build-strategy", "quality-review", "repair"],
+                 "sha256": "c" * 64, "tokenBudget": 100000}
+        consent = lambda: deepcopy(grant)
+        self.parent = RouteParent(self.controller, verify_aggregate=lambda verify: self.result, consent=consent)
+        factory = FixtureFactory()
+        scope = {"components": {"root"}, "operations": {"reposition"}, "field_paths": {"transform.position"},
+                 "authorized_sources": set(), "source_operations": set(), "available_dependencies": set(),
+                 "rig_required": False, "rig_available": False}
+        rule = {"fieldPath": "transform.position", "pointer": "/componentTree/0/transform/position",
+                "ownerId": object_id, "componentId": "root", "passId": "blockout"}
+        policy = WorkflowPolicy(scope=scope, requirements={"criticalFeatures": [], "requiredViews": []},
+            authorize=lambda *args: True, draft_spec="draft.json", request_token_limit=128,
+            native=NativePolicy(validate_spec=_validate_base, current_pass=lambda spec: "blockout",
+                authorize_native=lambda context, rules: True, rules=(rule,),
+                frozen_paths=frozenset(), forbidden_components=frozenset()))
+
+        def bind(role, name, value):
+            raw = value if type(value) is bytes else canonical(value)
+            return dict(self.put(root + "/" + name, raw), role=role)
+
+        def advance(step_id):
+            current = self.read(state_path)
+            while current["currentStep"] != step_id:
+                self.assertNotIn(current["currentStep"],
+                                 {"strategy-spec", "strategy-build", "quality-review", "repair-decision"})
+                mark_steps(current, [current["currentStep"]], status="done",
+                           evidence=["synthetic Pixi producer, not native approval"])
+            self.put(state_path, canonical(current))
+
+        reference = dict(self.put(root + "/reference.png", (self.workspace / root / "reference.png").read_bytes()),
+                         role="reference")
+        spec_binding = bind("spec", "draft.json", source_spec)
+        source = bind("source", "source.ts", b"synthetic strategy source")
+        critical = bind("critical-features", "critical.json", {"critical": "synthetic"})
+        for command, revision in (("strategy-spec", 1), ("strategy-build", 2)):
+            advance(command)
+            subject = {"runId": self.controller.run_id, "objectId": object_id,
+                       "revision": revision, "passId": "blockout"}
+            provenance = {"kind": "img2.native-strategy-provenance", "version": 1, "subject": subject,
+                "specSha256": spec_binding["sha256"], "sourceSha256": source["sha256"],
+                "owners": [{key: rule[key] for key in ("pointer", "ownerId", "componentId")}]}
+            provenance_binding = bind("provenance", f"provenance-{revision}.json", provenance)
+            frozen_scope = dict(scope, pass_id="blockout", pass_unlocked=True)
+            permissions = {"kind": "img2.native-strategy-permissions", "version": 1, "subject": subject,
+                "provenanceSha256": provenance_binding["sha256"],
+                "scopeDigest": sha(canonical({key: sorted(value) if isinstance(value, set) else value
+                                             for key, value in frozen_scope.items()})),
+                "rules": [rule], "frozenPaths": [], "forbiddenComponents": []}
+            proposed = deepcopy(source_spec)
+            proposed["componentTree"][0]["transform"]["position"][0] += .01
+            request = {"subject": subject, "bindings": [reference, spec_binding, source, critical,
+                provenance_binding, bind("permissions", f"permissions-{revision}.json", permissions)],
+                "candidates": [{"id": "shift", "passId": "blockout", "components": ["root"],
+                    "operations": ["reposition"], "fieldPaths": ["transform.position"],
+                    "materialSources": [], "dependencies": [], "rigHandoff": False}],
+                "observations": {}, "proposals": {"shift": proposed}}
+            workflow = WorkflowDecisions(self.controller, state_path, policy, consent=consent,
+                availability=lambda: {"status": "present"}, provider_factory=factory)
+            self.assertEqual(workflow.dispatch(command, request)["action"], "selected")
+            begin = dict(request, operation="begin", trialRevision=revision + 1)
+            started = workflow.dispatch(command, begin)
+            spec_binding = bind("spec", f"candidates/rev-{revision + 1}/spec.json", started["spec"])
+            finished = workflow.dispatch(command, dict(begin, operation="finish", outputBinding=spec_binding))
+            self.assertEqual(finished["application"]["status"], "completed")
+            source_spec = started["spec"]
+            self.put(root + "/" + state["artifacts"]["spec"], canonical(source_spec))
+
+        advance("quality-review")
+        quality = quality_fixtures.QualityDecisionTests()
+        quality.setUp()
+        self.addCleanup(quality.doCleanups)
+        quality.subject = dict(subject, revision=3)
+        quality.transforms["spec"] = lambda unused: (self.workspace / spec_binding["path"]).read_bytes()
+        reference_bytes = (self.workspace / reference["path"]).read_bytes()
+        quality.transforms["reference"] = lambda unused: reference_bytes
+        quality.refresh()
+        request = {key: deepcopy(quality.context[key]) for key in ("subject", "candidates", "observations")}
+        request["bindings"] = []
+        for role, original in quality.bindings.items():
+            copied = (spec_binding if role == "spec" else reference if role == "reference" else
+                      bind(role, "quality/" + role + ".fixture", (quality.workspace / original["path"]).read_bytes()))
+            request["bindings"].append(copied)
+        factory.provider = lambda context: quality.advisory
+        workflow = WorkflowDecisions(self.controller, state_path, replace(policy, requirements=quality.requirements),
+            consent=consent, availability=lambda: {"status": "present"}, provider_factory=factory)
+        self.assertEqual(workflow.dispatch("quality", request)["action"], "continue")
+        advance("pixi2d-publish")
+        current = self.read(state_path)
+        for step_id in ("pixi2d-publish", "pixi2d-editable-review"):
+            mark_steps(current, [step_id], status="done", evidence=["synthetic fixture terminal producer"])
+        self.put(state_path, canonical(current))
+        self.assertEqual(current["status"], "complete")
+        self.assertEqual(next(row for row in current["checklist"] if row["id"] == "repair-decision")["status"], "skipped")
+        with self.controller.workspace_transaction(consent=consent) as verify:
+            verify_lifecycle(verify, current, self.workspace / root, self.workspace)
+        state.clear()
+        state.update(current)
         validate_state(state)
 
-    def test_2d_child_has_exact_actionable_pixi_template_without_sculpt_passes(self):
+    def test_2d_child_has_actionable_native_lifecycle_without_sculpt_passes(self):
         self.configure(two_d=True)
         parent = self.parent.create()
         descriptor = parent["objects"][0]
         state = self.read(descriptor["statePath"])
         self.assertEqual([(row["id"], row["scope"]) for row in state["checklist"]], [
+            ("strategy-spec", "setup"),
             ("pixi2d-snapshot", "setup"),
             ("pixi2d-native-host-capture", "setup"),
+            ("strategy-build", "setup"),
             ("pixi2d-evidence-produce", "setup"),
             ("pixi2d-native-visual-review", "setup"),
+            ("quality-review", "setup"),
+            ("repair-decision", "setup"),
             ("pixi2d-publish", "setup"),
             ("pixi2d-editable-review", "final"),
         ])
-        self.assertEqual(state["currentStep"], "pixi2d-snapshot")
+        self.assertEqual(state["currentStep"], "strategy-spec")
         self.assertEqual(state["currentPass"], "complete")
         self.assertEqual(state["status"], "active")
         self.assertEqual(state["artifacts"]["spec"], "reconstruction.json")
         self.assertEqual(state["artifacts"]["reference"], "reference.png")
         self.assertEqual(state["routeChild"]["outputKind"], "2d-scene")
         self.assertTrue(descriptor["artifactPath"].endswith("/.img2/artifacts/pixi2d/artifact.json"))
-        self.assertIn('pixi2d.py" snapshot --workspace .', state["checklist"][0]["command"])
-        self.assertIn("review-capture.mjs", state["checklist"][1]["command"])
-        self.assertIn('pixi2d.py" produce --workspace .', state["checklist"][2]["command"])
-        self.assertIn("native host vision", state["checklist"][3]["command"])
-        self.assertIn('pixi2d.py" publish --workspace .', state["checklist"][4]["command"])
+        steps = {row["id"]: row for row in state["checklist"]}
+        self.assertIn('pixi2d.py" snapshot --workspace .', steps["pixi2d-snapshot"]["command"])
+        self.assertIn("review-capture.mjs", steps["pixi2d-native-host-capture"]["command"])
+        self.assertIn('pixi2d.py" produce --workspace .', steps["pixi2d-evidence-produce"]["command"])
+        self.assertIn("native host vision", steps["pixi2d-native-visual-review"]["command"])
+        self.assertIn('pixi2d.py" publish --workspace .', steps["pixi2d-publish"]["command"])
         self.assertEqual(state["checklist"][-1]["command"],
                          'python3 "$SKILL_DIR/tools/pixi2d.py" gate --workspace .')
         self.complete_pixi_checklist(state)
 
-    def test_3d_child_keeps_the_existing_generic_workflow(self):
+    def test_3d_child_keeps_generic_workflow_with_guarded_routed_lifecycle(self):
         parent = self.parent.create()
         state = self.read(parent["objects"][0]["statePath"])
         template = new_state(state["artifacts"]["reference"], profile=state["profile"],
                              spec="object-sculpt-spec.json")
+        template["routeChild"] = deepcopy(state["routeChild"])
+        attach_lifecycle_steps(template)
         self.assertEqual(state["checklist"], template["checklist"])
         self.assertEqual(state["currentPass"], "")
         self.assertEqual(state["currentStep"], template["currentStep"])
+        for row in state["checklist"]:
+            if row["id"] == "strategy-spec":
+                break
+            mark_steps(state, [row["id"]], status="done", evidence=["fixture setup, not decision authority"])
+        self.assertEqual(state["currentStep"], "strategy-spec")
+        original = deepcopy(state)
+        with self.assertRaises(WorkflowStateError):
+            mark_steps(state, ["strategy-spec"], status="done", evidence=["forged lifecycle"])
+        self.assertEqual(state, original)
 
     def test_2d_missing_or_skipped_review_and_gate_cannot_complete(self):
         self.configure(two_d=True)
@@ -996,6 +1118,37 @@ class RouteParentTests(unittest.TestCase):
                                 lambda: self.parent.complete_child("whole-image"))
         self.assertEqual(self.parent_path.read_bytes(), original_parent)
 
+    def test_2d_unproven_repair_skip_cannot_reach_fixture_terminal_authority(self):
+        self.configure(two_d=True)
+        descriptor = self.parent.create()["objects"][0]
+        state = self.read(descriptor["statePath"])
+        self.complete_pixi_checklist(state)
+        original_parent = self.parent_path.read_bytes()
+        repair = next(row for row in state["checklist"] if row["id"] == "repair-decision")
+        repair["evidence"] = ["forged-passing-quality"]
+        self.put(descriptor["statePath"], canonical(state))
+        with patch.object(self.receipt, "verify_2d_terminal", wraps=self.receipt.verify_2d_terminal) as terminal:
+            with self.assertRaises(DecisionError) as raised:
+                self.parent.complete_child("whole-image")
+            self.assertEqual(raised.exception.reason_code, "workflow-repair-skip-unproven")
+            terminal.assert_not_called()
+        self.assertEqual(self.parent_path.read_bytes(), original_parent)
+
+    def test_2d_quality_receipt_is_required_before_native_terminal_authority(self):
+        self.configure(two_d=True)
+        descriptor = self.parent.create()["objects"][0]
+        state = self.read(descriptor["statePath"])
+        self.complete_pixi_checklist(state)
+        state["decisionRefs"] = [receipt for receipt in state["decisionRefs"] if receipt["step"] != "quality-review"]
+        self.put(descriptor["statePath"], canonical(state))
+        original_parent = self.parent_path.read_bytes()
+        with patch.object(self.receipt, "verify_2d_terminal", wraps=self.receipt.verify_2d_terminal) as terminal:
+            with self.assertRaises(DecisionError) as raised:
+                self.parent.complete_child("whole-image")
+            self.assertEqual(raised.exception.reason_code, "workflow-terminal-incomplete")
+            terminal.assert_not_called()
+        self.assertEqual(self.parent_path.read_bytes(), original_parent)
+
     def test_2d_template_cannot_omit_reorder_or_rewrite_native_review(self):
         self.configure(two_d=True)
         parent = self.parent.create()
@@ -1003,17 +1156,19 @@ class RouteParentTests(unittest.TestCase):
         state = self.read(descriptor["statePath"])
         self.complete_pixi_checklist(state)
         omitted = deepcopy(state)
-        omitted["checklist"].pop(3)
+        omitted["checklist"] = [row for row in omitted["checklist"] if row["id"] != "pixi2d-native-visual-review"]
         reordered = deepcopy(state)
-        reordered["checklist"][1], reordered["checklist"][2] = reordered["checklist"][2], reordered["checklist"][1]
+        capture = next(index for index, row in enumerate(reordered["checklist"]) if row["id"] == "pixi2d-native-host-capture")
+        produce = next(index for index, row in enumerate(reordered["checklist"]) if row["id"] == "pixi2d-evidence-produce")
+        reordered["checklist"][capture], reordered["checklist"][produce] = reordered["checklist"][produce], reordered["checklist"][capture]
         rewritten = deepcopy(state)
-        rewritten["checklist"][3]["command"] = "Skip native visual review"
+        next(row for row in rewritten["checklist"] if row["id"] == "pixi2d-native-visual-review")["command"] = "Skip native visual review"
         for forged in (omitted, reordered, rewritten):
             self.put(descriptor["statePath"], canonical(forged))
             self.reject("child-state-mismatch", lambda: self.parent.complete_child("whole-image"))
         self.assertEqual(self.read(".img2threejs/state.json")["status"], "active")
 
-    def test_2d_completion_requires_current_program_owned_pixi_gate(self):
+    def test_2d_authenticated_no_repair_still_requires_current_fixture_pixi_gate(self):
         self.configure(two_d=True)
         parent = self.parent.create()
         descriptor = parent["objects"][0]

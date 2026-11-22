@@ -42,7 +42,7 @@ sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "_shared"))
 
-from decision_control import DecisionController, DecisionError, GROUPS
+from decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
 from jev_cli_bridge import REQUIRED_PROVIDER_FILES, _file, _json
 from jev_provider_factory import JevProviderFactory
 from stage0_route.discovery import Discovery, JEV_EDGE
@@ -77,6 +77,9 @@ _SAFE_ERRORS |= {"harness-pin-required", "harness-pin-mismatch", "harness-runtim
     "invalid-route-authority-input", "route-round-unsealed", "route-round-link-mismatch",
     "authority-command-not-authorized"}
 _SAFE_ERRORS |= {"fallback-command-unsafe", "fallback-digest-mismatch", "fallback-invalid"}
+_SAFE_ERRORS |= {"invalid-second-proposals", "second-proposal-context-mismatch",
+                 "invalid-second-proposal-binding", "stale-second-proposal-source",
+                 "second-proposals-empty"}
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -626,12 +629,51 @@ def _load_decision(workspace, reference, run_id):
     return {"decision": decision, "decisionRef": reference, "sha256": match.group(1)}
 
 
+def _recorded_second_proposals(workspace, relative, approved_sha, *, image, objects):
+    """Bind host-supplied additions; never attest a model or launch one implicitly."""
+    raw = _file(workspace, relative, maximum=256 * 1024, expected=approved_sha, capture=True)
+    value = _json(raw)
+    if (type(value) is not dict or set(value) != {
+            "kind", "version", "imageSha256", "firstRoundProposalSha256", "objects"}
+            or value["kind"] != "img2.recorded-second-proposals"
+            or type(value["version"]) is not int or value["version"] != 1
+            or any(type(value[key]) is not str or _HEX.fullmatch(value[key]) is None
+                   for key in ("imageSha256", "firstRoundProposalSha256"))
+            or type(value["objects"]) is not list):
+        _fail("invalid-second-proposals")
+    if value["firstRoundProposalSha256"] != canonical_digest(objects):
+        _fail("second-proposal-context-mismatch")
+    _file(workspace, image, maximum=64 * 1024 * 1024, expected=value["imageSha256"])
+    proposal = {"kind": "img2.object-proposals", "version": 1, "objects": value["objects"]}
+    Router._objects(proposal, allow_empty=True)
+    initial_ids = {obj["objectId"] for obj in objects["objects"]}
+    if any(obj["objectId"] in initial_ids for obj in value["objects"]):
+        _fail("invalid-second-proposals")
+    source = {"role": "second-proposal-source", "path": relative, "sha256": approved_sha}
+
+    def supply(request):
+        _file(workspace, relative, maximum=256 * 1024, expected=approved_sha)
+        if (type(request) is not dict or request.get("kind") != "img2.decomposition-proposal-request"
+                or type(request.get("version")) is not int or request["version"] != 1
+                or request.get("round") != 2
+                or request.get("imageSha256") != value["imageSha256"]
+                or request.get("firstRoundSha256") != value["firstRoundProposalSha256"]):
+            _fail("second-proposal-context-mismatch")
+        return copy.deepcopy(proposal)
+
+    return supply, source
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--image", help="Workspace-relative PNG or baseline JPEG")
     parser.add_argument("--objects", help="Workspace-relative img2.object-proposals v1 JSON (required for 3D)")
+    parser.add_argument("--second-objects",
+                        help="Workspace-relative hash-approved host additions for a requested second 3D proposal round")
+    parser.add_argument("--second-objects-sha256",
+                        help="Exact SHA256 of --second-objects; data approval, not model or execution authority")
     parser.add_argument("--expected-output", choices=("2d", "3d"), default="3d")
     parser.add_argument("--intent", action="append", default=[])
     parser.add_argument("--explicit-route")
@@ -686,6 +728,13 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if (args.fallback_command is None) != (args.fallback_sha256 is None):
         parser.error("--fallback-command and --fallback-sha256 must be supplied together")
+    if (args.second_objects is None) != (args.second_objects_sha256 is None):
+        parser.error("--second-objects and --second-objects-sha256 must be supplied together")
+    if args.second_objects is not None:
+        if args.complete_child or args.expected_output != "3d":
+            parser.error("second-proposal data applies only to 3D routing")
+        if _HEX.fullmatch(args.second_objects_sha256) is None:
+            parser.error("--second-objects-sha256 must be 64 lowercase hex characters")
     if (args.policy_module is None) != (args.policy_sha256 is None):
         parser.error("--policy-module and --policy-sha256 must be supplied together")
     if args.policy_module is not None and not args.complete_child:
@@ -717,6 +766,7 @@ def main(argv=None):
     consent, result, harness = None, None, None
     try:
         workspace = args.workspace.resolve(strict=True)
+        second_proposals, second_proposal_binding = None, None
         if args.create_children and ((workspace / ".img2threejs/state.json").exists()
                                     or (workspace / ".img2threejs/state.json").is_symlink()):
             _fail("existing-parent-preserved")
@@ -725,6 +775,10 @@ def main(argv=None):
         else:
             _file(workspace, args.image, maximum=64 * 1024 * 1024)
             objects = _json(_file(workspace, args.objects, maximum=256 * 1024, capture=True)) if args.objects else None
+            if args.second_objects is not None:
+                second_proposals, second_proposal_binding = _recorded_second_proposals(
+                    workspace, args.second_objects, args.second_objects_sha256,
+                    image=args.image, objects=objects)
         release = _approved_lock()
         fallback = None
         if args.fallback_command is not None:
@@ -742,7 +796,8 @@ def main(argv=None):
             discovery, approved_release=release, run_id=args.run_id,
             consent=consent, python_executable=consent.executable)
         router = Router(workspace, args.run_id, controller=controller, discovery=discovery,
-                        consent=consent, provider_factory=factory, fallback=fallback)
+                        consent=consent, provider_factory=factory, fallback=fallback,
+                        second_proposals=second_proposals, second_proposal_binding=second_proposal_binding)
         if args.complete_child:
             discovery.enumerate()
             policies = None if args.policy_module is None else load_route_policies(

@@ -28,7 +28,7 @@ from .images import admit_reference, box
 from .storage import RouteError, atomic_write, binding, digest, encode, read_bytes, safe_path, snapshot
 
 _POLICY = "route-quality-policy-v1"
-_QUESTIONS = "route-questions-v2"
+_QUESTIONS = "route-questions-v3"
 _ID = re.compile(r"[a-z][a-z0-9-]{0,95}\Z")
 _ROLES = {"scene-container", "subject", "prop", "set-dressing"}
 _GENERIC_CARD = {"kind": "img2.route-card", "version": 1, "outputKind": "3d-object",
@@ -46,7 +46,8 @@ def route_identity(candidate):
 
 class Router:
     def __init__(self, workspace, run_id, *, discovery=None, provider=None, fallback=None,
-                 consent=None, controller=None, requested_model="jev-1.14.0", second_proposals=None, provider_factory=None):
+                 consent=None, controller=None, requested_model="jev-1.14.0", second_proposals=None,
+                 second_proposal_binding=None, provider_factory=None):
         self.workspace = Path(workspace).resolve(strict=True)
         self.controller = controller or DecisionController(self.workspace, run_id)
         if self.controller.workspace != self.workspace or self.controller.run_id != run_id:
@@ -58,9 +59,23 @@ class Router:
         self.fallback = fallback
         self.consent = consent
         self.second_proposals = second_proposals
+        self.second_proposal_binding = copy.deepcopy(second_proposal_binding)
+        self._second_proposal_source()
         self.requested_model = requested_model
         self.latest = f".img2threejs/route/latest-{run_id}.json"
         safe_path(self.workspace, self.latest)
+
+    def _second_proposal_source(self):
+        source = self.second_proposal_binding
+        if source is None:
+            return None
+        if (type(source) is not dict or set(source) != {"role", "path", "sha256"}
+                or source["role"] != "second-proposal-source"
+                or type(source["sha256"]) is not str or not re.fullmatch(r"[0-9a-f]{64}", source["sha256"])):
+            raise RouteError("invalid-second-proposal-binding")
+        if binding(self.workspace, "second-proposal-source", source["path"]) != source:
+            raise RouteError("stale-second-proposal-source")
+        return copy.deepcopy(source)
 
     def _previous(self):
         path = safe_path(self.workspace, self.latest)
@@ -88,12 +103,12 @@ class Router:
         return {"decision": copy.deepcopy(decision), "decisionRef": relative, "sha256": sha}
 
     @staticmethod
-    def _objects(value):
+    def _objects(value, *, allow_empty=False):
         if (type(value) is not dict or set(value) != {"kind", "version", "objects"}
                 or value.get("kind") != "img2.object-proposals" or value.get("version") != 1):
             raise RouteError("object-proposals-required")
         objects = value.get("objects")
-        if type(objects) is not list or not objects:
+        if type(objects) is not list or (not objects and not allow_empty):
             raise RouteError("objects-required")
         seen = set()
         clean = []
@@ -116,7 +131,7 @@ class Router:
             raise RouteError("object-prioritisation-required")
         return clean
 
-    def _context(self, obj, revision, candidates, bindings, *, request, decomposition=False):
+    def _context(self, obj, revision, candidates, bindings, *, request, decomposition=False, inventory=None):
         label = obj.get("label")
         if type(label) is not str or not _ID.fullmatch(label):
             raise RouteError("invalid-object-proposals")
@@ -128,7 +143,9 @@ class Router:
         if decomposition:
             observations["images"] = [{"role": "upright-reference", "asset": "reference-image"}]
             requirements["decomposition"] = {"image": "reference-image", "objects": [
-                {"id": obj["objectId"], "label": obj["label"], "approxBox": obj["approxBox"]}]}
+                {"id": obj["objectId"], "label": obj["label"], "approxBox": obj["approxBox"]}],
+                "inventory": [{"id": item["objectId"], "label": item["label"], "role": item["role"],
+                               "approxBox": item["approxBox"]} for item in inventory]}
         return {"kind": "img2.route-context", "version": 1, "group": "routing",
                 "subject": {"runId": self.run_id, "objectId": obj["objectId"], "revision": revision,
                             "passId": "decomposition" if decomposition else "routing"},
@@ -153,7 +170,9 @@ class Router:
         answer = None
         if selection is not None:
             answer = {"choice": selection["choice"], "probabilities": selection["probabilities"],
-                      "confidence": selection["confidence"], "noneFitsNoul": fits["noul"]}
+                      "confidence": selection["confidence"]}
+            if fits is not None:
+                answer["anyFitsNoul"] = fits["noul"]
             if handles:
                 answer["choice"] = handles[answer["choice"]]
                 answer["probabilities"] = {handles[k]: v for k, v in answer["probabilities"].items()}
@@ -186,6 +205,7 @@ class Router:
             raise RouteError("invalid-request")
         # Discovery/consultations verify the shared lease; progress is not authority.
         previous = self._previous()
+        second_source = self._second_proposal_source()
         image_binding = binding(self.workspace, "reference", image)
         candidates, rejected = self.discovery.enumerate()
         candidates.append(self._generic())
@@ -214,6 +234,8 @@ class Router:
                   "candidates": [{k: c[k] for k in ("id", "resolvedSha", "providerStatus", "dependencies", "blockingGateProduced")}
                                  for c in candidates], "rejected": rejected, "policyVersion": _POLICY,
                   "questionSetVersion": _QUESTIONS, "requestedModel": self.requested_model}
+        if second_source is not None:
+            inputs["secondProposalBinding"] = second_source
         inputs_digest = digest(inputs)
         inputs_binding = snapshot(self.workspace, "routing-inputs", inputs)
         proposal_binding = snapshot(self.workspace, "object-proposals",
@@ -236,6 +258,8 @@ class Router:
                                  "cards": {c["id"]: c["binding"]["sha256"] for c in candidates}},
                     "consentSha256": None, "enumeration": "enumeration-degraded" if self.discovery.degraded else "answered",
                     "skipComposition": expected_output == "2d", "executionAuthorized": False}
+        if second_source is not None:
+            decision["secondProposalBinding"] = second_source
         if reason:
             decision["phase"] = "suspended"
             decision["suspendedAt"] = {"step": "decomposition", "reasonCode": reason}
@@ -243,8 +267,12 @@ class Router:
         request_binding = snapshot(self.workspace, "route-request", request)
         image_evidence = [image_binding, normalization["uprightReference"],
                           snapshot(self.workspace, "reference-normalization", normalization)]
+        if second_source is not None:
+            image_evidence.append(second_source)
         common = {"reference": image_binding["sha256"], "request": request, "candidates": inputs["candidates"],
                   "policyVersion": _POLICY, "questionSetVersion": _QUESTIONS, "requestedModel": self.requested_model}
+        if second_source is not None:
+            common["secondProposalBinding"] = second_source
         prepared, retained = decompose(self, decision, proposals, decoded, image_evidence, request_binding,
                                       common, previous, explicit_2d=expected_output == "2d")
         all_proposals = [proposal for proposal, _ in prepared]
@@ -315,6 +343,8 @@ class Router:
             member_binding = snapshot(self.workspace, "instance-members", member_data)
             route_semantic = digest({"members": member_data, "request": request, "candidates": inputs["candidates"],
                                      "policyVersion": _POLICY, "questionSetVersion": _QUESTIONS})
+            if second_source is not None:
+                route_semantic = digest({"routeInputsDigest": route_semantic, "secondProposalBinding": second_source})
             old = prior_rows.get(route_object_id)
             route_revision = (old.get("routingRevision", old["revision"]) +
                               (old.get("routeInputsDigest") != route_semantic)) if old else 1

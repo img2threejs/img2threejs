@@ -70,7 +70,7 @@ class ObjectTargetLabelTests(unittest.TestCase):
         self.assertEqual(result["decision"]["phase"], "decided")
         self.assertEqual([c["subject"]["passId"] for c in captured], ["decomposition", "crop-choice", "routing"])
         self.assertTrue(all(c["observations"]["label"] == "garden-chair" for c in captured))
-        self.assertTrue(all(c["questionSetVersion"] == "route-questions-v2" for c in captured))
+        self.assertTrue(all(c["questionSetVersion"] == "route-questions-v3" for c in captured))
         for context in captured:
             proposal_binding = next(b for b in context["bindings"] if b["role"] == "object-proposal")
             self.assertEqual(proposal_binding["sha256"], snapshot(self.workspace, "object-proposal",
@@ -119,24 +119,25 @@ class ObjectTargetLabelTests(unittest.TestCase):
     def test_verifier_refuses_authenticated_routing_for_wrong_target(self):
         self.assert_tamper_refused("routing")
 
-    def test_target_change_invalidates_only_the_changed_objects_cache(self):
+    def test_target_change_refreshes_full_inventory_localization_but_only_changed_route(self):
         self.force_crop = False
         self.proposals = fixtures.Stage0RouteTests.proposals(2)
         first = self.route()
         self.assertEqual(self.provider.call_count, 4)
         self.proposals["objects"][0]["label"] = "garden-chair"
         second = self.route()
-        self.assertEqual(self.provider.call_count, 6)
-        self.assertEqual([call.args[0]["subject"]["objectId"] for call in self.provider.call_args_list[-2:]],
-                         ["object-0", "object-0"])
-        self.assertEqual([row["revision"] for row in second["decision"]["objects"]], [2, 1])
+        self.assertEqual(self.provider.call_count, 7)
+        self.assertEqual([(call.args[0]["subject"]["objectId"], call.args[0]["subject"]["passId"])
+                          for call in self.provider.call_args_list[-3:]],
+                         [("object-0", "decomposition"), ("object-1", "decomposition"), ("object-0", "routing")])
+        self.assertEqual([row["revision"] for row in second["decision"]["objects"]], [2, 2])
         self.assertEqual(second["decision"]["revision"], first["decision"]["revision"] + 1)
         self.assertEqual(self.router.verify_decision(second["decisionRef"]), second["decision"])
 
 
-    def test_only_routing_question_set_moves_to_v2(self):
+    def test_only_routing_question_set_moves_to_v3(self):
         self.assertEqual({group: definition[1] for group, definition in GROUPS.items()}, {
-            "routing": "route-questions-v2", "build-strategy": "strategy-questions-v1",
+            "routing": "route-questions-v3", "build-strategy": "strategy-questions-v1",
             "quality-review": "quality-review-questions-v1", "repair": "repair-decision-questions-v1"})
 
 

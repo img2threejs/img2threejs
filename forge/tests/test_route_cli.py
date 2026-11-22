@@ -348,6 +348,60 @@ class RouteCliTests(unittest.TestCase):
             route_cli.main(self.args("--harness-root", str(self.root / "harness")))
         controller.assert_not_called()
 
+    def second_proposal_source(self, **overrides):
+        value = {
+            "kind": "img2.recorded-second-proposals", "version": 1,
+            "imageSha256": hashlib.sha256((self.workspace / "image.png").read_bytes()).hexdigest(),
+            "firstRoundProposalSha256": canonical_digest(self.objects),
+            "objects": [{"objectId": "object-2", "label": "sphere", "role": "prop",
+                         "approxBox": [0, 0, .5, .5], "observations": {}}],
+            **overrides,
+        }
+        path = self.workspace / "second.json"
+        path.write_text(json.dumps(value))
+        sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        return value, path, sha
+
+    def test_second_proposal_cannot_be_consumed_for_another_image_or_initial_inventory(self):
+        value, unused_path, sha = self.second_proposal_source()
+        supply, unused_binding = route_cli._recorded_second_proposals(
+            self.workspace, "second.json", sha, image="image.png", objects=self.objects)
+        request = {"kind": "img2.decomposition-proposal-request", "version": 1, "round": 2,
+                   "imageSha256": value["imageSha256"],
+                   "firstRoundSha256": value["firstRoundProposalSha256"]}
+        for field in ("imageSha256", "firstRoundSha256"):
+            with self.subTest(field=field):
+                self.assert_reason("second-proposal-context-mismatch",
+                                   lambda: supply({**request, field: "0" * 64}))
+        self.assertEqual([obj["objectId"] for obj in supply(request)["objects"]], ["object-2"])
+
+    def test_changed_second_proposal_source_is_not_consumed_after_initial_approval(self):
+        value, path, sha = self.second_proposal_source()
+        supply, unused_binding = route_cli._recorded_second_proposals(
+            self.workspace, "second.json", sha, image="image.png", objects=self.objects)
+        value["objects"][0]["label"] = "replacement"
+        path.write_text(json.dumps(value))
+        self.assert_reason("stale-evidence", lambda: supply({
+            "kind": "img2.decomposition-proposal-request", "version": 1, "round": 2,
+            "imageSha256": value["imageSha256"],
+            "firstRoundSha256": value["firstRoundProposalSha256"]}))
+
+    def test_second_source_rejects_wrong_initial_scope_and_existing_object_replacement(self):
+        for changes in ({"firstRoundProposalSha256": "0" * 64},
+                        {"objects": copy.deepcopy(self.objects["objects"])}):
+            value, unused_path, sha = self.second_proposal_source(**changes)
+            with self.subTest(changes=changes), self.assertRaises(DecisionError):
+                route_cli._recorded_second_proposals(
+                    self.workspace, "second.json", sha, image="image.png", objects=self.objects)
+
+    def test_incomplete_second_source_flags_fail_before_any_decision_session(self):
+        for flags in (["--second-objects", "second.json"], ["--second-objects-sha256", "0" * 64]):
+            with self.subTest(flags=flags), patch.object(route_cli, "DecisionController") as controller, \
+                    redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+                route_cli.main(self.args(*flags))
+            self.assertEqual(caught.exception.code, 2)
+            controller.assert_not_called()
+
     def test_git_verification_environment_contains_no_host_credentials(self):
         with patch.dict(route_cli.os.environ, {"TYPESAFE_API_KEY": self.secret, "GIT_CONFIG_COUNT": "99"}):
             consent = self.live()

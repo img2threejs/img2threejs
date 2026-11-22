@@ -47,6 +47,27 @@ class OmpModelFallbackTests(unittest.TestCase):
         self.assertEqual(result["model"], "fixture-model")
         self.assertEqual(observations[0]["usage"], self.message["usage"])
 
+    def test_routing_localization_adapter_preserves_primitives_without_fake_choice(self):
+        context = deepcopy(self.context)
+        context.update(kind="img2.route-context", group="routing", candidates=[],
+                       questionSetVersion="route-questions-v3")
+        context["observations"]["images"] = [{"role": "reference", "asset": "reference"}]
+        context["requirements"]["decomposition"] = {
+            "image": "reference", "objects": [{"id": "cube", "label": "cube", "approxBox": [0, 0, 1, 1]}],
+            "inventory": [{"id": "cube", "label": "cube", "role": "prop", "approxBox": [0, 0, 1, 1]}]}
+        answers = {"missingObjects": {"type": "noul", "noul": 0},
+                   "object:cube:visible": {"type": "noul", "noul": 0},
+                   "object:cube:box": {"type": "box", "box": {"left": 0, "top": 0, "right": 1, "bottom": 1},
+                                       "confidence": None}}
+        message = deepcopy(self.message)
+        message["content"][0]["text"] = json.dumps({"answers": answers})
+        prompt(context)
+        result = parse_events(self.raw(message), context, "fixture-provider/fixture-model")
+        advisory, status, reason, tokens = DecisionController._advisory(
+            object.__new__(DecisionController), context, result, model_fallback=True)
+        self.assertEqual(advisory["answers"], answers)
+        self.assertEqual((status, reason, tokens), ("answered", "answered", 25))
+
     def test_missing_usage_or_model_cannot_be_inferred_from_approval(self):
         for key in ("usage", "model", "provider"):
             message = deepcopy(self.message)
