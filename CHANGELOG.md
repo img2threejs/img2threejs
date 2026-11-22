@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
 
+### Fixed
+
+- Per-material `envMapIntensity` takes effect on three.js r163+ (#193). Generated materials never
+  had an `envMap`, so three.js lit them with `scene.environmentIntensity` and ignored each
+  material's own value. The model factory now takes `options.environment` and binds it as every
+  generated material's `envMap`, and a new `bind<Type>Environment(root, env)` binds a model that
+  was built without it. The environment helper's comment says to do both.
+
 ## [2.0.1] — 2026-11-05
 
 Ships the `SKILL.md` guidance that landed on `main` after v2.0.0, so that `npx img2threejs install`
