@@ -22,7 +22,7 @@ from types import SimpleNamespace
 from typing import Callable
 
 from decision_control import DecisionError, GROUPS, canonical_digest
-from route_parent import _read, _write, _decode, _encode
+from route_parent import _read, _write, _decode, _encode, state_lock
 from workflow_state import validate_state, next_entry, recompute
 from forge.stage2_spec.strategy_decision import StrategyDecision, _read_binding, _spec
 from forge.stage2_spec.native_strategy_decision import NativeStrategyDecision
@@ -279,7 +279,11 @@ class WorkflowDecisions:
         # verified here, so any attempt to consult consent fails closed.
         def no_consent():
             _fail("consent-unproven")
-        with self.controller.workspace_transaction(consent=no_consent):
+        # Lease first, then the state lock: the lock makes read -> verify -> authorize ->
+        # write one critical section against every cooperating writer, and the state is
+        # re-read INSIDE it so nothing decided on a stale copy is ever published.
+        with self.controller.workspace_transaction(consent=no_consent) as verify, \
+                state_lock(self.workspace, self.state_path):
             state = self._load()
             if state["routeChild"].get("workflow") != _NATIVE_WORKFLOW:
                 _fail("native-child-required")
@@ -296,12 +300,11 @@ class WorkflowDecisions:
                     or held not in {"", "complete", current} and current != "complete"):
                 _fail("locked-or-wrong-pass")
             # Exactly "done": a skipped or pending setup row never completes a native child.
-            # The one exception is the quality-proven no-repair skip, whose receipts
-            # verify_lifecycle re-proves independently at terminal completion.
+            # The one exception is a no-repair skip backed by a real journal decision.
             if current == "complete" and any(
                     row["status"] != "done" and not (
                         row["id"] == "repair-decision" and row["status"] == "skipped"
-                        and row.get("reason") == "quality-passed-no-repair" and row.get("evidence"))
+                        and self._no_repair_backed(state, row, verify))
                     for row in state["checklist"] if row["scope"] == "setup"):
                 _fail("native-setup-incomplete")
             subject = {"runId": self.controller.run_id, "objectId": state["routeChild"]["objectId"],
@@ -314,14 +317,48 @@ class WorkflowDecisions:
             recompute(updated)
             validate_state(updated)
             if canonical_digest(updated) != canonical_digest(state):
-                # Compare-and-swap: the decision covers exactly the plan bytes (binding
-                # digest) and child state that were authorized. Re-read both immediately
-                # before publishing, still under the lease; any drift publishes nothing.
-                if (_read(self.workspace, spec_path)[0] != raw
-                        or canonical_digest(self._load()) != canonical_digest(state)):
-                    _fail("child-state-changed")
-                _write(self.workspace, self.state_path, _encode(updated), replace=True)
+                def unchanged():
+                    # Last check before the rename, for writers that ignore the advisory
+                    # lock (or where flock is unavailable): any drift publishes nothing.
+                    if (_read(self.workspace, spec_path)[0] != raw
+                            or canonical_digest(self._load()) != canonical_digest(state)):
+                        _fail("child-state-changed")
+                _write(self.workspace, self.state_path, _encode(updated), replace=True, guard=unchanged)
             return updated
+
+    def _no_repair_backed(self, state, row, verify):
+        """A skipped repair-decision counts only with a verified quality pass behind it.
+
+        The row must cite exactly one journal quality-review decision whose receipt is in
+        decisionRefs, resolves in the journal for this child's current revision, and
+        independently re-proves as a passing review. Strings in the row prove nothing.
+        """
+        evidence = row.get("evidence")
+        if row.get("reason") != "quality-passed-no-repair" or type(evidence) is not list or len(evidence) != 1:
+            return False
+        receipts = [item for item in state["decisionRefs"] if type(item) is dict
+                    and item.get("step") == "quality-review" and item.get("action") == "continue"
+                    and type(item.get("record")) is dict and item["record"].get("recordId") == evidence[0]]
+        review = next((item for item in state["checklist"] if item["id"] == "quality-review"), None)
+        if len(receipts) != 1 or review is None or review["status"] != "done" or review.get("evidence") != evidence:
+            return False
+        context, record = receipts[0].get("context"), receipts[0]["record"]
+        child = state["routeChild"]
+        try:
+            subject = context["subject"]
+            if (context["group"] != "quality-review" or subject["runId"] != child["runId"]
+                    or subject["objectId"] != child["objectId"]
+                    or subject["revision"] != state["decisionLifecycle"]["candidateRevision"]):
+                return False
+            current = verify.recorded(record, context)
+            if current["status"] != "answered" or current["group"] != "quality-review":
+                return False
+            assessment = _prepare(SimpleNamespace(
+                workspace=self.workspace, control_dir=self.workspace / ".img2threejs/route",
+                record_root=self.workspace / ".img2threejs/decisions"), context)
+            return _quality_continues(context, current, assessment)
+        except (DecisionError, GateDecisionError, KeyError, TypeError, OSError, ValueError):
+            return False
 
     def _trial_application(self, state, verify):
         pending = state.get("decisionPending")

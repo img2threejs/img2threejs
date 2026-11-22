@@ -580,6 +580,196 @@ def build_policy(workspace, state_path):
         self.assertEqual(raised.exception.reason_code, "workflow-decisions-missing")
         self.assertEqual(self.snapshot(), before)
 
+    # -- review round g2b-a3 ------------------------------------------------------------
+
+    def backed_no_repair(self):
+        """Child whose repair-decision was skipped on the strength of a REAL journal quality pass."""
+        from forge.tests.test_quality_decision import QualityDecisionTests
+        from stage4_review.quality_decision import review_quality
+        self.ready_child()
+        quality = QualityDecisionTests()
+        quality.setUp()
+        self.addCleanup(quality.doCleanups)
+        quality.workspace = self.workspace
+        quality.subject = {"runId": "native-run", "objectId": "hero", "revision": 1, "passId": "native-build"}
+        quality.refresh()
+        grant = deepcopy(quality.grant)
+        result = review_quality(self.controller, quality.context, provider=quality.advisory, fallback=None,
+                                availability=lambda: {"status": "present"}, consent=lambda: deepcopy(grant),
+                                request_token_limit=128)
+        self.assertEqual(result["action"], "continue")
+        record = self.controller.consume(result["decision"], quality.context, consent=lambda: deepcopy(grant))
+        state = self.read(self.state_path)
+        state["decisionRefs"].append({"step": "quality-review", "context": quality.context,
+                                      "record": record, "action": "continue"})
+        for row in state["checklist"]:
+            if row["id"] == "quality-review":
+                row.update(status="done", evidence=[record["recordId"]], reason="")
+            elif row["id"] == "repair-decision":
+                row.update(status="skipped", evidence=[record["recordId"]], reason="quality-passed-no-repair")
+        recompute(state)
+        self.put(self.state_path, canonical(state))
+        return state, record
+
+    def test_skipped_repair_counts_only_with_a_verified_journal_decision(self):
+        state, record = self.backed_no_repair()
+        # Real, verified quality pass: the no-repair skip completes.
+        self.workflow(self.policy(current="complete")).resolve_native_pass()
+        self.assertEqual(self.read(self.state_path)["currentPass"], "complete")
+        forgeries = {
+            "arbitrary-evidence-no-refs": lambda s: (s["decisionRefs"].clear(),
+                next(r for r in s["checklist"] if r["id"] == "repair-decision").update(evidence=["forged"])),
+            "refs-removed-real-id": lambda s: s["decisionRefs"].clear(),
+            "evidence-not-the-reviewed-record": lambda s: next(
+                r for r in s["checklist"] if r["id"] == "repair-decision").update(evidence=["0" * 64]),
+            "tampered-record": lambda s: s["decisionRefs"][0]["record"].update(model="forged-model"),
+            "review-refined-not-continued": lambda s: s["decisionRefs"][0].update(action="refine"),
+            "reason-rewritten": lambda s: next(
+                r for r in s["checklist"] if r["id"] == "repair-decision").update(reason="operator waived"),
+        }
+        for name, forge in forgeries.items():
+            with self.subTest(forgery=name):
+                forged = deepcopy(state)
+                forged["currentPass"] = ""
+                forge(forged)
+                self.put(self.state_path, canonical(forged))
+                before = self.snapshot()
+                with self.assertRaises(DecisionError) as raised:
+                    self.workflow(self.policy(current="complete")).resolve_native_pass()
+                self.assertEqual(raised.exception.reason_code, "native-setup-incomplete")
+                self.assertEqual(self.snapshot(), before)
+        # Skipped SETUP rows without that backing stay rejected (unchanged behaviour).
+        for row_id in ("native-publish", "quality-review"):
+            with self.subTest(skipped=row_id):
+                waived = deepcopy(state)
+                waived["currentPass"] = ""
+                next(r for r in waived["checklist"] if r["id"] == row_id).update(
+                    status="skipped", reason="quality-passed-no-repair", evidence=[record["recordId"]])
+                self.put(self.state_path, canonical(waived))
+                with self.assertRaises(DecisionError) as raised:
+                    self.workflow(self.policy(current="complete")).resolve_native_pass()
+                self.assertEqual(raised.exception.reason_code, "native-setup-incomplete")
+
+    def test_concurrent_writer_holding_the_state_lock_is_serialised_not_lost(self):
+        import threading
+        from route_parent import state_lock
+        self.ready_child()
+        acquired, order, errors = threading.Event(), [], []
+        started = threading.Event()
+        def editor():
+            try:
+                started.wait(5)
+                with state_lock(self.workspace, self.state_path):
+                    acquired.set()
+                    state = self.read(self.state_path)
+                    order.append(("editor-saw", state["currentPass"]))
+                    state["loops"]["total"] = 5
+                    self.put(self.state_path, canonical(state))
+            except Exception as error:  # pragma: no cover - reported below
+                errors.append(repr(error))
+        thread = threading.Thread(target=editor)
+        thread.start()
+        policy = self.policy(current="complete")
+        approved = policy.authorize
+        def authorize(command, subject, bindings):
+            started.set()
+            # The editor must be unable to enter while the critical section is open.
+            order.append(("editor-entered-during-section", acquired.wait(0.5)))
+            return approved(command, subject, bindings)
+        self.workflow(replace(policy, authorize=authorize)).resolve_native_pass()
+        thread.join(10)
+        self.assertEqual(errors, [])
+        self.assertIn(("editor-entered-during-section", False), order)
+        self.assertEqual(order[-1], ("editor-saw", "complete"))
+        final = self.read(self.state_path)
+        self.assertEqual((final["currentPass"], final["loops"]["total"]), ("complete", 5))
+
+    def test_editor_ignoring_the_lock_during_publication_is_never_overwritten(self):
+        import threading
+        import route_parent
+        self.ready_child()
+        for target in ("state", "plan"):
+            with self.subTest(target=target):
+                state = self.read(self.state_path)
+                state.update(currentPass="")
+                state["loops"]["total"] = 1
+                self.put(self.state_path, canonical(state))
+                plan = ".img2threejs/objects/hero/rev-1/native-plan.json"
+                before_plan = (self.workspace / plan).read_bytes()
+                at_fsync, edited = threading.Event(), threading.Event()
+                def editor():
+                    at_fsync.wait(5)
+                    if target == "state":
+                        changed = self.read(self.state_path)
+                        changed["loops"]["total"] = 5
+                        self.put(self.state_path, canonical(changed))
+                    else:
+                        self.put(plan, canonical({"unapproved": True}))
+                    edited.set()
+                thread = threading.Thread(target=editor)
+                thread.start()
+                real = route_parent.os.fsync
+                def delayed(fd):
+                    if not at_fsync.is_set():
+                        at_fsync.set()
+                        edited.wait(5)
+                    return real(fd)
+                with patch.object(route_parent.os, "fsync", side_effect=delayed):
+                    with self.assertRaises(DecisionError) as raised:
+                        self.workflow(self.policy(current="complete")).resolve_native_pass()
+                thread.join(10)
+                self.assertEqual(raised.exception.reason_code, "child-state-changed")
+                after = self.read(self.state_path)
+                self.assertNotEqual(after["currentPass"], "complete")
+                self.assertEqual(after["loops"]["total"], 5 if target == "state" else 1)
+                self.put(plan, before_plan)
+
+    def test_standalone_sculpt_spec_named_native_plan_json_is_not_native(self):
+        fixture = (ROOT / "forge/tests/fixtures/reference_target_conformance_spec.json").read_bytes()
+        runs = {}
+        for name in ("spec.json", "native-plan.json"):
+            with tempfile.TemporaryDirectory() as directory:
+                work = Path(directory)
+                (work / name).write_bytes(fixture)
+                init = subprocess.run([sys.executable, str(ROOT / "forge/state.py"), "init", "--state", "state.json",
+                                       "--reference", "ref.png", "--spec", name],
+                                      capture_output=True, text=True, cwd=work)
+                self.assertEqual(init.returncode, 0, init.stderr)
+                with patch.dict(os.environ, {"IMG2_HOME": str(work / "empty-home")}):
+                    result = subprocess.run([sys.executable, str(ROOT / "forge/next.py"), "--state", "state.json"],
+                                            capture_output=True, text=True, cwd=work, env=dict(os.environ))
+                state = json.loads((work / "state.json").read_text())
+                runs[name] = (result.returncode, result.stdout, result.stderr, state["currentPass"],
+                              state["loops"], [row["id"] for row in state["checklist"]])
+        self.assertEqual(runs["native-plan.json"][:3], (0, runs["spec.json"][1], ""))
+        self.assertEqual(runs["native-plan.json"][3:], runs["spec.json"][3:])
+
+    @unittest.expectedFailure
+    def test_known_limit_erasing_every_native_claim_downgrades_to_sculpt(self):
+        """KNOWN, UNFIXED (review rv-g2b-a2, finding P1-1): native-ness is stored only in
+        child state and the parent descriptor, both editable by whoever can write the
+        workspace. Deleting BOTH claims leaves nothing to fail closed on, so next.py takes
+        the sculpt path and rewrites currentPass/loops. Fixing it needs an authority outside
+        the candidate-writable tree: an owner design decision, deliberately not made here.
+        This asserts the DESIRED behaviour and is expected to fail until then."""
+        self.ready_child()
+        child = self.read(self.state_path)
+        child["routeChild"].pop("workflow")
+        child["artifacts"]["spec"] = "plan.json"
+        self.put(self.state_path, canonical(child))
+        parent = self.read(".img2threejs/state.json")
+        parent["objects"][0].pop("workflow")
+        self.put(".img2threejs/state.json", canonical(parent))
+        root = self.workspace / ".img2threejs/objects/hero/rev-1"
+        plan = json.loads((root / "native-plan.json").read_bytes())
+        plan.update(buildPasses=[{"id": "native-build"}],
+                    reviewHistory=[{"passId": "native-build", "action": "continue"}])
+        (root / "native-plan.json").unlink()
+        (root / "plan.json").write_bytes(canonical(plan))
+        result = self.next_cli(cwd=root)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertEqual(self.read(self.state_path)["loops"]["total"], 1)
+
     # -- legacy ------------------------------------------------------------------------
 
     def test_legacy_next_state_bytes_stdout_and_exit_code_match_baseline(self):

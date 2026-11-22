@@ -1466,7 +1466,7 @@ class DecisionController:
                                 decider="model:" + answer["model"], fallback_reason=reason,
                                 attempt_id=fallback_id)
 
-    def _current(self, state, record, context, *, consent=None, historical=False):
+    def _current(self, state, record, context, *, consent=None, historical=False, check_consent=True):
         _json_bytes(record)
         if type(record) is not dict:
             _fail("invalid-record")
@@ -1488,7 +1488,7 @@ class DecisionController:
             _fail("context-digest-mismatch")
         if not historical and state["refs"].get(self._ref_key(context)) != record["recordId"]:
             _fail("stale-decision")
-        if self._grant(consent if consent is not None else self._consent) != record["consent"]:
+        if check_consent and self._grant(consent if consent is not None else self._consent) != record["consent"]:
             _fail("consent-changed")
         return stored
 
@@ -1540,6 +1540,17 @@ class DecisionController:
                 if not active[0]:
                     _fail("transaction-closed")
                 return copy.deepcopy(self._current(state, record, copy.deepcopy(context), consent=consent))
+
+            def recorded(record, context):
+                """Prove record integrity and currency against the journal, NOT live consent.
+
+                For callers that hold no consent probe (native pass resolution). Whether
+                consent still matches is re-proven by the consenting terminal verifier.
+                """
+                if not active[0]:
+                    _fail("transaction-closed")
+                return copy.deepcopy(self._current(state, record, copy.deepcopy(context),
+                                                   consent=consent, check_consent=False))
 
             def historical_quality(record, context):
                 """Replay only quality proof already pinned by completed repair."""
@@ -1631,6 +1642,7 @@ class DecisionController:
             verify.correction_counts = correction_counts
             verify.decision_block = decision_block
             verify.historical_quality = historical_quality
+            verify.recorded = recorded
 
             try:
                 yield verify

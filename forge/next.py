@@ -39,9 +39,6 @@ def emit_local_state(payload: dict) -> None:
 
 
 _NATIVE_WORKFLOW = "native-character-v1"
-_NATIVE_PLAN = "native-plan.json"
-_NATIVE_ROWS = {"native-plan-author", "native-build", "native-capture-deliver", "native-publish",
-                "native-terminal-gate"}
 _NATIVE_STATE = re.compile(r"\.img2threejs/objects/[A-Za-z0-9][A-Za-z0-9_-]{0,159}/rev-[1-9][0-9]*/state\.json\Z")
 
 
@@ -49,20 +46,21 @@ def native_binding(state_path: Path, local_state: dict) -> tuple[bool, bool]:
     """Return (native claimed by ANY source, every source agrees it is native).
 
     Native-ness is never read from the child marker alone: a child-state edit can delete
-    or null it. The parent's descriptor (written by route_parent at creation), the child's
-    plan artifact and its sibling native-plan.json are independent signals. Any signal
-    makes the child native; a marker that is missing, null or altered then fails closed
-    instead of downgrading to the sculpt path.
+    or null it. The only signals are the explicit ``workflow`` claim in the child's
+    ``routeChild`` and in the parent's descriptor for that child (written by route_parent
+    at creation). Either claim makes the child native; a marker that is missing, null or
+    altered then fails closed instead of downgrading to the sculpt path. File names
+    (``native-plan.json``) and checklist ids are NOT signals: a standalone sculpt spec may
+    legally use them. Limit: a writer who edits BOTH the child and the parent descriptor
+    erases the claim (review finding P1-1, a design decision for the owner).
     """
     child = local_state.get("routeChild")
     child = child if type(child) is dict else {}
-    claimed = ["workflow" in child, local_state.get("artifacts", {}).get("spec") == _NATIVE_PLAN,
-               any(row.get("id") in _NATIVE_ROWS for row in local_state.get("checklist", ()))]
-    agreed = [child.get("workflow") == _NATIVE_WORKFLOW, claimed[1], claimed[2]]
+    claimed = ["workflow" in child]
+    agreed = [child.get("workflow") == _NATIVE_WORKFLOW]
     parts = state_path.resolve().parts
     if len(parts) >= 7 and _NATIVE_STATE.fullmatch("/".join(parts[-5:])) is not None:
         relative = "/".join(parts[-5:])
-        claimed.append((state_path.resolve().parent / _NATIVE_PLAN).exists())
         parent_path = Path(*parts[:-5]) / ".img2threejs/state.json"
         if parent_path.exists():
             try:

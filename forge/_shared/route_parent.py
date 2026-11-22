@@ -40,6 +40,11 @@ import re
 import secrets
 import stat
 
+try:  # POSIX advisory locking; absent on e.g. Windows. See state_lock().
+    import fcntl
+except ImportError:  # pragma: no cover - platform dependent
+    fcntl = None
+
 from route_artifact import load_artifact
 from workflow_state import new_state, recompute, validate_state, attach_lifecycle_steps
 
@@ -274,7 +279,34 @@ def _existing(workspace, relative):
         return None
 
 
-def _write(workspace, relative, data, *, replace=False):
+@contextmanager
+def state_lock(workspace, relative):
+    """Exclusive advisory lock on ``<relative>.lock``, a sibling of the state file.
+
+    Hold it across read -> verify -> authorize -> publish so every cooperating writer is
+    serialised. The lock file is created beside the state, never replaced, and is
+    released when the descriptor closes (including on crash). Lock order is always the
+    controller lease first, then this lock.
+
+    Where ``fcntl.flock`` is unavailable (non-POSIX) no lock is taken and the section
+    degrades to the guarded compare-and-swap in ``_write`` alone: drift is still
+    detected immediately before the rename, but writers are not serialised. flock is
+    advisory, so an editor that never takes this lock is only caught by that guard,
+    whose remaining window is the rename syscall itself.
+    """
+    with _directory(workspace, relative) as (directory, name):
+        fd = os.open(name + ".lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+        try:
+            if fcntl is not None:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)
+
+
+def _write(workspace, relative, data, *, replace=False, guard=None):
+    """Atomically publish ``data``. ``guard`` runs after the temporary file is durable
+    and immediately before the rename; it raises to abort, publishing nothing."""
     with _directory(workspace, relative, create=True) as (directory, name):
         temporary = ".parent-" + secrets.token_hex(16)
         fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -284,6 +316,8 @@ def _write(workspace, relative, data, *, replace=False):
                 target.write(data)
                 target.flush()
                 os.fsync(target.fileno())
+            if guard is not None:
+                guard()
             if replace:
                 os.replace(temporary, name, src_dir_fd=directory, dst_dir_fd=directory)
             else:
