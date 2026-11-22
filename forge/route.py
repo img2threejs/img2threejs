@@ -699,6 +699,16 @@ def _output(*, reason=None, result=None):
                 or type(sha) is not str or not _HEX.fullmatch(sha)):
             _fail("invalid-routing-result")
         value.update(decisionRef=ref, sha256=sha)
+        # Eligibility failures are already journalled per object. Surface them
+        # even when the admitted generic route wins, so dependency loss is visible.
+        rejections = []
+        for obj in result.get("decision", {}).get("objects", []):
+            for rejected in obj.get("rejected", []):
+                if rejected.get("id", "").split(":", 1)[0] in EDGES:
+                    rejections.append({"objectId": obj["objectId"], "id": rejected["id"],
+                                       "reasonCode": rejected["reasonCode"]})
+        if rejections:
+            value["pluginRejections"] = rejections
         phase = result.get("decision", {}).get("phase")
         if phase == "decided" and reason is None:
             value["status"] = "decided"

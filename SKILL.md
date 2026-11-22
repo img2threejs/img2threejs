@@ -53,18 +53,22 @@ Parent completion is not delivery; children/advice are progress. Never downgrade
 
 ## Profile preflight (once per run, before `forge/next.py`)
 
-Domain profiles and emission targets live in plugins. Pick by subject, then check availability:
+Default installation requires all five routed plugins: character, cs2, interior, Jev and pixi2d.
+An explicit install-time subset is recorded in `$IMG2_HOME/runtime/selectors.json`.
+Before routing, from the skill checkout run:
 
 ```bash
-python3 forge/state.py init --help | grep -- --profile   # profiles available here
+python3 forge/preflight.py
 ```
 
-- `generic` / `character`: built in; no plugin/harness check.
-- Missing profile (e.g. `cs2`): never silently downgrade. Installation changes the machine: present
-  [`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one) commands, obtain approval,
-  re-check, continue.
-- Installed but absent (wrong `$IMG2_HOME`), or Hermes links: [`docs/PLUGINS.md`](docs/PLUGINS.md).
-- Follow the plugin's `SKILL.md` and step-named contracts as each step arrives.
+Proceed only on exit 0. The table names missing registrations, wrong pins, unresolved route
+dependencies and Jev auth failures; unselected plugins say `not installed by choice`. Missing
+credentials require `img2-jev login`; no-account mode is not implemented by this check.
+`img2threejs repair` is the bundled installer's repair interface, not implemented by this
+core script. See [installation and provisioning](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
+Never silently substitute generic for a missing domain. `forge/route.py` exposes per-object
+`pluginRejections` (also retained in the decision/journal); inspect them even on a decided route.
+Follow each installed plugin's `SKILL.md` and step-named contracts.
 
 ## Core Promise
 

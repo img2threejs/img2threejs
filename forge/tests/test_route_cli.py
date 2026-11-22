@@ -127,6 +127,19 @@ class RouteCliTests(unittest.TestCase):
         output = json.loads(stdout.getvalue())
         return code, output, router, factory
 
+    def test_generic_choice_exposes_plugin_dependency_rejections(self):
+        self.result["decision"]["objects"] = [
+            {"objectId": "object-1", "selected": ["base:generic"], "rejected": [
+                {"id": "character:" + "d" * 64,
+                 "reasonCode": "dependency-missing:character-bpy>=4.3"},
+                {"id": "interior", "reasonCode": "provider-unavailable"}]}]
+        code, output, _, _ = self.invoke()
+        self.assertEqual(code, 0)
+        self.assertEqual(output["pluginRejections"], [
+            {"objectId": "object-1", "id": "character:" + "d" * 64,
+             "reasonCode": "dependency-missing:character-bpy>=4.3"},
+            {"objectId": "object-1", "id": "interior", "reasonCode": "provider-unavailable"}])
+
     def test_real_argument_parsing_and_program_owned_dynamic_wiring(self):
         code, output, router, factory = self.invoke(self.args("--intent", "rig", "--intent", "static", "--explicit-route", "base:generic"))
         self.assertEqual(code, 0)

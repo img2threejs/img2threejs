@@ -7,6 +7,15 @@ in-flight work, see [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
 Each release has one theme. That is deliberate — a version people can name is a version people
 can plan around.
 
+### Installation integration (unreleased)
+
+Implemented in the core: validated provisioned selector fallback, selected-plugin preflight,
+visible route rejection reasons, and offline Jev release-lock regeneration/checking.
+The default installation policy requires all five routed plugins; users may explicitly choose
+a subset. Remaining release gates: bundled installer/repair integration, public Jev packaging
+after secret-history review, clean-home install/routing acceptance, and explicit no-account
+decision mode. Core offline checks do not establish any of those gates.
+
 ## Shipped
 
 | Version | Theme | Date | Highlights |

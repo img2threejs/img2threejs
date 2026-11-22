@@ -130,10 +130,11 @@ update and uninstall, other agents such as Cursor).
 **Already installed?** Update with the row that matches your install in
 [`docs/INSTALL.md` §4](docs/INSTALL.md#4-update-an-existing-install).
 
-### 2. Install the plugin harness, if needed
+### 2. Install the plugin harness
 
-Skip this unless you need a plugin from the table below. Plugins come from a separate CLI, the
-`img2` harness (`~/.img2`); install it once:
+The default install requires all five routed plugins (character, cs2, interior, Jev and
+pixi2d). An explicit subset is allowed; a missing domain must not silently become generic.
+Plugins use the separate `img2` harness (`~/.img2`); bootstrap it once:
 
 ```bash
 npx --yes @img2threejs/img2@latest install --yes
@@ -143,9 +144,9 @@ npx --yes @img2threejs/img2@latest plugins       # the live catalog
 It links an `img2` command if `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin` is on your
 `PATH`; otherwise use the `npx --yes @img2threejs/img2@latest` form, or
 `alias img2='npx --yes @img2threejs/img2@latest'`. What it changes on your machine:
-[`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one).
+[`docs/INSTALL.md` §3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
 
-### 3. Choose plugins — do not install everything by default
+### 3. Plugin selection and readiness
 
 <!-- plugins:start -->
 | Plugin / source README | Adds | Access | Install after harness setup |
@@ -159,7 +160,17 @@ It links an `img2` command if `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local
 
 The table above is generated from the live catalog (`scripts/ci/plugin_table.py`); list all
 plugins with `img2 plugins`. Open each plugin's linked README for its input requirements,
-dependencies and tool setup. Example (the `cs2` plugin; substitute any catalog id):
+dependencies and tool setup.
+
+The catalog includes optional extras; the required routed set is pinned separately in the
+harness's `plugins.lock.json`. Provisioning records an explicit subset (default all five) in
+`$IMG2_HOME/runtime/selectors.json`. Run `python3 forge/preflight.py` from this checkout before
+routing: exit 0 requires every selected plugin at its pin, resolved route dependencies and
+usable Jev authentication. Unselected capabilities are reported as `not installed by choice`.
+Older published installers may still install only the skill; bundled install/repair integration
+is not supplied by this core check. See [§3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
+
+Manual registry inspection example (not a complete default installation):
 
 ```bash
 img2 add cs2 --yes
@@ -177,7 +188,7 @@ downgrades. The base skill is not a plugin: **do not use `img2 add` to install t
 **Private `environment` plugin:** needs a GitHub account with access to its repository and working
 Git credentials. The public [`img2-environment`](https://www.npmjs.com/package/img2-environment)
 installer can bootstrap the harness but does not grant that access. Hermes users link each plugin
-by hand ([`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one)). Why a run
+by hand ([`docs/INSTALL.md` §3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight)). Why a run
 cannot see an installed plugin, and how plugins reach the pipeline: [`docs/PLUGINS.md`](docs/PLUGINS.md).
 To write a plugin, follow [WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
 

@@ -1,7 +1,10 @@
 # Install img2threejs
 
-One command installs the skill into every supported coding agent on your machine. Plugins are
-optional and only needed for specific domains, for example CS2 skins.
+The default installation requires the base skill and all five routed plugins: character, cs2,
+interior, Jev and pixi2d (source `plugin-pixi2d`). Users may explicitly select a subset at install
+time; an unselected capability is unavailable by choice, never a reason to silently use generic.
+Bundled installation/repair is an integration release interface; the core preflight below does
+not install anything, and older published CLIs may still install only the base skill.
 
 You need **Node.js ≥ 18**, **Git**, and **Python ≥ 3.10**, plus one of: Claude Code, Codex,
 OpenCode, Hermes. Other agents: [§7](#7-other-coding-agents). The CLI supports macOS and Linux;
@@ -19,7 +22,7 @@ https://github.com/img2threejs/img2threejs/blob/main/docs/INSTALL.md
    Always use the npx form, never a bare `img2threejs` command.
    Exit 2 means an existing skill is in the way: show me the path and stop.
 2. If ~/.hermes exists, run the Hermes step in §1.
-3. Install the plugin harness only if I asked for something a plugin provides (§3; `img2 plugins` lists them).
+3. Require the selected plugins and runtime preflight in §3 (default all five); a base-skill link alone is not a complete install.
 4. Re-running any step is safe. Do not edit dotfiles by hand.
 5. Tell me which agents were linked and that I must restart them.
 ```
@@ -64,12 +67,41 @@ project:
 | Claude Code | `/img2threejs Rebuild the object in ./reference.png as a procedural Three.js model.` |
 | Codex, OpenCode, Hermes | `Use the img2threejs skill to rebuild the object in ./reference.png as a procedural Three.js model.` |
 
-That is all a generic object needs. More prompts: [README §4](../README.md#4-run-a-reconstruction-in-your-agent).
+A base-skill link is not the default complete installation. Complete §3 before routing.
 
-## 3. Add a plugin (only if you need one)
+## 3. Required plugins and runtime preflight
 
-Plugins come from a second, separate CLI, the `img2` harness. Install it once, then add plugins
-by id (list them with `img2 plugins`; harness 0.4.0 or newer):
+The harness registry (`$IMG2_HOME/plugins.json`) must register the selected plugins at the
+commits in the installed harness's `plugins.lock.json`. Selection lives in
+`$IMG2_HOME/runtime/selectors.json`; without that file, preflight requires all five. The
+provisioning interface is `img2 provision --yes` (default all) or
+`img2 provision --plugins character,interior,jev --yes` (explicit subset). Provisioning supplies
+runtime dependencies; it does not by itself prove plugin registration or Jev readiness.
+The bundled installer's `img2threejs repair` restores the selected local bundle; this core
+change supplies its check, not that installer/repair command.
+
+From the skill checkout, run:
+
+```bash
+python3 forge/preflight.py
+```
+
+Exit 0 means every selected plugin is registered at its pin, its declared routing probes pass,
+and selected Jev's four decision edges and core-approved auth probe are usable. No paid call
+or consent grant is made. Exit 1 names the failure in a plain plugin/capability/status/reason
+table and prints one repair command. Unselected rows say `not installed by choice`.
+Missing Jev credentials require `img2-jev login`; this cannot distinguish a user with no account
+and does not implement the later explicit no-account choice.
+
+Real process environment selectors always win, including explicitly empty values. File
+fallbacks are accepted only from a user-owned regular mode-0600 selectors file, with schema 1,
+allowlisted keys, existing absolute paths contained in the runtime tree without symlink escape,
+and dependency/plugin lock digests matching the installed harness. Invalid files supply no
+selectors; preflight reports them blocked. Three.js approval still recomputes the existing
+fixed file inventory rather than trusting the declared digest.
+
+The older separate harness CLI can bootstrap a registry, but its example `add` command below
+alone is **not** a complete default install:
 
 ```bash
 npx --yes @img2threejs/img2@latest install --yes     # once per machine: creates ~/.img2
@@ -286,3 +318,20 @@ download); a trailing `--yes` on `img2` skips its confirmation prompt. Neither o
 Skill checkouts live in `~/.img2threejs/releases/<sha>/img2threejs`, shared by every agent on the
 same release. To test the CLI from a clone: `node bin/img2threejs.mjs install --dry-run`; packaging
 checks are in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
+
+## Release maintenance: Jev provider lock
+
+After deliberately updating the harness's Jev pin in `plugins.lock.json`, use a local Git
+checkout containing that exact commit (no network access or checkout mutation is performed):
+
+```bash
+python3 scripts/regen_jev_release_lock.py --plugins-lock /path/to/harness/plugins.lock.json --checkout /path/to/plugin-jev
+python3 scripts/regen_jev_release_lock.py --plugins-lock /path/to/harness/plugins.lock.json --checkout /path/to/plugin-jev --check
+```
+
+Review and commit the generated `forge/_shared/jev_release_lock.json` with the release.
+The tool hashes committed provider bytes, not dirty working files, and refuses unexpected
+changes to the core's required provider inventory. `--check` must pass before bundling; a
+different Jev pin is a release mismatch, not permission to bypass the core's approval.
+This task adds tooling only: it deliberately leaves the current `271aa34…` core pin unchanged,
+so a harness with a newer Jev pin will fail preflight/check until a release updates the lock.

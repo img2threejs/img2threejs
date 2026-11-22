@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Add fail-closed provisioned runtime selector fallback without changing real environment
+  precedence, selected-plugin installation preflight, and visible per-object route rejection
+  reasons. The default install policy requires all five plugins; bundling/repair and explicit
+  no-account Jev mode remain separate integration work.
+- Add offline Jev release-lock regeneration/checking from the harness plugin pin and exact Git
+  object bytes. Existing Jev pins are unchanged; releases must regenerate and check the lock.
 - Fix character dependency probe: `character-bpy>=` now accepts the single `" LTS"` suffix LTS bpy builds print (e.g. `4.5.15 LTS`), so the character plugin is no longer rejected as `dependency-missing:character-bpy>=4.3` and the router no longer falls back to the generic route. Every other version shape still fails closed.
 - Fix routed character owner profile: `forge/route.py` now writes the plugin-declared domain id `animated-character` (was `character`), so a routed character child can pass the native terminal authority profile check. The pinned `domain.json` id and definition are now verified for the character provider like every other plugin; the in-repo `character` domain is no longer trusted for routing. A state file written with profile `character` fails closed (no bypass).
 

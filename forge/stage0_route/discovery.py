@@ -13,8 +13,15 @@ import shutil
 import stat
 import subprocess
 import time
+import sys
 
 from .storage import RouteError, encode, snapshot
+
+_SHARED = str(Path(__file__).resolve().parents[1] / "_shared")
+if _SHARED not in sys.path:
+    sys.path.insert(0, _SHARED)
+
+from runtime_selectors import ENV_KEYS as _SELECTOR_KEYS, read_selectors
 
 EDGES = {
     "pixi2d": ("image", "pixi2d-scene"),
@@ -40,10 +47,20 @@ _CHARACTER_THREE_FILES = (
 )
 
 
+def _selector(key):
+    """A process environment value (even empty) wins; else the validated provisioned file value."""
+    if key in os.environ:
+        return os.environ[key]
+    if key not in _SELECTOR_KEYS:
+        return None
+    selectors = read_selectors()
+    return selectors["env"].get(key) if selectors else None
+
+
 def character_three_facts():
     """Recompute host-approved Three bytes; no fallback, execution or gate authority."""
-    selected = os.environ.get("IMG2_CHARACTER_THREE_ROOT")
-    approved = os.environ.get("IMG2_CHARACTER_THREE_SHA256")
+    selected = _selector("IMG2_CHARACTER_THREE_ROOT")
+    approved = _selector("IMG2_CHARACTER_THREE_SHA256")
     if (not selected or not Path(selected).is_absolute() or type(approved) is not str
             or re.fullmatch(r"[0-9a-f]{64}", approved) is None):
         return None
@@ -104,8 +121,8 @@ def resolve_character_executable(probe_name):
     if probe_name not in _CHARACTER_DEPENDENCIES:
         return None
     variable, program = _CHARACTER_DEPENDENCIES[probe_name]
-    if variable in os.environ:
-        executable = os.environ[variable]
+    executable = _selector(variable)
+    if executable is not None:
         if not Path(executable).is_absolute():
             return None
     else:
@@ -404,7 +421,14 @@ class Discovery:
         if not available:
             self.jev_status = "availability-unproven"
             return candidates, rejected
+        # A valid provisioned selection excludes registered-but-unselected plugins; a missing or
+        # invalid file leaves every plugin eligible exactly as before.
+        selectors = read_selectors()
+        selected = set(selectors["selectedPlugins"]) if selectors else None
         for name, edge in EDGES.items():
+            if selected is not None and name not in selected:
+                rejected.append({"id": name, "reasonCode": "plugin-not-selected"})
+                continue
             response = self.query(edge)
             if response["status"] == "data-fault":
                 self.degraded = True
@@ -425,9 +449,13 @@ class Discovery:
         if self.degraded:
             rejected.extend({"id": c["id"], "reasonCode": "enumeration-degraded"} for c in candidates)
             candidates = []
+        self.jev = None
+        if selected is not None and "jev" not in selected:
+            self.jev_status = "not-installed"
+            rejected.append({"id": "jev", "reasonCode": "plugin-not-selected"})
+            return candidates, rejected
         response = self.query(JEV_EDGE)
         self.jev_status = "availability-unproven"
-        self.jev = None
         if response["status"] == "answered" and not response["providers"]:
             self.jev_status = "capability-unavailable"
         elif response["status"] == "answered" and len(response["providers"]) == 1:
