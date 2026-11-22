@@ -13,6 +13,9 @@ export type ProceduralModelOptions = {
   textureSize?: number;
   textureAnisotropy?: number;
   qualityPriority?: 'reference-fidelity' | 'balanced';
+  // The PMREM environment (create<Type>Environment). Bound as each material's envMap, because three.js r163+
+  // ignores material.envMapIntensity unless material.envMap is set (it uses scene.environmentIntensity instead).
+  environment?: THREE.Texture | null;
 };
 
 export type ProceduralModelRuntime = {
@@ -511,7 +514,10 @@ function createSculptMaterial(id: string, spec: SculptMaterialSpec, options: Pro
       material.displacementBias = -effectiveDisplacementScale * 0.5;
     }
   }
-  material.envMapIntensity = readLayerNumber(spec, ['envMapIntensity'], 0.8);
+  // Default 1.0: before the environment was bound as envMap, three.js r163+ ignored this value and
+  // lit every material at scene.environmentIntensity (1.0), so 1.0 keeps untuned scenes as they rendered.
+  material.envMapIntensity = readLayerNumber(spec, ['envMapIntensity'], 1.0);
+  if (options.environment) material.envMap = options.environment;
   material.userData.sculptMaterial = spec;
   material.userData.proceduralMapsIndependent = true;
   material.userData.pbrConstraints = { albedoRange: [30, 240], binaryMetalness: true, f0Range: [0.02, 1], iorRange: [1, 2.5] };
@@ -731,13 +737,30 @@ export function createTradeItHardCaseLookDevLights(
 }
 
 // PBR materials (clearcoat/iridescence/transmission/anisotropy) need an environment
-// map to visually behave as intended — call this once per renderer and assign the
-// result to scene.environment before rendering. No external HDR asset required.
+// map to visually behave as intended — call this once per renderer, assign the result
+// to scene.environment (backgrounds, anything not generated here) AND pass it to the
+// model factory as options.environment, or bind an existing model with
+// bindTradeItHardCaseEnvironment. three.js r163+ ignores each material's envMapIntensity
+// unless material.envMap is set. No external HDR asset required.
 export function createTradeItHardCaseEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
   const pmrem = new THREE.PMREMGenerator(renderer);
   const texture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   pmrem.dispose();
   return texture;
+}
+
+// Binds the environment as envMap on every generated material under root, so each keeps its
+// own envMapIntensity. For a model built without options.environment; call it again after
+// any rebuild that was not given the environment.
+export function bindTradeItHardCaseEnvironment(root: THREE.Object3D, environment: THREE.Texture | null): void {
+  root.traverse((object) => {
+    const material = (object as THREE.Mesh).material;
+    for (const m of Array.isArray(material) ? material : material ? [material] : []) {
+      if (!m.userData?.sculptMaterial || !('envMap' in m)) continue;
+      (m as THREE.MeshStandardMaterial).envMap = environment;
+      m.needsUpdate = true;
+    }
+  });
 }
 
 // Plan 1.3 §3.2 — auto-framing by bounding box. The Divine Eye can only compare a
