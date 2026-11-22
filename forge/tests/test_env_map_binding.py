@@ -66,6 +66,12 @@ class EnvMapBinding(unittest.TestCase):
         self.assertGreater(binding, intensity)
         self.assertLess(binding, body.find("return material;"))
 
+    def test_an_untuned_material_keeps_the_strength_it_rendered_with(self) -> None:
+        # Unbound, three.js r163+ lit every material at scene.environmentIntensity (1.0) whatever its
+        # envMapIntensity said. A default below 1.0 would darken every scene that never set the value.
+        body = _function_body(self.source, r"function createSculptMaterial\(")
+        self.assertIn("material.envMapIntensity = readLayerNumber(spec, ['envMapIntensity'], 1.0);", body)
+
     def test_a_model_built_without_the_option_can_be_bound_afterwards(self) -> None:
         helper = _function_body(
             self.source,

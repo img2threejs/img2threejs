@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   material's own value. The model factory now takes `options.environment` and binds it as every
   generated material's `envMap`, and a new `bind<Type>Environment(root, env)` binds a model that
   was built without it. The environment helper's comment says to do both.
+- The default `envMapIntensity` for a material that sets none is 1.0 (was 0.8). The 0.8 default
+  never took effect on r163+, so every scene generated so far rendered at 1.0; with the binding
+  above, 0.8 would have darkened untuned scenes. Spec and recipe values still apply.
 
 ## [2.0.1] — 2026-11-05
 

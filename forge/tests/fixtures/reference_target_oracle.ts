@@ -514,7 +514,9 @@ function createSculptMaterial(id: string, spec: SculptMaterialSpec, options: Pro
       material.displacementBias = -effectiveDisplacementScale * 0.5;
     }
   }
-  material.envMapIntensity = readLayerNumber(spec, ['envMapIntensity'], 0.8);
+  // Default 1.0: before the environment was bound as envMap, three.js r163+ ignored this value and
+  // lit every material at scene.environmentIntensity (1.0), so 1.0 keeps untuned scenes as they rendered.
+  material.envMapIntensity = readLayerNumber(spec, ['envMapIntensity'], 1.0);
   if (options.environment) material.envMap = options.environment;
   material.userData.sculptMaterial = spec;
   material.userData.proceduralMapsIndependent = true;
