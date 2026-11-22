@@ -22,8 +22,11 @@ Distinguish implemented mechanisms, narrow runtime observations and qualificatio
   world-space vertex samples: maximum delta `1.21e-8 m`, below `9.97e-5 m`. Pixi's four authority
   probes and eight live replay probes passed with explicitly selected Playwright 1.64. These do not
   qualify arbitrary characters, arbitrary JavaScript, artwork quality or a held-out corpus.
-- **Live Jev delivery is not demonstrated.** The release lock pins bytes, not answer quality; no
-  renewed live Jev disclosure/paid-call grant or Jev network qualification is claimed here.
+- **Live Jev routing is measured, not qualified.** A 44-case localization-v3 repair replay of
+  36 COCO images resolved 26/50 derived-owner targets and matched 46/60 human boxes: 52% and
+  76.7%, below the 85%/80% promotion floors. All 44 temporary consents were revoked.
+  This reuses previously evaluated images, not a newly unseen holdout; owner labels are
+  request/category-derived, not expert labels. Native artifact delivery remains unproven.
 - **Terminal mechanisms are conditional, not blanket blockers or blanket passes.** Section 9 names
   the required host approvals, independent producers, fresh replay and authenticated semantic review.
   Scene and CS2 live verification is not claimed complete merely because those mechanisms exist.
