@@ -426,5 +426,19 @@ class ProcessTests(RegenBase):
         self.assertEqual(regen.validate_lock(copy.deepcopy(committed), "committed"), committed)
 
 
+class HarnessPinParityTests(unittest.TestCase):
+    def test_committed_lock_matches_available_harness_jev_pin(self):
+        harness = Path(os.environ.get("IMG2_HARNESS_DIR") or FORGE.parent.parent / "harness")
+        plugins_lock = harness / "plugins.lock.json"
+        if not plugins_lock.exists():
+            self.skipTest(f"harness lock not available: {plugins_lock}; set IMG2_HARNESS_DIR")
+        pin = regen.jev_pin(regen._read_json(plugins_lock, "harness plugins lock"))
+        committed = regen.validate_lock(
+            regen._read_json(regen.DEFAULT_OUTPUT, "core release lock"), "core release lock")
+        self.assertEqual(committed["resolvedSha"], pin,
+                         f"{regen.DEFAULT_OUTPUT} differs from {plugins_lock}; "
+                         "run scripts/regen_jev_release_lock.py for the harness pin")
+
+
 if __name__ == "__main__":
     unittest.main()

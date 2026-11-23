@@ -45,6 +45,42 @@ The isolated Python/keychain setup is not replicated. The scripts run `python3`
 from the invoking environment (`sys.executable`). Jev credentials come from the
 user's keychain or `TYPESAFE_API_KEY`, as for any Jev run.
 
+### Required `provision.json` contract
+
+`route_one.py --home ROOT` requires **`ROOT/provision.json`**, for example
+`/tmp/img2-e2e/iso/provision.json` above. `ROOT` is the E2E root, not `HOME`
+(`ROOT/home`) or `IMG2_HOME` (`ROOT/home/.img2`). This record is produced by
+`scripts/e2e/provision_home.py`, **not by harness `setup`**. The harness's
+`IMG2_HOME/runtime/provision.json` is a different runtime receipt and cannot
+be used in its place.
+
+Prefer the provisioning script with a fresh/empty `--home`. If an installation
+was already prepared with harness `setup`, the E2E record must be supplied
+separately from verified installed paths and pins. Do not mark a failed or
+unchecked installation `ok`. The JSON object fields consumed by `route_one.py`
+are:
+
+| Field | Type and meaning |
+|---|---|
+| `status` | String, exactly `"ok"`; any other value is refused. |
+| `img2Home` | String, absolute isolated harness home (sets `IMG2_HOME`). |
+| `pins` | Object containing the fields below. |
+| `pins.harnessRoot` | String, absolute installed harness checkout (sets `IMG2_HARNESS_DIR`). |
+| `pins.harnessSha` | String, full installed harness commit, passed as `--harness-sha`. |
+| `pins.harnessExecutable` | String, absolute installed `bin/img2.mjs` path. |
+| `pins.harnessExecutableSha256` | String, 64 lowercase hex SHA-256 characters of that executable. |
+| `pins.node` | String, absolute Node executable path; its parent is prepended to `PATH`. |
+| `pins.plugins` | Object containing `jev`. |
+| `pins.plugins.jev` | Object containing `installedDir`. |
+| `pins.plugins.jev.installedDir` | String, absolute installed Jev directory containing `tools/jev.py`. |
+
+The full producer record also includes `kind: "img2.e2e-provision"`, `version: 1`,
+command/doctor evidence, environment and additional pins (including node and
+registry hashes and all five plugins). The route runner does not consume those
+extra fields; this table describes its input, not a substitute for provisioning
+verification. Missing/malformed records refuse with exit 2 before any subprocess
+or workspace creation. `--dry-run` still requires this record.
+
 ## 2. Route one image
 
 ```bash
@@ -157,5 +193,15 @@ python3 -m unittest forge.tests.test_e2e_scripts
 ```
 
 They use a stubbed subprocess runner and need no network, Jev, model or install.
+
+The core release-lock parity test uses `IMG2_HARNESS_DIR/plugins.lock.json`
+(or a sibling `harness/plugins.lock.json` when the variable is unset). It skips
+cleanly when that file is absent; when available, mismatched Jev commits fail:
+
+```bash
+IMG2_HARNESS_DIR=/path/to/harness python3 -m unittest \
+  forge.tests.test_regen_jev_release_lock.HarnessPinParityTests
+```
+
 The decision fixture in the tests is a trimmed copy of the real artifact layout
 from a recorded routing run, not live output.

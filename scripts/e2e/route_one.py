@@ -94,12 +94,19 @@ def load_provision(home):
             "node": Path(pins["node"]),
             "jevDir": Path(pins["plugins"]["jev"]["installedDir"]),
         }
+    except FileNotFoundError:
+        raise Refusal(
+            "%s is missing: required E2E provision record; harness setup does not create it. "
+            "Run scripts/e2e/provision_home.py with --home %s in a fresh/empty directory, "
+            "or see docs/E2E.md for the record schema." % (path, home)) from None
     except (OSError, ValueError, KeyError, TypeError):
-        raise Refusal("%s is missing or is not a provision record with pins" % path) from None
+        raise Refusal("%s is not a provision record with pins; see docs/E2E.md for the "
+                      "required schema" % path) from None
     if record.get("status") != "ok":
         raise Refusal("%s says status=%r; provisioning did not succeed" % (path, record.get("status")))
     if _HEX64.fullmatch(str(values["harnessExecutableSha256"])) is None:
-        raise Refusal("provision.json harnessExecutableSha256 is not a SHA-256")
+        raise Refusal("%s: pins.harnessExecutableSha256 is not a SHA-256; "
+                      "see docs/E2E.md for the required schema" % path)
     return values
 
 

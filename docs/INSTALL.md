@@ -333,5 +333,7 @@ Review and commit the generated `forge/_shared/jev_release_lock.json` with the r
 The tool hashes committed provider bytes, not dirty working files, and refuses unexpected
 changes to the core's required provider inventory. `--check` must pass before bundling; a
 different Jev pin is a release mismatch, not permission to bypass the core's approval.
-This task adds tooling only: it deliberately leaves the current `271aa34…` core pin unchanged,
-so a harness with a newer Jev pin will fail preflight/check until a release updates the lock.
+The core lock pins Jev at `ea15e4b0748f6af266c5b956041d974d1c01002f`, matching the
+harness release pin. Set `IMG2_HARNESS_DIR` to the harness checkout when running
+`forge.tests.test_regen_jev_release_lock` to enforce pin parity; the parity test skips
+when the harness lock is absent.

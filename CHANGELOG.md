@@ -19,7 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons. The default install policy requires all five plugins; bundling/repair and explicit
   no-account Jev mode remain separate integration work.
 - Add offline Jev release-lock regeneration/checking from the harness plugin pin and exact Git
-  object bytes. Existing Jev pins are unchanged; releases must regenerate and check the lock.
+  object bytes. Regenerate the core lock for `ea15e4b0748f6af266c5b956041d974d1c01002f`
+  and enforce pin parity in tests when the harness lock is available.
+- Document the E2E root `provision.json` schema and distinguish it from harness `setup`
+  runtime receipts; missing/invalid route-runner records now name the path and recovery docs.
 - Fix character dependency probe: `character-bpy>=` now accepts the single `" LTS"` suffix LTS bpy builds print (e.g. `4.5.15 LTS`), so the character plugin is no longer rejected as `dependency-missing:character-bpy>=4.3` and the router no longer falls back to the generic route. Every other version shape still fails closed.
 - Fix routed character owner profile: `forge/route.py` now writes the plugin-declared domain id `animated-character` (was `character`), so a routed character child can pass the native terminal authority profile check. The pinned `domain.json` id and definition are now verified for the character provider like every other plugin; the in-repo `character` domain is no longer trusted for routing. A state file written with profile `character` fails closed (no bypass).
 

@@ -419,6 +419,32 @@ class RouteOneTests(unittest.TestCase):
         self.assertEqual(code, route_one.EXIT_REFUSED)
         self.assertEqual(self.calls, [])
 
+    def test_missing_provision_record_names_path_and_recovery_before_running(self):
+        path = self.home / "provision.json"
+        path.unlink()
+        code, text = self.run_main()
+        self.assertEqual(code, route_one.EXIT_REFUSED)
+        self.assertIn(str(path), text)
+        self.assertIn("scripts/e2e/provision_home.py", text)
+        self.assertIn("harness setup does not create", text)
+        self.assertIn("docs/E2E.md", text)
+        self.assertEqual(self.calls, [])
+        self.assertFalse(self.workspace.exists())
+
+    def test_invalid_provision_record_names_path_and_schema_before_running(self):
+        path = self.home / "provision.json"
+        record = json.loads(path.read_text())
+        record["pins"]["harnessExecutableSha256"] = "not-a-digest"
+        for raw in ("{bad json", '{"status":"ok","pins":{}}', json.dumps(record)):
+            with self.subTest(raw=raw):
+                path.write_text(raw)
+                code, text = self.run_main()
+                self.assertEqual(code, route_one.EXIT_REFUSED)
+                self.assertIn(str(path), text)
+                self.assertIn("docs/E2E.md", text)
+                self.assertEqual(self.calls, [])
+                self.assertFalse(self.workspace.exists())
+
     def test_failed_provisioning_record_is_refused(self):
         record = json.loads((self.home / "provision.json").read_text())
         record["status"] = "failed"
