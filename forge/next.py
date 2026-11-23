@@ -166,6 +166,20 @@ def main(argv: list[str]) -> int:
             print(f"state error: {error}", file=sys.stderr)
             return 2
         route_child = local_state.get("routeChild")
+        if local_state.get("profile") == "textured":
+            # A generated model has no sculpt spec, passes or review history: the checklist is the
+            # whole state, and nothing here may recompute loop counts from a spec.
+            if spec_path is not None:
+                print("state error: the textured profile has no sculpt spec; run next.py with --state only",
+                      file=sys.stderr)
+                return 2
+            payload = status_payload(local_state)
+            emit_local_state(payload)
+            if payload.get("textured"):
+                block = payload["textured"]
+                print(f"textured: generation {block['generation']}/{block['maxGenerations']}"
+                      + (f", accepted generation {block['accepted']}" if block.get("accepted") else ""))
+            return 3 if payload["status"] == "stopped" else 0
         if native_binding(args.state, local_state)[0]:
             return native_main(args, local_state)
         if local_state.get("routeDecision"):

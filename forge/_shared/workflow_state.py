@@ -12,6 +12,15 @@ from typing import Any, Final
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from domains import DomainRegistryError, domain_profile  # noqa: E402
+from textured_profile import (  # noqa: E402
+    DEFAULT_MAX_GENERATIONS,
+    DELIVER_STEPS,
+    GENERATION_ROWS,
+    TEXTURED_PROFILE,
+    normalize_profile,
+    textured_block,
+    textured_rows,
+)
 
 
 SCHEMA_VERSION: Final = 1
@@ -136,13 +145,23 @@ def new_state(
     spec: str = "",
     max_per_pass: int = 3,
     max_total: int = 6,
+    domain_id: str = "generic",
+    max_generations: int = DEFAULT_MAX_GENERATIONS,
 ) -> dict[str, Any]:
+    # `procedural-<id>` is the explicit spelling of the procedural pipeline for <id>; the stored
+    # profile is the plain id, so every downstream consumer of state["profile"] is unchanged.
+    profile = normalize_profile(profile)
+    if max_per_pass < 1 or max_total < 1 or max_per_pass > max_total:
+        raise WorkflowStateError("loop limits require 1 <= max-per-pass <= max-total")
+    if profile == TEXTURED_PROFILE:
+        return _new_textured_state(reference, spec=spec, max_per_pass=max_per_pass, max_total=max_total,
+                                   domain_id=domain_id, max_generations=max_generations)
+    if domain_id != "generic":
+        raise WorkflowStateError("--domain only applies to the textured profile")
     try:
         domain = domain_profile(profile)
     except DomainRegistryError as exc:
         raise WorkflowStateError(str(exc)) from exc
-    if max_per_pass < 1 or max_total < 1 or max_per_pass > max_total:
-        raise WorkflowStateError("loop limits require 1 <= max-per-pass <= max-total")
 
     setup = [_step(sid, cmd.replace("{profile}", profile), scope="setup") for sid, cmd in SETUP_STEPS]
     pass_steps = list(PASS_STEPS)
@@ -173,6 +192,87 @@ def new_state(
     }
     recompute(state)
     return state
+
+
+def _textured_domain(domain_id: str) -> dict[str, Any] | None:
+    try:
+        return domain_profile(domain_id)
+    except DomainRegistryError as exc:
+        raise WorkflowStateError(str(exc)) from exc
+
+
+def _new_textured_state(reference, *, spec, max_per_pass, max_total, domain_id, max_generations) -> dict[str, Any]:
+    """Generated, textured GLB path. Every generation row is `setup` scope and `deliver` is `final`,
+    with the pass phase pre-completed: the sculpt pass machinery has nothing to say about a model
+    that is not built from a spec, so it must never surface a pass row or an await-pass step."""
+    if not isinstance(max_generations, int) or isinstance(max_generations, bool) or not 1 <= max_generations <= 8:
+        raise WorkflowStateError("max-generations must be an integer within 1..8")
+    domain = _textured_domain(domain_id)
+    rows = (
+        [_step(sid, cmd, scope="setup") for sid, cmd in textured_rows(max_generations)]
+        + [_step(sid, cmd, scope="final") for sid, cmd in DELIVER_STEPS]
+        # The domain's own checks that apply to a delivered GLB (rig track) stay the plugin's.
+        + [_step(*item, scope="rig") for item in ((domain.get("rigSteps") or ()) if domain else ())]
+    )
+    state = {
+        "schemaVersion": SCHEMA_VERSION,
+        "status": "active",
+        "profile": TEXTURED_PROFILE,
+        "domain": domain_id,
+        "currentStep": rows[0]["id"],
+        "currentPass": "complete",
+        "checklist": rows,
+        "loops": {"perPass": {}, "total": 0, "maxPerPass": max_per_pass, "maxTotal": max_total},
+        "artifacts": {"reference": reference, "spec": spec},
+        "textured": textured_block(1, max_generations),
+        "passHistory": [],
+        "reviewCursor": 0,
+        "iterationAction": "initial",
+        "stopReason": "",
+    }
+    recompute(state)
+    return state
+
+
+def textured_apply_decision(
+    state: dict[str, Any],
+    *,
+    outcome: str,
+    generation: int,
+    evidence: list[str],
+    reason: str = "",
+    accepted_generation: int | None = None,
+) -> None:
+    """The only writer of the `decide` row. ``accept`` moves on to delivery; ``regenerate`` re-opens
+    the generation rows under a new generation number (bounded by textured.maxGenerations)."""
+    block = state.get("textured")
+    if state.get("profile") != TEXTURED_PROFILE or not isinstance(block, dict):
+        raise WorkflowStateError("not a textured workflow")
+    if state.get("status") == "stopped":
+        raise WorkflowStateError("state is hard-stopped; do not record more decisions")
+    expected = next_entry(state)
+    if expected is None or expected["id"] != "decide":
+        raise WorkflowStateError(f"out-of-order decision: expected {expected['id'] if expected else 'complete'}")
+    if generation != block["generation"]:
+        raise WorkflowStateError(f"decision is for generation {generation} but the current generation is {block['generation']}")
+    if outcome not in {"accept", "regenerate"}:
+        raise WorkflowStateError("decision outcome must be accept or regenerate")
+    if not evidence:
+        raise WorkflowStateError("a decision needs at least one evidence value")
+    if outcome == "regenerate" and generation >= block["maxGenerations"]:
+        raise WorkflowStateError(f"generation cap {block['maxGenerations']} reached; accept the best generation instead")
+    rows = [entry for entry in state["checklist"] if entry["id"] in GENERATION_ROWS]
+    decide = next(entry for entry in rows if entry["id"] == "decide")
+    decide.update(status="done", evidence=list(evidence), reason=reason.strip())
+    block["history"].append({"generation": generation, "outcome": outcome, "reason": reason.strip(),
+                             "evidence": list(evidence), "rows": deepcopy(rows)})
+    if outcome == "accept":
+        block["accepted"] = generation if accepted_generation is None else accepted_generation
+    else:
+        for entry in rows:
+            entry.update(status="pending", evidence=[], reason="")
+        block["generation"] = generation + 1
+    recompute(state)
 
 
 def attach_lifecycle_steps(state: dict[str, Any]) -> None:
@@ -223,6 +323,17 @@ def attach_lifecycle_steps(state: dict[str, Any]) -> None:
     recompute(state)
 
 
+def _validate_textured(state: dict[str, Any]) -> None:
+    block = state.get("textured")
+    if (not isinstance(block, dict) or type(block.get("generation")) is not int or type(block.get("maxGenerations")) is not int
+            or not 1 <= block["generation"] <= block["maxGenerations"] or not isinstance(block.get("history"), list)):
+        raise WorkflowStateError("textured state needs generation, maxGenerations and history")
+    domain_id = state.get("domain", "generic")
+    if not isinstance(domain_id, str):
+        raise WorkflowStateError("textured state domain must be a string")
+    domain_profile(domain_id)
+
+
 def validate_state(state: Any) -> dict[str, Any]:
     if not isinstance(state, dict):
         raise WorkflowStateError("state must be a JSON object")
@@ -231,7 +342,10 @@ def validate_state(state: Any) -> dict[str, Any]:
     # A state file written before its domain moved out must fail by naming the missing provider,
     # never by silently downgrading the run to generic.
     try:
-        domain_profile(state.get("profile"))
+        if state.get("profile") == TEXTURED_PROFILE:
+            _validate_textured(state)
+        else:
+            domain_profile(state.get("profile"))
     except DomainRegistryError as exc:
         raise WorkflowStateError(str(exc)) from exc
     checklist = state.get("checklist")
@@ -323,6 +437,7 @@ def _format_command(state: dict[str, Any], entry: dict[str, Any]) -> str:
         reference=shlex.quote(str(artifacts.get("reference") or "<reference>")),
         spec=shlex.quote(str(artifacts.get("spec") or "<spec>")),
         pass_id=shlex.quote(str(state.get("currentPass") or "<pass>")),
+        gen=(state.get("textured") or {}).get("generation", 1),
     )
 
 
@@ -390,6 +505,8 @@ def mark_steps(
     missing = [step_id for step_id in step_ids if step_id not in by_id]
     if missing:
         raise WorkflowStateError(f"unknown checklist step(s): {', '.join(missing)}")
+    if state.get("profile") == TEXTURED_PROFILE and status != "pending" and "decide" in step_ids:
+        raise WorkflowStateError("the textured decision step requires forge/textured/decide.py")
     if status in {"done", "skipped"}:
         for step_id in step_ids:
             expected = next_entry(state)
@@ -493,7 +610,7 @@ def status_payload(state: dict[str, Any]) -> dict[str, Any]:
     visible_scopes = {"setup", "final", "rig"}
     if current_pass != "complete":
         visible_scopes.add("pass")
-    return {
+    payload = {
         "status": state["status"],
         "currentStep": state["currentStep"],
         "currentPass": current_pass,
@@ -511,3 +628,8 @@ def status_payload(state: dict[str, Any]) -> dict[str, Any]:
             if entry["scope"] in visible_scopes and entry["status"] == "pending"
         ],
     }
+    block = state.get("textured")
+    if state.get("profile") == TEXTURED_PROFILE and isinstance(block, dict):
+        payload["textured"] = {"generation": block["generation"], "maxGenerations": block["maxGenerations"],
+                               "accepted": block.get("accepted")}
+    return payload

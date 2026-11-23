@@ -4,9 +4,9 @@
 
 # img2threejs
 
-**Rebuild the object in a reference image as a code-only, procedural Three.js model.**
+**Turn a reference image into a textured, realistic 3D model (GLB).**
 
-Quality-gated, animation-ready, and deliberately token-efficient — reconstruction-by-code, not photogrammetry, mesh extraction, or downloaded art packs.
+An image-to-3D generator makes the mesh and PBR textures, Blender cleans and renders it, and a Jev likeness loop measures it against your reference and decides accept or regenerate. The result is a generated model with real textures — not code-built. Procedural, code-only Three.js reconstruction is still here as an explicit opt-in (`--profile procedural-*`).
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.1-green.svg)](CHANGELOG.md)
@@ -40,11 +40,15 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 
 </div>
 
-*Reference images reconstructed in code as animation-ready Three.js models, running live in the browser.*
+> **Default path: textured.** Requirements — a Tripo MCP account (paid per generation), a bpy runtime
+> from `img2 provision` (`IMG2_CHARACTER_BPY_PYTHON` / `IMG2_BLENDER_PYTHON`), and Jev login plus per-run
+> consent (without a Jev account the host model answers the same questions and is journalled as
+> `model:<id>`, never as Jev). See [docs/TEXTURED.md](docs/TEXTURED.md). The gallery below shows the
+> **procedural** opt-in: reference images reconstructed in code as animation-ready Three.js models, running live in the browser.
 
 ### [→ Open the Live Demo Gallery](https://img2threejs.io/)
 
-Every model in the gallery is generated code, running in your browser. No mesh files, no downloads.
+Every model in this gallery is procedural: generated code, running in your browser, no mesh files.
 
 ---
 
@@ -266,7 +270,7 @@ by pass, and reviews rendered comparisons. Installation alone does none of that.
 For a multi-session reconstruction, run these from the skill root:
 
 ```bash
-python3 forge/state.py init --reference <image> --profile character --spec object-sculpt-spec.json
+python3 forge/state.py init --reference <image> --profile procedural-character --spec object-sculpt-spec.json
 python3 forge/next.py --state .img2threejs/state.json
 ```
 

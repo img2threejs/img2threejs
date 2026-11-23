@@ -868,7 +868,7 @@ def build_policy(workspace, state_path):
                 work = Path(directory)
                 (work / name).write_bytes(fixture)
                 init = subprocess.run([sys.executable, str(ROOT / "forge/state.py"), "init", "--state", "state.json",
-                                       "--reference", "ref.png", "--spec", name],
+                                       "--reference", "ref.png", "--spec", name, "--profile", "generic"],
                                       capture_output=True, text=True, cwd=work)
                 self.assertEqual(init.returncode, 0, init.stderr)
                 with patch.dict(os.environ, {"IMG2_HOME": str(work / "empty-home")}):
@@ -913,7 +913,7 @@ def build_policy(workspace, state_path):
             work = Path(directory)
             (work / "spec.json").write_bytes((ROOT / "forge/tests/fixtures/reference_target_conformance_spec.json").read_bytes())
             init = subprocess.run([sys.executable, str(ROOT / "forge/state.py"), "init", "--state", "state.json",
-                                   "--reference", "ref.png", "--spec", "spec.json"],
+                                   "--reference", "ref.png", "--spec", "spec.json", "--profile", "generic"],
                                   capture_output=True, text=True, cwd=work)
             self.assertEqual(init.returncode, 0, init.stderr)
             with patch.dict(os.environ, {"IMG2_HOME": str(work / "empty-home")}):

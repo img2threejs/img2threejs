@@ -1,19 +1,25 @@
 ---
 name: img2threejs
-description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
+description: Turn a reference image into a textured, realistic 3D model (GLB) through a generator, Blender cleanup and a Jev likeness loop. Procedural code-built Three.js (sculpt specs, staged code generation, animation-ready characters) is the explicit opt-in. Use for image-to-3D, 3D model from a picture, textured GLB, and detail-accurate object or character rebuilds.
 license: Apache-2.0
 version: 2.0.1
 ---
 
-# img2threejs — Image to procedural Three.js
+# img2threejs — Image to textured 3D model
 
-Rebuild the object visible in a reference image as a **code-only** procedural Three.js model,
-gated by a staged sculpting pipeline and an AI-vision self-correction loop. This is
-reconstruction-by-code, **not** photogrammetry, mesh extraction, or downloaded art packs. That
-promise governs how the model is *built* — it says nothing about which file formats it can
-subsequently be *exported* to; an explicitly-selected emission target (`--target <kind>`) is a
-terminal, whole-artifact transform of the already-built model, verified to its own stated limit,
-never a second way to build one.
+img2threejs turns a reference image into a **textured, realistic 3D model (GLB)**: an image-to-3D
+generator makes the mesh and PBR textures, Blender (bpy) inspects, normalizes and renders it, and a
+Jev likeness loop measures it against the reference and decides accept or regenerate. The model is
+generated, never code-built. **Procedural** reconstruction (code-only Three.js from a sculpt spec,
+the older pipeline below) is an explicit opt-in: `--profile procedural-generic`,
+`procedural-character`, or any `procedural-<domain>`. An emission target (`--target <kind>`) stays a
+terminal transform of an already-built model, never a second way to build one.
+
+Requirements (the textured path fails closed without them, it never fakes a model):
+- a Tripo MCP tool in the host (`mcp__tripo_make`) with an account and credits — paid, per generation;
+- a bpy runtime from `img2 provision`, named by `IMG2_CHARACTER_BPY_PYTHON` or `IMG2_BLENDER_PYTHON`;
+- Jev: `img2-jev login` plus per-run consent (`jev.py consent authorize-decisions`). With no Jev account the
+  host model answers the same typed questions, journalled `decider: model:<id>`, never presented as Jev.
 
 Agent-agnostic: works under Hermes, Claude Code, Codex, or OpenCode. Wherever this doc says "agent vision" or "agent browser tool", use
 whatever the host provides — native image reading, a browser MCP (playwright/chrome-devtools), the
@@ -35,9 +41,10 @@ link it does not manage, so a hand-made link is never silently swapped for a rel
 
 ## When To Use
 
-The user attaches/points to an object image and wants a procedural Three.js model, a
-reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
-action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
+The user attaches/points to an object image and wants a 3D model of it (textured GLB by default).
+Under an explicit `procedural-*` profile: a procedural Three.js model, a reconstruction/animation/
+destruction plan, a sculpt spec, or code; material studies, action-ready props, game objects,
+botanical/mechanical parts, and stylized reconstructions.
 
 ## Route decisions (mandatory for every routed workflow)
 
@@ -72,9 +79,21 @@ Follow each installed plugin's `SKILL.md` and step-named contracts.
 For isolated routing checks, see [`docs/E2E.md`](docs/E2E.md): role/observations are explicit;
 interior requires `blender>=4.3` on PATH independently of `IMG2_BLENDER_PYTHON`.
 
+## Textured build (default for 3D)
+
+`forge/state.py init --reference <img>` selects `textured` when a generator MCP tool is configured
+(else it says so and starts procedural `generic`). Run `forge/next.py --state .img2threejs/state.json`
+before every step; rows, in order: `reference-admission`, `generate` (AGENT step: call the generator,
+then `forge/textured/generate.py record`), `inspect`, `normalize`, `render`, `likeness`, `decide`
+(`forge/textured/decide.py`; SAME accepts, DIFFERENT regenerates with a changed model, scenario, prompt
+or input, at most 4 generations, best by Jev), `deliver` (GLB, renders, comparison sheet, REPORT.md under
+`.img2threejs/textured/final/`). Each tool writes a JSON receipt; none prints a key. Plugins keep their
+domain checks (`--domain character` for the rig track). Full contract: [`docs/TEXTURED.md`](docs/TEXTURED.md).
+The procedural sections below apply only under an explicit `procedural-*` profile.
+
 ## Core Promise
 
-Sculpt from a photo, in order — never one-shot a mesh:
+Procedural opt-in: sculpt from a photo, in order — never one-shot a mesh:
 1. **Run `python3 forge/next.py --state .img2threejs/state.json [<spec>]` first**, at every start,
    resume, and before every correction iteration. It reports the ordered checklist, exact next
    command, evidence status, and bounded correction-loop status; it never replaces the spec/pass
@@ -95,7 +114,7 @@ Conversation context is disposable; `.img2threejs/state.json` is the local check
 Initialize once per reconstruction, then gate every step through it:
 
 ```bash
-python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|character|installed-domain> --spec object-sculpt-spec.json
+python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <procedural-generic|procedural-character|procedural-installed-domain> --spec object-sculpt-spec.json
 python3 forge/next.py --state .img2threejs/state.json [object-sculpt-spec.json]
 python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence <path>
 ```
