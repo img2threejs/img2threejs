@@ -94,6 +94,9 @@ class Router:
     def _persist(self, decision):
         # Atomic, content-addressed progress only, NOT execution authority. Final
         # state promotion must use verify_decision inside workspace_transaction.
+        if self.controller.routing_authority is not None:
+            decision.update(self.controller.routing_authority.metadata())
+            decision["jevSession"] = "not-used:no-account"
         data = encode(decision)
         sha = hashlib.sha256(data).hexdigest()
         relative = f".img2threejs/route/decision-{sha}.json"
@@ -176,7 +179,9 @@ class Router:
             if handles:
                 answer["choice"] = handles[answer["choice"]]
                 answer["probabilities"] = {handles[k]: v for k, v in answer["probabilities"].items()}
-        return {"requestDigest": record["contextDigest"], "decider": record["decider"],
+        metadata = ({key: record[key] for key in ("decisionMode", "attestationId", "presentedAsJev")}
+                    if record.get("decisionMode") == "no-account" else {})
+        return {**metadata, "requestDigest": record["contextDigest"], "decider": record["decider"],
                 "outcome": record["outcome"], "reasonCode": record["reasonCode"],
                 "questionSetVersion": record["questionSetVersion"], "answer": answer,
                 "receiptSha256": record["recordId"], "status": "completed" if record.get("model") else "pending",
@@ -380,7 +385,8 @@ class Router:
                 selection = record["answers"]["selection"]
                 ranking = sorted(selection["probabilities"], key=lambda key: (-selection["probabilities"][key], key))
                 margin = selection["probabilities"][ranking[0]] - selection["probabilities"][ranking[1]] if len(ranking) > 1 else 1
-                best_of_n = record["decider"].startswith("jev:") and (record["status"] == "uncertain" or margin < .25)
+                primary = record["decider"].startswith("jev:") or record.get("decisionMode") == "no-account"
+                best_of_n = primary and (record["status"] == "uncertain" or margin < .25)
                 selected = [handles[k] for k in (ranking[:2] if best_of_n else [selection["choice"]])]
                 status = "best-of-n" if best_of_n else "resolved"
                 if any(c["id"] in selected and c["card"]["costClass"] in {"paid", "licensed"} for c in eligible):

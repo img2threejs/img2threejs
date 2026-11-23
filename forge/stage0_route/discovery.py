@@ -454,6 +454,9 @@ class Discovery:
             self.jev_status = "not-installed"
             rejected.append({"id": "jev", "reasonCode": "plugin-not-selected"})
             return candidates, rejected
+        if self.controller.routing_authority is not None:
+            self.jev_status = "not-used:no-account"
+            return candidates, rejected
         response = self.query(JEV_EDGE)
         self.jev_status = "availability-unproven"
         if response["status"] == "answered" and not response["providers"]:

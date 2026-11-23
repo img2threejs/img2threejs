@@ -204,6 +204,9 @@ reporting results. The mandatory four groups are routing, build strategy, qualit
 when required. `forge/route.py` and `forge/decision.py` provide the actual lifecycle hooks; routing
 alone does not run the other groups. The base owns eligibility, consent, independent hard gates and
 acceptance. Neither provider advice nor parent checklist completion is a deliverable.
+Routing alone supports explicit `--no-jev-account` with a separate interactive, expiring user
+attestation and typed `--model-answers`; receipts say `model:<id>`, `presentedAsJev: false`.
+Missing credentials still request login. See [deciders](grimoire/intake/routing.md#51-explicit-no-account-routing-decider).
 
 | Plugin | Adds | Output kind | Reached when |
 |---|---|---|---|

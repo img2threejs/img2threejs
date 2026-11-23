@@ -173,7 +173,7 @@ def _proposal_members(value):
 
 
 class DecisionController:
-    def __init__(self, workspace, run_id, *, clock=None):
+    def __init__(self, workspace, run_id, *, clock=None, routing_authority=None):
         self.workspace = Path(workspace).resolve(strict=True)
         if not self.workspace.is_dir():
             _fail("invalid-workspace")
@@ -182,6 +182,13 @@ class DecisionController:
         if not callable(self.clock):
             _fail("invalid-clock")
         self._consent = None
+        self.routing_authority = routing_authority
+        if routing_authority is not None:
+            from route_no_account import RoutingNoAccount
+            if (type(routing_authority) is not RoutingNoAccount
+                    or routing_authority.workspace != self.workspace or routing_authority.run_id != self.run_id):
+                _fail("invalid-attestation")
+            routing_authority.metadata()
         self._released = False
         self.control_dir = self.workspace / ".img2threejs" / "route"
         self.record_root = self.workspace / ".img2threejs" / "decisions"
@@ -195,6 +202,8 @@ class DecisionController:
         self._token = None
         with self._locked(check_lease=False):
             entries, state = self._load()
+            if self.routing_authority is not None:
+                self._routing_metadata(state)
             if self.lease_path.exists():
                 lease = self._read_json(self.lease_path)
                 if lease.get("runId") != self.run_id:
@@ -212,6 +221,14 @@ class DecisionController:
         if type(value) not in (int, float) or (type(value) is float and not math.isfinite(value)) or value < 0:
             _fail("invalid-clock")
         return value
+
+    def _routing_metadata(self, state):
+        metadata = self.routing_authority.metadata()
+        attested = state["noAccountAttestations"].get(metadata["attestationId"])
+        if (not attested or attested["runId"] != self.run_id
+                or attested["decider"] != metadata["decider"]):
+            _fail("attestation-unproven")
+        return metadata
 
     def _mkdir(self, path):
         if path.is_symlink():
@@ -312,7 +329,8 @@ class DecisionController:
         entries = []
         state = {"runs": {}, "records": {}, "contexts": {}, "refs": {}, "epochs": {},
                  "attempts": {}, "applications": {}, "routeRounds": {}, "routeLinks": [],
-                 "recordSequences": {}, "recordAttempts": {}, "routeDispatches": [], "decisionBlocks": {}}
+                 "recordSequences": {}, "recordAttempts": {}, "routeDispatches": [], "decisionBlocks": {},
+                 "noAccountAttestations": {}}
         if not self.journal_path.exists():
             if self.lease_path.exists():
                 _fail("journal-broken")
@@ -346,6 +364,15 @@ class DecisionController:
         elif event == "object-started":
             state["runs"][run_id]["objects"][data["objectId"]] = {
                 "startedAt": data["startedAt"], "total": 0, "perPass": {}}
+        elif event == "no-account-attested":
+            state["noAccountAttestations"][data["attestationId"]] = copy.deepcopy(data)
+        elif event == "no-account-revoked":
+            state["noAccountAttestations"].pop(data["revokedAttestationId"], None)
+        elif event == "no-account-selected":
+            attested = state["noAccountAttestations"].get(data["attestationId"])
+            if (not attested or attested["runId"] != run_id or attested["decider"] != data["decider"]
+                    or data["presentedAsJev"] is not False):
+                _fail("attestation-unproven")
         elif event == "consent-observed":
             state["runs"][run_id]["tokenBudget"] = data["grant"]["tokenBudget"]
         elif event == "unavailable":
@@ -952,6 +979,8 @@ class DecisionController:
                   "answers": copy.deepcopy(advisory["answers"]) if advisory else {},
                   "usage": copy.deepcopy(advisory["usage"]) if advisory else None,
                   "consent": copy.deepcopy(grant), "createdAt": self._now()}
+        if self.routing_authority is not None and context["group"] == "routing":
+            record.update(self.routing_authority.metadata())
         if fallback_reason:
             record["unavailableReason"] = fallback_reason
         if reason in _AUTH:
@@ -1206,10 +1235,13 @@ class DecisionController:
         if prior:
             self._commit(entries, "retried-after-crash", {"attemptId": attempt_id,
                          "reasonCode": "ambiguous-paid-attempt"})
+        authority = (self.routing_authority.metadata()
+                     if self.routing_authority is not None and context["group"] == "routing" else {})
         pending = self._commit(entries, "attempt-pending", {
             "attemptId": attempt_id, "contextDigest": canonical_digest(context),
             "group": context["group"], "status": "pending", "retries": retries,
             "reservation": token_limit, "decider": "model" if model_fallback else "jev",
+            **authority,
         })
         self._reduce(state, "attempt-pending", pending["data"])
         response = None
@@ -1345,9 +1377,14 @@ class DecisionController:
         context = copy.deepcopy(context)
         projected = self._context(context)
         self._consent = consent
+        mode = self.routing_authority if context["group"] == "routing" else None
+        if mode is not None and (consent is not mode or context["requestedModel"] != mode.model_id):
+            _fail("attestation-binding-mismatch")
         with self._locked():
             self._context(context)
             entries, state = self._load()
+            if mode is not None:
+                self._routing_metadata(state)
             run = state["runs"][self.run_id]
             subject = context["subject"]
             if subject["objectId"] not in run["objects"]:
@@ -1363,6 +1400,8 @@ class DecisionController:
                 return self._record(entries, context, projected, None, "request-input", exc.reason_code)
             self._commit(entries, "consent-observed", {"grant": grant})
             run["tokenBudget"] = grant["tokenBudget"]
+            if mode is not None:
+                self._commit(entries, "no-account-selected", mode.metadata())
             if context["group"] == "quality-review" and not any(self._quality_items(projected).values()):
                 return self._record(entries, context, projected, grant, "request-input", "missing-evidence")
             current_id = state["refs"].get(self._ref_key(context))
@@ -1371,7 +1410,7 @@ class DecisionController:
                 saved = self._read_json(self.record_root / current["group"] / (current["recordId"] + ".json"))
                 if saved != current:
                     _fail("record-mismatch")
-            if (not callable(availability) and grant["granted"]
+            if (mode is None and not callable(availability) and grant["granted"]
                     and not run["unavailable"] and context["group"] not in run["groupUnavailable"]):
                 self._commit(entries, "probe", {
                     "group": context["group"], "contextDigest": canonical_digest(context),
@@ -1387,15 +1426,15 @@ class DecisionController:
             if context["group"] == "repair" and (
                     obj["total"] >= 6 or obj["perPass"].get(subject["passId"], 0) >= 3):
                 return self._record(entries, context, projected, grant, "request-input", "correction-budget-exhausted")
-            reason = run["unavailable"] or run["groupUnavailable"].get(context["group"])
+            reason = None if mode is not None else run["unavailable"] or run["groupUnavailable"].get(context["group"])
             if same_request and current["reasonCode"] in _REQUEST_FAILURES:
                 reason = reason or current["reasonCode"]
             if not grant["granted"]:
                 reason = "consent-declined"
                 self._commit(entries, "unavailable", {"scope": "run", "group": context["group"], "reasonCode": reason})
-            elif set(grant["purposes"]) != set(GROUPS):
+            elif set(grant["purposes"]) != ({"routing"} if mode is not None else set(GROUPS)):
                 return self._record(entries, context, projected, grant, "request-input", "consent-required")
-            if reason is None:
+            if reason is None and mode is None:
                 probe = self._probe(availability)
                 self._commit(entries, "probe", {"group": context["group"], "contextDigest": canonical_digest(context), **probe})
                 reason = "login-declined" if probe.get("reasonCode") == "login-declined" else probe["status"]
@@ -1416,7 +1455,7 @@ class DecisionController:
             if previous_epoch and previous_epoch["contextDigest"] != canonical_digest(context):
                 epoch += 1
             identity = {"contextDigest": canonical_digest(context), "consent": grant, "epoch": epoch}
-            attempt_id = canonical_digest(dict(identity, decider="jev"))
+            attempt_id = canonical_digest(dict(identity, decider="model:" + mode.model_id if mode is not None else "jev"))
             active_attempt = None
             if reason is None:
                 try:
@@ -1427,6 +1466,9 @@ class DecisionController:
                     active_attempt = attempt_id if attempt_id in state["attempts"] else None
                     if reason in {"group-mismatch", "subject-mismatch", "context-digest-mismatch", "model-mismatch"}:
                         raise
+                    if mode is not None:
+                        return self._record(entries, context, projected, grant, "request-input", reason,
+                                            attempt_id=active_attempt)
                     if reason in _AUTH | {"missing-evidence", "vision-forbidden", "permission-denied",
                                           "stale-evidence", "budget-exhausted", "budget-overrun"}:
                         return self._record(entries, context, projected, grant, "request-input", reason,
@@ -1436,7 +1478,11 @@ class DecisionController:
                     if self._grant(consent) != grant:
                         _fail("consent-changed")
                     return self._record(entries, context, projected, grant, status, answer_reason,
-                                        advisory=answer, decider="jev:" + answer["model"], attempt_id=attempt_id)
+                                        advisory=answer, decider=("model:" if mode is not None else "jev:") + answer["model"],
+                                        attempt_id=attempt_id)
+            if mode is not None:
+                return self._record(entries, context, projected, grant, "request-input", reason,
+                                    attempt_id=active_attempt)
             if reason not in _UNAVAILABLE | _REQUEST_FAILURES:
                 _fail("fallback-unproven")
             if not callable(fallback):
@@ -1488,6 +1534,12 @@ class DecisionController:
             _fail("context-digest-mismatch")
         if not historical and state["refs"].get(self._ref_key(context)) != record["recordId"]:
             _fail("stale-decision")
+        if record.get("decisionMode") == "no-account":
+            if self.routing_authority is None:
+                _fail("no-jev-account-attestation-required")
+            metadata = self._routing_metadata(state)
+            if any(record.get(key) != value for key, value in metadata.items()):
+                _fail("attestation-changed")
         if check_consent and self._grant(consent if consent is not None else self._consent) != record["consent"]:
             _fail("consent-changed")
         return stored

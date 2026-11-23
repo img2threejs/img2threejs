@@ -68,11 +68,13 @@ Before routing, from the skill checkout run:
 python3 forge/preflight.py
 ```
 
-Proceed only on exit 0. The table names missing registrations, wrong pins, unresolved route
-dependencies and Jev auth failures; unselected plugins say `not installed by choice`. Missing
-credentials require `img2-jev login`; no-account mode is not implemented by this check.
-`img2threejs repair` is the bundled installer's repair interface, not implemented by this
-core script. See [installation and provisioning](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
+Proceed only when required installation/runtime checks pass. The table names missing registrations,
+wrong pins, unresolved dependencies and Jev auth failures; unselected plugins say `not installed by choice`.
+Missing credentials require `img2-jev login`. Only for routing, a user who has no Jev account may
+instead personally run `forge/route.py attest-no-jev-account`, then use explicit `--no-jev-account`
+and typed `--model-answers`; preflight never infers or grants that exception. Read the routing
+decider section before proceeding. `img2threejs repair` is the bundled installer's repair interface,
+not implemented by this core script. See [installation and provisioning](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
 Never silently substitute generic for a missing domain. `forge/route.py` exposes per-object
 `pluginRejections` (also retained in the decision/journal); inspect them even on a decided route.
 Follow each installed plugin's `SKILL.md` and step-named contracts.

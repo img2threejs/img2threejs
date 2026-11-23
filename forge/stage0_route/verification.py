@@ -65,6 +65,10 @@ def verify_route(router, decision_ref, verify, discovered):
             or decision.get("runId") != router.run_id or decision.get("phase") != "decided"
             or decision.get("executionAuthorized") is not False or decision.get("decompositionBlocker")):
         raise RouteError("decision-not-decided")
+    if decision.get("decisionMode") == "no-account":
+        authority = router.controller.routing_authority
+        if authority is None or any(decision.get(key) != value for key, value in authority.metadata().items()):
+            raise RouteError("attestation-changed")
     inputs = _read(router, {"path": decision["inputsRef"], "sha256": decision["inputsDigest"]})
     proposals = router._objects(_read(router, {"path": decision["proposalRef"], "sha256": decision["proposalSha256"]}))
     second_source = inputs.get("secondProposalBinding")
@@ -317,8 +321,9 @@ def verify_route(router, decision_ref, verify, discovered):
         selection = record["answers"]["selection"]
         selected = handles[selection["choice"]]
         probabilities = sorted(selection["probabilities"].values(), reverse=True)
+        primary = record["decider"].startswith("jev:") or record.get("decisionMode") == "no-account"
         if (available[selected]["card"]["costClass"] in {"paid", "licensed"}
-                or (record["decider"].startswith("jev:") and len(probabilities) > 1 and probabilities[0] - probabilities[1] < .25)):
+                or (primary and len(probabilities) > 1 and probabilities[0] - probabilities[1] < .25)):
             raise RouteError("route-execution-unresolved")
         for member in members:
             object_id = member["objectId"]

@@ -155,8 +155,9 @@ exit `2`. Fields you can observe:
   operations.
 
 Only the base-owned Jev release lock is accepted (`_approved_lock`: fixed path, `contractVersion`
-`jev-v4-four-decisions`, exact file digests). There is no flag to override it, and `forge/route.py`
-never enrolls consent, revokes consent, prompts for keys or selects a fallback on its own.
+`jev-v4-four-decisions`, exact file digests). There is no flag to override it. Ordinary routing
+never enrolls consent, prompts for keys or selects a fallback on its own. The separate interactive
+attestation/revocation commands below operate only on explicit no-account routing authority.
 
 ## 4. Stage zero: from image to a routing decision
 
@@ -277,7 +278,7 @@ member keeps its own id, validation, box, crop and eligibility.
 Controller thresholds (`DecisionController._advisory`):
 
 - `anyFits.noul` below 0.5: `request-input`, `none-fits`.
-- Jev: chosen probability below 0.80 or confidence below 0.50 is `uncertain` when more than one
+- Primary decider (Jev or explicitly attested no-account model): chosen probability below 0.80 or confidence below 0.50 is `uncertain` when more than one
   candidate exists (`choice-uncertain`), otherwise `request-input`.
 - Fallback: chosen probability below 0.82 is `request-input`, `choice-uncertain`; never `uncertain`.
 
@@ -286,7 +287,7 @@ Router outcome per object:
 | Status | When |
 |---|---|
 | `resolved` | answered, one selection, not paid or licensed |
-| `best-of-n` | Jev decider and (`uncertain` or top-two margin below 0.25); the top two are recorded |
+| `best-of-n` | primary Jev or no-account model decider and (`uncertain` or top-two margin below 0.25); the top two are recorded |
 | `request-input` | no common route, none fits, paid or licensed selection (`route-action-consent-required`), unresolved decomposition |
 | `dropped`, `merged` | section 4.4 |
 
@@ -346,6 +347,69 @@ with `paid-or-licensed-owner-not-authorized`; heavy local cost is not paid conse
 - **Ceilings.** 60 minutes per object from first consultation (`deadline-exhausted`); only started
   repair applications count toward 3 per pass and 6 per object (`correction-budget-exhausted`).
   Rejected repair starts still count; strategy applications and reviews do not consume correction slots.
+
+### 5.1 Explicit no-account routing decider
+
+Jev remains the default. Without credentials, ask for `img2-jev login`; never infer no-account mode
+from missing credentials, refusal to log in, HTTP errors or uncertainty. A user with no Jev account
+may run this separate command personally, outside the agent's control path:
+
+```bash
+python3 forge/route.py attest-no-jev-account --workspace WS --run-id RUN --image ref.png \
+  --model-id provider:model --token-budget 256000 --accept-image-disclosure
+```
+
+The command requires an interactive terminal and the confirmation `ATTEST`. It prints exactly
+which provider/model receives the reference images, upright images and derived crops via the host,
+their original SHA256s, workspace, run, token budget and expiry. Model IDs use controller identifiers
+(for example `provider:model`, not a slash-separated path). Authority is private mode-0600,
+user-owned JSON in mode-0700 `$IMG2_HOME/config`, outside both workspace and skill checkout, using
+no-follow reads, a file lock and atomic fsync/rename like Jev consent. Only user-run commands write
+this store; workspace question/answer artifacts cannot enroll authority. Like Jev consent, this is
+not a sandbox against an unrestricted process running as the same OS user.
+
+The grant is routing-only, bound to user/workspace/run/reference hashes/model/budget, expires after
+1800 seconds by default (`--expires-in 1..3600`), and is journalled. A present `TYPESAFE_API_KEY` or
+enrolled macOS Keychain entry refuses `--no-jev-account` with `jev-account-present`: use Jev.
+Credential-store errors fail closed; no Jev installation, auth/consent probe or network call is
+needed in this mode. Local enrollment inspection never retrieves the credential.
+
+```bash
+python3 forge/route.py questions --workspace WS --run-id RUN --image ref.png \
+  --objects objects.json --no-jev-account
+python3 forge/route.py questions --workspace WS --run-id RUN --image ref.png \
+  --objects objects.json --no-jev-account --model-answers answers.json
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png \
+  --objects objects.json --no-jev-account --model-answers answers.json
+python3 forge/route.py revoke-no-jev-account --workspace WS --run-id RUN
+```
+
+`questions` returns `questions-ready` (exit 0) with a content-addressed `questionsRef`. The host reads
+that artifact and its bound images; it contains the sanitized `state`, `contextDigest`, exact
+`route-questions-v3` Choice/Noul/Box questions and an `answerFormat` envelope. Copy the envelope,
+replace `answers` with the model's typed answers, and supply actual input/output token counts.
+The workspace-relative answer file is a closed envelope:
+
+```json
+{"kind":"img2.route-model-answers","version":1,"attestationId":"<grant id>","answers":[]}
+```
+
+Append each completed `img2.decision-advisory` to `answers`. Repeat with accumulated answers because
+localization can reveal crop-choice and route-selection questions. Missing answers stop before
+dispatch or token reservation, and normal routing returns `model-answers-required` (exit 3) with
+the same `questionsRef`. Answers cannot replace question identity, subject, model or candidates.
+The controller validates identical answer schemas and primary-decider uncertainty thresholds.
+The shared request reservation remains 64000 tokens; a smaller remaining budget refuses dispatch.
+
+Decisions, consultation receipts and journal attempts record `decider: model:<id>`,
+`presentedAsJev: false`, `decisionMode: no-account`, and `attestationId`; no synthetic Jev outage
+is recorded. The journal includes `no-account-attested`, `no-account-selected` and revocation.
+Authority is re-read at consult, consume and verification: expiry, revocation, re-attestation,
+changed reference bytes or newly present Jev enrollment invalidate it, including cached receipts.
+Every deterministic eligibility/dependency/pin/output-kind veto and terminal gate still applies.
+This is a primary routing decider, **not** the stricter outage fallback in section 6, not the
+textured likeness command, and not authorization for strategy, review, repair or child completion.
+
 
 ## 6. Host-model fallback and the proven-outage rule
 

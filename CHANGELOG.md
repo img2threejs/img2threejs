@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Add routing-only `--no-jev-account`: interactive user attestation in private external
+  `$IMG2_HOME/config` binds workspace/run/reference hashes/model/budget with expiry and revocation.
+  Offline `questions` / `--model-answers` use primary-decider schemas and uncertainty rules,
+  preserve all deterministic vetoes, and journal `model:<id>`, `presentedAsJev: false` and the
+  attestation id. Present Jev enrollment refuses this mode; missing credentials alone still request
+  login. Strategy/review/repair and textured likeness retain their existing contracts.
 - Add the `textured` build profile and `forge/textured/` (inspect, normalize, render, sheet, generate, likeness, decide, deliver): a reference image becomes a generated, textured GLB, cleaned and rendered with bpy, measured with a Jev likeness loop (consent-gated, budgeted, never printing keys; no-account mode journals `model:<id>`), with up to four generations. It is now the default for `forge/state.py init` when a generator MCP tool is configured; procedural profiles are an explicit opt-in (`--profile generic|<domain>` or `procedural-*`). Routing and plugin ownership are unchanged. SKILL.md and README now describe the textured product; `docs/TEXTURED.md` is the contract. Intentional test changes: tests that start a procedural run through `state.py init` now pass `--profile generic`, and the degraded `--profile` choice set is `generic,textured,procedural-generic`. Not done: no generator call is made by this repository (the host's MCP tool is an agent step), no rig/LOD, no live Jev run.
 - Harden the textured build path: the Jev plugin pin now covers every `REQUIRED_PROVIDER_FILES` entry (no-follow reads, verified bytes staged privately and run from the copy, scrubbed child environment); `generate.py` takes the generation cap only from the workflow state (`--max-generations` can only lower it), refuses `--overwrite` once a likeness or decision exists, and archives replaced receipts as `superseded-K.json` so credit totals are append-only; `generate.json` asset paths must resolve inside `gen-N/` (inspect, normalize); docs name `--domain animated-character` for the rig track and `state.py init` says when a domain adds no rig rows.
 - Close three textured-profile gaps: `generate.py record` now fails closed on the generation cap (a missing, unreadable or invalid state, or `textured.maxGenerations` outside 1..8 or non-int, refuses recording, and workflow validation enforces the same range); inspect and normalize share one `require_contained_model` check that refuses a `.gltf`/`.glb`/`.obj`/`.mtl` whose external buffers, textures or material libraries are absolute, `..`, `file:`/`http(s):` or resolve (symlinks followed) outside `gen-N/` (binary FBX is not parsed); and credit totals enumerate every `superseded-*.json` so a missing archive number cannot hide receipts.
@@ -16,8 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `blender>=4.3` on PATH, independently of `IMG2_BLENDER_PYTHON`. See `docs/E2E.md`.
 - Add fail-closed provisioned runtime selector fallback without changing real environment
   precedence, selected-plugin installation preflight, and visible per-object route rejection
-  reasons. The default install policy requires all five plugins; bundling/repair and explicit
-  no-account Jev mode remain separate integration work.
+  reasons. The default install policy requires all five plugins; bundling/repair remains separate
+  integration work. Routing's explicit no-account authority is now implemented as described above.
 - Add offline Jev release-lock regeneration/checking from the harness plugin pin and exact Git
   object bytes. Regenerate the core lock for `ea15e4b0748f6af266c5b956041d974d1c01002f`
   and enforce pin parity in tests when the harness lock is available.

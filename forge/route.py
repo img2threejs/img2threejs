@@ -4,10 +4,10 @@
 Run ``python3 forge/route.py --workspace WORKSPACE --run-id RUN --image ref.png
 --objects objects.json``. Image and object paths are workspace-relative. Real Jev
 image disclosure and paid use require a separate user-run four-purpose consent
-command; this CLI never enrolls, revokes, prompts for keys, or selects a fallback by itself.
-A model fallback exists only when the host passes both ``--fallback-command`` (an executable it
-approves) and ``--fallback-sha256`` (that file's exact digest); see ``stage0_route/fallback.py``.
-The controller still consults it only after a journalled Jev outage, never after a Jev answer.
+command. Routing never enrolls authority or selects a fallback by itself.
+``attest-no-jev-account`` is a separate interactive user command; ``--no-jev-account``
+requires that live grant and uses host JSON answers to ``questions``, never Jev.
+The separately pinned outage fallback remains available only after a journalled Jev outage.
 Only the base-owned reviewed Jev release lock is accepted; there is no Jev lock override.
 ``--create-children`` requires explicit local harness release/launcher pins. It
 creates pending child checklists only after concrete aggregate authentication.
@@ -54,6 +54,8 @@ from stage0_route.discovery import (EDGES, read_only_probes, character_bpy_probe
                                     resolve_character_executable)
 from stage0_route.fallback import HostFallback, fallback_decisions
 from host_policy import pinned_policy_module
+from route_no_account import RoutingNoAccount, attest
+from stage0_route.model_decider import ModelDecider
 
 
 _AUTH = {"credential-missing", "credential-rejected", "credential-storage-error"}
@@ -79,6 +81,11 @@ _SAFE_ERRORS |= {"fallback-command-unsafe", "fallback-digest-mismatch", "fallbac
 _SAFE_ERRORS |= {"invalid-second-proposals", "second-proposal-context-mismatch",
                  "invalid-second-proposal-binding", "stale-second-proposal-source",
                  "second-proposals-empty"}
+_SAFE_ERRORS |= {"no-jev-account-attestation-required", "attestation-store-required",
+                 "attestation-storage-error", "attestation-binding-mismatch", "attestation-revoked",
+                 "attestation-expired", "attestation-changed", "attestation-unproven", "invalid-attestation", "user-attestation-required",
+                 "jev-account-present", "model-answers-required", "invalid-model-answers",
+                 "out-of-set", "model-mismatch", "subject-mismatch", "context-digest-mismatch"}
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -163,16 +170,9 @@ def _run_cli(argv, workspace, *, timeout=15):
     return code, _json(raw)
 
 
-class LiveConsent:
-    """Live pinned local auth/consent probes; no synthetic or enrolled grants."""
-    def __init__(self, discovery, approved_release, run_id, executable):
-        self.discovery = discovery
-        self.release = copy.deepcopy(approved_release)
-        self.run_id = run_id
-        self.executable = Path(executable).resolve(strict=True)
-        self.executable_sha = self._interpreter_sha()
-        self.last_failure = None
-        self.row = None
+class HostGit:
+    """Pinned host Git tools shared by Jev probes and harness verification."""
+    def __init__(self):
         git = shutil.which("git")
         if git is None:
             _fail("provider-contract-unproven")
@@ -182,6 +182,19 @@ class LiveConsent:
         self.git_env = {"PATH": os.defpath, "LANG": "C.UTF-8"}
         self.git_env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull,
                             GIT_TERMINAL_PROMPT="0", GIT_NO_REPLACE_OBJECTS="1", GIT_NO_LAZY_FETCH="1")
+
+
+class LiveConsent(HostGit):
+    """Live pinned local auth/consent probes; no synthetic or enrolled grants."""
+    def __init__(self, discovery, approved_release, run_id, executable):
+        self.discovery = discovery
+        self.release = copy.deepcopy(approved_release)
+        self.run_id = run_id
+        self.executable = Path(executable).resolve(strict=True)
+        self.executable_sha = self._interpreter_sha()
+        self.last_failure = None
+        self.row = None
+        super().__init__()
 
     def _interpreter_sha(self):
         return hashlib.sha256(_file(self.executable.parent, self.executable.name,
@@ -671,6 +684,7 @@ def _recorded_second_proposals(workspace, relative, approved_sha, *, image, obje
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", nargs="?", choices=("questions", "attest-no-jev-account", "revoke-no-jev-account"))
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--image", help="Workspace-relative PNG or baseline JPEG")
@@ -682,6 +696,13 @@ def build_parser():
     parser.add_argument("--expected-output", choices=("2d", "3d"), default="3d")
     parser.add_argument("--intent", action="append", default=[])
     parser.add_argument("--explicit-route")
+    parser.add_argument("--no-jev-account", action="store_true",
+                        help="Explicit user-attested primary host-model routing; never inferred from missing login")
+    parser.add_argument("--model-answers", help="Workspace-relative img2.route-model-answers JSON")
+    parser.add_argument("--model-id", help="Named provider/model receiving images (attestation only)")
+    parser.add_argument("--token-budget", type=int, help="User-authorized routing token budget (attestation only)")
+    parser.add_argument("--expires-in", type=int, default=1800, help="Attestation lifetime in seconds, at most 3600")
+    parser.add_argument("--accept-image-disclosure", action="store_true", help="Accept the printed host-model disclosure")
     parser.add_argument("--create-children", action="store_true",
                         help="Initialize pending child states after concrete route verification; not model execution or delivery")
     parser.add_argument("--complete-child", metavar="OBJECT_ID",
@@ -735,12 +756,47 @@ def _output(*, reason=None, result=None):
         value["requiredFlags"] = ["--workspace", "--run-id", "--token-budget",
                                   "--accept-image-disclosure", "--accept-paid-calls"]
         value["purposes"] = list(GROUPS)
+    elif reason in {"no-jev-account-attestation-required", "attestation-store-required", "attestation-expired",
+                    "attestation-revoked", "attestation-changed", "user-attestation-required"}:
+        value["requestedCommand"] = "python3 forge/route.py attest-no-jev-account"
+        value["requiredFlags"] = ["--workspace", "--run-id", "--image", "--model-id", "--token-budget",
+                                  "--accept-image-disclosure"]
+        value["message"] = "The user must attest interactively outside the agent control path; set IMG2_HOME outside the workspace."
+    elif reason == "jev-account-present":
+        value["message"] = "A Jev credential is present. Use Jev without --no-jev-account."
     return value
 
 
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command in {"attest-no-jev-account", "revoke-no-jev-account"}:
+        revoke = args.command == "revoke-no-jev-account"
+        if not revoke and (not args.image or not args.model_id or args.token_budget is None
+                           or not args.accept_image_disclosure):
+            parser.error("attestation requires --image, --model-id, --token-budget and --accept-image-disclosure")
+        try:
+            record = attest(args.workspace, args.run_id, model_id=args.model_id,
+                            images=[args.image] if args.image else [], token_budget=args.token_budget,
+                            ttl=args.expires_in, revoke=revoke)
+            print(json.dumps({"kind": "img2.route-attestation", "version": 1,
+                              "status": "revoked" if revoke else "attested",
+                              "attestationId": record["attestationId"], "expiresAt": record["expiresAt"],
+                              "decider": "model:" + record["modelId"], "presentedAsJev": False}, sort_keys=True))
+            return 0
+        except (DecisionError, OSError) as error:
+            print(json.dumps(_output(reason=getattr(error, "reason_code", "attestation-storage-error")), sort_keys=True))
+            return 3
+    if args.command == "questions" and not args.no_jev_account:
+        parser.error("questions requires explicit --no-jev-account")
+    if args.command == "questions" and (args.create_children or args.complete_child):
+        parser.error("questions does not initialize or complete children")
+    if args.model_id is not None or args.token_budget is not None or args.accept_image_disclosure or args.expires_in != 1800:
+        parser.error("model/disclosure/budget/expiry flags apply only to the user attestation command")
+    if args.model_answers and not args.no_jev_account:
+        parser.error("--model-answers requires --no-jev-account")
+    if args.no_jev_account and (args.complete_child or args.fallback_command):
+        parser.error("no-account model answers apply to routing, not child completion or outage fallback")
     if (args.fallback_command is None) != (args.fallback_sha256 is None):
         parser.error("--fallback-command and --fallback-sha256 must be supplied together")
     if (args.second_objects is None) != (args.second_objects_sha256 is None):
@@ -778,7 +834,7 @@ def main(argv=None):
         parser.error("child operations require --harness-root, --harness-sha, --harness-executable and --harness-sha256")
     if any(value is not None for value in pins) and any(value is None for value in pins):
         parser.error("harness approval requires all four --harness-* pins")
-    consent, result, harness = None, None, None
+    consent, result, harness, factory = None, None, None, None
     try:
         workspace = args.workspace.resolve(strict=True)
         second_proposals, second_proposal_binding = None, None
@@ -794,25 +850,32 @@ def main(argv=None):
                 second_proposals, second_proposal_binding = _recorded_second_proposals(
                     workspace, args.second_objects, args.second_objects_sha256,
                     image=args.image, objects=objects)
-        release = _approved_lock()
+        release = None if args.no_jev_account else _approved_lock()
         fallback = None
         if args.fallback_command is not None:
             # Refuse an unapproved or changed program before any journal or lease is touched.
             fallback = HostFallback(args.fallback_command, args.fallback_sha256)
-        controller = DecisionController(workspace, args.run_id)
+        consent = RoutingNoAccount(workspace, args.run_id, args.image) if args.no_jev_account else None
+        controller = (DecisionController(workspace, args.run_id, routing_authority=consent)
+                      if args.no_jev_account else DecisionController(workspace, args.run_id))
         discovery = PinnedDiscovery(controller)
-        consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
-        discovery.consent_probe = consent
+        if not args.no_jev_account:
+            consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
+            discovery.consent_probe = consent
         if all(value is not None for value in pins):
-            harness = HarnessPin(*pins, consent)
+            harness = HarnessPin(*pins, HostGit() if args.no_jev_account else consent)
             discovery.harness = harness.argv
             discovery.runner = harness.runner
-        factory = None if args.complete_child else JevProviderFactory(
-            discovery, approved_release=release, run_id=args.run_id,
-            consent=consent, python_executable=consent.executable)
+        if args.no_jev_account:
+            factory = ModelDecider(controller, consent, args.model_answers)
+        elif not args.complete_child:
+            factory = JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
+                                         consent=consent, python_executable=consent.executable)
+        router_kwargs = {"requested_model": consent.model_id} if args.no_jev_account else {}
         router = Router(workspace, args.run_id, controller=controller, discovery=discovery,
                         consent=consent, provider_factory=factory, fallback=fallback,
-                        second_proposals=second_proposals, second_proposal_binding=second_proposal_binding)
+                        second_proposals=second_proposals, second_proposal_binding=second_proposal_binding,
+                        **router_kwargs)
         if args.complete_child:
             discovery.enumerate()
             policies = None if args.policy_module is None else load_route_policies(
@@ -843,6 +906,13 @@ def main(argv=None):
         if reason == "consent-probe-error" and consent is not None and consent.last_failure:
             reason = consent.last_failure
         value = _output(reason=reason)
+        if isinstance(factory, ModelDecider) and factory.pending is not None:
+            value["questionsRef"] = factory.pending
+            if args.command == "questions":
+                value["status"] = "questions-ready"
+    if args.no_jev_account and consent is not None:
+        value.update(decider="model:" + consent.model_id, presentedAsJev=False,
+                     attestationId=consent.initial["attestationId"], decisionMode="no-account")
     if args.create_children or args.complete_child:
         value.update(terminalStatus="incomplete", terminalAcceptance=False, deliverable=False)
         if args.create_children:
@@ -850,7 +920,7 @@ def main(argv=None):
             if value["childrenCreated"]:
                 value["mode"] = "children-initialized"
     print(json.dumps(value, sort_keys=True))
-    return 0 if value["status"] in {"decided", "children-initialized", "child-completed"} else 3
+    return 0 if value["status"] in {"decided", "questions-ready", "children-initialized", "child-completed"} else 3
 
 
 if __name__ == "__main__":

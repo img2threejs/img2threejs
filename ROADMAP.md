@@ -14,9 +14,11 @@ visible route rejection reasons, and offline Jev release-lock regeneration/check
 The isolated E2E runner accepts role/observations; pinned routing distinguishes missing
 dependency executables from provider errors. Interior still requires Blender >=4.3 on PATH.
 The default installation policy requires all five routed plugins; users may explicitly choose
-a subset. Remaining release gates: bundled installer/repair integration, public Jev packaging
-after secret-history review, clean-home install/routing acceptance, and explicit no-account
-decision mode. Core offline checks do not establish any of those gates.
+a subset. Explicit routing-only no-account authority is implemented: interactive, private,
+run/image/model/budget-bound user attestation with expiry/revocation and offline typed model answers;
+it does not extend to strategy/review/repair or prove live model quality. Remaining release gates:
+bundled installer/repair integration, public Jev packaging after secret-history review and clean-home
+install/routing acceptance. Core offline checks do not establish those remaining gates.
 
 ## Shipped
 

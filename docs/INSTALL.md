@@ -90,8 +90,31 @@ Exit 0 means every selected plugin is registered at its pin, its declared routin
 and selected Jev's four decision edges and core-approved auth probe are usable. No paid call
 or consent grant is made. Exit 1 names the failure in a plain plugin/capability/status/reason
 table and prints one repair command. Unselected rows say `not installed by choice`.
-Missing Jev credentials require `img2-jev login`; this cannot distinguish a user with no account
-and does not implement the later explicit no-account choice.
+Missing Jev credentials still require `img2-jev login`; absence never selects another decider.
+Users who have **no Jev account** can instead explicitly attest for routing only:
+
+```bash
+# Run personally in an interactive terminal; IMG2_HOME must be outside WS and the skill checkout.
+python3 forge/route.py attest-no-jev-account --workspace WS --run-id RUN --image ref.png \
+  --model-id provider:model --token-budget 256000 --accept-image-disclosure
+python3 forge/route.py questions --workspace WS --run-id RUN --image ref.png \
+  --objects objects.json --no-jev-account
+```
+
+The first command prints the named model-provider disclosure, original image SHA256s, scope,
+budget and expiry; the user must type `ATTEST`. Private authority lives in `$IMG2_HOME/config`,
+not the workspace. Default lifetime is 1800 seconds; `--expires-in` permits at most 3600.
+The host reads the returned `questionsRef`, inspects the bound images, and supplies typed JSON with
+`--model-answers FILE`. Repeat questions/answers as localization reveals subsequent questions.
+See [routing deciders](../grimoire/intake/routing.md#51-explicit-no-account-routing-decider) for the
+closed answer envelope and revocation command. No model network client lives in core.
+
+A Jev credential present locally refuses this mode: use Jev instead. Revocation, expiry, changed
+reference bytes or re-attestation invalidate cached authority. Preflight still reports missing Jev
+authentication; this explicit routing mode does not waive installation, dependency, pin, output-kind,
+eligibility or terminal gates, and does not authorize strategy/review/repair or child completion.
+The consent boundary is user-owned files plus an interactive action, not a sandbox against code
+running unrestricted as that same OS user. An agent must never attest on the user's behalf.
 
 Real process environment selectors always win, including explicitly empty values. File
 fallbacks are accepted only from a user-owned regular mode-0600 selectors file, with schema 1,

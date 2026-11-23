@@ -71,7 +71,8 @@ def jev_status(discovery, row):
     discovery.jev, discovery.jev_status = row, "present"
     status = LiveConsent(discovery, release, "install-preflight", sys.executable).auth_status()["status"]
     if status == "credential-missing":
-        return "credential-missing; run img2-jev login; no-account choice is not implemented"
+        return ("credential-missing; run img2-jev login; users with no Jev account may explicitly attest via "
+                "python3 forge/route.py attest-no-jev-account (routing only; see docs/INSTALL.md)")
     return None if status == "present" else status
 
 
