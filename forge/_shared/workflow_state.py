@@ -16,6 +16,8 @@ from textured_profile import (  # noqa: E402
     DEFAULT_MAX_GENERATIONS,
     DELIVER_STEPS,
     GENERATION_ROWS,
+    MAX_GENERATIONS,
+    MIN_GENERATIONS,
     TEXTURED_PROFILE,
     normalize_profile,
     textured_block,
@@ -205,8 +207,8 @@ def _new_textured_state(reference, *, spec, max_per_pass, max_total, domain_id, 
     """Generated, textured GLB path. Every generation row is `setup` scope and `deliver` is `final`,
     with the pass phase pre-completed: the sculpt pass machinery has nothing to say about a model
     that is not built from a spec, so it must never surface a pass row or an await-pass step."""
-    if not isinstance(max_generations, int) or isinstance(max_generations, bool) or not 1 <= max_generations <= 8:
-        raise WorkflowStateError("max-generations must be an integer within 1..8")
+    if not isinstance(max_generations, int) or isinstance(max_generations, bool) or not MIN_GENERATIONS <= max_generations <= MAX_GENERATIONS:
+        raise WorkflowStateError(f"max-generations must be an integer within {MIN_GENERATIONS}..{MAX_GENERATIONS}")
     domain = _textured_domain(domain_id)
     rows = (
         [_step(sid, cmd, scope="setup") for sid, cmd in textured_rows(max_generations)]
@@ -326,8 +328,9 @@ def attach_lifecycle_steps(state: dict[str, Any]) -> None:
 def _validate_textured(state: dict[str, Any]) -> None:
     block = state.get("textured")
     if (not isinstance(block, dict) or type(block.get("generation")) is not int or type(block.get("maxGenerations")) is not int
+            or not MIN_GENERATIONS <= block["maxGenerations"] <= MAX_GENERATIONS
             or not 1 <= block["generation"] <= block["maxGenerations"] or not isinstance(block.get("history"), list)):
-        raise WorkflowStateError("textured state needs generation, maxGenerations and history")
+        raise WorkflowStateError(f"textured state needs generation, maxGenerations ({MIN_GENERATIONS}..{MAX_GENERATIONS}) and history")
     domain_id = state.get("domain", "generic")
     if not isinstance(domain_id, str):
         raise WorkflowStateError("textured state domain must be a string")

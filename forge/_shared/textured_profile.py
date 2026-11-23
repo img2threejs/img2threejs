@@ -21,6 +21,8 @@ TEXTURED_PROFILE: Final = "textured"
 PROCEDURAL_PREFIX: Final = "procedural-"
 BASE_PROFILES: Final = ("generic", TEXTURED_PROFILE)
 DEFAULT_MAX_GENERATIONS: Final = 4
+MIN_GENERATIONS: Final = 1  # the range `state.py init --max-generations` accepts, and every state must stay within
+MAX_GENERATIONS: Final = 8
 
 # Rows that are re-opened for every new generation. `reference-admission` is per run, `deliver` is
 # terminal; everything between them belongs to one generation attempt.

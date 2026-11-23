@@ -33,7 +33,7 @@ account or credits.
 | normalize | script (bpy) | +Z up, facing -Y, target height (`--height`, default 1.8), feet at the origin, XY centred, speck islands removed, textures kept, GLB export |
 | render | script (bpy) | front, left34, right34, left_side, back and optional `--closeup head|torso|feet`; Cycles CPU with denoise (or `--engine eevee`); default 1024x1536; neutral studio light |
 | likeness | script + Jev | `sheet.py` builds `[reference | render]` within the Jev image limits (each side 280..1568 px); `likeness.py run` asks Jev |
-| decide | script | `decide.py`: SAME accepts; DIFFERENT regenerates; SIMILAR accepts at mean >= 2.4 with no flagged defect, else regenerates; cap reached (default 4 generations) accepts the best generation, Jev scores outranking model-answered ones |
+| decide | script | `decide.py`: SAME accepts; DIFFERENT regenerates; SIMILAR accepts at mean >= 2.4 with no flagged defect, else regenerates; cap reached (`textured.maxGenerations`, 1..8, default 4) accepts the best generation, Jev scores outranking model-answered ones |
 | deliver | script | `.img2threejs/textured/final/`: `model.glb`, renders, `comparison.png`, receipts, `REPORT.md` |
 
 A regeneration must change model, scenario, prompt or input image: `generate.py` refuses a request

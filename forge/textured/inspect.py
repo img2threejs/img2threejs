@@ -177,6 +177,7 @@ def main(argv):
         raise C.TexturedError(f"model not found: {model}")
     if model.suffix.lower() not in SUPPORTED:
         raise C.TexturedError(f"unsupported model format {model.suffix!r}; expected one of {SUPPORTED}")
+    C.require_contained_model(workspace, None if args.model else args.gen, model)
     if out is None:
         out = Path.cwd() / "inspect.json"
     if not inside:

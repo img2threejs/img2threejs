@@ -212,6 +212,7 @@ def main(argv):
         raise C.TexturedError("pass --gen N or --model PATH")
     if not model.is_file():
         raise C.TexturedError(f"model not found: {model}")
+    C.require_contained_model(workspace, None if args.model else args.gen, model)
     if not inside:
         code = C.delegate_to_bpy(os.path.abspath(__file__), argv)
         if code is not None:

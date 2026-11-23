@@ -18,6 +18,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 _HERE = Path(__file__).resolve().parent
 _SHARED = str(_HERE.parent / "_shared")
@@ -70,20 +71,136 @@ def contained_asset(workspace: Path, generation: int, relative: Any) -> Path:
     return resolved
 
 
+def _numbered(directory: Path, pattern: str) -> list[tuple[int, Path]]:
+    """Entries of ``directory`` matching ``pattern`` (one numeric group), sorted by that number; gaps are fine."""
+    found = []
+    if directory.is_dir():
+        for entry in directory.iterdir():
+            match = re.fullmatch(pattern, entry.name)
+            if match:
+                found.append((int(match.group(1)), entry))
+    return sorted(found)
+
+
+def superseded_receipts(directory: Path) -> list[Path]:
+    """Every ``superseded-K.json`` in a generation directory, by K, whatever numbers are missing."""
+    return [path for _, path in _numbered(Path(directory), r"superseded-(\d+)\.json") if path.is_file()]
+
+
 def generation_receipts(workspace: Path) -> list[dict[str, Any]]:
-    """Every generate receipt ever written: the current ``generate.json`` of gen-1..N, in order, and every
-    ``superseded-K.json`` a replaced one was archived to. Spending history is append-only, so totals sum all."""
+    """Every generate receipt ever written: for each ``gen-N`` (by N, gaps tolerated) every ``superseded-K.json``
+    a replaced receipt was archived to, then its current ``generate.json``. Spending history is append-only,
+    so totals sum all of it; a missing file in the middle never hides the receipts after it."""
     rows: list[dict[str, Any]] = []
-    number = 1
-    while (gen_dir(workspace, number) / "generate.json").is_file():
-        directory = gen_dir(workspace, number)
-        archived = 1
-        while (directory / f"superseded-{archived}.json").is_file():
-            rows.append(read_json(directory / f"superseded-{archived}.json"))
-            archived += 1
-        rows.append(read_json(directory / "generate.json"))
-        number += 1
+    for _, directory in _numbered(textured_root(workspace), r"gen-(\d+)"):
+        for archived in superseded_receipts(directory):
+            rows.append(read_json(archived))
+        if (directory / "generate.json").is_file():
+            rows.append(read_json(directory / "generate.json"))
     return rows
+
+
+# ---------------------------------------------------------------- model dependencies
+
+_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]*:")
+_MTL_PATH_KEYS = re.compile(r"^(map_\w+|bump|disp|decal|refl|norm)$", re.IGNORECASE)
+
+
+def _gltf_document(path: Path) -> Any:
+    """The glTF JSON of a .gltf/.glb. Sniffed by content like the importer does (a ``glTF`` magic is binary,
+    anything else is JSON text whatever the suffix), so a renamed file cannot dodge the check."""
+    data = path.read_bytes()
+    if data[:4] == b"glTF":
+        length = int.from_bytes(data[12:16], "little")
+        if len(data) < 20 or data[16:20] != b"JSON" or 20 + length > len(data):
+            raise TexturedError(f"{path.name} is not a valid GLB (no JSON chunk); refusing to import it")
+        text = data[20:20 + length]
+    else:
+        text = data
+    try:
+        return json.loads(text.decode("utf-8"))
+    except ValueError:
+        raise TexturedError(f"{path.name} is not valid glTF JSON; refusing to import it") from None
+
+
+def _references(path: Path) -> list[str]:
+    """The external files a model names (data: URIs are embedded and excluded). Binary FBX is not parsed."""
+    suffix = path.suffix.lower()
+    found: list[str] = []
+    if suffix in (".gltf", ".glb"):
+        document = _gltf_document(path)
+        if not isinstance(document, dict):
+            raise TexturedError(f"{path.name} is not a glTF object; refusing to import it")
+        for key in ("buffers", "images"):
+            rows = document.get(key, [])
+            if not isinstance(rows, list):
+                raise TexturedError(f"{path.name}: glTF {key} must be a list; refusing to import it")
+            for row in rows:
+                uri = row.get("uri") if isinstance(row, dict) else None
+                if uri is None:
+                    continue
+                if not isinstance(uri, str):
+                    raise TexturedError(f"{path.name}: glTF {key} uri must be a string; refusing to import it")
+                if not uri.lower().startswith("data:"):
+                    found.append(uri)
+    elif suffix in (".obj", ".mtl"):
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            parts = line.strip().split(None, 1)
+            if len(parts) != 2:
+                continue
+            key, rest = parts[0], parts[1].strip()
+            if suffix == ".obj" and key == "mtllib":
+                found.append(rest)
+                found.extend(rest.split())
+            elif suffix == ".mtl" and _MTL_PATH_KEYS.match(key):
+                found.append(rest)
+                for token in rest.split():
+                    if token.startswith("-"):
+                        continue
+                    try:
+                        float(token)
+                    except ValueError:
+                        found.append(token)
+    return found
+
+
+def require_contained_model(workspace: Path, generation: int | None, model: Path) -> None:
+    """The one pre-import check inspect and normalize share: a generation's model may only depend on files
+    inside its own ``gen-N`` directory; an explicit ``--model`` outside a generation, on files under its own directory."""
+    root = gen_dir(workspace, generation) if generation is not None else Path(model).parent
+    require_contained_references(Path(model), root)
+
+
+def require_contained_references(model: Path, root: Path, _seen: set[Path] | None = None) -> None:
+    """Refuse a model whose external dependencies (glTF buffers/images, OBJ ``mtllib`` and the MTL maps) are not
+    plain relative paths that resolve, with symlinks followed, inside ``root`` (relative to the model's own
+    directory, which is how the importers resolve them).
+
+    ``raw/model.gltf`` is data from a generator, not a trusted argument: an absolute buffer URI, ``..``, a
+    ``file:`` or ``http(s):`` URL, or a symlink out of ``root`` would make the importer read or fetch something
+    that is not part of the generation. Embedded (``data:``) and GLB-internal buffers are fine. Run it before
+    every import of a model that can name other files; binary FBX is not parsed.
+    """
+    model = Path(model)
+    real_root = Path(os.path.realpath(root))
+    seen = _seen if _seen is not None else set()
+    real_model = Path(os.path.realpath(model))
+    if real_model in seen:
+        return
+    seen.add(real_model)
+    for uri in _references(model):
+        decoded = unquote(uri)
+        for candidate in {uri, decoded}:
+            if (not candidate or candidate.startswith(("/", "\\")) or _SCHEME.match(candidate)
+                    or "\x00" in candidate or ".." in re.split(r"[\\/]", candidate)):
+                raise TexturedError(f"{model.name} references {uri!r}, which is not a relative path inside "
+                                    f"{real_root}; refusing to import it")
+        target = Path(os.path.realpath(model.parent / decoded.replace("\\", "/")))
+        if target == real_root or real_root not in target.parents:
+            raise TexturedError(f"{model.name} references {uri!r}, which resolves outside {real_root}; "
+                                "refusing to import it")
+        if model.suffix.lower() == ".obj" and target.suffix.lower() == ".mtl" and target.is_file():
+            require_contained_references(target, root, seen)
 
 
 def resolve_workspace(value: str | os.PathLike[str] | None) -> Path:

@@ -9,8 +9,9 @@ credits, model, scenario, prompt and the sha256 of the input image.
 
 A regeneration (gen > 1) MUST differ from every earlier generation in model, scenario, prompt or
 input image; the generator is not deterministic-with-feedback, so re-sending the same request is paid
-noise, and is refused. The cap comes from the workflow state (``textured.maxGenerations``, default 4
-without a state file); ``--max-generations`` may only LOWER it, never raise it.
+noise, and is refused. The cap comes from the workflow state (``textured.maxGenerations``, 1..8) and fails
+closed: a missing, unreadable or invalid state refuses the recording. ``--max-generations`` may only
+LOWER it, never raise it.
 
 ``--overwrite`` replaces a generation's record only while nothing has been decided from it (no
 ``likeness.json`` and no decision in the state history). The replaced receipt is archived as
@@ -30,10 +31,11 @@ import shutil  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import _common as C  # noqa: E402
+from textured_profile import MAX_GENERATIONS, MIN_GENERATIONS  # noqa: E402
+from workflow_state import WorkflowStateError, load_state  # noqa: E402
 
 MODEL_SUFFIXES = (".glb", ".gltf", ".fbx", ".obj")
 KNOWN_MODELS = ("tripo-v3.1", "tripo-p1", "tripo-p2")
-DEFAULT_MAX_GENERATIONS = 4
 
 
 def signature(record):
@@ -71,25 +73,37 @@ def copy_asset(model_file, model_dir, raw):
     return target
 
 
-def generation_cap(args, state):
-    """The state's ceiling (default without a state file); ``--max-generations`` can only lower it."""
-    cap = DEFAULT_MAX_GENERATIONS
-    if state is not None:
-        stated = (state.get("textured") or {}).get("maxGenerations")
-        if type(stated) is int and stated >= 1:
-            cap = stated
+def generation_cap(args, state_path):
+    """``(cap, state)``: the workflow state's ceiling; ``--max-generations`` can only lower it.
+
+    Fails closed: the cap is read from a state that must exist and validate (``load_state``), and its
+    ``textured.maxGenerations`` must be an int within 1..8, the range ``state.py init`` allows. A missing,
+    unreadable or invalid state, or an edited cap outside that range, refuses the recording; there is no
+    default to fall back on.
+    """
+    try:
+        state = load_state(state_path)
+    except (WorkflowStateError, OSError, ValueError) as error:
+        raise C.TexturedError(f"cannot read the generation cap from {state_path}: {error}; "
+                              "run `state.py init --profile textured` or pass the workspace's real --state") from None
+    block = state.get("textured")
+    stated = block.get("maxGenerations") if isinstance(block, dict) else None
+    if type(stated) is not int or not MIN_GENERATIONS <= stated <= MAX_GENERATIONS:
+        raise C.TexturedError(f"{state_path}: textured.maxGenerations must be an integer within "
+                              f"{MIN_GENERATIONS}..{MAX_GENERATIONS}, got {stated!r}")
+    cap = stated
     if args.max_generations is not None:
         if args.max_generations < 1:
             raise C.TexturedError("--max-generations must be >= 1")
         cap = min(cap, args.max_generations)
-    return cap
+    return cap, state
 
 
 def decided_from(workspace, state, generation):
     """What a generation has already produced that a replacement would invalidate, or None."""
     if (C.gen_dir(workspace, generation) / "likeness.json").exists():
         return "a likeness record"
-    history = ((state or {}).get("textured") or {}).get("history") or []
+    history = (state.get("textured") or {}).get("history") or []
     if any(isinstance(row, dict) and row.get("generation") == generation for row in history):
         return "a recorded decision"
     return None
@@ -107,8 +121,7 @@ def archive_superseded(directory):
 
 def cmd_record(args, workspace):
     state_path = Path(args.state) if args.state else workspace / ".img2threejs" / "state.json"
-    state = C.read_json(state_path) if state_path.is_file() else None
-    limit = generation_cap(args, state)
+    limit, state = generation_cap(args, state_path)
     if args.gen > limit:
         raise C.TexturedError(f"generation {args.gen} exceeds the cap of {limit}; pick the best of the existing ones instead")
     model_file = Path(args.model_file).expanduser().resolve()

@@ -7,6 +7,7 @@ exercised too.
 import json
 import os
 import shutil
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -125,7 +126,8 @@ class BpySelectionTest(unittest.TestCase):
     def test_tools_fail_clearly_without_a_selected_bpy_python(self):
         with tempfile.TemporaryDirectory() as home:
             env = {"IMG2_BLENDER_PYTHON": "", "IMG2_CHARACTER_BPY_PYTHON": "", "IMG2_HOME": home}
-            (Path(home) / "m.glb").write_bytes(b"glTF")
+            body = b'{"asset":{"version":"2.0"}}  '
+            (Path(home) / "m.glb").write_bytes(b"glTF" + struct.pack("<III", 2, 20 + len(body), len(body)) + b"JSON" + body)
             done = run_tool("inspect.py", "--workspace", home, "--model", str(Path(home) / "m.glb"), env=env)
         self.assertEqual(done.returncode, 2)
         self.assertIn("no bpy python selected", done.stderr)

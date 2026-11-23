@@ -18,7 +18,7 @@ import decide as D  # noqa: E402
 import deliver as V  # noqa: E402
 import textured_profile as TP  # noqa: E402
 from workflow_state import (  # noqa: E402
-    WorkflowStateError, load_state, mark_steps, new_state, save_state, status_payload, textured_apply_decision,
+    WorkflowStateError, load_state, mark_steps, new_state, save_state, status_payload, textured_apply_decision, validate_state,
 )
 
 ORDER = ["reference-admission", "generate", "inspect", "normalize", "render", "likeness", "decide", "deliver"]
@@ -106,6 +106,14 @@ class ChecklistTest(unittest.TestCase):
             state["textured"]["generation"] = 9
             with self.assertRaises(WorkflowStateError):
                 save_state(path, state)
+
+    def test_validation_rejects_a_max_generations_outside_1_to_8(self):
+        for bad in (0, 9, 99, -1):
+            state = new_state("ref.png", profile="textured")
+            state["textured"]["maxGenerations"] = bad
+            state["textured"]["generation"] = 1
+            with self.subTest(cap=bad), self.assertRaises(WorkflowStateError):
+                validate_state(state)
 
     def test_max_generations_and_domain_are_validated(self):
         for bad in (0, 9, True):
@@ -204,6 +212,8 @@ class GenerateRecordTest(unittest.TestCase):
         (self.ws / "out").mkdir()
         (self.ws / "out" / "model.fbx").write_bytes(b"fbx")
         (self.ws / "out" / "tex.png").write_bytes(b"png")
+        (self.ws / ".img2threejs").mkdir()
+        save_state(self.ws / ".img2threejs" / "state.json", new_state("r.png", profile="textured", max_generations=4))
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -275,6 +285,41 @@ class GenerationBudgetTest(unittest.TestCase):
         self.assertIn("exceeds the cap of 2", raised.stderr)
         self.assertFalse((C.gen_dir(self.ws, 3) / "generate.json").exists())
 
+    def edit_cap(self, value):
+        path = self.ws / ".img2threejs" / "state.json"
+        state = json.loads(path.read_text())
+        state["textured"]["maxGenerations"] = value
+        path.write_text(json.dumps(state))
+
+    def test_the_cap_fails_closed_on_an_edited_out_of_range_or_non_int_value(self):
+        self.write_state(2)
+        for bad in (0, 99, 9, -1, "3", 2.5, True, None):
+            self.edit_cap(bad)
+            with self.subTest(cap=bad):
+                refused = self.record(1, scenario="a")
+                self.assertEqual(refused.returncode, 2, refused.stderr)
+                self.assertIn("generation cap", refused.stderr)
+                self.assertFalse((C.gen_dir(self.ws, 1) / "generate.json").exists())
+
+    def test_a_missing_unreadable_or_invalid_state_refuses_recording(self):
+        self.write_state(2)
+        self.assertEqual(self.record(1, scenario="a").returncode, 0)
+        self.assertEqual(self.record(2, scenario="b").returncode, 0)
+        for label, state_arg in (("missing", str(self.ws / "nowhere.json")), ("directory", str(self.ws / "out"))):
+            with self.subTest(state=label):
+                refused = self.record(3, scenario="c", extra=("--state", state_arg))
+                self.assertEqual(refused.returncode, 2, refused.stderr)
+                self.assertIn("generation cap", refused.stderr)
+        (self.ws / ".img2threejs" / "state.json").write_text("{not json")
+        self.assertEqual(self.record(3, scenario="c").returncode, 2)
+        (self.ws / ".img2threejs" / "state.json").unlink()
+        self.assertEqual(self.record(3, scenario="c").returncode, 2)
+        self.assertFalse((C.gen_dir(self.ws, 3) / "generate.json").exists())
+
+    def test_a_state_with_the_default_cap_still_records(self):
+        self.write_state(4)
+        self.assertEqual(self.record(1, scenario="a", extra=("--max-generations", "3")).returncode, 0)
+
     def test_a_lower_override_applies(self):
         self.write_state(4)
         self.assertEqual(self.record(1, scenario="a").returncode, 0)
@@ -295,6 +340,22 @@ class GenerationBudgetTest(unittest.TestCase):
         status = json.loads(run_tool("generate.py", "status", "--workspace", str(self.ws)).stdout)
         self.assertEqual(status["creditsTotal"], 65 * 5)
         self.assertEqual(V.credits_total(self.ws), (65 * 5, 2))
+
+    def test_a_gap_in_the_archive_does_not_hide_later_receipts(self):
+        self.write_state(4)
+        self.assertEqual(self.record(1, scenario="a").returncode, 0)
+        for scenario in ("b", "c", "d"):
+            self.assertEqual(self.record(1, scenario=scenario, extra=("--overwrite",)).returncode, 0)
+        (C.gen_dir(self.ws, 1) / "superseded-2.json").unlink()
+        self.assertEqual(sorted(p.name for p in C.superseded_receipts(C.gen_dir(self.ws, 1))),
+                         ["superseded-1.json", "superseded-3.json"])
+        self.assertEqual(V.credits_total(self.ws), (65 * 3, 1))
+        self.assertEqual(sum(r["generator"]["credits"] for r in C.generation_receipts(self.ws)), 65 * 3)
+        # numeric, not lexical, order: superseded-10 follows superseded-9
+        directory = C.gen_dir(self.ws, 1)
+        for number in (9, 10):
+            (directory / f"superseded-{number}.json").write_text(json.dumps({"generator": {"credits": number}}))
+        self.assertEqual([p.name for p in C.superseded_receipts(directory)][-2:], ["superseded-9.json", "superseded-10.json"])
 
     def test_overwrite_is_refused_once_a_likeness_or_a_decision_exists(self):
         self.write_state(4)
@@ -352,6 +413,98 @@ class AssetContainmentTest(unittest.TestCase):
             done = run_tool(tool, "--workspace", str(self.ws), "--gen", "1")
             self.assertEqual(done.returncode, 2, tool)
             self.assertIn("outside", done.stderr)
+
+
+class ModelReferenceContainmentTest(unittest.TestCase):
+    """A model's external buffers/textures must stay inside gen-N before any importer opens it."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.ws = Path(self.tmp.name).resolve() / "ws"
+        self.raw = C.gen_dir(self.ws, 1) / "raw"
+        self.raw.mkdir(parents=True)
+        self.secret = self.ws / "README.md"
+        self.secret.write_text("secret")
+        self.outside = Path(self.tmp.name).resolve() / "outside"
+        self.outside.mkdir()
+        (self.outside / "x.bin").write_bytes(b"x")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def gltf(self, **parts):
+        path = self.raw / "model.gltf"
+        path.write_text(json.dumps({"asset": {"version": "2.0"}, **parts}))
+        return path
+
+    def check(self, path):
+        C.require_contained_model(self.ws, 1, path)
+
+    def test_relative_contained_and_embedded_references_pass(self):
+        (self.raw / "tex").mkdir()
+        (self.raw / "tex" / "a.png").write_bytes(b"p")
+        (self.raw / "m.bin").write_bytes(b"b")
+        self.check(self.gltf(buffers=[{"uri": "m.bin", "byteLength": 1}, {"uri": "data:application/octet-stream;base64,AA==", "byteLength": 1}],
+                             images=[{"uri": "tex/a.png"}, {"uri": "tex%2Fa.png"}, {"bufferView": 0}]))
+
+    def test_gltf_references_that_leave_the_generation_are_refused(self):
+        (self.raw / "link.bin").symlink_to(self.outside / "x.bin")
+        (self.raw / "linkdir").symlink_to(self.outside)
+        for uri in (str(self.secret), "../../../../README.md", "..%2F..%2FREADME.md", "file:///etc/passwd", f"file://{self.secret}",
+                    "http://example.com/a.bin", "https://example.com/a.bin", "link.bin", "linkdir/x.bin", "\\\\host\\share\\a.bin",
+                    "/etc/passwd", "C:/Windows/a.bin", ""):
+            for key in ("buffers", "images"):
+                with self.subTest(uri=uri, key=key), self.assertRaises(C.TexturedError):
+                    self.check(self.gltf(**{key: [{"uri": uri}]}))
+
+    def test_a_non_string_uri_and_a_malformed_document_are_refused(self):
+        for document in ({"buffers": [{"uri": 5}]}, {"buffers": "x"}):
+            with self.subTest(document=document), self.assertRaises(C.TexturedError):
+                self.check(self.gltf(**document))
+        broken = self.raw / "model.gltf"
+        broken.write_text("{nope")
+        with self.assertRaises(C.TexturedError):
+            self.check(broken)
+
+    def test_glb_embedded_buffers_pass_and_external_ones_are_refused(self):
+        import struct
+
+        def glb(document):
+            body = json.dumps(document).encode()
+            body += b" " * (-len(body) % 4)
+            return b"glTF" + struct.pack("<II", 2, 20 + len(body)) + struct.pack("<I", len(body)) + b"JSON" + body
+
+        embedded = self.raw / "model.glb"
+        embedded.write_bytes(glb({"asset": {"version": "2.0"}, "buffers": [{"byteLength": 4}]}))
+        self.check(embedded)
+        embedded.write_bytes(glb({"asset": {"version": "2.0"}, "buffers": [{"uri": str(self.secret), "byteLength": 4}]}))
+        with self.assertRaises(C.TexturedError):
+            self.check(embedded)
+        embedded.write_bytes(b"not a glb at all, but long enough")
+        with self.assertRaises(C.TexturedError):
+            self.check(embedded)
+
+    def test_obj_mtllib_and_mtl_maps_are_checked(self):
+        obj = self.raw / "model.obj"
+        (self.raw / "m.mtl").write_text("newmtl a\nmap_Kd -s 1 1 1 tex.png\n")
+        obj.write_text("mtllib m.mtl\nv 0 0 0\n")
+        self.check(obj)
+        for body in (f"mtllib {self.secret}\n", "mtllib ../../../../../README.md\n"):
+            obj.write_text(body)
+            with self.subTest(body=body), self.assertRaises(C.TexturedError):
+                self.check(obj)
+        obj.write_text("mtllib m.mtl\n")
+        (self.raw / "m.mtl").write_text(f"newmtl a\nmap_Kd {self.secret}\n")
+        with self.assertRaises(C.TexturedError):
+            self.check(obj)
+
+    def test_inspect_and_normalize_cli_refuse_an_external_buffer_before_touching_bpy(self):
+        self.gltf(buffers=[{"uri": str(self.secret), "byteLength": 6}])
+        (C.gen_dir(self.ws, 1) / "generate.json").write_text(json.dumps({"asset": {"path": "raw/model.gltf"}}))
+        for tool in ("inspect.py", "normalize.py"):
+            done = run_tool(tool, "--workspace", str(self.ws), "--gen", "1")
+            self.assertEqual(done.returncode, 2, tool + done.stderr)
+            self.assertIn("refusing to import", done.stderr)
 
 
 class DomainRigRowsTest(unittest.TestCase):
