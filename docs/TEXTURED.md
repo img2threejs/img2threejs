@@ -87,7 +87,7 @@ not independent measurement, are not comparable with Jev scores, and `REPORT.md`
 
 ## Not done
 
-No rig, skin weights or animation (a domain's rig track runs afterwards, `--domain character`); no
+No rig, skin weights or animation (a domain's rig track runs afterwards: `state.py init --profile textured --domain animated-character` appends the installed character plugin's nine rig rows after `deliver`; the in-repo `character` domain has no rig rows, so `--domain character` adds none and says so); no
 retopology or LOD; back and sides are invented by the generator; Jev is noisy (differences below
 about 0.15 are noise) and advisory, never acceptance authority; the procedural visual gate in
 `CLAUDE.md` does not apply to the textured path.

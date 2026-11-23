@@ -165,7 +165,7 @@ def resolve_input(args, workspace):
         raise C.TexturedError("pass --gen N or --model PATH")
     directory = C.gen_dir(workspace, args.gen)
     generated = C.read_json(directory / "generate.json")
-    return (directory / generated["asset"]["path"]), (Path(args.out) if args.out else directory / "inspect.json")
+    return C.contained_asset(workspace, args.gen, generated["asset"]["path"]), (Path(args.out) if args.out else directory / "inspect.json")
 
 
 def main(argv):

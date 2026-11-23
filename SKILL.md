@@ -88,7 +88,8 @@ then `forge/textured/generate.py record`), `inspect`, `normalize`, `render`, `li
 (`forge/textured/decide.py`; SAME accepts, DIFFERENT regenerates with a changed model, scenario, prompt
 or input, at most 4 generations, best by Jev), `deliver` (GLB, renders, comparison sheet, REPORT.md under
 `.img2threejs/textured/final/`). Each tool writes a JSON receipt; none prints a key. Plugins keep their
-domain checks (`--domain character` for the rig track). Full contract: [`docs/TEXTURED.md`](docs/TEXTURED.md).
+domain checks: `state.py init --profile textured --domain animated-character` appends the installed character plugin's rig rows
+(the in-repo `character` domain declares none). Full contract: [`docs/TEXTURED.md`](docs/TEXTURED.md).
 The procedural sections below apply only under an explicit `procedural-*` profile.
 
 ## Core Promise

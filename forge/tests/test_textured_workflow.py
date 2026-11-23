@@ -241,6 +241,154 @@ class GenerateRecordTest(unittest.TestCase):
         self.assertEqual(self.record(2, credits="-1", model="x").returncode, 2)
 
 
+class GenerationBudgetTest(unittest.TestCase):
+    """The cap comes from the state; spending history is append-only."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.ws = Path(self.tmp.name).resolve()
+        self.ref = write_png(self.ws / "ref.png", 8, 8, (1, 2, 3))
+        (self.ws / "out").mkdir()
+        (self.ws / "out" / "model.fbx").write_bytes(b"fbx")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def write_state(self, cap):
+        (self.ws / ".img2threejs").mkdir(exist_ok=True)
+        save_state(self.ws / ".img2threejs" / "state.json", new_state("r.png", profile="textured", max_generations=cap))
+
+    def record(self, gen, *, scenario="film", credits="65", extra=()):
+        return run_tool("generate.py", "record", "--workspace", str(self.ws), "--gen", str(gen), "--input", str(self.ref),
+                        "--task-id", f"t{gen}-{scenario}", "--model", "tripo-p1", "--scenario", scenario, "--credits", credits,
+                        "--model-file", str(self.ws / "out" / "model.fbx"), *extra)
+
+    def total(self, gen):
+        return json.loads((C.gen_dir(self.ws, gen) / "generate.json").read_text())["creditsTotal"]
+
+    def test_max_generations_can_lower_the_state_cap_but_never_raise_it(self):
+        self.write_state(2)
+        self.assertEqual(self.record(1, scenario="a").returncode, 0)
+        self.assertEqual(self.record(2, scenario="b").returncode, 0)
+        raised = self.record(3, scenario="c", extra=("--max-generations", "9"))
+        self.assertEqual(raised.returncode, 2)
+        self.assertIn("exceeds the cap of 2", raised.stderr)
+        self.assertFalse((C.gen_dir(self.ws, 3) / "generate.json").exists())
+
+    def test_a_lower_override_applies(self):
+        self.write_state(4)
+        self.assertEqual(self.record(1, scenario="a").returncode, 0)
+        lowered = self.record(2, scenario="b", extra=("--max-generations", "1"))
+        self.assertIn("exceeds the cap of 1", lowered.stderr)
+
+    def test_overwrite_replaces_an_unjudged_record_and_keeps_every_superseded_receipt_in_the_total(self):
+        self.write_state(4)
+        self.assertEqual(self.record(1, scenario="a").returncode, 0)
+        for index, scenario in enumerate(("b", "c", "d"), start=2):
+            done = self.record(1, scenario=scenario, extra=("--overwrite",))
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertEqual(self.total(1), 65 * index)
+        archived = sorted(p.name for p in C.gen_dir(self.ws, 1).glob("superseded-*.json"))
+        self.assertEqual(archived, ["superseded-1.json", "superseded-2.json", "superseded-3.json"])
+        self.assertEqual(self.record(2, scenario="e").returncode, 0)
+        self.assertEqual(self.total(2), 65 * 5)
+        status = json.loads(run_tool("generate.py", "status", "--workspace", str(self.ws)).stdout)
+        self.assertEqual(status["creditsTotal"], 65 * 5)
+        self.assertEqual(V.credits_total(self.ws), (65 * 5, 2))
+
+    def test_overwrite_is_refused_once_a_likeness_or_a_decision_exists(self):
+        self.write_state(4)
+        self.assertEqual(self.record(1, scenario="a").returncode, 0)
+        fake_likeness(self.ws, 1, "different", 1.0)
+        refused = self.record(1, scenario="b", extra=("--overwrite",))
+        self.assertEqual(refused.returncode, 2)
+        self.assertIn("already has a likeness record", refused.stderr)
+        self.assertEqual(self.total(1), 65)
+        self.assertEqual(list(C.gen_dir(self.ws, 1).glob("superseded-*.json")), [])
+        (C.gen_dir(self.ws, 1) / "likeness.json").unlink()
+        state = new_state("r.png", profile="textured", max_generations=4)
+        state["textured"]["history"].append({"generation": 1, "outcome": "regenerate"})
+        save_state_path = self.ws / ".img2threejs" / "state.json"
+        save_state_path.write_text(json.dumps(state))
+        refused = self.record(1, scenario="c", extra=("--overwrite",))
+        self.assertIn("already has a recorded decision", refused.stderr)
+
+
+class AssetContainmentTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.ws = Path(self.tmp.name).resolve() / "ws"
+        self.outside = Path(self.tmp.name).resolve() / "outside"
+        self.outside.mkdir()
+        (self.outside / "evil.glb").write_bytes(b"x")
+        (C.gen_dir(self.ws, 1) / "raw").mkdir(parents=True)
+        (C.gen_dir(self.ws, 1) / "raw" / "model.glb").write_bytes(b"x")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_a_contained_asset_resolves(self):
+        self.assertEqual(C.contained_asset(self.ws, 1, "raw/model.glb"), C.gen_dir(self.ws, 1) / "raw" / "model.glb")
+
+    def test_escaping_paths_are_refused(self):
+        link = C.gen_dir(self.ws, 1) / "raw" / "link.glb"
+        link.symlink_to(self.outside / "evil.glb")
+        dirlink = C.gen_dir(self.ws, 1) / "linkdir"
+        dirlink.symlink_to(self.outside)
+        for bad in (str(self.outside / "evil.glb"), "../../../../../outside/evil.glb", "raw/link.glb",
+                    "linkdir/evil.glb", "", ".", None):
+            with self.subTest(path=bad), self.assertRaises(C.TexturedError):
+                C.contained_asset(self.ws, 1, bad)
+
+    def test_a_symlinked_generation_directory_is_refused(self):
+        other = self.ws / ".img2threejs" / "textured" / "gen-2"
+        other.symlink_to(self.outside)
+        with self.assertRaises(C.TexturedError):
+            C.contained_asset(self.ws, 2, "evil.glb")
+
+    def test_inspect_and_normalize_cli_refuse_a_crafted_receipt_before_touching_bpy(self):
+        (C.gen_dir(self.ws, 1) / "generate.json").write_text(json.dumps({"asset": {"path": str(self.outside / "evil.glb")}}))
+        for tool in ("inspect.py", "normalize.py"):
+            done = run_tool(tool, "--workspace", str(self.ws), "--gen", "1")
+            self.assertEqual(done.returncode, 2, tool)
+            self.assertIn("outside", done.stderr)
+
+
+class DomainRigRowsTest(unittest.TestCase):
+    def rows(self, domain, home):
+        old = os.environ.get("IMG2_HOME")
+        os.environ["IMG2_HOME"] = home
+        try:
+            return [row["id"] for row in new_state("r.png", profile="textured", domain_id=domain)["checklist"] if row["scope"] == "rig"]
+        finally:
+            if old is None:
+                del os.environ["IMG2_HOME"]
+            else:
+                os.environ["IMG2_HOME"] = old
+
+    def test_the_installed_character_plugins_domain_appends_its_rig_rows(self):
+        with tempfile.TemporaryDirectory() as home:
+            plugin = Path(home, "plugins", "character")
+            plugin.mkdir(parents=True)
+            Path(home, "plugins.json").write_text(json.dumps({"plugins": [{"id": "character"}]}))
+            plugin.joinpath("domain.json").write_text(json.dumps({
+                "id": "animated-character",
+                "rigSteps": [["rig-contract-read", "Read {plugin_dir}/reference/animation-contract.md"],
+                             ["rig-gates", "Run python3 {plugin_dir}/tools/gate_rigging.py"]]}))
+            self.assertEqual(self.rows("animated-character", home), ["rig-contract-read", "rig-gates"])
+            self.assertEqual(self.rows("character", home), [])   # the in-repo domain declares no rig track
+            state = new_state("r.png", profile="textured", domain_id="character")
+            self.assertEqual(state["domain"], "character")
+
+    def test_state_init_says_when_the_chosen_domain_adds_no_rig_rows(self):
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as work:
+            env = {**os.environ, "HOME": home, "IMG2_HOME": home + "/img2"}
+            done = subprocess.run([sys.executable, str(ROOT / "forge/state.py"), "init", "--state", "s.json", "--reference", "r.png",
+                                   "--profile", "textured", "--domain", "character"], capture_output=True, text=True, cwd=work, env=env)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertIn("no rig rows", done.stderr)
+
+
 class DecisionTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

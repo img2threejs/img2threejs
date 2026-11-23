@@ -205,7 +205,7 @@ def main(argv):
     elif args.gen is not None:
         directory = C.gen_dir(workspace, args.gen)
         generated = C.read_json(directory / "generate.json")
-        model = directory / generated["asset"]["path"]
+        model = C.contained_asset(workspace, args.gen, generated["asset"]["path"])
         out_glb = Path(args.out_glb).expanduser().resolve() if args.out_glb else directory / "normalized.glb"
         out = Path(args.out).expanduser().resolve() if args.out else directory / "normalize.json"
     else:

@@ -9,7 +9,13 @@ credits, model, scenario, prompt and the sha256 of the input image.
 
 A regeneration (gen > 1) MUST differ from every earlier generation in model, scenario, prompt or
 input image; the generator is not deterministic-with-feedback, so re-sending the same request is paid
-noise, and is refused. ``--max-generations`` caps the loop (default 4, or the state file's value).
+noise, and is refused. The cap comes from the workflow state (``textured.maxGenerations``, default 4
+without a state file); ``--max-generations`` may only LOWER it, never raise it.
+
+``--overwrite`` replaces a generation's record only while nothing has been decided from it (no
+``likeness.json`` and no decision in the state history). The replaced receipt is archived as
+``gen-N/superseded-K.json`` and ``creditsTotal`` sums every receipt ever written, so replacing a
+record never erases what was spent.
 """
 import os
 import sys
@@ -19,6 +25,7 @@ sys.path[:] = [p for p in sys.path if os.path.abspath(p or os.getcwd()) != _HERE
 sys.path.append(_HERE)
 
 import argparse  # noqa: E402
+import json  # noqa: E402
 import shutil  # noqa: E402
 from pathlib import Path  # noqa: E402
 
@@ -64,12 +71,44 @@ def copy_asset(model_file, model_dir, raw):
     return target
 
 
+def generation_cap(args, state):
+    """The state's ceiling (default without a state file); ``--max-generations`` can only lower it."""
+    cap = DEFAULT_MAX_GENERATIONS
+    if state is not None:
+        stated = (state.get("textured") or {}).get("maxGenerations")
+        if type(stated) is int and stated >= 1:
+            cap = stated
+    if args.max_generations is not None:
+        if args.max_generations < 1:
+            raise C.TexturedError("--max-generations must be >= 1")
+        cap = min(cap, args.max_generations)
+    return cap
+
+
+def decided_from(workspace, state, generation):
+    """What a generation has already produced that a replacement would invalidate, or None."""
+    if (C.gen_dir(workspace, generation) / "likeness.json").exists():
+        return "a likeness record"
+    history = ((state or {}).get("textured") or {}).get("history") or []
+    if any(isinstance(row, dict) and row.get("generation") == generation for row in history):
+        return "a recorded decision"
+    return None
+
+
+def archive_superseded(directory):
+    """Move the current generate.json to the next free superseded-K.json (never overwritten)."""
+    number = 1
+    while (directory / f"superseded-{number}.json").exists():
+        number += 1
+    target = directory / f"superseded-{number}.json"
+    os.replace(directory / "generate.json", target)
+    return target
+
+
 def cmd_record(args, workspace):
     state_path = Path(args.state) if args.state else workspace / ".img2threejs" / "state.json"
-    limit = args.max_generations
-    if limit is None and state_path.is_file():
-        limit = (C.read_json(state_path).get("textured") or {}).get("maxGenerations")
-    limit = limit or DEFAULT_MAX_GENERATIONS
+    state = C.read_json(state_path) if state_path.is_file() else None
+    limit = generation_cap(args, state)
     if args.gen > limit:
         raise C.TexturedError(f"generation {args.gen} exceeds the cap of {limit}; pick the best of the existing ones instead")
     model_file = Path(args.model_file).expanduser().resolve()
@@ -84,8 +123,14 @@ def cmd_record(args, workspace):
     if not args.task_id.strip() or not args.model.strip() or not args.scenario.strip():
         raise C.TexturedError("--task-id, --model and --scenario are required provenance")
     directory = C.gen_dir(workspace, args.gen)
-    if (directory / "generate.json").exists() and not args.overwrite:
+    replacing = (directory / "generate.json").exists()
+    if replacing and not args.overwrite:
         raise C.TexturedError(f"{directory / 'generate.json'} already exists (use --overwrite to replace it)")
+    if replacing:
+        spent_on = decided_from(workspace, state, args.gen)
+        if spent_on:
+            raise C.TexturedError(f"generation {args.gen} already has {spent_on}; it cannot be overwritten. "
+                                  "Record the next generation with a changed model, scenario, prompt or input instead")
     expected = len(previous_generations(workspace, args.gen)) + 1
     if args.gen != expected:
         raise C.TexturedError(f"generations are recorded in order; the next one is {expected}")
@@ -100,7 +145,10 @@ def cmd_record(args, workspace):
                 f"generation {args.gen} repeats generation {number} (same input image, model, scenario and prompt); "
                 "change at least one of them before spending credits again")
     asset = copy_asset(model_file, args.model_dir, directory / "raw")
-    cumulative = args.credits + sum(row["generator"]["credits"] for _, row in previous_generations(workspace, args.gen))
+    # Every receipt ever written counts, including the ones this call is about to supersede.
+    cumulative = args.credits + sum(row["generator"]["credits"] for row in C.generation_receipts(workspace))
+    if replacing:
+        archive_superseded(directory)
     receipt = C.receipt("generate", generation=args.gen, input=record["input"], generator=record["generator"],
                         asset={"path": C.workspace_relative(directory, asset), "format": asset.suffix.lower().lstrip("."),
                                "bytes": asset.stat().st_size, "sha256": C.sha256_file(asset)},
@@ -118,7 +166,9 @@ def cmd_status(args, workspace):
         row = C.read_json(C.gen_dir(workspace, number) / "generate.json")
         rows.append({"gen": number, **row["generator"]})
         number += 1
-    print(__import__("json").dumps({"generations": rows, "creditsTotal": sum(r["credits"] for r in rows)}, indent=2))
+    receipts = C.generation_receipts(workspace)
+    print(json.dumps({"generations": rows, "creditsTotal": sum(r["generator"]["credits"] for r in receipts),
+                      "receipts": len(receipts)}, indent=2))
     return 0
 
 
@@ -140,7 +190,7 @@ def build_parser():
     record.add_argument("--then", default="", help="chained step the generator ran (e.g. texture)")
     record.add_argument("--tool", default="mcp__tripo_make")
     record.add_argument("--note")
-    record.add_argument("--max-generations", type=int)
+    record.add_argument("--max-generations", type=int, help="lowers the state's generation cap; never raises it")
     record.add_argument("--overwrite", action="store_true")
     status = commands.add_parser("status")
     status.add_argument("--workspace", default=".")

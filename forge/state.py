@@ -119,6 +119,10 @@ def main(argv: list[str]) -> int:
                 domain_id=args.domain,
                 max_generations=args.max_generations,
             )
+            if profile == TEXTURED_PROFILE and args.domain != "generic" and not any(
+                    row["scope"] == "rig" for row in state["checklist"]):
+                print(f"note: domain {args.domain!r} contributes no rig rows to the textured profile; "
+                      "an installed plugin that declares a rig track names its own domain id", file=sys.stderr)
             save_state(args.state, state)
             print_status(state)
             return 0

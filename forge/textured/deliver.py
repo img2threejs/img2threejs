@@ -43,11 +43,12 @@ def collect(workspace, generation):
 
 
 def credits_total(workspace):
-    total, number = 0, 1
-    while (C.gen_dir(workspace, number) / "generate.json").is_file():
-        total += C.read_json(C.gen_dir(workspace, number) / "generate.json")["generator"]["credits"]
+    """(credits over every receipt ever written, superseded ones included; number of generations)."""
+    receipts = C.generation_receipts(workspace)
+    number = 0
+    while (C.gen_dir(workspace, number + 1) / "generate.json").is_file():
         number += 1
-    return total, number - 1
+    return sum(row["generator"]["credits"] for row in receipts), number
 
 
 def write_report(final, workspace, generation, parts, reference, files):

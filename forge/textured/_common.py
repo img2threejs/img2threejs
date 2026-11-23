@@ -49,6 +49,43 @@ def gen_dir(workspace: Path, generation: int) -> Path:
     return textured_root(workspace) / f"gen-{generation}"
 
 
+def contained_asset(workspace: Path, generation: int, relative: Any) -> Path:
+    """The real path of a receipt-named asset, which must live inside this generation's own directory.
+
+    ``generate.json`` is data on disk, not a trusted argument: a crafted ``asset.path`` (absolute,
+    ``..`` or a symlink) must not make a tool read a model from somewhere else. Both the generation
+    directory and the asset are resolved with realpath; the directory must be the expected
+    ``<workspace>/.img2threejs/textured/gen-N`` itself (so a symlinked gen-N cannot relocate the root)
+    and the asset must resolve beneath it.
+    """
+    if not isinstance(relative, str) or not relative:
+        raise TexturedError("generate.json asset.path must be a non-empty string")
+    expected = Path(os.path.realpath(workspace)) / ".img2threejs" / "textured" / f"gen-{generation}"
+    directory = gen_dir(workspace, generation)
+    if Path(os.path.realpath(directory)) != expected:
+        raise TexturedError(f"{directory} resolves outside the workspace's textured directory")
+    resolved = Path(os.path.realpath(directory / relative))
+    if resolved == expected or expected not in resolved.parents:
+        raise TexturedError(f"asset path {relative!r} resolves outside {expected}; refusing to read it")
+    return resolved
+
+
+def generation_receipts(workspace: Path) -> list[dict[str, Any]]:
+    """Every generate receipt ever written: the current ``generate.json`` of gen-1..N, in order, and every
+    ``superseded-K.json`` a replaced one was archived to. Spending history is append-only, so totals sum all."""
+    rows: list[dict[str, Any]] = []
+    number = 1
+    while (gen_dir(workspace, number) / "generate.json").is_file():
+        directory = gen_dir(workspace, number)
+        archived = 1
+        while (directory / f"superseded-{archived}.json").is_file():
+            rows.append(read_json(directory / f"superseded-{archived}.json"))
+            archived += 1
+        rows.append(read_json(directory / "generate.json"))
+        number += 1
+    return rows
+
+
 def resolve_workspace(value: str | os.PathLike[str] | None) -> Path:
     path = Path(value or ".").expanduser().resolve()
     if not path.is_dir():

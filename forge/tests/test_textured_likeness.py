@@ -244,6 +244,91 @@ class ConsentGatingTest(unittest.TestCase):
             self.assertEqual(ctx.exception.reason, "not-installed")
 
 
+class PluginPinTest(unittest.TestCase):
+    """The plugin pin covers every file the plugin runs, and the launch gets a scrubbed environment."""
+
+    def setUp(self):
+        from jev_cli_bridge import REQUIRED_PROVIDER_FILES
+        import hashlib
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        self.plugin = self.root / "plugin"
+        self.marker = self.root / "executed.txt"
+        files = {}
+        for relative in sorted(REQUIRED_PROVIDER_FILES):
+            body = f"VALUE = {relative!r}\n"
+            if relative == "tools/jev.py":
+                body = ("import json, os, sys\n"
+                        "print(json.dumps({'granted': True, 'env': sorted(os.environ)}))\n")
+            path = self.plugin / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body)
+            files[relative] = hashlib.sha256(body.encode()).hexdigest()
+        lock = self.root / "lock.json"
+        lock.write_text(json.dumps({"files": files}))
+        self.original_lock, J.LOCK = J.LOCK, lock
+        self.tools = self.plugin / "tools"
+
+    def tearDown(self):
+        J.LOCK = self.original_lock
+        self.tmp.cleanup()
+
+    def backend(self):
+        backend = J.PluginBackend(self.tools)
+        self.addCleanup(backend.close)
+        return backend
+
+    def test_a_pinned_plugin_loads(self):
+        self.assertIsNotNone(self.backend())
+
+    def test_every_required_file_is_verified_not_just_the_entry_points(self):
+        from jev_cli_bridge import REQUIRED_PROVIDER_FILES
+        for relative in sorted(REQUIRED_PROVIDER_FILES):
+            with self.subTest(file=relative):
+                path = self.plugin / relative
+                original = path.read_text()
+                path.write_text(original + f"open({str(self.marker)!r}, 'w').write('ran')\n")
+                try:
+                    with self.assertRaises(J.JevUnavailable) as ctx:
+                        J.PluginBackend(self.tools)
+                    self.assertEqual(ctx.exception.reason, "provider-unpinned")
+                    self.assertFalse(self.marker.exists())
+                finally:
+                    path.write_text(original)
+
+    def test_a_pinned_file_that_is_missing_or_a_symlink_is_refused(self):
+        target = self.plugin / "tools" / "jev_contracts.py"
+        moved = self.root / "elsewhere.py"
+        moved.write_bytes(target.read_bytes())
+        target.unlink()
+        target.symlink_to(moved)
+        with self.assertRaises(J.JevUnavailable) as ctx:
+            J.PluginBackend(self.tools)
+        self.assertEqual(ctx.exception.reason, "provider-unpinned")
+
+    def test_the_consent_probe_runs_the_verified_copy_with_no_inherited_credentials(self):
+        os.environ["TYPESAFE_API_KEY"] = SECRET
+        os.environ["AWS_SECRET_ACCESS_KEY"] = SECRET
+        os.environ["PYTHONPATH"] = str(self.root)
+        try:
+            backend = self.backend()
+            result = backend.consent_status(self.root, "run-1")
+        finally:
+            for key in ("TYPESAFE_API_KEY", "AWS_SECRET_ACCESS_KEY", "PYTHONPATH"):
+                del os.environ[key]
+        self.assertTrue(result["granted"])
+        self.assertNotIn("TYPESAFE_API_KEY", result["env"])
+        self.assertNotIn("AWS_SECRET_ACCESS_KEY", result["env"])
+        self.assertNotIn("PYTHONPATH", result["env"])
+        self.assertEqual(Path(backend.tools).resolve().parent.parent, Path(backend._stage.name).resolve())
+
+    def test_a_swap_after_the_check_does_not_change_what_runs(self):
+        backend = self.backend()
+        (self.plugin / "tools" / "jev.py").write_text(f"open({str(self.marker)!r}, 'w').write('ran')\n")
+        backend.consent_status(self.root, "run-1")
+        self.assertFalse(self.marker.exists())
+
+
 class NoAccountModeTest(unittest.TestCase):
     def test_model_answers_are_journalled_as_model_decider_never_as_jev(self):
         with tempfile.TemporaryDirectory() as d:
