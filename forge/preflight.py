@@ -127,7 +127,10 @@ def check_plugins(discovery, *, home, harness, selectors, invalid_selectors=Fals
                             probes.append(dep["probe"])
                         if name == "character":
                             probes.extend(p for p in _CHARACTER_GATE_PROBES if p not in probes)
-                        missing = [probe for probe in dict.fromkeys(probes) if not discovery.dependency(probe)]
+                        results = {probe: discovery.dependency(probe) for probe in dict.fromkeys(probes)}
+                        # Same admission check routing runs; raises provider-pin-mismatch for any tampered pinned file.
+                        discovery._gate_producer(row, expected_name=name, card=card, dependencies=results)
+                        missing = [probe for probe, found in results.items() if not found]
                         if missing:
                             reason = "dependency-missing:" + ",".join(missing)
                 except (RouteError, DecisionError) as error:

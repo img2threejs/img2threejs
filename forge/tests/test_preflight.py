@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -152,6 +153,33 @@ class PreflightTests(unittest.TestCase):
         self.discovery.query.return_value = {"status": "ambiguous", "providers": [{}, {}]}
         self.discovery.query.side_effect = None
         self.assertTrue(all("provider-ambiguous" == row[3] for row in self.check()))
+
+    def test_tampered_blocking_gate_producer_is_pin_mismatch_not_ready(self):
+        plugin = self.home / "plugins" / "pixi2d"
+        (plugin / "tools").mkdir(parents=True)
+        files = {"plugin.json": self.pinned_file({"plugin": "pixi2d"}, "plugin.json"),
+                 "route.json": self.pinned_file({"plugin": "pixi2d"}, "route.json"),
+                 "gates.json": json.dumps([{"blocking": True, "actor": "program",
+                                            "command": "python3 {plugin_dir}/tools/pixi2d.py"}]).encode(),
+                 "tools/pixi2d.py": b"print('gate')\n"}
+        for relative, data in files.items():
+            (plugin / relative).write_bytes(data)
+        git = ("git", "-C", str(plugin), "-c", "user.name=t", "-c", "user.email=t@t")
+        for command in (("init", "-q"), ("add", "."), ("commit", "-q", "-m", "pin")):
+            subprocess.run((*git, *command), check=True, capture_output=True)
+        sha = subprocess.run((*git, "rev-parse", "HEAD"), check=True, capture_output=True,
+                             text=True).stdout.strip()
+        self.pins["pixi2d"] = sha
+        self.registry["plugins"][-1]["resolvedSha"] = sha
+        self.lock["plugins"][-1]["commit"] = sha
+        self.save()
+        self.rows["pixi2d"] = {"plugin": "pixi2d", "resolvedSha": sha, "dir": str(plugin),
+                               "gateRunner": {"argv": ["python3"]}}
+        self.discovery._pinned_file = preflight.Discovery._pinned_file.__get__(self.discovery)
+        pixi = lambda: next(row for row in self.check() if row[0] == "pixi2d")
+        self.assertEqual(pixi()[2:], ("ready", "pinned; dependencies available"))
+        (plugin / "tools/pixi2d.py").write_bytes(b"print('tampered')\n")
+        self.assertEqual(pixi()[2:], ("blocked", "provider-pin-mismatch"))
 
 
 if __name__ == "__main__":
