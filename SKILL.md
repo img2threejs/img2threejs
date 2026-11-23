@@ -72,7 +72,9 @@ Proceed only when required installation/runtime checks pass. The table names mis
 wrong pins, unresolved dependencies and Jev auth failures; unselected plugins say `not installed by choice`.
 Missing credentials require `img2-jev login`. Only for routing, a user who has no Jev account may
 instead personally run `forge/route.py attest-no-jev-account`, then use explicit `--no-jev-account`
-and typed `--model-answers`; preflight never infers or grants that exception. Read the routing
+and typed `--model-answers`; preflight never infers or grants that exception. The attestation is a
+user-consent step (typed on `/dev/tty`), not isolation from an agent running as the same OS user,
+the same limit as `jev consent authorize-decisions`: never attest, or type the phrase, on the user's behalf. Read the routing
 decider section before proceeding. `img2threejs repair` is the bundled installer's repair interface,
 not implemented by this core script. See [installation and provisioning](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
 Never silently substitute generic for a missing domain. `forge/route.py` exposes per-object

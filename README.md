@@ -206,7 +206,10 @@ alone does not run the other groups. The base owns eligibility, consent, indepen
 acceptance. Neither provider advice nor parent checklist completion is a deliverable.
 Routing alone supports explicit `--no-jev-account` with a separate interactive, expiring user
 attestation and typed `--model-answers`; receipts say `model:<id>`, `presentedAsJev: false`.
-Missing credentials still request login. See [deciders](grimoire/intake/routing.md#51-explicit-no-account-routing-decider).
+Missing credentials still request login. The attestation is a user-consent step typed on `/dev/tty`,
+not isolation from an agent running as the same OS user (the same limit as `jev consent
+authorize-decisions`); token usage is host-reported and the model id is the user's claim, not proof.
+See [deciders](grimoire/intake/routing.md#51-explicit-no-account-routing-decider).
 
 | Plugin | Adds | Output kind | Reached when |
 |---|---|---|---|

@@ -102,7 +102,10 @@ python3 forge/route.py questions --workspace WS --run-id RUN --image ref.png \
 ```
 
 The first command prints the named model-provider disclosure, original image SHA256s, scope,
-budget and expiry; the user must type `ATTEST`. Private authority lives in `$IMG2_HOME/config`,
+budget and expiry; the user must then type the fixed phrase `attest RUN MODEL` (the run id and
+model id, so a blind `ATTEST` is refused) on the controlling terminal, which is opened as
+`/dev/tty`: a pipe or pty on stdin does not satisfy it, and no terminal means a clean refusal
+(exit 3). Revocation asks for `revoke RUN`. Private authority lives in `$IMG2_HOME/config`,
 not the workspace. Default lifetime is 1800 seconds; `--expires-in` permits at most 3600.
 The host reads the returned `questionsRef`, inspects the bound images, and supplies typed JSON with
 `--model-answers FILE`. Repeat questions/answers as localization reveals subsequent questions.
@@ -115,6 +118,11 @@ authentication; this explicit routing mode does not waive installation, dependen
 eligibility or terminal gates, and does not authorize strategy/review/repair or child completion.
 The consent boundary is user-owned files plus an interactive action, not a sandbox against code
 running unrestricted as that same OS user. An agent must never attest on the user's behalf.
+This is exactly the limit of the existing `img2-jev consent authorize-decisions` command: a user
+consent step, not isolation from an agent that runs as the same OS user and can read the same files
+or open the same terminal. Two further facts are claims, not proofs: token usage in model answers is
+host-reported (core makes no model call and cannot measure it), and `--model-id` is what the user
+says the host will use; core cannot verify that the answering model is that model.
 
 Real process environment selectors always win, including explicitly empty values. File
 fallbacks are accepted only from a user-owned regular mode-0600 selectors file, with schema 1,

@@ -721,6 +721,15 @@ def build_parser():
     return parser
 
 
+def _model_decided(result):
+    """True only when a no-account model answer is part of the decided route being reported."""
+    decision = result.get("decision") if type(result) is dict else None
+    if type(decision) is not dict or decision.get("phase") != "decided":
+        return False
+    return any(type(c) is dict and c.get("decisionMode") == "no-account"
+               for obj in decision.get("objects", []) for c in obj.get("consultations", []))
+
+
 def _output(*, reason=None, result=None):
     value = {"kind": "img2.route-command", "version": 1, "mode": "decision-only",
              "executionAuthorized": False, "status": "request-input"}
@@ -761,7 +770,9 @@ def _output(*, reason=None, result=None):
         value["requestedCommand"] = "python3 forge/route.py attest-no-jev-account"
         value["requiredFlags"] = ["--workspace", "--run-id", "--image", "--model-id", "--token-budget",
                                   "--accept-image-disclosure"]
-        value["message"] = "The user must attest interactively outside the agent control path; set IMG2_HOME outside the workspace."
+        value["message"] = ("The user must attest personally in an interactive terminal (confirmation is read from /dev/tty); "
+                            "set IMG2_HOME outside the workspace. This is a user-consent step, not isolation from an agent "
+                            "running as the same OS user.")
     elif reason == "jev-account-present":
         value["message"] = "A Jev credential is present. Use Jev without --no-jev-account."
     return value
@@ -785,7 +796,10 @@ def main(argv=None):
                               "decider": "model:" + record["modelId"], "presentedAsJev": False}, sort_keys=True))
             return 0
         except (DecisionError, OSError) as error:
-            print(json.dumps(_output(reason=getattr(error, "reason_code", "attestation-storage-error")), sort_keys=True))
+            output = _output(reason=getattr(error, "reason_code", "attestation-storage-error"))
+            if getattr(error, "reason_code", None) == "user-attestation-required":
+                output["message"] = str(error) + ". Run this command personally in a terminal; the confirmation phrase is read from /dev/tty."
+            print(json.dumps(output, sort_keys=True))
             return 3
     if args.command == "questions" and not args.no_jev_account:
         parser.error("questions requires explicit --no-jev-account")
@@ -910,9 +924,19 @@ def main(argv=None):
             value["questionsRef"] = factory.pending
             if args.command == "questions":
                 value["status"] = "questions-ready"
-    if args.no_jev_account and consent is not None:
-        value.update(decider="model:" + consent.model_id, presentedAsJev=False,
-                     attestationId=consent.initial["attestationId"], decisionMode="no-account")
+    if args.no_jev_account:
+        value["decisionMode"] = "no-jev-account-pending"
+        if (consent is not None and value["status"] in {"decided", "children-initialized"}
+                and _model_decided(result)):
+            try:
+                # Re-read at output time: a mid-run revoke or replacement must not leave a stale id behind.
+                metadata = consent.metadata()
+            except DecisionError as error:
+                reason = error.reason_code if error.reason_code in _SAFE_ERRORS else "invalid-routing-input"
+                value = _output(reason=reason)
+                value["decisionMode"] = "no-jev-account-pending"
+            else:
+                value.update(metadata)
     if args.create_children or args.complete_child:
         value.update(terminalStatus="incomplete", terminalAcceptance=False, deliverable=False)
         if args.create_children:

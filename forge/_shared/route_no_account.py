@@ -1,9 +1,10 @@
 """User-owned, run-scoped routing authority; never inferred from missing login.
 
 Storage follows jev_consent's IMG2_HOME/config, uid/private-mode, flock and atomic
-fsync/rename boundary. This is a user-action boundary, not a same-uid sandbox:
-an unrestricted host process can impersonate its user, just as for Jev consent.
-Only the interactive CLI mints/revokes grants; routing only reads them.
+fsync/rename boundary. This is a user-consent boundary, not isolation from an agent
+running as the same OS user: such a process can impersonate its user, exactly as it can
+for `jev consent authorize-decisions`. The interactive CLI is the only code path here
+that mints/revokes grants and it confirms on /dev/tty; routing only reads them.
 """
 from contextlib import contextmanager
 import fcntl
@@ -13,40 +14,67 @@ import os
 from pathlib import Path
 import secrets
 import stat
-import subprocess
-import sys
 import tempfile
 import time
+import types
 
 from decision_control import DecisionError, _identifier, _json_bytes, canonical_digest
 from jev_cli_bridge import _file, _json
+from runtime_selectors import img2_home
 
 POLICY = "routing-no-jev-account-v1"
+TTY_PATH = "/dev/tty"
 MAX_TTL = 3600
 
 
-def credential_status():
-    """Inspect enrollment without retrieving a key or running the Jev plugin."""
-    if os.environ.get("TYPESAFE_API_KEY", "").strip():
-        return "present"
-    if sys.platform != "darwin":
-        return "credential-missing"  # Jev's only enrolled store is macOS Keychain.
+_LOCK = Path(__file__).resolve().parent / "jev_release_lock.json"
+_AUTH_MODULE = "tools/jev_auth.py"
+
+
+def _plugin_auth_status():
+    """The pinned Jev plugin's own ``jev_auth.auth_status``; None only when no plugin directory exists.
+
+    The same module the Jev route path runs (see ``LiveConsent.auth_status``), loaded from bytes
+    verified against the release lock with no-follow reads, so there is no second credential policy
+    here. Anything other than a clean "present"/"missing" answer is inconclusive and raises.
+    """
+    root = img2_home() / "plugins" / "jev"
+    if not os.path.lexists(root):
+        return None
     try:
-        result = subprocess.run(
-            ["/usr/bin/security", "find-generic-password", "-a", "jev", "-s", "ai.typesafe.api-key"],
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            timeout=10, check=False)
-    except (OSError, subprocess.SubprocessError):
+        pinned = _json(_file(_LOCK.parent, _LOCK.name, maximum=128 * 1024, capture=True))["files"][_AUTH_MODULE]
+        source = _file(root, _AUTH_MODULE, maximum=1024 * 1024, expected=pinned, capture=True)
+        module = types.ModuleType("_img2_route_jev_auth")
+        exec(compile(source, str(root / _AUTH_MODULE), "exec"), module.__dict__)
+        status = module.auth_status(os.environ)
+        if type(status) is not dict:
+            raise ValueError
+        return status["status"], status["reasonCode"]
+    except Exception:
         raise DecisionError("credential-storage-error") from None
-    if result.returncode == 0:
+
+
+def credential_status():
+    """"present" or "credential-missing"; every inconclusive outcome raises credential-storage-error."""
+    status = _plugin_auth_status()
+    if status is None:
+        # No Jev plugin is installed, so no Jev credential can be exercised through this core; only the
+        # plugin's documented automation override is still honoured as an existing account.
+        return "present" if os.environ.get("TYPESAFE_API_KEY", "").strip() else "credential-missing"
+    if status == ("present", "credential-present"):
         return "present"
-    if result.returncode == 44:
+    if status == ("missing", "credential-missing"):
         return "credential-missing"
     raise DecisionError("credential-storage-error")
 
 
 def require_no_credential():
-    if credential_status() != "credential-missing":
+    """Fail closed: a present, rejected or unreadable credential is treated as an existing account."""
+    try:
+        status = credential_status()
+    except DecisionError:
+        status = "inconclusive"
+    if status != "credential-missing":
         raise DecisionError("jev-account-present")
 
 
@@ -156,12 +184,43 @@ def _store(path, value):
             os.unlink(temporary)
 
 
+def _confirm(phrase):
+    """Read the user's typed confirmation from the controlling terminal itself.
+
+    stdin/stdout may be pipes or a pty owned by a host process, so neither is consulted: the
+    terminal is opened explicitly and refusal covers no tty, EOF and read errors alike.
+    """
+    descriptor = None
+    try:
+        descriptor = os.open(TTY_PATH, os.O_RDWR | os.O_NOCTTY)
+        if not os.isatty(descriptor):
+            raise DecisionError("user-attestation-required", "the confirmation device is not a terminal")
+        os.write(descriptor, ("Type exactly '" + phrase + "' to confirm: ").encode())
+        line = b""
+        while not line.endswith(b"\n"):
+            chunk = os.read(descriptor, 1024)
+            if not chunk or len(line) > 4096:
+                raise EOFError
+            line += chunk
+        line = line.decode()
+    except (EOFError, OSError, UnicodeError):
+        raise DecisionError("user-attestation-required", "the terminal confirmation could not be read") from None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if not line.endswith("\n") or line.rstrip("\r\n") != phrase:
+        raise DecisionError("user-attestation-required", "the typed confirmation did not match")
+
+
 def attest(workspace, run_id, *, model_id, images, token_budget, ttl=1800, revoke=False):
-    """Interactive user action only; images are the original reference bytes."""
+    """Interactive user action; images are the original reference bytes.
+
+    The confirmation is a fixed phrase naming this run and model, typed on /dev/tty. That is a
+    user-consent step, not isolation from a process running as the same OS user.
+    """
+    from decision_control import DecisionController
     workspace = Path(workspace).resolve(strict=True)
     path = _path(workspace, run_id)
-    if not sys.stdin.isatty():
-        raise DecisionError("user-attestation-required")
     if not revoke:
         require_no_credential()
         _identifier(model_id)
@@ -175,36 +234,47 @@ def attest(workspace, run_id, *, model_id, images, token_budget, ttl=1800, revok
                       f"go to that named model provider through the host agent. Workspace {workspace}; run {run_id}; "
                       f"token budget {token_budget}; expires in {ttl} seconds. No core network call. "
                       "Revoke with route.py revoke-no-jev-account --workspace WS --run-id RUN.")
+        phrase = f"attest {run_id} {model_id}"
     else:
         disclosure = f"Revoke no-Jev-account routing authority for workspace {workspace}; run {run_id}."
+        phrase = f"revoke {run_id}"
     print(disclosure)
-    if input("Type ATTEST to confirm: ") != "ATTEST":
-        raise DecisionError("user-attestation-required")
-    with _locked(path, create=True):
-        if revoke:
+    _confirm(phrase)
+    if revoke:
+        # Store first: a revoked store stays revoked even if journal publication then fails.
+        with _locked(path, create=True):
             value = _load(path)
             revoked_id = value["attestationId"]
             value["enabled"] = False
-        else:
-            now = time.time()
-            value = {"kind": "img2.route-no-jev-account", "version": 1, "policyVersion": POLICY,
-                     **_identity(workspace, run_id), "modelId": model_id, "imageSha256s": hashes,
-                     "tokenBudget": token_budget, "issuedAt": now, "expiresAt": now + ttl,
-                     "generation": secrets.token_hex(32), "enabled": True}
-        value.pop("attestationId", None)
-        value["attestationId"] = canonical_digest(value)
-        _store(path, value)
-    # Same lease/hash-chain publication path as routing; no workspace file can
-    # mint authority. A revoked store remains revoked if journal publication fails.
-    from decision_control import DecisionController
+            value.pop("attestationId", None)
+            value["attestationId"] = canonical_digest(value)
+            _store(path, value)
+        data = {"attestationId": value["attestationId"], "presentedAsJev": False,
+                "decider": "model:" + value["modelId"], "expiresAt": value["expiresAt"],
+                "revokedAttestationId": revoked_id}
+        controller = DecisionController(workspace, run_id)
+        with controller._locked():
+            entries, _ = controller._load()
+            controller._commit(entries, "no-account-revoked", data)
+        return value
+    now = time.time()
+    value = {"kind": "img2.route-no-jev-account", "version": 1, "policyVersion": POLICY,
+             **_identity(workspace, run_id), "modelId": model_id, "imageSha256s": hashes,
+             "tokenBudget": token_budget, "issuedAt": now, "expiresAt": now + ttl,
+             "generation": secrets.token_hex(32), "enabled": True}
+    value["attestationId"] = canonical_digest(value)
+    # Journal first, store second. Routing needs both, so a failure at either step (a busy
+    # workspace lease, a full disk) can never leave an enabled store without its journal entry;
+    # an orphan journal entry names no store and authorizes nothing. The store lock is taken
+    # only after the controller lock is released (routing nests them the other way round).
     controller = DecisionController(workspace, run_id)
     with controller._locked():
         entries, _ = controller._load()
-        data = {"attestationId": value["attestationId"], "presentedAsJev": False,
-                "decider": "model:" + value["modelId"], "expiresAt": value["expiresAt"]}
-        if revoke:
-            data["revokedAttestationId"] = revoked_id
-        controller._commit(entries, "no-account-revoked" if revoke else "no-account-attested", data)
+        controller._commit(entries, "no-account-attested", {
+            "attestationId": value["attestationId"], "presentedAsJev": False,
+            "decider": "model:" + value["modelId"], "expiresAt": value["expiresAt"]})
+    with _locked(path, create=True):
+        _store(path, value)
     return value
 
 

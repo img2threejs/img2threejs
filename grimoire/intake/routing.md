@@ -359,18 +359,28 @@ python3 forge/route.py attest-no-jev-account --workspace WS --run-id RUN --image
   --model-id provider:model --token-budget 256000 --accept-image-disclosure
 ```
 
-The command requires an interactive terminal and the confirmation `ATTEST`. It prints exactly
+The command prints the disclosure, then requires the user to type the fixed phrase
+`attest RUN MODEL` (run id and model id; a blind `ATTEST` is refused) on `/dev/tty`, which it opens
+explicitly: a pipe or pty on stdin does not satisfy it, and with no terminal it refuses (exit 3,
+`user-attestation-required`) rather than failing with a traceback. Revocation types `revoke RUN`. It prints exactly
 which provider/model receives the reference images, upright images and derived crops via the host,
 their original SHA256s, workspace, run, token budget and expiry. Model IDs use controller identifiers
 (for example `provider:model`, not a slash-separated path). Authority is private mode-0600,
 user-owned JSON in mode-0700 `$IMG2_HOME/config`, outside both workspace and skill checkout, using
 no-follow reads, a file lock and atomic fsync/rename like Jev consent. Only user-run commands write
-this store; workspace question/answer artifacts cannot enroll authority. Like Jev consent, this is
-not a sandbox against an unrestricted process running as the same OS user.
+this store; workspace question/answer artifacts cannot enroll authority. Like Jev consent
+(`consent authorize-decisions`), this is a user-consent boundary, not isolation from an agent or
+other process running as the same OS user, which can read the same files or open the same terminal.
+Two values are claims, not proofs: token usage in answers is reported by the host (core makes no
+model call and cannot measure it), and the model id is what the user attested, not something core can
+verify about the answering model.
 
 The grant is routing-only, bound to user/workspace/run/reference hashes/model/budget, expires after
 1800 seconds by default (`--expires-in 1..3600`), and is journalled. A present `TYPESAFE_API_KEY` or
 enrolled macOS Keychain entry refuses `--no-jev-account` with `jev-account-present`: use Jev.
+The check reuses the installed Jev plugin's own `jev_auth.auth_status` (loaded only after its bytes match
+`jev_release_lock.json`, so there is no second credential policy and no platform guess), and any
+inconclusive result (storage error, unpinned or unloadable plugin) counts as an account being present.
 Credential-store errors fail closed; no Jev installation, auth/consent probe or network call is
 needed in this mode. Local enrollment inspection never retrieves the credential.
 
@@ -402,7 +412,9 @@ The controller validates identical answer schemas and primary-decider uncertaint
 The shared request reservation remains 64000 tokens; a smaller remaining budget refuses dispatch.
 
 Decisions, consultation receipts and journal attempts record `decider: model:<id>`,
-`presentedAsJev: false`, `decisionMode: no-account`, and `attestationId`; no synthetic Jev outage
+`presentedAsJev: false`, `decisionMode: no-account`, and `attestationId`; the command output adds
+those fields (re-read from the live attestation) only once a model actually decided, and otherwise
+reports `decisionMode: "no-jev-account-pending"` with no decider fields; no synthetic Jev outage
 is recorded. The journal includes `no-account-attested`, `no-account-selected` and revocation.
 Authority is re-read at consult, consume and verification: expiry, revocation, re-attestation,
 changed reference bytes or newly present Jev enrollment invalidate it, including cached receipts.

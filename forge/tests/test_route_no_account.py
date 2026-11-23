@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path
+import pty
 import stat
 import sys
 import tempfile
@@ -47,13 +48,29 @@ class NoAccountRoutingTests(unittest.TestCase):
         self.attestation = None
         self.answers = []
 
+    def typed(self, text):
+        """Point the confirmation device at a real pty with ``text`` already typed on it."""
+        master, slave = pty.openpty()
+        self.addCleanup(os.close, master)
+        self.addCleanup(os.close, slave)
+        if text:
+            os.write(master, text.encode())
+        patch.object(authority, "TTY_PATH", os.ttyname(slave)).start()
+
+    @staticmethod
+    def phrase(revoke=False):
+        return "revoke run-1" if revoke else "attest run-1 " + MODEL
+
     def mint(self, **kwargs):
         output = io.StringIO()
-        with patch.object(authority.sys.stdin, "isatty", return_value=True), \
-                patch("builtins.input", return_value="ATTEST"), redirect_stdout(output):
+        revoke = kwargs.get("revoke", False)
+        self.typed(self.phrase(revoke) + "\n")
+        # Neither stdin nor input() may satisfy the confirmation; only the tty device does.
+        with patch("builtins.input", side_effect=AssertionError("confirmation must not use input()")), \
+                redirect_stdout(output):
             value = authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"],
                                      token_budget=kwargs.pop("token_budget", 256000), **kwargs)
-        if not kwargs.get("revoke"):
+        if not revoke:
             self.attestation = value
             self.assertIn(MODEL, output.getvalue())
             self.assertIn(hashlib.sha256(self.image.read_bytes()).hexdigest(), output.getvalue())
@@ -127,11 +144,49 @@ class NoAccountRoutingTests(unittest.TestCase):
         self.assertEqual(attested[0]["attestationId"], value["attestationId"])
         self.assertFalse(attested[0]["presentedAsJev"])
 
-    def test_interactive_user_confirmation_required(self):
-        with patch.object(authority.sys.stdin, "isatty", return_value=False), self.assertRaises(DecisionError) as caught:
-            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=128000)
+    def attempt(self, **kwargs):
+        with redirect_stdout(io.StringIO()), self.assertRaises(DecisionError) as caught:
+            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=128000, **kwargs)
         self.assertEqual(caught.exception.reason_code, "user-attestation-required")
         self.assertFalse(self.home.exists())
+        return caught.exception
+
+    def test_confirmation_needs_the_tty_device_not_stdin_or_a_blind_attest(self):
+        piped = io.StringIO("ATTEST\n" + self.phrase() + "\n")
+        # "\x04\x04" is the pty EOF character: a user (or host) closing the terminal without a line.
+        for typed in ("ATTEST\n", "attest run-1\n", self.phrase() + " \n", self.phrase() + "\x04\x04", "\x04\x04", "\n",
+                      "attest run-2 " + MODEL + "\n", "attest run-1 other:model\n", self.phrase(revoke=True) + "\n"):
+            with self.subTest(typed=typed):
+                self.typed(typed)
+                with patch.object(sys, "stdin", piped), \
+                        patch("builtins.input", side_effect=AssertionError("must not read input()")):
+                    self.attempt()
+
+    def test_no_terminal_or_unreadable_terminal_is_a_clean_refusal(self):
+        with patch.object(authority, "TTY_PATH", str(self.root / "no-such-tty")):
+            self.attempt()
+        regular = self.root / "not-a-tty"
+        regular.write_text(self.phrase() + "\n")
+        with patch.object(authority, "TTY_PATH", str(regular)):
+            self.attempt()
+        with patch.object(authority.os, "read", side_effect=EOFError), patch.object(authority.os, "isatty", return_value=True):
+            self.typed(self.phrase() + "\n")
+            self.attempt()
+        with patch.object(authority.os, "read", side_effect=OSError("tty closed")):
+            self.typed(self.phrase() + "\n")
+            self.attempt()
+
+    def test_cli_reports_refused_confirmation_without_a_traceback(self):
+        argv = ["attest-no-jev-account", "--workspace", str(self.workspace), "--run-id", "run-1", "--image", "ref.png",
+                "--model-id", MODEL, "--token-budget", "128000", "--accept-image-disclosure"]
+        output = io.StringIO()
+        with patch.object(authority, "TTY_PATH", str(self.root / "no-such-tty")), redirect_stdout(output):
+            code = cli.main(argv)
+        self.assertEqual(code, 3)
+        last = json.loads(output.getvalue().splitlines()[-1])
+        self.assertEqual(last["reasonCode"], "user-attestation-required")
+        self.assertIn("/dev/tty", last["message"])
+        self.assertNotIn("outside the agent control path", last["message"])
 
     def test_revoke_and_expiry_invalidate_already_loaded_authority(self):
         value = self.mint(ttl=60)
@@ -313,20 +368,134 @@ class NoAccountRoutingTests(unittest.TestCase):
         self.assertFalse(any(e["event"] == "attempt-pending" for e in self.journal()))
 
 
+    DECIDER_FIELDS = {"decider", "presentedAsJev", "attestationId"}
+
+    def test_pending_and_error_outputs_carry_no_decider_claims(self):
+        code, output = self.invoke()  # no attestation
+        self.assertEqual((code, output["reasonCode"]), (3, "no-jev-account-attestation-required"))
+        self.assertEqual(output["decisionMode"], "no-jev-account-pending")
+        self.assertFalse(self.DECIDER_FIELDS & set(output))
+        self.mint()
+        for label, call in (("questions", lambda: self.invoke(questions=True)), ("answers-required", self.invoke)):
+            with self.subTest(label):
+                code, output = call()
+                self.assertEqual(output["decisionMode"], "no-jev-account-pending")
+                self.assertFalse(self.DECIDER_FIELDS & set(output), output)
+        self.assertEqual(output["reasonCode"], "model-answers-required")
+
+    def test_decided_output_names_the_model_only_after_it_decided(self):
+        self.mint()
+        output, _ = self.complete()
+        self.assertEqual(output["decisionMode"], "no-account")
+        self.assertEqual(output["decider"], "model:" + MODEL)
+        self.assertIs(output["presentedAsJev"], False)
+        self.assertEqual(output["attestationId"], self.attestation["attestationId"])
+
+    def test_output_rereads_attestation_so_a_mid_run_revoke_leaves_no_stale_id(self):
+        self.mint()
+        self.answer(self.question())
+        self.answer(self.question())
+        revoke = lambda *args, **kwargs: (self.mint(revoke=True), [])[1]
+        with patch.object(cli, "fallback_decisions", side_effect=revoke):
+            code, output = self.invoke()
+        self.assertEqual((code, output["reasonCode"]), (3, "attestation-revoked"))
+        self.assertEqual(output["decisionMode"], "no-jev-account-pending")
+        self.assertFalse(self.DECIDER_FIELDS & set(output), output)
+
+    def test_busy_workspace_leaves_no_enabled_store_behind(self):
+        other = DecisionController(self.workspace, "someone-else")
+        self.addCleanup(other.release)
+        self.typed(self.phrase() + "\n")
+        with redirect_stdout(io.StringIO()), self.assertRaises(DecisionError) as caught:
+            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=256000)
+        self.assertEqual(caught.exception.reason_code, "workspace-busy")
+        self.assertFalse(authority._path(self.workspace, "run-1").exists())
+        with self.assertRaisesRegex(DecisionError, "no-jev-account-attestation-required"):
+            self.grant()
+
+    def test_journal_failure_after_revoke_keeps_the_store_revoked(self):
+        self.mint()
+        other_journal = patch.object(DecisionController, "_commit", side_effect=DecisionError("workspace-busy"))
+        self.typed(self.phrase(revoke=True) + "\n")
+        with other_journal, redirect_stdout(io.StringIO()), self.assertRaises(DecisionError):
+            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=1, revoke=True)
+        with self.assertRaisesRegex(DecisionError, "attestation-revoked"):
+            self.grant()
+
+
 class CredentialProbeTests(unittest.TestCase):
-    def test_environment_override_and_keychain_metadata_status(self):
+    """The veto reuses the pinned Jev plugin's own ``jev_auth.auth_status``; fakes only, no Keychain."""
+    PLUGIN = (
+        "import os\n"
+        "RESULT = {behavior!r}\n"
+        "def auth_status(environ=None):\n"
+        "    if RESULT == 'raise':\n"
+        "        raise RuntimeError('keychain unavailable')\n"
+        "    return RESULT\n")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name).resolve() / "home"
+        patch.dict(os.environ, {"IMG2_HOME": str(self.home)}).start()
+        self.addCleanup(patch.stopall)
+        self.lock = Path(self.tmp.name) / "lock" / "jev_release_lock.json"
+        self.lock.parent.mkdir()
+        patch.object(authority, "_LOCK", self.lock).start()
+
+    def install(self, behavior, *, pinned=True):
+        tools = self.home / "plugins/jev/tools"
+        tools.mkdir(parents=True, exist_ok=True)
+        source = self.PLUGIN.format(behavior=behavior).encode()
+        (tools / "jev_auth.py").write_bytes(source)
+        digest = hashlib.sha256(source if pinned else b"other").hexdigest()
+        self.lock.write_text(json.dumps({"files": {"tools/jev_auth.py": digest}}))
+
+    def test_plugin_answers_decide_and_inconclusive_answers_mean_account_present(self):
+        present = {"status": "present", "reasonCode": "credential-present"}
+        missing = {"status": "missing", "reasonCode": "credential-missing"}
+        for behavior, expected in ((present, "present"), (missing, "credential-missing")):
+            with self.subTest(behavior=behavior["status"]):
+                self.install(behavior)
+                self.assertEqual(authority.credential_status(), expected)
+        for behavior in ({"status": "storage-error", "reasonCode": "credential-storage-error"},
+                         {"status": "missing", "reasonCode": "credential-present"}, {"status": "present"},
+                         {"status": "weird", "reasonCode": "x"}, "raise", ["not", "a", "dict"]):
+            with self.subTest(behavior=behavior):
+                self.install(behavior)
+                with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
+                    authority.credential_status()
+                with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+                    authority.require_no_credential()
+
+    def test_tampered_or_unreadable_plugin_is_never_executed_and_never_means_no_account(self):
+        marker = self.home / "executed"
+        self.install({"status": "missing", "reasonCode": "credential-missing"}, pinned=False)
+        (self.home / "plugins/jev/tools/jev_auth.py").write_text(f"open({str(marker)!r}, 'w')\n")
+        with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+            authority.require_no_credential()
+        self.assertFalse(marker.exists())
+        self.install({"status": "missing", "reasonCode": "credential-missing"})
+        self.lock.write_text("{not json")
+        with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+            authority.require_no_credential()
+
+    def test_environment_alone_cannot_hide_an_installed_jev_account(self):
+        # An env-only Jev account on a non-macOS host: the plugin reports present from the environment,
+        # and clearing the variable afterwards must not be able to turn that into "no account"
+        # while the plugin cannot say "missing".
+        self.install({"status": "storage-error", "reasonCode": "credential-storage-error"})
+        with patch.dict(os.environ, {"TYPESAFE_API_KEY": ""}), self.assertRaisesRegex(DecisionError, "jev-account-present"):
+            authority.require_no_credential()
+
+    def test_without_an_installed_plugin_only_the_automation_override_counts(self):
+        with patch.dict(os.environ, {"TYPESAFE_API_KEY": ""}):
+            self.assertEqual(authority.credential_status(), "credential-missing")
+            authority.require_no_credential()
         with patch.dict(os.environ, {"TYPESAFE_API_KEY": "fake-no-network"}):
             self.assertEqual(authority.credential_status(), "present")
-        with patch.dict(os.environ, {"TYPESAFE_API_KEY": ""}), patch.object(authority.sys, "platform", "darwin"), \
-                patch.object(authority.subprocess, "run") as run:
-            run.return_value.returncode = 44
-            self.assertEqual(authority.credential_status(), "credential-missing")
-            self.assertNotIn("-w", run.call_args.args[0])
-            run.return_value.returncode = 0
-            self.assertEqual(authority.credential_status(), "present")
-            run.return_value.returncode = 1
-            with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
-                authority.credential_status()
+            with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+                authority.require_no_credential()
 
 
 if __name__ == "__main__":

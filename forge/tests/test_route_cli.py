@@ -626,6 +626,58 @@ class ChildInitializationTests(unittest.TestCase):
         self.assertEqual(child["profile"], "pixi2d")
         self.assertEqual(child["routeChild"]["outputKind"], "2d-scene")
 
+    def run_no_account_children(self, grant):
+        """``--no-jev-account --create-children`` through main() with the real parent fixtures."""
+        proposals = self.generic()
+        (self.case.workspace / "objects.json").write_text(json.dumps(proposals))
+        authority = Mock(side_effect=grant)
+        authority.model_id, authority.last_failure = "test-provider:test-model", None
+        authority.metadata = Mock(return_value={"decisionMode": "no-account", "attestationId": "a" * 64,
+                                                "decider": "model:test-provider:test-model", "presentedAsJev": False})
+        argv = ["--workspace", str(self.case.workspace), "--run-id", "route-run", "--image", "reference.png",
+                "--objects", "objects.json", "--no-jev-account", "--create-children",
+                "--harness-root", str(self.case.runtime), "--harness-sha", "b" * 40,
+                "--harness-executable", str(self.case.runtime / "bin/img2.mjs"), "--harness-sha256", "d" * 64]
+        output = io.StringIO()
+        with patch.object(route_cli, "RoutingNoAccount", return_value=authority), \
+                patch.object(route_cli, "DecisionController", return_value=self.case.controller), \
+                patch.object(route_cli, "PinnedDiscovery", return_value=self.case.discovery), \
+                patch.object(route_cli, "LiveConsent") as live, patch.object(route_cli, "JevProviderFactory") as jev, \
+                patch.object(route_cli, "_approved_lock") as lock, \
+                patch.object(route_cli, "HarnessPin", return_value=self.harness), \
+                patch.object(route_cli, "Router", return_value=self.case.router), \
+                patch.object(self.case.router, "route", return_value=self.routed), \
+                patch.object(route_cli, "registered_domains", return_value={}), \
+                patch("domains.registered_domains", return_value={}), redirect_stdout(output):
+            status = route_cli.main(argv)
+        for jev_path in (live, jev, lock):
+            jev_path.assert_not_called()
+        return status, json.loads(output.getvalue()), authority
+
+    def test_no_account_create_children_checks_the_attestation_before_creating_anything(self):
+        calls = []
+        def revoked():
+            calls.append(1)
+            raise DecisionError("attestation-revoked")
+        status, output, authority = self.run_no_account_children(revoked)
+        self.assertEqual((status, output["status"], output["reasonCode"]), (3, "request-input", "attestation-revoked"))
+        self.assertTrue(calls, "the attestation was never consulted on the child-creation path")
+        self.assertFalse(output["childrenCreated"])
+        self.assertFalse((self.case.workspace / ".img2threejs/state.json").exists())
+        self.assertEqual(output["decisionMode"], "no-jev-account-pending")
+        self.assertFalse({"decider", "presentedAsJev", "attestationId"} & set(output))
+
+    def test_no_account_create_children_proceeds_only_while_the_attestation_holds(self):
+        calls = []
+        def holds():
+            calls.append(1)
+            return self.case.consent()  # the fixture's recorded grant, as the live attestation would return
+        status, output, authority = self.run_no_account_children(holds)
+        self.assertEqual((status, output["status"]), (0, "children-initialized"), output)
+        self.assertTrue(calls)
+        self.assertTrue((self.case.workspace / ".img2threejs/state.json").is_file())
+        self.assertFalse(output["terminalAcceptance"])
+
     def test_cli_completion_revalidates_pending_child_without_rerouting(self):
         self.generic()
         parent = self.initialize(self.routed, {})
