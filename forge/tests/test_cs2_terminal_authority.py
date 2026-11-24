@@ -34,9 +34,8 @@ CS2_FIXTURE_COMMIT = "ea41cb608ff5428cc34fba63b3c8e8b6049e2e03"
 def cs2_fixture_source():
     selected = os.environ.get("IMG2_CS2_SOURCE")
     if not selected:
-        if os.environ.get("IMG2THREEJS_REQUIRE_CS2") == "1":
-            raise RuntimeError("required CS2 contract fixture missing: set IMG2_CS2_SOURCE to the pinned checkout")
-        raise unittest.SkipTest("CS2 integration requires explicit IMG2_CS2_SOURCE; required CI job supplies its pinned checkout")
+        raise RuntimeError("CS2 contract fixture missing: set IMG2_CS2_SOURCE to the pinned checkout; "
+                           "missing required integration coverage must not silently skip")
     source = Path(selected).resolve(strict=True)
     git = shutil.which("git", path=os.defpath)
     if git is None:
