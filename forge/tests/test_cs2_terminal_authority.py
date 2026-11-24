@@ -28,7 +28,14 @@ from stage0_route.images import png
 from stage4_review import capture_delivered_glb as capture
 from test_capture_delivered_glb import config_fixture, triangle_glb
 
-CS2_FIXTURE_COMMIT = "ea41cb608ff5428cc34fba63b3c8e8b6049e2e03"
+CS2_FIXTURE_COMMIT = "943e0e50ce34d6b9b41b5d5b6ab9fb38bcf7928f"
+
+
+def _git_environment():
+    return {"PATH": os.defpath, "HOME": os.environ.get("HOME", os.devnull),
+            "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0",
+            "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1"}
 
 
 def cs2_fixture_source():
@@ -41,7 +48,7 @@ def cs2_fixture_source():
     if git is None:
         raise RuntimeError("Git is required for the explicitly selected CS2 fixture")
     result = subprocess.run([git, "-C", str(source), "rev-parse", "--verify", "HEAD"],
-                            capture_output=True, check=True, timeout=10, env={"PATH": os.defpath})
+                            capture_output=True, check=True, timeout=10, env=_git_environment())
     if result.stdout.decode().strip() != CS2_FIXTURE_COMMIT:
         raise RuntimeError("CS2 fixture HEAD does not match the reviewed contract fixture pin")
     return source, git
@@ -72,7 +79,7 @@ class CS2AuthorityTests(unittest.TestCase):
         # Read only immutable committed bytes, never another worktree's dirty files.
         listing = subprocess.run([git, "-C", str(source), "ls-tree", "-rz", CS2_FIXTURE_COMMIT,
                                   "--", "tools", "plugin.json", "gates.json"],
-                                 capture_output=True, check=True, timeout=10, env={"PATH": os.defpath}).stdout
+                                 capture_output=True, check=True, timeout=10, env=_git_environment()).stdout
         for item in listing.split(b"\0"):
             if not item:
                 continue
@@ -82,7 +89,7 @@ class CS2AuthorityTests(unittest.TestCase):
             if kind != "blob" or mode not in {"100644", "100755"} or relative.is_absolute() or ".." in relative.parts:
                 raise RuntimeError("unsafe CS2 fixture tree entry")
             data = subprocess.run([git, "-C", str(source), "cat-file", "blob", object_id],
-                                  capture_output=True, check=True, timeout=10, env={"PATH": os.defpath}).stdout
+                                  capture_output=True, check=True, timeout=10, env=_git_environment()).stdout
             target = cls.plugin / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
@@ -92,9 +99,10 @@ class CS2AuthorityTests(unittest.TestCase):
                      ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
                       "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null",
                       "commit", "--quiet", "-m", "Pinned synthetic CS2 boundary fixture")):
-            subprocess.run([git, "-C", str(cls.plugin), *args], check=True, capture_output=True, timeout=10)
+            subprocess.run([git, "-C", str(cls.plugin), *args], check=True, capture_output=True, timeout=10,
+                           env=_git_environment())
         cls.commit = subprocess.run([git, "-C", str(cls.plugin), "rev-parse", "HEAD"],
-                                    check=True, capture_output=True, timeout=10).stdout.decode().strip()
+                                    check=True, capture_output=True, timeout=10, env=_git_environment()).stdout.decode().strip()
         cls.browser_root = cls.shared_root / "Browser.app"
         cls.chrome_path = cls.browser_root / "Contents/MacOS/Google Chrome"
         cls.chrome_path.parent.mkdir(parents=True)

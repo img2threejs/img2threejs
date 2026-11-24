@@ -24,7 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rejected responses remain auditable and identical requests are not resent. Allowlist authority/
   best-of-N subprocess environments and durably record unsafe trial outputs as failures without suppressing `unsafe-output` rejection.
 - Restore Python 3.10 browser hashing, the existing skill budget and plugin install anchor.
-  CS2 contract fixtures now require an explicit pinned checkout rather than a guessed sibling.
+  CS2 contract fixtures now require an explicit pinned checkout rather than a guessed sibling;
+  CI runs disjoint unit and mandatory code-only CS2 profiles, with isolated HOME and no missing-fixture skip.
   Final Jev/harness release pins, actual native/visual integration and character material capture
   remain pending; these changes do not resolve the code-only versus textured-default product conflict.
 - Add the `textured` build profile and `forge/textured/` (inspect, normalize, render, sheet, generate, likeness, decide, deliver): a reference image becomes a generated, textured GLB, cleaned and rendered with bpy, measured with a Jev likeness loop (consent-gated, budgeted, never printing keys; no-account mode journals `model:<id>`), with up to four generations. It is now the default for `forge/state.py init` when a generator MCP tool is configured; procedural profiles are an explicit opt-in (`--profile generic|<domain>` or `procedural-*`). Routing and plugin ownership are unchanged. SKILL.md and README now describe the textured product; `docs/TEXTURED.md` is the contract. Intentional test changes: tests that start a procedural run through `state.py init` now pass `--profile generic`, and the degraded `--profile` choice set is `generic,textured,procedural-generic`. Not done: no generator call is made by this repository (the host's MCP tool is an agent step), no rig/LOD, no live Jev run.

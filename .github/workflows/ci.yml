@@ -14,7 +14,14 @@ jobs:
     uses: img2threejs/ci-workflows/.github/workflows/python-ci.yml@dd3a7730cacb6ab00cc853be606ce72de389a54c
     with:
       python-version: "3.10"
-      test-command: python3 -m unittest discover -s forge/tests
+      test-command: |
+        mkdir -p "$RUNNER_TEMP/forge-unit-home" "$RUNNER_TEMP/forge-unit-tmp"
+        env -i PATH="$PATH" \
+          HOME="$RUNNER_TEMP/forge-unit-home" TMPDIR="$RUNNER_TEMP/forge-unit-tmp" \
+          PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1 \
+          GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+          GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0 \
+          python3 forge/tests/run_ci.py unit
   cli:
     runs-on: ubuntu-latest
     strategy:
@@ -27,3 +34,40 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm test
       - run: npm run package:check
+  cs2-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          set-safe-directory: false
+      - name: Checkout code-only CS2 contract fixture
+        uses: actions/checkout@v4
+        with:
+          repository: img2threejs/plugin-cs2
+          # Verified candidate fixture, not the final release-lock pin.
+          ref: 943e0e50ce34d6b9b41b5d5b6ab9fb38bcf7928f
+          path: .cs2-contract
+          fetch-depth: 1
+          persist-credentials: false
+          set-safe-directory: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /tools/
+            /plugin.json
+            /gates.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Run required fictional CS2 contract
+        run: |
+          mkdir -p "$RUNNER_TEMP/cs2-contract-home" "$RUNNER_TEMP/cs2-contract-tmp"
+          env -i PATH="$PATH" \
+            HOME="$RUNNER_TEMP/cs2-contract-home" \
+            TMPDIR="$RUNNER_TEMP/cs2-contract-tmp" \
+            PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1 \
+            GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+            GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0 \
+            IMG2_CS2_SOURCE="$GITHUB_WORKSPACE/.cs2-contract" \
+            python3 forge/tests/run_ci.py cs2-contract

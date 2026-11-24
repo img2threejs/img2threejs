@@ -38,6 +38,14 @@ build actually has a GLB reference to measure — skip it entirely otherwise. Se
   The vertex-paint Python/TypeScript parity test invokes Node's
   `--experimental-strip-types`: use a Node 22 release supporting that flag for the full suite.
   This test prerequisite does not change the CLI's Node >= 18 support.
+  Full discovery also requires `IMG2_CS2_SOURCE` pointing to the exact code-only CS2 checkout
+  pinned by `CS2_FIXTURE_COMMIT` in `forge/tests/test_cs2_terminal_authority.py`. Missing or
+  mismatched integration fixtures fail; they do not become skips.
+  CI partitions this same coverage into `python3 forge/tests/run_ci.py unit` and the separate,
+  unconditional `cs2-contract` job running `python3 forge/tests/run_ci.py cs2-contract`.
+  The unit profile excludes only that contract module; it is not proof of integration coverage.
+  The contract job uses an isolated HOME and checks out only CS2 tools/plugin/gate definitions,
+  never historical image/asset fixtures. This candidate test pin is not a final release pin.
 - Validate a spec before generation: `python3 forge/stage2_spec/validate_sculpt_spec.py spec.json --strict-quality`.
 - Keep changes backward compatible: existing object specs must continue to validate.
 - No emojis in source, docs, or generated output.
