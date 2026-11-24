@@ -500,4 +500,6 @@ class BestOfN:
                   "inputTokens": None, "outputTokens": None, "cachedInputTokens": None}
         result_binding = _snapshot(self.controller.workspace, ledger, "result", result)
         _append(ledger, events, authority, "result", {"binding": result_binding})
+        if any(item.get("reasonCode") == "unsafe-output" for item in attempts):
+            raise DecisionError("unsafe-output")
         return result

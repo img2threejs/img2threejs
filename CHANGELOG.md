@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   references are checked regardless of filename extension.
 - Account known Jev usage before semantic validation and retain full reservations for invalid usage;
   rejected responses remain auditable and identical requests are not resent. Allowlist authority/
-  best-of-N subprocess environments and durably record unsafe trial outputs as failures.
+  best-of-N subprocess environments and durably record unsafe trial outputs as failures without suppressing `unsafe-output` rejection.
 - Restore Python 3.10 browser hashing, the existing skill budget and plugin install anchor.
   CS2 contract fixtures now require an explicit pinned checkout rather than a guessed sibling.
   Final Jev/harness release pins, actual native/visual integration and character material capture

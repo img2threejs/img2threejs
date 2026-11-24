@@ -105,12 +105,11 @@ class TrialIntegrityRegressionTests(unittest.TestCase):
         self.case.producer = with_owned_link
         record, context = self.case.decide()
         executor = self.case.executor()
-        result = executor.run(record, context, consent=self.case.consent)
-        self.assertIsNone(result["selected"])
-        self.assertTrue(all(item["reasonCode"] == "unsafe-output" for item in result["attempts"]))
+        self.case.assert_reason("unsafe-output", lambda: executor.run(
+            record, context, consent=self.case.consent))
         before = list(self.case.started_handles)
-        resumed = executor.run(record, context, consent=self.case.consent)
-        self.assertNotEqual(resumed["reasonCode"], "ambiguous-in-flight")
+        self.case.assert_reason("unsafe-output", lambda: executor.run(
+            record, context, consent=self.case.consent))
         self.assertEqual(self.case.started_handles, before)
 
 
