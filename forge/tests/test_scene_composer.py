@@ -82,7 +82,7 @@ class SceneComposerTests(unittest.TestCase):
         self.inventory = {'kind': 'img2.object-inventory', 'version': 1, 'objects': []}
         self.placement = {'kind': 'img2.scene-placement', 'version': 1, 'jevSession': 'healthy', 'objects': [],
                           'camera': self.put('setup/camera.json', {'type': 'perspective', 'position': [2, 2, 4],
-                              'target': [0, 0.5, 0], 'fov': 40, 'aspect': 1.5, 'near': 0.1, 'far': 100}),
+                              'target': [0, 0.5, 0], 'up': [0, 1, 0], 'fov': 40, 'aspect': 1.5, 'near': 0.1, 'far': 100}),
                           'environment': self.put('setup/environment.json', {'type': 'hemisphere',
                               'skyColor': 0xffffff, 'groundColor': 0x555555, 'intensity': 1}),
                           'baseContainer': self.put('setup/base.json', {
@@ -131,7 +131,8 @@ class SceneComposerTests(unittest.TestCase):
 
     def add_placement(self, oid):
         self.placement['objects'].append({'objectId': oid, 'position': [0, 0, 0], 'scale': [1, 1, 1], 'yawBin': 2,
-            'sizePrior': self.put(f'placement/{oid}/prior.json', {'objectId': oid, 'minScale': [0.5] * 3, 'maxScale': [2] * 3})})
+            'sizePrior': self.put(f'placement/{oid}/prior.json', {'objectId': oid, 'minScale': [0.5] * 3, 'maxScale': [2] * 3,
+                                                               'authoredMetricHeight': 1, 'heightBand': {'min': .5, 'max': 2}})})
 
     def bind(self):
         self.request['inventory'] = self.put('inventory.json', self.inventory)
@@ -168,6 +169,10 @@ class SceneComposerTests(unittest.TestCase):
                                         roomDimensions=self.artifacts[container]['roomDimensions'])
                     else:
                         evidence.update(mode='size-prior', sizePriorSha256=row['sizePrior']['sha256'])
+                elif name == 'depth':
+                    evidence.update(cameraDepth=5, relativeDepth=1, metricLandmark=[0, 0, 0])
+                elif name == 'support':
+                    evidence.update(mode='free', supportObjectId=None)
                 row['evidence'][name] = self.put(f'placement/{oid}/{name}.json', evidence)
         self.save_placement()
 

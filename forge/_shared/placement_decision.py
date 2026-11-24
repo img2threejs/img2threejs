@@ -13,7 +13,11 @@ from .decision_control import DecisionController, DecisionError
 
 
 def placement_context(subject, bindings, *, question, options, observations=None):
-    """Build one bounded size/yaw consultation; full binding validation is live."""
+    """Build one bounded size/yaw consultation with required typed placementFacts.
+
+    The caller derives observations from admitted records using placement_record_facts
+    in decision_control; full binding freshness and CLI record comparison remain live.
+    """
     if question not in {"size", "yaw"} or type(subject) is not dict:
         raise DecisionError("invalid-placement-context")
     context = {

@@ -11,8 +11,9 @@ import unittest
 from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from forge._shared.decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
+from forge._shared.decision_control import DecisionController, DecisionError, GROUPS, canonical_digest, placement_record_facts
 from forge._shared.placement_decision import placement_context, consult_placement, consume_placement
+from placement_fixtures import placement_records_fixture
 
 
 class PlacementDecisionTests(unittest.TestCase):
@@ -22,8 +23,10 @@ class PlacementDecisionTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.controller = DecisionController(self.root, "run-placement", clock=lambda: 1000)
         self.bindings = []
+        self.records = placement_records_fixture()
+        self.facts = placement_record_facts(self.records)
         for role in ("reference", "inventory", "artifact", "size-prior", "camera", "depth", "support"):
-            raw = json.dumps({"fixtureRole": role}).encode()
+            raw = json.dumps(self.records.get(role, {"fixtureRole": role})).encode()
             path = role + ".json"
             (self.root / path).write_bytes(raw)
             self.bindings.append({"role": role, "path": path, "sha256": hashlib.sha256(raw).hexdigest()})
@@ -39,7 +42,8 @@ class PlacementDecisionTests(unittest.TestCase):
         values = [[1, 1, 1], [2, 2, 2]] if question == "size" else list(range(8))
         return placement_context({"runId": "run-placement", "objectId": "chair", "revision": 1},
             self.bindings, question=question,
-            options=[{"id": "option-" + str(i), "value": value} for i, value in enumerate(values)])
+            options=[{"id": "option-" + str(i), "value": value} for i, value in enumerate(values)],
+            observations={"placementFacts": deepcopy(self.facts)})
 
     @staticmethod
     def answer(context, model="jev-1.14.0"):
@@ -141,6 +145,36 @@ class PlacementDecisionTests(unittest.TestCase):
             consult_placement(self.controller, context, **self.callbacks)
         self.assertEqual(caught.exception.reason_code, "missing-placement-evidence")
         self.provider.assert_not_called()
+
+    def test_missing_metric_facts_refuses_before_provider_or_reservation(self):
+        context = self.context()
+        context["observations"].pop("placementFacts")
+        with self.assertRaises(DecisionError):
+            consult_placement(self.controller, context, **self.callbacks)
+        self.provider.assert_not_called()
+        self.fallback.assert_not_called()
+        entries = [json.loads(line) for line in self.controller.journal_path.read_text().splitlines()]
+        self.assertFalse(any(entry["event"] == "attempt-pending" for entry in entries))
+
+    def test_invalid_metric_facts_never_reach_a_provider(self):
+        cases = [
+            ("camera", "fov", 180), ("camera", "up", [0, 0, 0]),
+            ("camera", "position", [0, 0, 0]), ("camera", "near", True),
+            ("depth", "cameraDepth", 100), ("depth", "relativeDepth", 0),
+            ("depth", "metricLandmark", [0, 0, 1e13]),
+            ("support", "supportObjectId", "unexpected-free-support"),
+            ("sizePrior", "minScale", [3, 1, 1]), ("sizePrior", "authoredMetricHeight", 0),
+            ("sizePrior", "heightBand", {"min": 2, "max": 1}),
+        ]
+        for role, key, value in cases:
+            context = self.context()
+            context["observations"]["placementFacts"][role][key] = value
+            with self.subTest(role=role, key=key), self.assertRaises(DecisionError):
+                consult_placement(self.controller, context, **self.callbacks)
+        self.provider.assert_not_called()
+        self.fallback.assert_not_called()
+        entries = [json.loads(line) for line in self.controller.journal_path.read_text().splitlines()]
+        self.assertFalse(any(entry["event"] == "attempt-pending" for entry in entries))
 
 
 if __name__ == "__main__":

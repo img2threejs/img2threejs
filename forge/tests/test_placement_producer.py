@@ -10,11 +10,12 @@ _FORGE = str(Path(__file__).resolve().parents[1])
 if _FORGE not in sys.path:
     sys.path.insert(0, _FORGE)
 
-from _shared.decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
+from _shared.decision_control import DecisionController, DecisionError, GROUPS, canonical_digest, placement_record_facts
 from _shared.placement_decision import consume_placement, placement_context
 from stage6_compose.compose import CompositionError
 from stage6_compose.measure import _bound
 from stage6_compose.placement import _position, _source_rows, produce_placement, solve_camera, validate_metric_anchor
+from placement_fixtures import placement_records_fixture
 
 
 class PlacementProducerNegatives(unittest.TestCase):
@@ -29,9 +30,13 @@ class PlacementProducerNegatives(unittest.TestCase):
             ('inventory',fixture.request['inventory']), ('reference',fixture.request['reference']),
             ('artifact',fixture.request['artifacts'][0]), ('camera',fixture.placement['camera']),
             ('size-prior',row['sizePrior']), ('depth',row['evidence']['depth']), ('support',row['evidence']['support']))]
+        records = {binding['role']: json.loads((root/binding['path']).read_text()) for binding in refs
+                   if binding['role'] in ('camera','depth','support','size-prior')}
+        facts = placement_record_facts(records)
         subject = {'runId':'run','objectId':row['objectId'],'revision':1,'passId':'unused'}
         contexts = {question:placement_context(subject, refs, question=question,
-            options=[{'id':'selected','value':value}]) for question, value in (('size',row['scale']),('yaw',row['yawBin']))}
+            options=[{'id':'selected','value':value}], observations={'placementFacts':facts})
+            for question, value in (('size',row['scale']),('yaw',row['yawBin']))}
         controller = DecisionController(root, 'run')
         grant = {'granted':True,'purposes':list(GROUPS),'sha256':'a'*64,'tokenBudget':10000}
         def consent():
@@ -119,13 +124,15 @@ class PlacementProducerNegatives(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             refs = []
+            records = placement_records_fixture()
             for role in ('inventory','reference','artifact','camera','size-prior','depth','support'):
-                payload = json.dumps({'role':role}).encode()
+                payload = json.dumps(records.get(role, {'role':role})).encode()
                 path = role + '.json'
                 (root/path).write_bytes(payload)
                 refs.append({'role':role,'path':path,'sha256':hashlib.sha256(payload).hexdigest()})
             subject = {'runId':'run','objectId':'chair','revision':1,'passId':'unused'}
-            context = placement_context(subject, refs, question='yaw', options=[{'id':'yaw-0','value':0}])
+            context = placement_context(subject, refs, question='yaw', options=[{'id':'yaw-0','value':0}],
+                                        observations={'placementFacts':placement_record_facts(records)})
             forged = {'kind':'img2.decision-record','version':1,'recordId':'0'*64,
                       'decider':'jev:claimed','status':'answered','reasonCode':'answered',
                       'subject':context['subject'],'group':'build-strategy',

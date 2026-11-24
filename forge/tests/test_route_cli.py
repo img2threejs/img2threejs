@@ -215,6 +215,8 @@ class RouteCliTests(unittest.TestCase):
 
     def test_explicit_decline_enables_only_journalled_fallback_without_credentials(self):
         from _shared.placement_decision import placement_context
+        from _shared.decision_control import placement_record_facts
+        from placement_fixtures import placement_records_fixture
         self.status.update(granted=False, purposes=[])
         def probe(argv, workspace, **kwargs):
             if argv[2] == "auth-status":
@@ -223,9 +225,17 @@ class RouteCliTests(unittest.TestCase):
         sha = hashlib.sha256((self.workspace / "image.png").read_bytes()).hexdigest()
         bindings = [{"role": role, "path": "image.png", "sha256": sha} for role in
                     ("reference", "inventory", "artifact", "size-prior", "camera", "depth", "support")]
+        records = placement_records_fixture()
+        for binding in bindings:
+            if binding["role"] in records:
+                path = "placement-" + binding["role"] + ".json"
+                raw = json.dumps(records[binding["role"]]).encode()
+                (self.workspace / path).write_bytes(raw)
+                binding.update(path=path, sha256=hashlib.sha256(raw).hexdigest())
         context = placement_context(
             {"runId": "run-1", "objectId": "object-1", "revision": 1, "passId": "unused"},
-            bindings, question="size", options=[{"id": "size-0", "value": [1, 1, 1]}])
+            bindings, question="size", options=[{"id": "size-0", "value": [1, 1, 1]}],
+            observations={"placementFacts": placement_record_facts(records)})
         provider = Mock(side_effect=AssertionError("declined Jev must never be called"))
         availability = Mock(side_effect=AssertionError("explicit decline already proves unavailability"))
         def fallback(projected):

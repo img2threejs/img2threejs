@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 - Render embedded GLB textures in delivered-model captures by allowing only the required blob
   connections; image-loader failures now refuse capture instead of silently producing an untextured success.
+- Require typed placement camera/depth/support/size-prior facts from current hash-bound records;
+  reject missing, invalid or contradictory facts before Jev CLI dispatch. Legacy placement contexts
+  need fresh producer facts, never model-invented metric defaults; final provider pin closure remains pending.
+- Treat `invalid-credential`, `request-too-large`, `credential-in-context`,
+  `missing-placement-evidence` and `consent-busy` as hard input refusals, not model outages;
+  these errors retain unproven host reservations. Full bound receipt/cache accounting remains pending.
 - Extend explicit no-account authority to purpose-scoped v2 grants across routing, build strategy,
   quality review, repair and child completion. Consent names each `--purpose`; v1 grants require
   personal re-attestation and are archived unchanged, with journal history retained. Credential

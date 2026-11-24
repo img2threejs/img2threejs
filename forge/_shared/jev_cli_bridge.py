@@ -28,7 +28,7 @@ import stat
 import subprocess
 import time
 
-from decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
+from decision_control import DecisionController, DecisionError, GROUPS, canonical_digest, placement_record_facts
 
 
 EDGES = {
@@ -56,6 +56,8 @@ _ERROR_CODES = frozenset({
     "missing-evidence", "vision-forbidden", "permission-denied", "stale-evidence",
     "invalid-assets", "image-dependency-unavailable", "cache-fault",
     "provider-token-bound-exceeded",
+    "invalid-credential", "request-too-large", "credential-in-context",
+    "missing-placement-evidence", "consent-busy",
 })
 
 
@@ -256,11 +258,17 @@ class JevCliBridge:
         bindings = expected.get("bindings")
         if type(bindings) is not list or not bindings:
             _fail("context-fault")
+        placement = (type(self.context.get("subject")) is dict
+                     and self.context["subject"].get("passId") in {"placement-size", "placement-yaw"})
+        records = {}
         for binding in bindings:
             if type(binding) is not dict or set(binding) != {"role", "path", "sha256"}:
                 _fail("context-fault")
-            _file(self.workspace, binding["path"], maximum=64 * 1024 * 1024,
-                  expected=binding["sha256"])
+            record = placement and binding["role"] in {"camera", "depth", "support", "size-prior"}
+            raw = _file(self.workspace, binding["path"], maximum=64 * 1024 * 1024,
+                        expected=binding["sha256"], capture=record)
+            if record:
+                records[binding["role"]] = _json(raw)
         expected["bindings"] = [{"role": b["role"], "sha256": b["sha256"]} for b in bindings]
         if canonical_digest(projected) != canonical_digest(expected):
             _fail("context-fault")
@@ -268,6 +276,10 @@ class JevCliBridge:
         # who invoked this callback. Never strip any field other than binding paths.
         from decision_control import _safe_data
         _safe_data(projected)
+        if placement:
+            DecisionController._placement(self.context)
+            if placement_record_facts(records) != self.context["observations"]["placementFacts"]:
+                _fail("missing-placement-evidence")
         if self.assets_path is not None:
             _file(self.workspace, self.assets_path, maximum=_MAX_ASSETS,
                   expected=self.assets_sha256)

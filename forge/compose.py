@@ -39,6 +39,7 @@ from stage6_compose.compose import CompositionError, _read, compose_scene  # noq
 from stage6_compose.request import build_request  # noqa: E402
 from stage0_route.storage import snapshot
 from _shared.placement_decision import placement_context, consult_placement, consume_placement
+from _shared.decision_control import placement_record_facts
 
 _MAX_INPUT = 64 * 1024 * 1024
 
@@ -285,11 +286,16 @@ def _placement(args):
     for row in plan["objects"]:
         object_id = row["objectId"]
         decisions[object_id] = {}
+        records = {binding["role"]: _bound_json(workspace, {key: binding[key] for key in ("path", "sha256")})
+                   for binding in row["decisionBindings"]
+                   if binding["role"] in {"camera", "depth", "support", "size-prior"}}
+        facts = placement_record_facts(records)
         for question in ("size", "yaw"):
             context = placement_context(
                 {"runId": args.run_id, "objectId": object_id, "revision": revisions[object_id]},
                 row["decisionBindings"], question=question, options=row[question + "Options"],
-                observations={"images": [{"role": "reference", "asset": "reference-image"}]})
+                observations={"images": [{"role": "reference", "asset": "reference-image"}],
+                              "placementFacts": facts})
             context_ref = snapshot(workspace, "placement-context", context)
             context_ref = {key: context_ref[key] for key in ("path", "sha256")}
             with read_only_probes(discovery):

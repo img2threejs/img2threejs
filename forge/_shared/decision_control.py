@@ -43,6 +43,8 @@ QUALITY_SCORE_LEGEND = {
 _AUTH = {"credential-missing", "credential-rejected", "credential-storage-error"}
 _UNAVAILABLE = {"not-installed", "capability-unavailable", "consent-declined", "login-declined"}
 _REQUEST_FAILURES = {"provider-error", "timeout", "malformed", "out-of-set", "ambiguous-paid-attempt"}
+_INPUT_FAILURES = {"invalid-credential", "request-too-large", "credential-in-context",
+                   "missing-placement-evidence", "consent-busy"}
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}\Z")
 _SEMANTIC_LABEL = re.compile(r"[a-z][a-z0-9-]{0,95}\Z")
@@ -139,6 +141,65 @@ def _number(value, low=0, high=1):
             or not low <= value <= high):
         _fail("invalid-number")
     return value
+
+
+_PLACEMENT_FACT_FIELDS = {
+    "camera": ("type", "position", "target", "up", "fov", "aspect", "near", "far"),
+    "depth": ("cameraDepth", "relativeDepth", "metricLandmark"),
+    "support": ("mode", "supportObjectId"),
+    "sizePrior": ("minScale", "maxScale", "authoredMetricHeight", "heightBand"),
+}
+
+
+def _placement_facts(facts):
+    def require(condition):
+        if not condition:
+            _fail("missing-placement-evidence")
+    def number(value, positive=False):
+        return (type(value) in (int, float) and -1e12 <= value <= 1e12
+                and (not positive or value > 0))
+    def vector(value, positive=False):
+        return type(value) is list and len(value) == 3 and all(number(v, positive) for v in value)
+    require(type(facts) is dict and set(facts) == set(_PLACEMENT_FACT_FIELDS))
+    for role, fields in _PLACEMENT_FACT_FIELDS.items():
+        require(type(facts[role]) is dict and set(facts[role]) == set(fields))
+    camera, depth, support, prior = (facts[role] for role in _PLACEMENT_FACT_FIELDS)
+    require(camera["type"] == "perspective"
+            and all(vector(camera[key]) for key in ("position", "target", "up"))
+            and camera["position"] != camera["target"] and any(camera["up"])
+            and number(camera["fov"], True) and camera["fov"] < 180
+            and all(number(camera[key], True) for key in ("aspect", "near", "far"))
+            and camera["near"] < camera["far"])
+    require(all(number(depth[key], True) for key in ("cameraDepth", "relativeDepth"))
+            and camera["near"] < depth["cameraDepth"] < camera["far"]
+            and vector(depth["metricLandmark"]))
+    require((support["mode"] == "free" and support["supportObjectId"] is None)
+            or (support["mode"] == "surface" and type(support["supportObjectId"]) is str
+                and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}", support["supportObjectId"]) is not None))
+    require(vector(prior["minScale"], True) and vector(prior["maxScale"], True)
+            and all(low <= high for low, high in zip(prior["minScale"], prior["maxScale"]))
+            and number(prior["authoredMetricHeight"], True))
+    band = prior["heightBand"]
+    require(type(band) is dict and set(band) == {"min", "max"}
+            and all(number(band[key], True) for key in band) and band["min"] <= band["max"])
+    return facts
+
+
+def placement_record_facts(records):
+    """Project typed facts from caller-admitted, hash-checked producer records."""
+    if type(records) is not dict:
+        _fail("missing-placement-evidence")
+    facts = {}
+    for role, fields in _PLACEMENT_FACT_FIELDS.items():
+        record = records.get("size-prior" if role == "sizePrior" else role)
+        if type(record) is not dict or not set(fields) <= set(record):
+            _fail("missing-placement-evidence")
+        facts[role] = {key: copy.deepcopy(record[key]) for key in fields}
+    band = facts["sizePrior"]["heightBand"]
+    if type(band) is not dict or not {"min", "max"} <= set(band):
+        _fail("missing-placement-evidence")
+    facts["sizePrior"]["heightBand"] = {key: band[key] for key in ("min", "max")}
+    return _placement_facts(facts)
 
 
 def _safe_data(value):
@@ -844,6 +905,10 @@ class DecisionController:
         if any(roles.count(role) != 1 for role in
                ("reference", "inventory", "artifact", "size-prior", "camera", "depth", "support")):
             _fail("missing-placement-evidence")
+        observations = context.get("observations")
+        if type(observations) is not dict:
+            _fail("missing-placement-evidence")
+        _placement_facts(observations.get("placementFacts"))
         values = set()
         for candidate in context["candidates"]:
             if set(candidate) != {"id", "value"}:
@@ -1258,7 +1323,7 @@ class DecisionController:
                       "fallback-image-invalid", "fallback-image-context-required", "fallback-preflight-timeout"}
             if self.routing_authority is not None:
                 unsent.add("model-answers-required")
-            known = (_AUTH | _REQUEST_FAILURES | unsent | {"group-mismatch", "subject-mismatch",
+            known = (_AUTH | _REQUEST_FAILURES | _INPUT_FAILURES | unsent | {"group-mismatch", "subject-mismatch",
                      "context-digest-mismatch", "model-mismatch"})
             code = code if type(code) is str and code in known else (
                 "malformed" if isinstance(exc, DecisionError) else "provider-error")
@@ -1475,7 +1540,7 @@ class DecisionController:
                     if mode is not None:
                         return self._record(entries, context, projected, grant, "request-input", reason,
                                             attempt_id=active_attempt)
-                    if reason in _AUTH | {"missing-evidence", "vision-forbidden", "permission-denied",
+                    if reason in _AUTH | _INPUT_FAILURES | {"missing-evidence", "vision-forbidden", "permission-denied",
                                           "stale-evidence", "budget-exhausted", "budget-overrun"}:
                         return self._record(entries, context, projected, grant, "request-input", reason,
                                             attempt_id=active_attempt)

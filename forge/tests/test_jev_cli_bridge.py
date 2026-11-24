@@ -14,6 +14,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_shared"))
 from decision_control import DecisionController, DecisionError, canonical_digest
 from jev_cli_bridge import EDGES, JevCliBridge, REQUIRED_PROVIDER_FILES
+from placement_fixtures import placement_records_fixture
 
 
 # The fixture deliberately implements no network code. Its observable marker
@@ -349,6 +350,70 @@ class JevCliBridgeTests(unittest.TestCase):
         self.assertEqual(sentinel.read_text(), "user owned sentinel")
         self.assertFalse(any(name.startswith("jev_") for name in set(sys.modules) - before))
         self.assertEqual(self.pins, {relative: self.sha(self.provider / relative) for relative in self.pins})
+
+    def placement(self):
+        records = placement_records_fixture()
+        facts = {("sizePrior" if role == "size-prior" else role): copy.deepcopy(record)
+                 for role, record in records.items()}
+        self.context.update(kind=EDGES["build-strategy"][0], group="build-strategy",
+                            questionSetVersion="strategy-questions-v1", policyVersion="placement-policy-v1")
+        self.context["subject"]["passId"] = "placement-size"
+        self.context["requirements"]["placement"] = {"question": "size"}
+        self.context["observations"] = {"placementFacts": facts}
+        for candidate, scale in zip(self.context["candidates"], (1, 2)):
+            candidate["value"] = [scale]*3
+        records["camera"]["source"] = {"path": "/owned-fixture/local-only.json"}
+        for role in ("inventory", "artifact", "camera", "depth", "support", "size-prior"):
+            path = role + ".json"
+            (self.workspace / path).write_text(json.dumps(records.get(role, {"fixture": role})))
+            self.context["bindings"].append({"role": role, "path": path, "sha256": self.sha(self.workspace/path)})
+        (self.workspace / "context.json").write_text(json.dumps(self.context))
+        return {"edge": EDGES["build-strategy"][:2], "step_id": EDGES["build-strategy"][2]}
+
+    def test_placement_facts_must_match_bound_records_before_any_cli_spawn(self):
+        options = self.placement()
+        self.context["observations"]["placementFacts"]["depth"]["cameraDepth"] = 4
+        (self.workspace / "context.json").write_text(json.dumps(self.context))
+        self.assert_reason("missing-placement-evidence", lambda: self.bridge(**options)(self.projection()))
+        self.assertEqual(self.commands(), [])
+
+    def test_incomplete_placement_record_refuses_before_cli_consent(self):
+        options = self.placement()
+        (self.workspace / "support.json").write_text('{"supportObjectId":null}')
+        next(row for row in self.context["bindings"] if row["role"] == "support")["sha256"] = self.sha(self.workspace/"support.json")
+        (self.workspace / "context.json").write_text(json.dumps(self.context))
+        self.assert_reason("missing-placement-evidence", lambda: self.bridge(**options)(self.projection()))
+        self.assertEqual(self.commands(), [])
+
+    def test_complete_placement_records_allow_only_projected_facts(self):
+        options = self.placement()
+        result = self.bridge(**options)(self.projection())
+        self.assertEqual(result["answers"]["selection"]["choice"], "a")
+        self.assertNotIn("/owned-fixture", json.dumps(self.projection()))
+        self.assertEqual([args[0] for args in self.commands()], ["consent", "decision-build-strategy"])
+
+    def test_local_and_consent_errors_cannot_enable_model_fallback_or_release_by_reason(self):
+        self.grant["tokenBudget"] = 640000
+        (self.workspace / "grant.json").write_text(json.dumps(self.grant))
+        controller = DecisionController(self.workspace, "run-1")
+        fallback_calls = []
+        def fallback(context):
+            fallback_calls.append(context)
+            raise AssertionError("local/consent failure is not a model outage")
+        reasons = ("invalid-credential", "request-too-large", "credential-in-context",
+                   "missing-placement-evidence", "consent-busy")
+        for index, reason in enumerate(reasons):
+            self.context["subject"]["objectId"] = "object-" + str(index)
+            (self.workspace / "context.json").write_text(json.dumps(self.context))
+            self.mode("error:" + reason)
+            record = controller.consult(self.context, provider=self.bridge(), fallback=fallback,
+                availability=lambda: {"status": "present"}, consent=lambda: copy.deepcopy(self.grant))
+            self.assertEqual((record["status"], record["reasonCode"]), ("request-input", reason))
+        self.assertEqual(fallback_calls, [])
+        failures = [json.loads(line)["data"] for line in controller.journal_path.read_text().splitlines()
+                    if json.loads(line)["event"] == "attempt-failure"]
+        self.assertEqual(len(failures), len(reasons))
+        self.assertTrue(all(row["tokens"] == 0 and row["release"] == 0 for row in failures))
 
 
 if __name__ == "__main__":
