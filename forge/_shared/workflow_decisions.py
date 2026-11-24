@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 import re
+import subprocess
 from types import MappingProxyType
 from types import SimpleNamespace
 from typing import Callable
@@ -406,7 +407,7 @@ class WorkflowDecisions:
                 "policyVersion": "route-quality-policy-v1" if group == "quality-review" else self.policy.strategy_policy_version,
                 "questionSetVersion": GROUPS[group][1], "requestedModel": self.policy.requested_model}
 
-    def _strategy(self, context, request):
+    def _strategy(self, context, request, *, profile=None):
         scope = dict(_plain(self.policy.scope), pass_id=context["subject"]["passId"], pass_unlocked=True)
         options = {"scope": scope, "proposals": request["proposals"], "validate_spec": _validate_base}
         if self.policy.native is None:
@@ -415,6 +416,34 @@ class WorkflowDecisions:
         options.update(validate_spec=native.validate_spec, native_rules=_plain(native.rules),
                        frozen_paths=native.frozen_paths, forbidden_components=native.forbidden_components,
                        authorize_native=native.authorize_native)
+        if profile == "interior":
+            from stage0_route.discovery import (interior_runtime_facts, interior_bpy_probe, interior_bpy_version,
+                                                character_bpy_environment)
+            from forge._shared.decision_control import DecisionError as NativeDecisionError
+            try:
+                frozen = interior_runtime_facts()
+                probe = interior_bpy_probe()
+                if probe is None:
+                    _fail("interior-runtime-unavailable")
+                result = subprocess.run(probe, capture_output=True, timeout=10, check=False, shell=False,
+                                        env=character_bpy_environment())
+                version = interior_bpy_version(result.returncode, result.stdout, probe[0])
+                if version is None or version < (4, 3, 0):
+                    _fail("interior-runtime-unavailable")
+                if interior_runtime_facts() != frozen:
+                    _fail("interior-host-binding-changed")
+            except (OSError, subprocess.TimeoutExpired):
+                _fail("interior-runtime-unavailable")
+            context = deepcopy(context)
+            context.setdefault("observations", {})["interiorRuntimeSha256"] = canonical_digest(frozen)
+            def authorize(context, rules):
+                if interior_runtime_facts() != frozen:
+                    raise NativeDecisionError("interior-host-binding-changed")
+                allowed = native.authorize_native(context, rules)
+                if interior_runtime_facts() != frozen:
+                    raise NativeDecisionError("interior-host-binding-changed")
+                return allowed
+            options["authorize_native"] = authorize
         return NativeStrategyDecision(self.controller, context, **options)
 
     @staticmethod
@@ -494,7 +523,7 @@ class WorkflowDecisions:
         pending = state.get("decisionPending")
         if command.startswith("strategy-"):
             context = self._context("build-strategy", request)
-            stage = self._strategy(context, request)
+            stage = self._strategy(context, request, profile=state["profile"])
             # Strategy preflight enriches and filters the exact controller context.
             context = deepcopy(stage._context)
             if operation == "select":

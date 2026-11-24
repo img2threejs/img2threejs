@@ -52,6 +52,8 @@ from route_authority import RouteAuthority, RoutePolicies
 from route_parent import OwnerProfile, ParentError, RouteParent
 from stage0_route.discovery import (EDGES, read_only_probes, character_bpy_probe,
                                     resolve_character_executable)
+from stage0_route.discovery import interior_bpy_probe
+from child_environment import child_environment
 from stage0_route.fallback import HostFallback, fallback_decisions
 from host_policy import pinned_policy_module
 from route_no_account import RoutingNoAccount, attest
@@ -82,6 +84,7 @@ _SAFE_ERRORS |= {"invalid-second-proposals", "second-proposal-context-mismatch",
                  "invalid-second-proposal-binding", "stale-second-proposal-source",
                  "second-proposals-empty"}
 _SAFE_ERRORS |= {"no-jev-account-attestation-required", "attestation-store-required",
+                 "no-jev-account-reattest-required", "interior-host-binding-changed", "interior-runtime-unavailable",
                  "attestation-storage-error", "attestation-binding-mismatch", "attestation-revoked",
                  "attestation-expired", "attestation-changed", "attestation-unproven", "invalid-attestation", "user-attestation-required",
                  "jev-account-present", "model-answers-required", "invalid-model-answers",
@@ -446,6 +449,18 @@ class HarnessPin:
             _fail("harness-pin-mismatch")
         self.inventory = inventory
 
+    @staticmethod
+    def _dependency_commands():
+        allowed = [("python3", "--version"), ("node", "--version"), ("blender", "--version")]
+        for probe in ("character-node", "character-chromium"):
+            executable = resolve_character_executable(probe)
+            if executable is not None:
+                allowed.append((executable, "--version"))
+        for command in (character_bpy_probe(), interior_bpy_probe()):
+            if command is not None:
+                allowed.append(command)
+        return allowed
+
     def runner(self, argv, *, cwd=None, env=None, timeout=30, **kwargs):
         self.verify()
         dependency_probe = False
@@ -456,21 +471,10 @@ class HarnessPin:
                     and command[3] == "--to-kind" and command[5] == "--json"):
                 _fail("authority-command-not-authorized")
         elif argv[0] != "git":
-            allowed = [("python3", "--version"), ("node", "--version"), ("blender", "--version")]
-            for probe in ("character-node", "character-chromium"):
-                executable = resolve_character_executable(probe)
-                if executable is not None:
-                    allowed.append((executable, "--version"))
-            bpy = character_bpy_probe()
-            if bpy is not None:
-                allowed.append(bpy)
-            if tuple(argv) not in allowed:
+            if tuple(argv) not in self._dependency_commands():
                 _fail("authority-command-not-authorized")
             dependency_probe = True
-        environment = dict(os.environ if env is None else env)
-        for key in list(environment):
-            if key.startswith(("NODE_", "PYTHON")) or key == "TYPESAFE_API_KEY":
-                del environment[key]
+        environment = child_environment(env)
         if argv[0] == "git":
             argv = [str(self.consent.git), *argv[1:]]
             environment = self.consent.git_env
@@ -490,9 +494,11 @@ class HarnessPin:
         card/model commands are never forwarded here. Keep harness bytes current
         around those owned subprocesses without pretending a gate is a probe.
         """
-        if argv[0] == "git" or tuple(argv[:len(self.argv)]) == self.argv:
+        if (argv[0] == "git" or tuple(argv[:len(self.argv)]) == self.argv
+                or tuple(argv) in self._dependency_commands()):
             return self.runner(argv, **kwargs)
         self.verify()
+        kwargs["env"] = child_environment(kwargs.get("env"))
         try:
             return subprocess.run(argv, **kwargs)
         finally:
@@ -608,6 +614,12 @@ def _route_parent(router, result, harness, consent, *, policies=None):
     policies = RoutePolicies() if policies is None else policies
     if type(policies) is not RoutePolicies:
         _fail("route-policy-required")
+    if type(consent) is RoutingNoAccount:
+        model = consent.model_id
+        policies = replace(policies,
+            pixi_quality={key: replace(value, requested_model=model) for key, value in policies.pixi_quality.items()},
+            cs2_terminal={key: replace(value, requested_model=model) for key, value in policies.cs2_terminal.items()},
+            native_terminal={key: replace(value, requested_model=model) for key, value in policies.native_terminal.items()})
     authority = RouteAuthority(router, result["decisionRef"], discovered=discovered, owners=owners,
                                harness=harness.argv, runtime_provider=harness.runtime_provider,
                                runner=harness.authority_runner,
@@ -701,6 +713,8 @@ def build_parser():
     parser.add_argument("--model-answers", help="Workspace-relative img2.route-model-answers JSON")
     parser.add_argument("--model-id", help="Named provider/model receiving images (attestation only)")
     parser.add_argument("--token-budget", type=int, help="User-authorized routing token budget (attestation only)")
+    parser.add_argument("--purpose", action="append", choices=tuple(GROUPS),
+                        help="Explicitly consent each no-account decision purpose (repeatable; attestation only)")
     parser.add_argument("--expires-in", type=int, default=1800, help="Attestation lifetime in seconds, at most 3600")
     parser.add_argument("--accept-image-disclosure", action="store_true", help="Accept the printed host-model disclosure")
     parser.add_argument("--create-children", action="store_true",
@@ -760,12 +774,15 @@ def _output(*, reason=None, result=None):
         value["reasonCode"] = reason
     if reason in _AUTH:
         value["requestedCommand"] = "img2-jev login"
+        if reason == "credential-storage-error":
+            value["message"] = ("Restore the pinned Jev authentication installation or unlock credential storage; "
+                                "unknown credential status never authorizes --no-jev-account.")
     elif reason in {"consent-required", "consent-declined"}:
         value["requestedCommand"] = "img2-jev consent authorize-decisions"
         value["requiredFlags"] = ["--workspace", "--run-id", "--token-budget",
                                   "--accept-image-disclosure", "--accept-paid-calls"]
         value["purposes"] = list(GROUPS)
-    elif reason in {"no-jev-account-attestation-required", "attestation-store-required", "attestation-expired",
+    elif reason in {"no-jev-account-attestation-required", "no-jev-account-reattest-required", "attestation-store-required", "attestation-expired",
                     "attestation-revoked", "attestation-changed", "user-attestation-required"}:
         value["requestedCommand"] = "python3 forge/route.py attest-no-jev-account"
         value["requiredFlags"] = ["--workspace", "--run-id", "--image", "--model-id", "--token-budget",
@@ -784,12 +801,12 @@ def main(argv=None):
     if args.command in {"attest-no-jev-account", "revoke-no-jev-account"}:
         revoke = args.command == "revoke-no-jev-account"
         if not revoke and (not args.image or not args.model_id or args.token_budget is None
-                           or not args.accept_image_disclosure):
-            parser.error("attestation requires --image, --model-id, --token-budget and --accept-image-disclosure")
+                           or not args.accept_image_disclosure or not args.purpose):
+            parser.error("attestation requires --image, --model-id, --token-budget, --purpose and --accept-image-disclosure")
         try:
             record = attest(args.workspace, args.run_id, model_id=args.model_id,
                             images=[args.image] if args.image else [], token_budget=args.token_budget,
-                            ttl=args.expires_in, revoke=revoke)
+                            purposes=args.purpose, ttl=args.expires_in, revoke=revoke)
             print(json.dumps({"kind": "img2.route-attestation", "version": 1,
                               "status": "revoked" if revoke else "attested",
                               "attestationId": record["attestationId"], "expiresAt": record["expiresAt"],
@@ -805,12 +822,12 @@ def main(argv=None):
         parser.error("questions requires explicit --no-jev-account")
     if args.command == "questions" and (args.create_children or args.complete_child):
         parser.error("questions does not initialize or complete children")
-    if args.model_id is not None or args.token_budget is not None or args.accept_image_disclosure or args.expires_in != 1800:
+    if args.model_id is not None or args.token_budget is not None or args.accept_image_disclosure or args.expires_in != 1800 or args.purpose:
         parser.error("model/disclosure/budget/expiry flags apply only to the user attestation command")
     if args.model_answers and not args.no_jev_account:
         parser.error("--model-answers requires --no-jev-account")
-    if args.no_jev_account and (args.complete_child or args.fallback_command):
-        parser.error("no-account model answers apply to routing, not child completion or outage fallback")
+    if args.no_jev_account and args.fallback_command:
+        parser.error("no-account authority is not outage fallback")
     if (args.fallback_command is None) != (args.fallback_sha256 is None):
         parser.error("--fallback-command and --fallback-sha256 must be supplied together")
     if (args.second_objects is None) != (args.second_objects_sha256 is None):
@@ -832,8 +849,11 @@ def main(argv=None):
         if _HEX.fullmatch(args.fallback_sha256) is None:
             parser.error("--fallback-sha256 must be 64 lowercase hex characters")
     if args.complete_child:
-        if args.create_children or not args.decision_ref or args.image or args.objects or args.intent or args.explicit_route:
+        if (args.create_children or not args.decision_ref or (args.image and not args.no_jev_account)
+                or args.objects or args.intent or args.explicit_route):
             parser.error("--complete-child requires --decision-ref and excludes routing and creation options")
+        if args.no_jev_account and not args.image:
+            parser.error("no-account child completion requires the attested --image")
         if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,159}", args.complete_child) is None:
             parser.error("--complete-child must be a valid object ID")
     else:
@@ -926,7 +946,7 @@ def main(argv=None):
                 value["status"] = "questions-ready"
     if args.no_jev_account:
         value["decisionMode"] = "no-jev-account-pending"
-        if (consent is not None and value["status"] in {"decided", "children-initialized"}
+        if (consent is not None and value["status"] in {"decided", "children-initialized", "child-completed"}
                 and _model_decided(result)):
             try:
                 # Re-read at output time: a mid-run revoke or replacement must not leave a stale id behind.

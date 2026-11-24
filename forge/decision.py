@@ -39,10 +39,12 @@ from decision_control import DecisionController, DecisionError
 from workflow_decisions import WorkflowDecisions, WorkflowPolicy
 from jev_cli_bridge import _file, _json
 from jev_provider_factory import JevProviderFactory
-from route import LiveConsent, PinnedDiscovery, HarnessPin, _approved_lock
+from route import LiveConsent, PinnedDiscovery, HarnessPin, HostGit, _approved_lock
 from stage0_route.discovery import EDGES, read_only_probes
 from stage0_route.fallback import HostFallback
 from host_policy import pinned_policy_module
+from route_no_account import RoutingNoAccount
+from stage0_route.model_decider import ModelDecider
 
 
 def load_policy(module_path, sha256, *, workspace, state_path, excluded_roots=()):
@@ -79,6 +81,9 @@ def build_parser():
     parser.add_argument("--harness-sha256", required=True)
     parser.add_argument("--fallback-command", type=Path)
     parser.add_argument("--fallback-sha256")
+    parser.add_argument("--no-jev-account", action="store_true")
+    parser.add_argument("--image", help="Attested workspace-relative reference; required in no-account mode")
+    parser.add_argument("--model-answers", help="Workspace-relative attestation-bound model answers")
     return parser
 
 
@@ -108,18 +113,24 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if (args.fallback_command is None) != (args.fallback_sha256 is None):
         parser.error("fallback command and digest must be supplied together")
+    if args.no_jev_account and (not args.image or args.fallback_command):
+        parser.error("no-account mode requires --image and excludes outage fallback")
+    if not args.no_jev_account and (args.image or args.model_answers):
+        parser.error("--image/--model-answers require --no-jev-account")
     consent = None
     try:
         workspace = args.workspace.resolve(strict=True)
         request = _json(_file(workspace, args.request, maximum=256 * 1024, capture=True))
-        release = _approved_lock()
+        release = None if args.no_jev_account else _approved_lock()
         fallback = None if args.fallback_command is None else HostFallback(args.fallback_command, args.fallback_sha256)
-        controller = DecisionController(workspace, args.run_id)
+        consent = RoutingNoAccount(workspace, args.run_id, args.image) if args.no_jev_account else None
+        controller = DecisionController(workspace, args.run_id, routing_authority=consent)
         discovery = PinnedDiscovery(controller)
-        consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
-        discovery.consent_probe = consent
+        if not args.no_jev_account:
+            consent = LiveConsent(discovery, release, args.run_id, Path(sys.executable))
+            discovery.consent_probe = consent
         harness = HarnessPin(args.harness_root, args.harness_sha, args.harness_executable,
-                             args.harness_sha256, consent)
+                             args.harness_sha256, HostGit() if args.no_jev_account else consent)
         discovery.harness, discovery.runner = harness.argv, harness.runner
         discovery.enumerate()
         excluded = [harness.root]
@@ -130,20 +141,31 @@ def main(argv=None):
             excluded.append(Path(discovery.jev["dir"]))
         policy = load_policy(args.policy_module, args.policy_sha256, workspace=workspace,
                              state_path=args.child_state, excluded_roots=excluded)
-        factory = JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
-                                     consent=consent, python_executable=consent.executable)
+        if args.no_jev_account:
+            policy = replace(policy, requested_model=consent.model_id)
+            factory = ModelDecider(controller, consent, args.model_answers)
+        else:
+            factory = JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
+                                         consent=consent, python_executable=consent.executable)
         workflow = WorkflowDecisions(controller, args.child_state, policy, consent=consent,
             availability=discovery.availability, provider_factory=factory, fallback=fallback)
         with read_only_probes(discovery):
             result = workflow.dispatch(args.command, request)
         value = command_output(result, consent=consent)
+        if args.no_jev_account:
+            if value["status"] == "decision-recorded":
+                value.update(consent.metadata())
+            else:
+                value["decisionMode"] = "no-jev-account-pending"
+            if factory.pending is not None:
+                value.update(status="questions-ready", questionsRef=factory.pending)
     except Exception as error:
         reason = getattr(error, "reason_code", "workflow-input-invalid")
         if type(reason) is not str or re.fullmatch(r"[a-z][a-z0-9-]{0,95}", reason) is None:
             reason = "workflow-input-invalid"
         value = command_output({"action": "request-input", "reasonCode": reason}, consent=consent)
     print(json.dumps(value, sort_keys=True, allow_nan=False))
-    return 0 if value["status"] == "decision-recorded" else 3
+    return 0 if value["status"] in {"decision-recorded", "questions-ready"} else 3
 
 
 if __name__ == "__main__":

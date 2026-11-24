@@ -114,12 +114,12 @@ python3 scripts/e2e/route_one.py \
 Unlike provisioning, the route runner inherits the caller's environment, including
 `IMG2_*` runtime selector variables and `PATH`; it overrides `IMG2_HOME` and
 `IMG2_HARNESS_DIR` with the provisioned pins and prepends the provisioned Node
-directory to `PATH`. Interior requires a genuine **Blender >=4.3 executable named
-`blender` on PATH** until a Blender-executable selector exists.
-`IMG2_BLENDER_PYTHON` selects the separate bpy interpreter; it does not satisfy
-the `blender>=4.3` discovery probe. A missing allowlisted dependency executable
-is reported as `dependency-missing:blender>=4.3`, not `provider-error`;
-permission/non-executable errors and harness verification still fail closed.
+directory to `PATH`. Interior requires `interior-bpy>=4.3`, probed through the trusted
+`IMG2_BLENDER_PYTHON` selector (process environment, then validated provisioned selectors).
+Its venv invocation path is retained; an unrelated `blender` CLI cannot substitute.
+Missing bpy makes interior ineligible without breaking unrelated child creation.
+Missing allowlisted legacy dependency executables remain `dependency-missing:<probe>`;
+actual gate failures and harness pin failures remain fail-closed.
 
 It then runs `jev.py consent decision-status` for the workspace and run id.
 

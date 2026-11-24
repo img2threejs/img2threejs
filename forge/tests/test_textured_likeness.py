@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "forge" / "textured"))
 import _common as C  # noqa: E402
 import jev_backend as J  # noqa: E402
 import likeness as L  # noqa: E402
+from textured_chain_support import pipeline, model_grant  # noqa: E402
 
 SECRET = "sk-THIS-MUST-NEVER-APPEAR-123456"
 
@@ -158,9 +159,8 @@ class ConsentGatingTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.ws = Path(self.tmp.name).resolve()
         self.questions = L.build_questions("character")
-        gen = C.gen_dir(self.ws, 1)
-        gen.mkdir(parents=True)
-        write_png(gen / "sheet-front.png", 1568, 1176, (50, 60, 70))
+        gen, _, _ = pipeline(self.ws)
+        (gen / "likeness.json").unlink()
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -198,9 +198,10 @@ class ConsentGatingTest(unittest.TestCase):
     def test_budget_exhaustion_blocks_the_send(self):
         backend = FakeBackend(self.questions, budget=70000)
         L.cmd_run(self.args(), self.ws, backend)  # first call fits one 64k reservation
-        write_png(C.gen_dir(self.ws, 1) / "sheet-front.png", 1568, 1100, (1, 2, 3))  # a new sheet = a new request
+        next_gen, _, _ = pipeline(self.ws, 2, write_state=False)
+        (next_gen / "likeness.json").unlink()
         with self.assertRaises(RuntimeError):
-            L.cmd_run(self.args(), self.ws, backend)
+            L.cmd_run(self.args("--gen", "2"), self.ws, backend)
         self.assertEqual(len(backend.sent), 1)
 
     def test_an_identical_request_is_not_paid_for_twice(self):
@@ -216,6 +217,32 @@ class ConsentGatingTest(unittest.TestCase):
         with self.assertRaises(C.TexturedError):
             L.cmd_run(self.args(), self.ws, backend)
         self.assertFalse(L.likeness_path(self.ws, 1).exists())
+        self.assertEqual(L.tokens_spent(self.ws), 7300)
+        self.assertEqual(next(iter(backend.ledger.values()))["charged"], 7300)
+        with self.assertRaises(C.TexturedError):
+            L.cmd_run(self.args(), self.ws, backend)
+        self.assertEqual(len(backend.sent), 1)
+        self.assertEqual(L.tokens_spent(self.ws), 7300)
+
+    def test_invalid_usage_keeps_full_reservation_and_never_records_a_verdict(self):
+        for usage in (None, {}, {"input_tokens": -1, "output_tokens": 300},
+                      {"input_tokens": True, "output_tokens": 300},
+                      {"input_tokens": 7000, "output_tokens": "300"}):
+            with self.subTest(usage=usage):
+                backend = FakeBackend(self.questions)
+                post = backend.post
+                def invalid_usage(payload, timeout):
+                    response = post(payload, timeout)
+                    response["usage"] = usage
+                    return response
+                backend.post = invalid_usage
+                with self.assertRaises(C.TexturedError):
+                    L.cmd_run(self.args(), self.ws, backend)
+                self.assertEqual(next(iter(backend.ledger.values()))["charged"], 64000)
+                self.assertFalse(L.likeness_path(self.ws, 1).exists())
+                with self.assertRaises(C.TexturedError):
+                    L.cmd_run(self.args(), self.ws, backend)
+                self.assertEqual(len(backend.sent), 1)
 
     def test_the_api_key_never_reaches_a_receipt_or_the_payload(self):
         os.environ["TYPESAFE_API_KEY"] = SECRET
@@ -333,9 +360,9 @@ class NoAccountModeTest(unittest.TestCase):
     def test_model_answers_are_journalled_as_model_decider_never_as_jev(self):
         with tempfile.TemporaryDirectory() as d:
             ws = Path(d).resolve()
-            gen = C.gen_dir(ws, 1)
-            gen.mkdir(parents=True)
-            write_png(gen / "sheet-front.png", 1568, 1176, (5, 5, 5))
+            gen, reference, _ = pipeline(ws)
+            (gen / "likeness.json").unlink()
+            run_id = model_grant(self, ws, reference, "claude-opus-5")
             done = run_tool("likeness.py", "questions", "--workspace", str(ws), "--gen", "1", "--kind", "prop")
             self.assertEqual(done.returncode, 0, done.stderr)
             asked = json.loads((gen / "likeness-questions.json").read_text())
@@ -343,9 +370,10 @@ class NoAccountModeTest(unittest.TestCase):
             answers = {k: ({"choice": "similar"} if q["type"] == "choice" else (3 if q["type"] == "score" else 0.1))
                        for k, q in asked["questions"].items()}
             (ws / "answers.json").write_text(json.dumps(answers))
-            done = run_tool("likeness.py", "record-model-answers", "--workspace", str(ws), "--gen", "1", "--kind", "prop",
-                            "--answers", str(ws / "answers.json"), "--model-id", "claude-opus-5")
-            self.assertEqual(done.returncode, 0, done.stderr)
+            code = L.main(["record-model-answers", "--workspace", str(ws), "--gen", "1", "--kind", "prop",
+                "--answers", str(ws / "answers.json"), "--model-id", "claude-opus-5",
+                "--run-id", run_id, "--reference", str(reference)])
+            self.assertEqual(code, 0)
             record = json.loads((gen / "likeness.json").read_text())
             self.assertEqual(record["decider"], "model:claude-opus-5")
             self.assertEqual(record["provider"], "host-model")
@@ -358,15 +386,37 @@ class NoAccountModeTest(unittest.TestCase):
     def test_model_answers_with_a_wrong_key_set_are_refused(self):
         with tempfile.TemporaryDirectory() as d:
             ws = Path(d).resolve()
-            gen = C.gen_dir(ws, 1)
-            gen.mkdir(parents=True)
-            write_png(gen / "sheet-front.png", 1568, 1176, (5, 5, 5))
+            gen, reference, _ = pipeline(ws)
+            (gen / "likeness.json").unlink()
+            run_id = model_grant(self, ws, reference, "m")
             (ws / "answers.json").write_text(json.dumps({"overall": "same"}))
-            done = run_tool("likeness.py", "record-model-answers", "--workspace", str(ws), "--gen", "1", "--kind", "prop",
-                            "--answers", str(ws / "answers.json"), "--model-id", "m")
-            self.assertEqual(done.returncode, 2)
-            self.assertIn("missing", done.stderr)
+            with self.assertRaises(C.TexturedError):
+                L.main(["record-model-answers", "--workspace", str(ws), "--gen", "1", "--kind", "prop",
+                    "--answers", str(ws / "answers.json"), "--model-id", "m",
+                    "--run-id", run_id, "--reference", str(reference)])
             self.assertFalse((gen / "likeness.json").exists())
+
+    def test_emitted_no_account_command_executes_the_supported_parser_and_records_bound_answers(self):
+        import shlex
+        import textured_profile
+        with tempfile.TemporaryDirectory() as d:
+            ws = Path(d).resolve()
+            gen, reference, _ = pipeline(ws)
+            (gen / "likeness.json").unlink()
+            run_id = model_grant(self, ws, reference)
+            questions = L.build_questions("generic")
+            answers = {key: ("same" if row["type"] == "choice" else 3 if row["type"] == "score" else 0.1)
+                       for key, row in questions.items()}
+            C.write_json(ws / "answers.json", answers)
+            emitted = dict(textured_profile.textured_rows(4))["likeness"]
+            emitted = emitted[emitted.index("record-model-answers"):].removesuffix(")")
+            argv = shlex.split(emitted.format(gen=1, reference=reference))
+            values = {".": str(ws), "<answers.json>": str(ws / "answers.json"),
+                      "<provider:model>": "fixture", "<run-id>": run_id}
+            self.assertEqual(L.main([values.get(value, value) for value in argv]), 0)
+            record = C.read_json(gen / "likeness.json")
+            self.assertEqual(record["authority"]["runId"], run_id)
+            self.assertEqual(record["authority"]["generation"], 1)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ import argparse  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import _common as C  # noqa: E402
+import _chain as chain  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(_HERE), "_shared"))
 from workflow_state import (  # noqa: E402
@@ -101,15 +102,21 @@ def build_parser():
 def main(argv):
     args = build_parser().parse_args(argv)
     workspace = C.resolve_workspace(args.workspace)
-    state_path = Path(args.state) if args.state else workspace / ".img2threejs" / "state.json"
+    state_path = C.workspace_state(workspace, args.state)
     try:
         state = load_state(state_path)
+        # The selection algorithm is pure; the CLI validates every possible input first.
+        for generation in range(1, state["textured"]["generation"] + 1):
+            if load_likeness(workspace, generation) is not None:
+                chain.judged(workspace, generation)
         outcome, chosen, reason, evidence = decide(workspace, state, args.accept_mean)
         print(f"decide: {outcome} (generation {chosen}): {reason}")
         if args.dry_run:
             return 0
         textured_apply_decision(state, outcome=outcome, generation=state["textured"]["generation"], evidence=evidence,
                                 reason=reason, accepted_generation=chosen if outcome == "accept" else None)
+        if outcome == "accept":
+            state["textured"]["acceptedBinding"] = chain.judged(workspace, chosen)
         save_state(state_path, state)
     except WorkflowStateError as error:
         raise C.TexturedError(str(error)) from None

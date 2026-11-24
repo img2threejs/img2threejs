@@ -174,7 +174,7 @@ usable Jev authentication. Unselected capabilities are reported as `not installe
 Older published installers may still install only the skill; bundled install/repair integration
 is not supplied by this core check. See [§3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
 The isolated [E2E runner](docs/E2E.md) accepts object roles and typed observations for room
-routing; interior needs `blender>=4.3` on PATH, not just a bpy interpreter selector.
+routing; interior requires `interior-bpy>=4.3` through trusted `IMG2_BLENDER_PYTHON`, not a separate Blender CLI.
 
 Manual registry inspection example (not a complete default installation):
 
@@ -204,11 +204,12 @@ reporting results. The mandatory four groups are routing, build strategy, qualit
 when required. `forge/route.py` and `forge/decision.py` provide the actual lifecycle hooks; routing
 alone does not run the other groups. The base owns eligibility, consent, independent hard gates and
 acceptance. Neither provider advice nor parent checklist completion is a deliverable.
-Routing alone supports explicit `--no-jev-account` with a separate interactive, expiring user
-attestation and typed `--model-answers`; receipts say `model:<id>`, `presentedAsJev: false`.
-Missing credentials still request login. The attestation is a user-consent step typed on `/dev/tty`,
-not isolation from an agent running as the same OS user (the same limit as `jev consent
-authorize-decisions`); token usage is host-reported and the model id is the user's claim, not proof.
+Explicit `--no-jev-account` supports the routed lifecycle under a live v2 user grant. Consent each
+purpose with repeatable `--purpose`; v1 grants require personal re-attestation, not automatic upgrade.
+Routing, child strategy, terminal review and completion bind the same run/reference/model authority;
+all independent terminal gates remain mandatory. Receipts say `model:<id>`, `presentedAsJev: false`.
+Missing or unprovable credentials never grant this exception. Confirmation is read from `/dev/tty`,
+not isolation from same-user code; token usage and model identity are host/user claims.
 See [deciders](grimoire/intake/routing.md#51-explicit-no-account-routing-decider).
 
 | Plugin | Adds | Output kind | Reached when |

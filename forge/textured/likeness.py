@@ -20,6 +20,7 @@ import json
 import os
 import struct
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ sys.path[:] = [p for p in sys.path if os.path.abspath(p or os.getcwd()) != _HERE
 sys.path.append(_HERE)
 import _common as C  # noqa: E402
 import jev_backend as J  # noqa: E402
+import _chain as chain  # noqa: E402
 
 QUESTION_SET_VERSION = "textured-likeness-v1"
 SCORE_LEVELS = (
@@ -310,6 +312,22 @@ def sheet_for(workspace: Path, generation: int, view: str) -> Path:
 
 
 def write_likeness(workspace, generation, kind, decider, provider, sheet, questions, answers, **extra):
+    path = likeness_path(workspace, generation)
+    if os.path.lexists(path):
+        raise C.TexturedError("generation already judged (this exact request was already sent); keep its immutable likeness")
+    bindings = chain.snapshot(workspace, generation, sheet)
+    if extra.pop("bindings", bindings) != bindings:
+        raise C.TexturedError("pipeline changed during likeness review; no verdict recorded")
+    if provider == "host-model":
+        authority = extra.get("authority")
+        if type(authority) is not dict or not decider.startswith("model:"):
+            raise C.TexturedError("model likeness requires live user authority, never a self-declared outage")
+        expected = chain.model_authority(workspace, authority["runId"], bindings["reference"]["path"],
+                                         decider[6:], generation, bindings)
+        if authority != expected:
+            raise C.TexturedError("model likeness authority changed")
+    elif provider != "jev" or decider != J.MODEL:
+        raise C.TexturedError("unrecognized likeness provider")
     summary = summarize(answers)
     record = C.receipt(
         "likeness", generation=generation, kind=kind, decider=decider, provider=provider,
@@ -317,8 +335,16 @@ def write_likeness(workspace, generation, kind, decider, provider, sheet, questi
         sheet={"path": C.workspace_relative(workspace, sheet), "sha256": C.sha256_file(sheet), "size": list(png_size(sheet))},
         questions={k: {"type": v["type"], **({"criteria": v["criteria"]} if "criteria" in v else {}),
                        "instructions": v["instructions"]} for k, v in questions.items()},
-        answers=answers, summary=summary, **extra)
-    C.write_json(likeness_path(workspace, generation), record)
+        answers=answers, summary=summary, bindings=bindings, **extra)
+    fd, temporary = tempfile.mkstemp(prefix=".likeness-", dir=path.parent)
+    os.close(fd)
+    try:
+        C.write_json(Path(temporary), record)
+        os.link(temporary, path)
+    except FileExistsError:
+        raise C.TexturedError("generation already judged; likeness is immutable") from None
+    finally:
+        Path(temporary).unlink(missing_ok=True)
     journal(workspace, {"event": "likeness", "generation": generation, "decider": decider,
                         "verdict": summary["overall"]["verdict"], "meanScore": summary["meanScore"]})
     return record
@@ -345,15 +371,22 @@ def cmd_run(args, workspace, backend=None):
     questions = build_questions(args.kind, parse_extra_features(args.feature))
     sheet = sheet_for(workspace, args.gen, args.view)
     check_sheet(sheet)
+    if os.path.lexists(likeness_path(workspace, args.gen)):
+        raise C.TexturedError("generation already judged (this exact request was already sent); keep its immutable likeness")
+    bindings = chain.snapshot(workspace, args.gen, sheet)
     backend = backend or J.PluginBackend(Path(args.jev_dir) if args.jev_dir else None)
     payload = build_payload(sheet, questions, tag=f"{workspace.name}-gen{args.gen}-{C.sha256_file(sheet)[:16]}")
     response, usage, grant = J.consult(backend, workspace, args.run_id, payload, timeout=args.timeout)
-    answers = parse_response(questions, response)
-    usage = usage if isinstance(usage, dict) else {}
     record_tokens(workspace, {"generation": args.gen, "runId": args.run_id, "purpose": "likeness",
                               "input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)})
+    try:
+        answers = parse_response(questions, response)
+    except C.TexturedError:
+        journal(workspace, {"event": "rejected-jev-answer", "generation": args.gen,
+                            "runId": args.run_id, "requestSha256": J.request_digest(payload)})
+        raise
     record = write_likeness(workspace, args.gen, args.kind, J.MODEL, "jev", sheet, questions, answers,
-                            usage=usage, consent={"runId": args.run_id, "purpose": J.PURPOSE,
+                            bindings=bindings, usage=usage, consent={"runId": args.run_id, "purpose": J.PURPOSE,
                                                   "tokenBudget": grant["tokenBudget"], "grantSha256": grant.get("sha256")},
                             tokensSpentByLoop=tokens_spent(workspace))
     s = record["summary"]
@@ -368,8 +401,19 @@ def cmd_record_model(args, workspace):
     questions = build_questions(args.kind, parse_extra_features(args.feature))
     sheet = sheet_for(workspace, args.gen, args.view)
     check_sheet(sheet)
-    answers = normalize_answers(questions, C.read_json(Path(args.answers)))
+    if os.path.lexists(likeness_path(workspace, args.gen)):
+        raise C.TexturedError("generation already judged; model answers cannot replace its verdict")
+    bindings = chain.snapshot(workspace, args.gen, sheet)
+    authority = chain.model_authority(workspace, args.run_id, args.reference, args.model_id, args.gen, bindings)
+    from jev_cli_bridge import _file, _json
+    answer_path = Path(args.answers)
+    try:
+        relative = str(answer_path.relative_to(workspace)) if answer_path.is_absolute() else str(answer_path)
+        answers = normalize_answers(questions, _json(_file(workspace, relative, maximum=2 * 1024 * 1024, capture=True)))
+    except (ValueError, OSError) as error:
+        raise C.TexturedError("invalid or uncontained model answers") from error
     record = write_likeness(workspace, args.gen, args.kind, f"model:{args.model_id}", "host-model", sheet, questions, answers,
+                            bindings=bindings, authority=authority,
                             note="answered by the host model, not by Jev; scores are not comparable with Jev scores")
     s = record["summary"]
     print(f"likeness (model:{args.model_id}, NOT Jev): overall={s['overall']['verdict']} mean={s['meanScore']} "
@@ -400,10 +444,14 @@ def cmd_pick(args, workspace, backend=None):
     backend = backend or J.PluginBackend(Path(args.jev_dir) if args.jev_dir else None)
     payload = build_payload(sheet, questions, tag=f"{workspace.name}-pick-{C.sha256_file(sheet)[:16]}", context=PICK_CONTEXT)
     response, usage, _ = J.consult(backend, workspace, args.run_id, payload, timeout=args.timeout)
-    answers = normalize_answers(questions, response["answers"])
-    usage = usage if isinstance(usage, dict) else {}
     record_tokens(workspace, {"generation": 0, "runId": args.run_id, "purpose": "pick",
                               "input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)})
+    try:
+        answers = parse_response(questions, response)
+    except C.TexturedError:
+        journal(workspace, {"event": "rejected-jev-pick", "gens": gens, "runId": args.run_id,
+                            "requestSha256": J.request_digest(payload)})
+        raise
     winner = gens[letters.index(answers["closest_overall"]["choice"])]
     out = C.textured_root(workspace) / "pick.json"
     C.write_json(out, C.receipt("pick", gens=gens, panelMap=dict(zip(letters, gens)), decider=J.MODEL, provider="jev",
@@ -434,8 +482,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--timeout", type=float, default=240.0)
     record = commands.add_parser("record-model-answers", help="record host-model answers as decider model:<id>")
     common(record)
-    record.add_argument("--answers", required=True)
+    record.add_argument("--answers", required=True, help="Workspace-relative JSON answers (or contained absolute path)")
     record.add_argument("--model-id", required=True)
+    record.add_argument("--run-id", required=True, help="Live user-attested v2 run")
+    record.add_argument("--reference", required=True, help="Workspace-relative attested original reference (or contained absolute path)")
     pick = commands.add_parser("pick", help="head-to-head pick between generations through Jev")
     common(pick, gen=False)
     pick.add_argument("--gens", required=True, help="comma separated generation numbers (2..4)")

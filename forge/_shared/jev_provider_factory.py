@@ -42,7 +42,8 @@ import sys
 import time
 import zlib
 
-from decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
+from decision_control import (DEFAULT_REQUEST_TOKEN_LIMIT, DecisionController, DecisionError,
+                              GROUPS, canonical_digest)
 from jev_cli_bridge import EDGES, JevCliBridge, REQUIRED_PROVIDER_FILES, _file
 
 
@@ -330,7 +331,7 @@ class JevProviderFactory:
                 or len(grant["purposes"]) != len(GROUPS) or set(grant["purposes"]) != set(GROUPS)
                 or type(grant["sha256"]) is not str or not _HEX.fullmatch(grant["sha256"])):
             _fail("consent-required")
-        if type(grant["tokenBudget"]) is not int or grant["tokenBudget"] < 64000:
+        if type(grant["tokenBudget"]) is not int or grant["tokenBudget"] < DEFAULT_REQUEST_TOKEN_LIMIT:
             _fail("budget-exhausted")
         return copy.deepcopy(grant)
 
@@ -460,7 +461,7 @@ class JevProviderFactory:
         def attest_contract():
             self._verify_release(group, row)
             return {"inventoryDigest": inventory_digest, "consentPolicyVersion": "jev-disclosure-v4",
-                    "durableSharedReservationTokens": 64000}
+                    "durableSharedReservationTokens": DEFAULT_REQUEST_TOKEN_LIMIT}
         bridge = JevCliBridge(
             self.workspace, provider_root=root, resolved_sha=self.release["resolvedSha"],
             provider_files=self.release["files"], entrypoint="tools/jev.py", executable=self.executable,

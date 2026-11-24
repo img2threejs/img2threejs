@@ -217,11 +217,15 @@ def main(argv):
         code = C.delegate_to_bpy(os.path.abspath(__file__), argv)
         if code is not None:
             return code
+    source_sha256 = C.sha256_file(model)
     facts = run(model, out_glb, args)
+    if C.sha256_file(model) != source_sha256:
+        raise C.TexturedError("normalization source changed while importing")
     exported = verify_export(out_glb)
     if exported["textures"] == 0:
         print("normalize: WARNING the exported GLB carries no textures", file=sys.stderr)
     C.write_json(out, C.receipt("normalize", generation=args.gen, source=C.workspace_relative(workspace, model),
+                                sourceSha256=source_sha256,
                                 output=C.workspace_relative(workspace, out_glb), normalization=facts, export=exported))
     size = facts["bbox"]["size"]
     print(f"normalize: height {size[2]:.3f} m, specks removed {facts['speckRemoval']['removedIslands']}, "

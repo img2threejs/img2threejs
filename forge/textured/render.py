@@ -212,7 +212,10 @@ def main(argv):
         code = C.delegate_to_bpy(os.path.abspath(__file__), argv)
         if code is not None:
             return code
+    glb_sha256 = C.sha256_file(glb)
     rendered, facts = render_all(glb, out_dir, args)
+    if C.sha256_file(glb) != glb_sha256:
+        raise C.TexturedError("normalized GLB changed while rendering")
     for row in rendered:
         path = Path(row["path"])
         if not path.is_file() or path.stat().st_size == 0:
@@ -220,7 +223,7 @@ def main(argv):
         row["sha256"] = C.sha256_file(path)
         row["path"] = C.workspace_relative(workspace, path)
     C.write_json(receipt_path, C.receipt(
-        "render", generation=args.gen, glb=C.workspace_relative(workspace, glb), engine=args.engine,
+        "render", generation=args.gen, glb=C.workspace_relative(workspace, glb), glbSha256=glb_sha256, engine=args.engine,
         samples=args.samples, size=[args.width, args.height], lens=args.lens, exposure=args.exposure,
         background=args.background, views=rendered, **facts))
     print(f"render: {len(rendered)} image(s) {args.width}x{args.height} ({args.engine}, {args.samples} samples) -> {out_dir}")

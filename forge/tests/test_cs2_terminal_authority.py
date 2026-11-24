@@ -28,6 +28,25 @@ from stage0_route.images import png
 from stage4_review import capture_delivered_glb as capture
 from test_capture_delivered_glb import config_fixture, triangle_glb
 
+CS2_FIXTURE_COMMIT = "ea41cb608ff5428cc34fba63b3c8e8b6049e2e03"
+
+
+def cs2_fixture_source():
+    selected = os.environ.get("IMG2_CS2_SOURCE")
+    if not selected:
+        if os.environ.get("IMG2THREEJS_REQUIRE_CS2") == "1":
+            raise RuntimeError("required CS2 contract fixture missing: set IMG2_CS2_SOURCE to the pinned checkout")
+        raise unittest.SkipTest("CS2 integration requires explicit IMG2_CS2_SOURCE; required CI job supplies its pinned checkout")
+    source = Path(selected).resolve(strict=True)
+    git = shutil.which("git", path=os.defpath)
+    if git is None:
+        raise RuntimeError("Git is required for the explicitly selected CS2 fixture")
+    result = subprocess.run([git, "-C", str(source), "rev-parse", "--verify", "HEAD"],
+                            capture_output=True, check=True, timeout=10, env={"PATH": os.defpath})
+    if result.stdout.decode().strip() != CS2_FIXTURE_COMMIT:
+        raise RuntimeError("CS2 fixture HEAD does not match the reviewed contract fixture pin")
+    return source, git
+
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
@@ -45,18 +64,30 @@ def picture(shade):
 class CS2AuthorityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        source, git = cs2_fixture_source()
         cls.shared = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.shared.cleanup)
         cls.shared_root = Path(cls.shared.name).resolve()
         cls.plugin = cls.shared_root / "plugin"
         cls.plugin.mkdir()
-        source = FORGE.parents[1] / "cs2"
-        shutil.copytree(source / "tools", cls.plugin / "tools", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-        for name in ("plugin.json", "gates.json"):
-            shutil.copyfile(source / name, cls.plugin / name)
-        git = shutil.which("git", path=os.defpath)
-        if git is None:
-            raise unittest.SkipTest("Git is required for disposable pinned-provider fixtures")
+        # Read only immutable committed bytes, never another worktree's dirty files.
+        listing = subprocess.run([git, "-C", str(source), "ls-tree", "-rz", CS2_FIXTURE_COMMIT,
+                                  "--", "tools", "plugin.json", "gates.json"],
+                                 capture_output=True, check=True, timeout=10, env={"PATH": os.defpath}).stdout
+        for item in listing.split(b"\0"):
+            if not item:
+                continue
+            metadata, raw_path = item.split(b"\t", 1)
+            mode, kind, object_id = metadata.decode().split()
+            relative = Path(raw_path.decode())
+            if kind != "blob" or mode not in {"100644", "100755"} or relative.is_absolute() or ".." in relative.parts:
+                raise RuntimeError("unsafe CS2 fixture tree entry")
+            data = subprocess.run([git, "-C", str(source), "cat-file", "blob", object_id],
+                                  capture_output=True, check=True, timeout=10, env={"PATH": os.defpath}).stdout
+            target = cls.plugin / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            target.chmod(0o755 if mode == "100755" else 0o644)
         # These commits exist ONLY in this disposable test fixture repository.
         for args in (("init", "--quiet"), ("add", "--", "tools", "plugin.json", "gates.json"),
                      ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",

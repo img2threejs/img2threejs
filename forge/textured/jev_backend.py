@@ -196,6 +196,20 @@ def assert_grant(grant: dict[str, Any]) -> dict[str, Any]:
     return grant
 
 
+def _record_transport(workspace, digest, response, usage):
+    """Persist only transport facts; never provider text, images or credentials."""
+    path = C.textured_root(workspace) / "jev-transport.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = {"at": C.now_iso(), "requestSha256": digest,
+              "responseSha256": request_digest(response),
+              "outcome": "accounted" if usage is not None else "invalid-usage"}
+    if usage is not None:
+        record["usage"] = usage
+    with open(path, "a", encoding="utf-8") as stream:
+        stream.write(json.dumps(record, sort_keys=True) + "\n")
+    return record["responseSha256"]
+
+
 def consult(backend: JevBackend, workspace: Path, run_id: str, payload: dict[str, Any], timeout: float = 240.0):
     """Send ``payload`` once, under consent and budget. Returns (response, usage, grant).
 
@@ -217,7 +231,13 @@ def consult(backend: JevBackend, workspace: Path, run_id: str, payload: dict[str
         session.reserve(digest)
         response = backend.post(payload, timeout)
         usage = response.get("usage") if isinstance(response, dict) else None
+        if (type(usage) is not dict
+                or any(type(usage.get(key)) is not int or not 0 <= usage[key] <= 2**53 - 1
+                       for key in ("input_tokens", "output_tokens"))):
+            _record_transport(workspace, digest, response, None)
+            raise C.TexturedError("invalid Jev usage; the full reservation remains charged; do not retry automatically")
+        usage = {key: usage[key] for key in ("input_tokens", "output_tokens")}
         session.account(digest, usage)
-        result = hashlib.sha256(json.dumps(response, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        result = _record_transport(workspace, digest, response, usage)
         session.complete(digest, result)
     return response, usage, grant

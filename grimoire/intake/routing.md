@@ -225,7 +225,7 @@ The route cards shipped with the sibling plugins:
 
 | Card | Requires | Not for | Cost | Dependencies |
 |---|---|---|---|---|
-| `interior` | role `scene-container`, `enclosure` `enclosed-room`, `roomCount` 1 | `roomCount` greater than 1 | heavy | `blender>=4.3` |
+| `interior` | role `scene-container`, `enclosure` `enclosed-room`, `roomCount` 1 | `roomCount` greater than 1 | heavy | `interior-bpy>=4.3` through trusted `IMG2_BLENDER_PYTHON` |
 | `character` | intent `rig` | none declared | heavy | Python, Node, Chromium, bpy and approved Three (section 4.2) |
 | `cs2` | none | none | local | `python3>=3.10` |
 | `pixi2d` | none (explicit 2D enforced by the base) | none | local | `python3>=3.10` |
@@ -356,7 +356,8 @@ may run this separate command personally, outside the agent's control path:
 
 ```bash
 python3 forge/route.py attest-no-jev-account --workspace WS --run-id RUN --image ref.png \
-  --model-id provider:model --token-budget 256000 --accept-image-disclosure
+  --model-id provider:model --token-budget 256000 --purpose routing --purpose build-strategy \
+  --purpose quality-review --purpose repair --accept-image-disclosure
 ```
 
 The command prints the disclosure, then requires the user to type the fixed phrase
@@ -375,14 +376,16 @@ Two values are claims, not proofs: token usage in answers is reported by the hos
 model call and cannot measure it), and the model id is what the user attested, not something core can
 verify about the answering model.
 
-The grant is routing-only, bound to user/workspace/run/reference hashes/model/budget, expires after
-1800 seconds by default (`--expires-in 1..3600`), and is journalled. A present `TYPESAFE_API_KEY` or
-enrolled macOS Keychain entry refuses `--no-jev-account` with `jev-account-present`: use Jev.
-The check reuses the installed Jev plugin's own `jev_auth.auth_status` (loaded only after its bytes match
-`jev_release_lock.json`, so there is no second credential policy and no platform guess), and any
-inconclusive result (storage error, unpinned or unloadable plugin) counts as an account being present.
-Credential-store errors fail closed; no Jev installation, auth/consent probe or network call is
-needed in this mode. Local enrollment inspection never retrieves the credential.
+V2 grants bind user/workspace/run/reference hashes/model/budget and explicitly selected purposes.
+Repeat `--purpose` for routing, build-strategy, quality-review and repair as required; there is no
+implicit scope. V1 grants require personal re-attestation, never automatic widening. Previous grant
+bytes and journal entries are retained. Budget must be at least 64000; default expiry is 1800 seconds
+(`--expires-in 1..3600`). A present credential refuses this mode with `jev-account-present`.
+The check loads only auth bytes matching `jev_release_lock.json`, preferring the canonical per-user
+Jev auth installation independently of mutable selected `IMG2_HOME`. Missing trusted auth bytes or
+inconclusive credential storage is unknown (`credential-storage-error`), not proof of no account.
+Restore pinned auth tooling/unlock storage before attesting. No provider send or key retrieval is
+needed for this enrollment check; no second platform credential policy is invented.
 
 ```bash
 python3 forge/route.py questions --workspace WS --run-id RUN --image ref.png \
@@ -404,12 +407,12 @@ The workspace-relative answer file is a closed envelope:
 {"kind":"img2.route-model-answers","version":1,"attestationId":"<grant id>","answers":[]}
 ```
 
-Append each completed `img2.decision-advisory` to `answers`. Repeat with accumulated answers because
-localization can reveal crop-choice and route-selection questions. Missing answers stop before
-dispatch or token reservation, and normal routing returns `model-answers-required` (exit 3) with
-the same `questionsRef`. Answers cannot replace question identity, subject, model or candidates.
-The controller validates identical answer schemas and primary-decider uncertainty thresholds.
-The shared request reservation remains 64000 tokens; a smaller remaining budget refuses dispatch.
+Append each completed `img2.decision-advisory` to `answers`. Routing may reveal further localization/
+crop-choice/selection questions. Its missing answers stop before reservation; child callbacks may
+publish a fully released zero-debit reservation while returning questions, but never send to a model.
+Answers cannot replace group, subject, context digest, model identity or admitted candidates.
+The controller applies each group's typed schema and primary-decider thresholds. Every request
+still requires a 64000-token reservation; an insufficient remaining budget refuses dispatch.
 
 Decisions, consultation receipts and journal attempts record `decider: model:<id>`,
 `presentedAsJev: false`, `decisionMode: no-account`, and `attestationId`; the command output adds
@@ -419,8 +422,13 @@ is recorded. The journal includes `no-account-attested`, `no-account-selected` a
 Authority is re-read at consult, consume and verification: expiry, revocation, re-attestation,
 changed reference bytes or newly present Jev enrollment invalidate it, including cached receipts.
 Every deterministic eligibility/dependency/pin/output-kind veto and terminal gate still applies.
-This is a primary routing decider, **not** the stricter outage fallback in section 6, not the
-textured likeness command, and not authorization for strategy, review, repair or child completion.
+This is a primary lifecycle decider, **not** the stricter outage fallback in section 6. Supply the same
+`--no-jev-account --image ref.png --model-answers answers.json` to `forge/decision.py` and
+`forge/terminal.py`; missing answers return each group's typed `questionsRef`. The same external
+policy/harness approvals remain required. `route.py --complete-child` uses the live grant plus
+attested `--image`, does not reroute or call a model, and still requires independent native authority.
+Textured likeness uses its separate question set but requires the same live v2 quality purpose;
+see [the textured contract](../../docs/TEXTURED.md#no-account-mode). It cannot replace Jev verdicts.
 
 
 ## 6. Host-model fallback and the proven-outage rule

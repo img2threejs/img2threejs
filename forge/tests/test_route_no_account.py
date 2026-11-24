@@ -69,7 +69,8 @@ class NoAccountRoutingTests(unittest.TestCase):
         with patch("builtins.input", side_effect=AssertionError("confirmation must not use input()")), \
                 redirect_stdout(output):
             value = authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"],
-                                     token_budget=kwargs.pop("token_budget", 256000), **kwargs)
+                                     token_budget=kwargs.pop("token_budget", 256000),
+                                     purposes=kwargs.pop("purposes", ["routing"]), **kwargs)
         if not revoke:
             self.attestation = value
             self.assertIn(MODEL, output.getvalue())
@@ -146,7 +147,8 @@ class NoAccountRoutingTests(unittest.TestCase):
 
     def attempt(self, **kwargs):
         with redirect_stdout(io.StringIO()), self.assertRaises(DecisionError) as caught:
-            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=128000, **kwargs)
+            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=128000,
+                             purposes=["routing"], **kwargs)
         self.assertEqual(caught.exception.reason_code, "user-attestation-required")
         self.assertFalse(self.home.exists())
         return caught.exception
@@ -178,7 +180,7 @@ class NoAccountRoutingTests(unittest.TestCase):
 
     def test_cli_reports_refused_confirmation_without_a_traceback(self):
         argv = ["attest-no-jev-account", "--workspace", str(self.workspace), "--run-id", "run-1", "--image", "ref.png",
-                "--model-id", MODEL, "--token-budget", "128000", "--accept-image-disclosure"]
+                "--model-id", MODEL, "--token-budget", "128000", "--purpose", "routing", "--accept-image-disclosure"]
         output = io.StringIO()
         with patch.object(authority, "TTY_PATH", str(self.root / "no-such-tty")), redirect_stdout(output):
             code = cli.main(argv)
@@ -360,12 +362,13 @@ class NoAccountRoutingTests(unittest.TestCase):
             controller.consume(record, context, consent=grant)
 
     def test_token_budget_remains_a_veto(self):
-        self.mint(token_budget=100)
+        self.mint(token_budget=64000)
+        self.answer(self.question())
         self.answer(self.question())
         code, output = self.invoke()
         self.assertEqual(code, 3)
         self.assertEqual(output["reasonCode"], "budget-exhausted")
-        self.assertFalse(any(e["event"] == "attempt-pending" for e in self.journal()))
+        self.assertEqual(len([e for e in self.journal() if e["event"] == "attempt-pending"]), 1)
 
 
     DECIDER_FIELDS = {"decider", "presentedAsJev", "attestationId"}
@@ -407,7 +410,8 @@ class NoAccountRoutingTests(unittest.TestCase):
         self.addCleanup(other.release)
         self.typed(self.phrase() + "\n")
         with redirect_stdout(io.StringIO()), self.assertRaises(DecisionError) as caught:
-            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=256000)
+            authority.attest(self.workspace, "run-1", model_id=MODEL, images=["ref.png"], token_budget=256000,
+                             purposes=["routing"])
         self.assertEqual(caught.exception.reason_code, "workspace-busy")
         self.assertFalse(authority._path(self.workspace, "run-1").exists())
         with self.assertRaisesRegex(DecisionError, "no-jev-account-attestation-required"):
@@ -437,7 +441,8 @@ class CredentialProbeTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.home = Path(self.tmp.name).resolve() / "home"
-        patch.dict(os.environ, {"IMG2_HOME": str(self.home)}).start()
+        patch.dict(os.environ, {"IMG2_HOME": str(self.home), "TYPESAFE_API_KEY": ""}).start()
+        patch.object(authority.Path, "home", return_value=Path(self.tmp.name) / "personal-user").start()
         self.addCleanup(patch.stopall)
         self.lock = Path(self.tmp.name) / "lock" / "jev_release_lock.json"
         self.lock.parent.mkdir()
@@ -465,19 +470,19 @@ class CredentialProbeTests(unittest.TestCase):
                 self.install(behavior)
                 with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
                     authority.credential_status()
-                with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+                with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
                     authority.require_no_credential()
 
     def test_tampered_or_unreadable_plugin_is_never_executed_and_never_means_no_account(self):
         marker = self.home / "executed"
         self.install({"status": "missing", "reasonCode": "credential-missing"}, pinned=False)
         (self.home / "plugins/jev/tools/jev_auth.py").write_text(f"open({str(marker)!r}, 'w')\n")
-        with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+        with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
             authority.require_no_credential()
         self.assertFalse(marker.exists())
         self.install({"status": "missing", "reasonCode": "credential-missing"})
         self.lock.write_text("{not json")
-        with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+        with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
             authority.require_no_credential()
 
     def test_environment_alone_cannot_hide_an_installed_jev_account(self):
@@ -485,13 +490,15 @@ class CredentialProbeTests(unittest.TestCase):
         # and clearing the variable afterwards must not be able to turn that into "no account"
         # while the plugin cannot say "missing".
         self.install({"status": "storage-error", "reasonCode": "credential-storage-error"})
-        with patch.dict(os.environ, {"TYPESAFE_API_KEY": ""}), self.assertRaisesRegex(DecisionError, "jev-account-present"):
+        with patch.dict(os.environ, {"TYPESAFE_API_KEY": ""}), self.assertRaisesRegex(DecisionError, "credential-storage-error"):
             authority.require_no_credential()
 
-    def test_without_an_installed_plugin_only_the_automation_override_counts(self):
+    def test_without_trusted_auth_bytes_only_an_override_can_prove_account_presence(self):
         with patch.dict(os.environ, {"TYPESAFE_API_KEY": ""}):
-            self.assertEqual(authority.credential_status(), "credential-missing")
-            authority.require_no_credential()
+            with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
+                authority.credential_status()
+            with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
+                authority.require_no_credential()
         with patch.dict(os.environ, {"TYPESAFE_API_KEY": "fake-no-network"}):
             self.assertEqual(authority.credential_status(), "present")
             with self.assertRaisesRegex(DecisionError, "jev-account-present"):

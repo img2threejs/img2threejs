@@ -50,8 +50,9 @@ TEXTURED_STEPS: Final = (
         "likeness",
         "python3 forge/textured/sheet.py --workspace . --gen {gen} --reference {reference}"
         " && python3 forge/textured/likeness.py run --workspace . --gen {gen} --kind <character|creature|vehicle|"
-        "prop|furniture|building|generic> --run-id <run-id>   (Jev; no account: likeness.py questions, then"
-        " record-model-answers --decider model)",
+        "prop|furniture|building|generic> --run-id <run-id>   (Jev; authorized no-account alternative after questions:"
+        " python3 forge/textured/likeness.py record-model-answers --workspace . --gen {gen} --kind generic"
+        " --answers <answers.json> --model-id <provider:model> --run-id <run-id> --reference {reference})",
     ),
     (
         "decide",

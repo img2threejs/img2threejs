@@ -153,15 +153,59 @@ def character_bpy_probe():
     return (executable, "-I", "-B", "-c", _BPY_PROBE) if executable else None
 
 
+def resolve_interior_executable():
+    """Use only the trusted bpy selector; never infer an unrelated Blender CLI."""
+    executable = _selector("IMG2_BLENDER_PYTHON")
+    if type(executable) is not str or not Path(executable).is_absolute():
+        return None
+    try:
+        path = Path(executable)
+        resolved = path.resolve(strict=True)
+        if not resolved.is_file() or not os.access(resolved, os.X_OK):
+            return None
+        return str(path.parent.resolve(strict=True) / path.name)
+    except (OSError, ValueError, RuntimeError):
+        return None
+
+
+def interior_runtime_facts():
+    """Freeze the trusted invocation path, executable bytes and venv configuration."""
+    path = resolve_interior_executable()
+    facts = {"overridePresent": "IMG2_BLENDER_PYTHON" in os.environ,
+             "override": os.environ.get("IMG2_BLENDER_PYTHON"),
+             "path": path, "sha256": None, "venvSha256": None}
+    if path is not None:
+        try:
+            sha = hashlib.sha256()
+            with Path(path).open("rb") as source:
+                for block in iter(lambda: source.read(1024 * 1024), b""):
+                    sha.update(block)
+            facts["sha256"] = sha.hexdigest()
+            config = Path(path).parent.parent / "pyvenv.cfg"
+            if config.is_file():
+                facts["venvSha256"] = hashlib.sha256(config.read_bytes()).hexdigest()
+            if resolve_interior_executable() != path:
+                raise RouteError("interior-host-binding-changed")
+        except OSError as error:
+            raise RouteError("interior-host-binding-changed") from error
+    return facts
+
+
+def interior_bpy_probe():
+    executable = resolve_interior_executable()
+    code = _BPY_PROBE.replace("img2.character-bpy-probe", "img2.interior-bpy-probe")
+    return (executable, "-I", "-B", "-c", code) if executable else None
+
+
 def character_bpy_environment():
     names = ("HOME", "TMPDIR", "TMP", "TEMP", "LANG", "LC_ALL", "LC_CTYPE", "SYSTEMROOT", "WINDIR")
     return dict({key: os.environ[key] for key in names if key in os.environ}, PATH=os.defpath)
 
 
-def character_bpy_version(code, raw, executable):
+def _bpy_version(code, raw, executable, kind):
     try:
         value = json.loads(raw)
-        if (code != 0 or type(value) is not dict or value.get("kind") != "img2.character-bpy-probe"
+        if (code != 0 or type(value) is not dict or value.get("kind") != kind
                 or value.get("version") != 1 or value.get("executable") != executable
                 or type(value.get("bpyModule")) is not str
                 or type(value.get("bpyVersion")) is not str):
@@ -170,6 +214,14 @@ def character_bpy_version(code, raw, executable):
         return tuple(int(part or 0) for part in version.groups()) if version else None
     except (ValueError, TypeError):
         return None
+
+
+def character_bpy_version(code, raw, executable):
+    return _bpy_version(code, raw, executable, "img2.character-bpy-probe")
+
+
+def interior_bpy_version(code, raw, executable):
+    return _bpy_version(code, raw, executable, "img2.interior-bpy-probe")
 
 
 # Values are immutable and local to the calling thread/async context. A scope
@@ -270,6 +322,15 @@ class Discovery:
         return committed
 
     def dependency(self, name):
+        interior = re.fullmatch(r"interior-bpy>=(\d+(?:\.\d+){0,3})", name)
+        if interior:
+            command = interior_bpy_probe()
+            if command is None:
+                return False
+            code, raw = self.run(command, env=character_bpy_environment())
+            actual = interior_bpy_version(code, raw, command[0])
+            required = tuple(map(int, interior[1].split(".")))
+            return actual is not None and actual >= required + (0,) * max(0, len(actual) - len(required))
         if name == "character-three>=0.186.1":
             return character_three_facts() is not None
         bpy = re.fullmatch(r"character-bpy>=(\d+(?:\.\d+){0,3})", name)
@@ -397,6 +458,8 @@ class Discovery:
             for probe in _CHARACTER_GATE_PROBES:
                 if probe not in dependency_results:
                     dependency_results[probe] = self.dependency(probe)
+        if expected_name == "interior" and "interior-bpy>=4.3" not in dependency_results:
+            dependency_results["interior-bpy>=4.3"] = self.dependency("interior-bpy>=4.3")
         gate = self._gate_producer(row, expected_name=expected_name, card=card, dependencies=dependency_results)
         return {"id": expected_name + ":" + hashlib.sha256(
                     (row["resolvedSha"] + ":" + card_binding["sha256"]).encode()).hexdigest(),

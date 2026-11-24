@@ -32,6 +32,14 @@ GROUPS = {
     "quality-review": ("img2.quality-review-context", "quality-review-questions-v1"),
     "repair": ("img2.repair-context", "repair-decision-questions-v1"),
 }
+DEFAULT_REQUEST_TOKEN_LIMIT = 64000
+QUALITY_SCORE_LEGEND = {
+    "0": "Absent or wrong relative to the declared requirement.",
+    "1": "Major mismatch with the declared requirement.",
+    "2": "Partially meets the declared requirement, with visible deficiencies.",
+    "3": "Meets the declared requirement.",
+    "4": "Exceeds the declared requirement without changing it.",
+}
 _AUTH = {"credential-missing", "credential-rejected", "credential-storage-error"}
 _UNAVAILABLE = {"not-installed", "capability-unavailable", "consent-declined", "login-declined"}
 _REQUEST_FAILURES = {"provider-error", "timeout", "malformed", "out-of-set", "ambiguous-paid-attempt"}
@@ -226,7 +234,9 @@ class DecisionController:
         metadata = self.routing_authority.metadata()
         attested = state["noAccountAttestations"].get(metadata["attestationId"])
         if (not attested or attested["runId"] != self.run_id
-                or attested["decider"] != metadata["decider"]):
+                or attested["decider"] != metadata["decider"]
+                or attested.get("attestationPolicyVersion") != metadata["attestationPolicyVersion"]
+                or attested.get("attestedPurposes") != metadata["attestedPurposes"]):
             _fail("attestation-unproven")
         return metadata
 
@@ -979,7 +989,7 @@ class DecisionController:
                   "answers": copy.deepcopy(advisory["answers"]) if advisory else {},
                   "usage": copy.deepcopy(advisory["usage"]) if advisory else None,
                   "consent": copy.deepcopy(grant), "createdAt": self._now()}
-        if self.routing_authority is not None and context["group"] == "routing":
+        if self.routing_authority is not None:
             record.update(self.routing_authority.metadata())
         if fallback_reason:
             record["unavailableReason"] = fallback_reason
@@ -1185,13 +1195,7 @@ class DecisionController:
                     _fail("malformed")
                 _number(answer["score"], 0, 4)
                 _number(answer["confidence"])
-                legend = {
-                    "0": "Absent or wrong relative to the declared requirement.",
-                    "1": "Major mismatch with the declared requirement.",
-                    "2": "Partially meets the declared requirement, with visible deficiencies.",
-                    "3": "Meets the declared requirement.",
-                    "4": "Exceeds the declared requirement without changing it.",
-                }
+                legend = QUALITY_SCORE_LEGEND
                 if answer["legend"] != legend:
                     _fail("malformed")
                 DecisionController._probabilities(answer["probabilities"], set(legend))
@@ -1220,7 +1224,8 @@ class DecisionController:
                 status, reason = "request-input", "budget-overrun"
             return answer, status, reason
         if prior and "reasonCode" in prior:
-            if prior["reasonCode"] in _AUTH:
+            if prior["reasonCode"] in _AUTH or (self.routing_authority is not None
+                                                and prior["reasonCode"] == "model-answers-required"):
                 # A fresh trusted auth probe may permit a new login attempt.
                 prior = None
             else:
@@ -1235,8 +1240,7 @@ class DecisionController:
         if prior:
             self._commit(entries, "retried-after-crash", {"attemptId": attempt_id,
                          "reasonCode": "ambiguous-paid-attempt"})
-        authority = (self.routing_authority.metadata()
-                     if self.routing_authority is not None and context["group"] == "routing" else {})
+        authority = self.routing_authority.metadata() if self.routing_authority is not None else {}
         pending = self._commit(entries, "attempt-pending", {
             "attemptId": attempt_id, "contextDigest": canonical_digest(context),
             "group": context["group"], "status": "pending", "retries": retries,
@@ -1252,6 +1256,8 @@ class DecisionController:
             code = getattr(exc, "reason_code", "timeout" if isinstance(exc, TimeoutError) else "provider-error")
             unsent = {"missing-evidence", "vision-forbidden", "permission-denied", "stale-evidence",
                       "fallback-image-invalid", "fallback-image-context-required", "fallback-preflight-timeout"}
+            if self.routing_authority is not None:
+                unsent.add("model-answers-required")
             known = (_AUTH | _REQUEST_FAILURES | unsent | {"group-mismatch", "subject-mismatch",
                      "context-digest-mismatch", "model-mismatch"})
             code = code if type(code) is str and code in known else (
@@ -1311,7 +1317,7 @@ class DecisionController:
         return ids, shas
 
     def consult(self, context, *, provider=None, fallback=None, availability=None, consent=None,
-                request_token_limit=64000, route_round=None):
+                request_token_limit=DEFAULT_REQUEST_TOKEN_LIMIT, route_round=None):
         """Consult without changing per-object context/cache identity.
 
         ``route_round={routeRevision, roundNumber}`` is trusted host-only metadata.
@@ -1364,7 +1370,7 @@ class DecisionController:
         return record
 
     def _consult(self, context, *, provider=None, fallback=None, availability=None, consent=None,
-                request_token_limit=64000):
+                request_token_limit=DEFAULT_REQUEST_TOKEN_LIMIT):
         """Consult Jev first, journal proven outages, and constrain optional fallback.
 
         Callbacks receive a detached projection with no local paths. Login and
@@ -1377,7 +1383,7 @@ class DecisionController:
         context = copy.deepcopy(context)
         projected = self._context(context)
         self._consent = consent
-        mode = self.routing_authority if context["group"] == "routing" else None
+        mode = self.routing_authority
         if mode is not None and (consent is not mode or context["requestedModel"] != mode.model_id):
             _fail("attestation-binding-mismatch")
         with self._locked():
@@ -1432,7 +1438,7 @@ class DecisionController:
             if not grant["granted"]:
                 reason = "consent-declined"
                 self._commit(entries, "unavailable", {"scope": "run", "group": context["group"], "reasonCode": reason})
-            elif set(grant["purposes"]) != ({"routing"} if mode is not None else set(GROUPS)):
+            elif (context["group"] not in grant["purposes"] if mode is not None else set(grant["purposes"]) != set(GROUPS)):
                 return self._record(entries, context, projected, grant, "request-input", "consent-required")
             if reason is None and mode is None:
                 probe = self._probe(availability)
@@ -1675,7 +1681,8 @@ class DecisionController:
                     _fail("workflow-quality-block-invalid")
                 self._context(block["context"])
                 grant = self._grant(consent)
-                if grant["granted"] and set(grant["purposes"]) != set(GROUPS):
+                if grant["granted"] and ("quality-review" not in grant["purposes"] if self.routing_authority is not None
+                                         else set(grant["purposes"]) != set(GROUPS)):
                     _fail("consent-required")
                 saved = state["decisionBlocks"].get(block["blockId"])
                 if saved is None:

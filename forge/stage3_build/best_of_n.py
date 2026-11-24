@@ -52,6 +52,7 @@ if os.name == "posix":
 
 from forge._shared.decision_control import DecisionError, canonical_digest
 from forge._shared.decision_quality import rank_candidates
+from forge._shared.child_environment import child_environment
 
 
 def _require(condition, reason):
@@ -438,7 +439,8 @@ class BestOfN:
                     raise DecisionError("deadline-exhausted")
                 with (directory / "stdout.log").open("xb") as stdout, (directory / "stderr.log").open("xb") as stderr:
                     process = subprocess.Popen(argv, cwd=directory, stdin=subprocess.DEVNULL, stdout=stdout,
-                                               stderr=stderr, shell=False, start_new_session=True, close_fds=True)
+                                               stderr=stderr, shell=False, start_new_session=True, close_fds=True,
+                                               env=child_environment())
                     try:
                         code = process.wait(timeout=remaining)
                     except subprocess.TimeoutExpired:
@@ -466,7 +468,13 @@ class BestOfN:
             # BaseException/crash deliberately leaves pending, never a false completion.
             attempt["elapsedMs"] = (time.monotonic() - began) * 1000
             attempt_binding = _snapshot(self.controller.workspace, directory, "attempt", attempt)
-            _freeze(directory)
+            try:
+                _freeze(directory)
+            except (DecisionError, OSError) as exc:
+                failure = exc.reason_code if isinstance(exc, DecisionError) else "unsafe-output"
+                attempt.update(status="unevaluated", reasonCode=failure)
+                # Rejected output cannot prevent a durable terminal receipt in the trusted ledger.
+                attempt_binding = _snapshot(self.controller.workspace, ledger, "attempt", attempt)
             evidence = {"report": produced.report, "bindings": list(produced.bindings)} if attempt["status"] == "evaluated" else None
             _append(ledger, events, authority, "completed",
                     {"candidateId": handle, "directory": relative, "attempt": attempt_binding, "evidence": evidence})

@@ -1,10 +1,10 @@
-"""User-owned, run-scoped routing authority; never inferred from missing login.
+"""User-owned, purpose-scoped run authority; never inferred from missing login.
 
 Storage follows jev_consent's IMG2_HOME/config, uid/private-mode, flock and atomic
 fsync/rename boundary. This is a user-consent boundary, not isolation from an agent
 running as the same OS user: such a process can impersonate its user, exactly as it can
 for `jev consent authorize-decisions`. The interactive CLI is the only code path here
-that mints/revokes grants and it confirms on /dev/tty; routing only reads them.
+that mints/revokes grants and it confirms on /dev/tty; lifecycle consumers only read them.
 """
 from contextlib import contextmanager
 import fcntl
@@ -18,11 +18,13 @@ import tempfile
 import time
 import types
 
-from decision_control import DecisionError, _identifier, _json_bytes, canonical_digest
+from decision_control import (DEFAULT_REQUEST_TOKEN_LIMIT, GROUPS, DecisionError, _identifier,
+                              _json_bytes, canonical_digest)
 from jev_cli_bridge import _file, _json
 from runtime_selectors import img2_home
 
-POLICY = "routing-no-jev-account-v1"
+POLICY = "routing-no-jev-account-v2"
+LEGACY_POLICY = "routing-no-jev-account-v1"
 TTY_PATH = "/dev/tty"
 MAX_TTL = 3600
 
@@ -32,15 +34,16 @@ _AUTH_MODULE = "tools/jev_auth.py"
 
 
 def _plugin_auth_status():
-    """The pinned Jev plugin's own ``jev_auth.auth_status``; None only when no plugin directory exists.
+    """Load pinned authentication independently of a mutable selected installation home.
 
     The same module the Jev route path runs (see ``LiveConsent.auth_status``), loaded from bytes
     verified against the release lock with no-follow reads, so there is no second credential policy
     here. Anything other than a clean "present"/"missing" answer is inconclusive and raises.
     """
-    root = img2_home() / "plugins" / "jev"
-    if not os.path.lexists(root):
-        return None
+    roots = (Path.home() / ".img2" / "plugins" / "jev", img2_home() / "plugins" / "jev")
+    root = next((candidate for candidate in roots if os.path.lexists(candidate)), None)
+    if root is None:
+        raise DecisionError("credential-storage-error")
     try:
         pinned = _json(_file(_LOCK.parent, _LOCK.name, maximum=128 * 1024, capture=True))["files"][_AUTH_MODULE]
         source = _file(root, _AUTH_MODULE, maximum=1024 * 1024, expected=pinned, capture=True)
@@ -56,11 +59,9 @@ def _plugin_auth_status():
 
 def credential_status():
     """"present" or "credential-missing"; every inconclusive outcome raises credential-storage-error."""
+    if os.environ.get("TYPESAFE_API_KEY", "").strip():
+        return "present"
     status = _plugin_auth_status()
-    if status is None:
-        # No Jev plugin is installed, so no Jev credential can be exercised through this core; only the
-        # plugin's documented automation override is still honoured as an existing account.
-        return "present" if os.environ.get("TYPESAFE_API_KEY", "").strip() else "credential-missing"
     if status == ("present", "credential-present"):
         return "present"
     if status == ("missing", "credential-missing"):
@@ -70,10 +71,7 @@ def credential_status():
 
 def require_no_credential():
     """Fail closed: a present, rejected or unreadable credential is treated as an existing account."""
-    try:
-        status = credential_status()
-    except DecisionError:
-        status = "inconclusive"
+    status = credential_status()
     if status != "credential-missing":
         raise DecisionError("jev-account-present")
 
@@ -129,6 +127,11 @@ def _locked(path, *, create=False):
             os.close(fd)
 
 
+def _purposes(value):
+    return (type(value) is list and bool(value) and all(type(item) is str and item in GROUPS for item in value)
+            and len(value) == len(set(value)))
+
+
 def _load(path):
     if not path.exists():
         raise DecisionError("no-jev-account-attestation-required")
@@ -148,13 +151,15 @@ def _load(path):
             os.close(fd)
     fields = {"kind", "version", "policyVersion", "user", "workspace", "runId", "modelId",
               "imageSha256s", "tokenBudget", "issuedAt", "expiresAt", "generation", "enabled", "attestationId"}
-    if type(value) is not dict or set(value) != fields:
+    legacy = type(value) is dict and value.get("version") == 1 and value.get("policyVersion") == LEGACY_POLICY
+    if type(value) is not dict or set(value) != (fields if legacy else fields | {"purposes"}):
         raise DecisionError("attestation-storage-error")
     body = {key: item for key, item in value.items() if key != "attestationId"}
     if (value["kind"] != "img2.route-no-jev-account" or type(value["version"]) is not int
-            or value["version"] != 1 or value["policyVersion"] != POLICY
+            or (not legacy and (value["version"] != 2 or value["policyVersion"] != POLICY or not _purposes(value["purposes"])))
             or canonical_digest(body) != value["attestationId"] or type(value["enabled"]) is not bool
             or type(value["tokenBudget"]) is not int or not 0 < value["tokenBudget"] <= 2**53 - 1
+            or (not legacy and value["tokenBudget"] < DEFAULT_REQUEST_TOKEN_LIMIT)
             or type(value["imageSha256s"]) is not list or not value["imageSha256s"]
             or any(type(sha) is not str or len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha)
                    for sha in value["imageSha256s"])
@@ -182,6 +187,16 @@ def _store(path, value):
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def _preserve(path, value):
+    """Replacing/revoking a grant never erases its original bytes or ledger."""
+    archive = path.with_name(path.name + "." + value["attestationId"] + ".history")
+    try:
+        os.link(path, archive, follow_symlinks=False)
+    except FileExistsError:
+        if _load(archive) != value:
+            raise DecisionError("attestation-storage-error") from None
 
 
 def _confirm(phrase):
@@ -212,7 +227,7 @@ def _confirm(phrase):
         raise DecisionError("user-attestation-required", "the typed confirmation did not match")
 
 
-def attest(workspace, run_id, *, model_id, images, token_budget, ttl=1800, revoke=False):
+def attest(workspace, run_id, *, model_id, images, token_budget, purposes=None, ttl=1800, revoke=False):
     """Interactive user action; images are the original reference bytes.
 
     The confirmation is a fixed phrase naming this run and model, typed on /dev/tty. That is a
@@ -224,13 +239,13 @@ def attest(workspace, run_id, *, model_id, images, token_budget, ttl=1800, revok
     if not revoke:
         require_no_credential()
         _identifier(model_id)
-        if (type(token_budget) is not int or not 0 < token_budget <= 2**53 - 1
-                or type(ttl) is not int or not 0 < ttl <= MAX_TTL or not images):
+        if (type(token_budget) is not int or not DEFAULT_REQUEST_TOKEN_LIMIT <= token_budget <= 2**53 - 1
+                or type(ttl) is not int or not 0 < ttl <= MAX_TTL or not images or not _purposes(purposes)):
             raise DecisionError("invalid-attestation")
         hashes = sorted({hashlib.sha256(_file(workspace, image, maximum=64 * 1024 * 1024, capture=True)).hexdigest()
                          for image in images})
-        disclosure = (f"I have no Jev account. Routing will be decided by model provider/model {model_id}, NOT Jev. "
-                      f"The reference images with SHA256 {', '.join(hashes)}, their upright versions and derived crops "
+        disclosure = (f"I have no Jev account. Purposes {', '.join(purposes)} will be decided by model provider/model {model_id}, NOT Jev. "
+                      f"The reference images with SHA256 {', '.join(hashes)}, their upright versions, derived crops and bound lifecycle evidence "
                       f"go to that named model provider through the host agent. Workspace {workspace}; run {run_id}; "
                       f"token budget {token_budget}; expires in {ttl} seconds. No core network call. "
                       "Revoke with route.py revoke-no-jev-account --workspace WS --run-id RUN.")
@@ -244,6 +259,7 @@ def attest(workspace, run_id, *, model_id, images, token_budget, ttl=1800, revok
         # Store first: a revoked store stays revoked even if journal publication then fails.
         with _locked(path, create=True):
             value = _load(path)
+            _preserve(path, value)
             revoked_id = value["attestationId"]
             value["enabled"] = False
             value.pop("attestationId", None)
@@ -258,8 +274,8 @@ def attest(workspace, run_id, *, model_id, images, token_budget, ttl=1800, revok
             controller._commit(entries, "no-account-revoked", data)
         return value
     now = time.time()
-    value = {"kind": "img2.route-no-jev-account", "version": 1, "policyVersion": POLICY,
-             **_identity(workspace, run_id), "modelId": model_id, "imageSha256s": hashes,
+    value = {"kind": "img2.route-no-jev-account", "version": 2, "policyVersion": POLICY,
+             **_identity(workspace, run_id), "modelId": model_id, "imageSha256s": hashes, "purposes": list(purposes),
              "tokenBudget": token_budget, "issuedAt": now, "expiresAt": now + ttl,
              "generation": secrets.token_hex(32), "enabled": True}
     value["attestationId"] = canonical_digest(value)
@@ -272,8 +288,11 @@ def attest(workspace, run_id, *, model_id, images, token_budget, ttl=1800, revok
         entries, _ = controller._load()
         controller._commit(entries, "no-account-attested", {
             "attestationId": value["attestationId"], "presentedAsJev": False,
-            "decider": "model:" + value["modelId"], "expiresAt": value["expiresAt"]})
+            "decider": "model:" + value["modelId"], "expiresAt": value["expiresAt"],
+            "attestationPolicyVersion": POLICY, "attestedPurposes": list(purposes)})
     with _locked(path, create=True):
+        if path.exists():
+            _preserve(path, _load(path))
         _store(path, value)
     return value
 
@@ -293,6 +312,8 @@ class RoutingNoAccount:
         path = _path(self.workspace, self.run_id)
         with _locked(path):
             value = _load(path)
+        if value["version"] != 2:
+            raise DecisionError("no-jev-account-reattest-required")
         if any(value[key] != item for key, item in _identity(self.workspace, self.run_id).items()):
             raise DecisionError("attestation-binding-mismatch")
         if not value["enabled"]:
@@ -309,13 +330,14 @@ class RoutingNoAccount:
         if value != self.initial:
             raise DecisionError("attestation-changed")
         return {"decisionMode": "no-account", "attestationId": value["attestationId"],
-                "decider": "model:" + value["modelId"], "presentedAsJev": False}
+                "decider": "model:" + value["modelId"], "presentedAsJev": False,
+                "attestationPolicyVersion": POLICY, "attestedPurposes": list(value["purposes"])}
 
     def __call__(self):
         try:
             metadata = self.metadata()
             self.last_failure = None
-            return {"granted": True, "purposes": ["routing"], "sha256": metadata["attestationId"],
+            return {"granted": True, "purposes": list(self.initial["purposes"]), "sha256": metadata["attestationId"],
                     "tokenBudget": self.initial["tokenBudget"]}
         except DecisionError as error:
             self.last_failure = error.reason_code

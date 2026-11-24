@@ -21,9 +21,8 @@ Requirements (the textured path fails closed without them, it never fakes a mode
 - Jev: `img2-jev login` plus per-run consent (`jev.py consent authorize-decisions`). With no Jev account the
   host model answers the same typed questions, journalled `decider: model:<id>`, never presented as Jev.
 
-Agent-agnostic: works under Hermes, Claude Code, Codex, or OpenCode. Wherever this doc says "agent vision" or "agent browser tool", use
-whatever the host provides — native image reading, a browser MCP (playwright/chrome-devtools), the
-project preview, or a user-supplied screenshot.
+Host-agnostic: Hermes, Claude Code, Codex, OpenCode. Vision/browser means the host's image reader,
+browser MCP, project preview, or supplied screenshot.
 
 This file is the always-loaded router: it holds the order of operations and every hard rule as one
 line. The full contract behind each rule lives in the `grimoire/` or `docs/` file that rule names —
@@ -70,10 +69,10 @@ python3 forge/preflight.py
 
 Proceed only when required installation/runtime checks pass. The table names missing registrations,
 wrong pins, unresolved dependencies and Jev auth failures; unselected plugins say `not installed by choice`.
-Missing credentials require `img2-jev login`. Only for routing, a user who has no Jev account may
-instead personally run `forge/route.py attest-no-jev-account`, then use explicit `--no-jev-account`
-and typed `--model-answers`; preflight never infers or grants that exception. The attestation is a
-user-consent step (typed on `/dev/tty`), not isolation from an agent running as the same OS user,
+Missing credentials require `img2-jev login`. A user with no Jev account may
+personally run `forge/route.py attest-no-jev-account` with explicit `--purpose` scopes, then use
+`--no-jev-account` and typed `--model-answers` across the routed lifecycle. V1 grants require re-attestation.
+Attestation is user consent typed on `/dev/tty`, not isolation from an agent running as the same OS user,
 the same limit as `jev consent authorize-decisions`: never attest, or type the phrase, on the user's behalf. Read the routing
 decider section before proceeding. `img2threejs repair` is the bundled installer's repair interface,
 not implemented by this core script. See [installation and provisioning](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
@@ -81,7 +80,7 @@ Never silently substitute generic for a missing domain. `forge/route.py` exposes
 `pluginRejections` (also retained in the decision/journal); inspect them even on a decided route.
 Follow each installed plugin's `SKILL.md` and step-named contracts.
 For isolated routing checks, see [`docs/E2E.md`](docs/E2E.md): role/observations are explicit;
-interior requires `blender>=4.3` on PATH independently of `IMG2_BLENDER_PYTHON`.
+interior probes trusted `IMG2_BLENDER_PYTHON` for `interior-bpy>=4.3`, not a separate Blender CLI.
 
 ## Textured build (default for 3D)
 

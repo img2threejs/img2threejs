@@ -225,16 +225,18 @@ class RouteAuthorityTests(unittest.TestCase):
                    "source_operations": set(), "available_dependencies": set(),
                    "rig_required": False, "rig_available": False},
             requirements={"criticalFeatures": [], "requiredViews": []},
-            authorize=lambda *args: True, draft_spec="lifecycle/draft.json", request_token_limit=128)
+            authorize=lambda *args: True, draft_spec="lifecycle/draft.json", request_token_limit=128,
+            requested_model=controller.routing_authority.model_id if controller.routing_authority is not None else "jev-1.14.0")
         reference = {"role": "reference", "path": relative + "/" + state["artifacts"]["reference"],
                      "sha256": descriptor["cropSha256"]}
         spec_binding = bind("spec", policy.draft_spec, spec)
         source = bind("source", "lifecycle/source.ts", b"synthetic lifecycle input, not native scene.ts")
         critical = bind("critical-features", "lifecycle/critical.json", {"fixture": "synthetic"})
         factory = SimpleNamespace(provider=lambda context: lambda projected: dict(
-            self.answer(projected), group=projected["group"]))
+            self.answer(projected), group=projected["group"], model=projected["requestedModel"]))
         workflow = WorkflowDecisions(controller, descriptor["statePath"], policy,
-            provider_factory=factory, consent=consent, availability=lambda: {"status": "present"})
+            provider_factory=factory, fallback=self.router.fallback,
+            consent=consent, availability=lambda: {"status": "present"})
         revision = descriptor["revision"]
         for step in ("strategy-spec", "strategy-build"):
             advance_to(step)
@@ -276,8 +278,9 @@ class RouteAuthorityTests(unittest.TestCase):
                     "lifecycle/quality/" + role + ".fixture")
             request["bindings"].append(bind(role, path, (quality.workspace / binding["path"]).read_bytes()))
         workflow = WorkflowDecisions(controller, descriptor["statePath"], replace(policy, requirements=quality.requirements),
-            provider_factory=SimpleNamespace(provider=lambda context: quality.advisory),
-            consent=consent, availability=lambda: {"status": "present"})
+            provider_factory=SimpleNamespace(provider=lambda context: lambda projected: dict(
+                quality.advisory(projected), model=projected["requestedModel"])),
+            fallback=self.router.fallback, consent=consent, availability=lambda: {"status": "present"})
         self.assertEqual(workflow.dispatch("quality", request)["action"], "continue")
         state = json.loads(state_path.read_bytes())
         self.assertEqual([receipt["step"] for receipt in state["decisionRefs"]],
@@ -346,7 +349,8 @@ class RouteAuthorityTests(unittest.TestCase):
         (self.workspace / "user-requirements.json").write_bytes(request_raw)
         self.pixi_policies = {"whole-image": PixiQualityPolicy(1, requirements,
             {"role": "user-requirements", "path": "user-requirements.json",
-             "sha256": hashlib.sha256(request_raw).hexdigest()})}
+             "sha256": hashlib.sha256(request_raw).hexdigest()},
+             requested_model=self.controller.routing_authority.model_id if self.controller.routing_authority is not None else "jev-1.14.0")}
         authority = self.authority_for(pixi_quality_policies=self.pixi_policies)
         artifact = json.loads((child / (AREA + "artifact.json")).read_bytes())
         snapshot_doc = json.loads((child / (AREA + "snapshot.json")).read_bytes())
@@ -379,7 +383,7 @@ class RouteAuthorityTests(unittest.TestCase):
             "2": "Partially meets the declared requirement, with visible deficiencies.",
             "3": "Meets the declared requirement.",
             "4": "Exceeds the declared requirement without changing it."}
-        answers = {"dimension:" + item["id"]: {"type": "score", "score": score, "confidence": 1,
+        answers = {"dimension:" + (item if type(item) is str else item["id"]): {"type": "score", "score": score, "confidence": 1,
             "legend": legend, "probabilities": {str(index): int(index == score) for index in range(5)}}
             for item in context["requirements"]["dimensions"]}
         answers.update({"critical:" + item["id"]: {"type": "choice", "choice": critical_choice,

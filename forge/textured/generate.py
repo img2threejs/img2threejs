@@ -96,6 +96,13 @@ def generation_cap(args, state_path):
         if args.max_generations < 1:
             raise C.TexturedError("--max-generations must be >= 1")
         cap = min(cap, args.max_generations)
+    for earlier in C.generation_receipts(state_path.parent.parent):
+        frozen, original = earlier.get("generationLimit"), earlier.get("stateMaxGenerations")
+        if type(frozen) is not int or type(original) is not int:
+            raise C.TexturedError("generation cap is not bound in an existing receipt; reconcile legacy receipts before spending")
+        if stated > original:
+            raise C.TexturedError("generation cap cannot be raised after a recorded attempt")
+        cap = min(cap, frozen)
     return cap, state
 
 
@@ -120,8 +127,11 @@ def archive_superseded(directory):
 
 
 def cmd_record(args, workspace):
-    state_path = Path(args.state) if args.state else workspace / ".img2threejs" / "state.json"
+    state_path = C.workspace_state(workspace, args.state)
     limit, state = generation_cap(args, state_path)
+    attempts = C.generation_receipts(workspace)
+    if len(attempts) >= limit:
+        raise C.TexturedError(f"generation cap of {limit} attempts reached, including superseded attempts")
     if args.gen > limit:
         raise C.TexturedError(f"generation {args.gen} exceeds the cap of {limit}; pick the best of the existing ones instead")
     model_file = Path(args.model_file).expanduser().resolve()
@@ -152,10 +162,10 @@ def cmd_record(args, workspace):
         "generator": {"tool": args.tool, "model": args.model, "scenario": args.scenario, "prompt": args.prompt or "",
                       "taskId": args.task_id, "credits": args.credits, "then": args.then or ""},
     }
-    for number, earlier in previous_generations(workspace, args.gen):
+    for earlier in attempts:
         if signature(earlier) == signature(record):
             raise C.TexturedError(
-                f"generation {args.gen} repeats generation {number} (same input image, model, scenario and prompt); "
+                f"generation {args.gen} repeats generation {earlier['generation']} (same input image, model, scenario and prompt); "
                 "change at least one of them before spending credits again")
     asset = copy_asset(model_file, args.model_dir, directory / "raw")
     # Every receipt ever written counts, including the ones this call is about to supersede.
@@ -163,6 +173,7 @@ def cmd_record(args, workspace):
     if replacing:
         archive_superseded(directory)
     receipt = C.receipt("generate", generation=args.gen, input=record["input"], generator=record["generator"],
+                        generationLimit=limit, stateMaxGenerations=state["textured"]["maxGenerations"],
                         asset={"path": C.workspace_relative(directory, asset), "format": asset.suffix.lower().lstrip("."),
                                "bytes": asset.stat().st_size, "sha256": C.sha256_file(asset)},
                         creditsTotal=cumulative, note=args.note or "")

@@ -60,7 +60,10 @@ def snapshot_browser_bundle(browser_root: str) -> tuple[tuple[str, str], ...]:
                         with os.fdopen(descriptor, "rb") as stream:
                             _require(stat.S_ISREG(os.fstat(stream.fileno()).st_mode),
                                      "cs2-unsupported-browser-entry")
-                            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+                            sha = hashlib.sha256()
+                            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                                sha.update(block)
+                            digest = sha.hexdigest()
                         inventory.append((relative, digest))
                     else:
                         raise ParentError("cs2-unsupported-browser-entry")

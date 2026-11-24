@@ -3,8 +3,8 @@
 the normalized GLB, its renders, the reference|render comparison sheet and a REPORT.md that states
 the facts (generator provenance, geometry/texture facts, likeness with its decider) and what is NOT done.
 
-The accepted generation comes from the workflow state (``textured.accepted``) or ``--gen``. Nothing
-here claims more than the receipts say: a model-answered likeness is reported as such, never as Jev.
+The accepted generation comes only from the canonical workflow state; ``--gen`` must agree.
+Nothing here claims more than the receipts say: model answers are never presented as Jev.
 """
 import os
 import sys
@@ -15,20 +15,28 @@ sys.path.append(_HERE)
 
 import argparse  # noqa: E402
 import shutil  # noqa: E402
+import tempfile  # noqa: E402
+import secrets  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import _common as C  # noqa: E402
+import _chain as chain  # noqa: E402
+from workflow_state import load_state, WorkflowStateError  # noqa: E402
 
 
 def accepted_generation(workspace, state_path, explicit):
-    if explicit is not None:
-        return explicit
-    if state_path.is_file():
-        accepted = (C.read_json(state_path).get("textured") or {}).get("accepted")
-        if accepted:
-            return int(accepted)
-        raise C.TexturedError("the workflow has no accepted generation yet; run decide.py (or pass --gen)")
-    raise C.TexturedError("no state file; pass --gen N")
+    try:
+        state = load_state(C.workspace_state(workspace, state_path))
+    except WorkflowStateError as error:
+        raise C.TexturedError(str(error)) from None
+    block = state.get("textured") or {}
+    accepted = block.get("accepted")
+    if (type(accepted) is not int or not any(row.get("outcome") == "accept" for row in block.get("history", []))
+            or not isinstance(block.get("acceptedBinding"), dict)):
+        raise C.TexturedError("the workflow has no bound accepted generation; run decide.py")
+    if explicit is not None and explicit != accepted:
+        raise C.TexturedError("--gen must match the workflow accepted generation")
+    return accepted
 
 
 def collect(workspace, generation):
@@ -133,41 +141,66 @@ def build_parser():
 def main(argv):
     args = build_parser().parse_args(argv)
     workspace = C.resolve_workspace(args.workspace)
-    state_path = Path(args.state) if args.state else workspace / ".img2threejs" / "state.json"
+    state_path = C.workspace_state(workspace, args.state)
     generation = accepted_generation(workspace, state_path, args.gen)
     directory, parts = collect(workspace, generation)
-    final = C.textured_root(workspace) / "final"
-    if final.exists():
-        shutil.rmtree(final)
-    (final / "renders").mkdir(parents=True)
+    accepted = C.read_json(state_path)["textured"]["acceptedBinding"]
+    if chain.judged(workspace, generation) != accepted:
+        raise C.TexturedError("accepted evidence changed; rerun the affected stages and decide.py")
     reference = Path(args.reference).expanduser().resolve()
-    if not reference.is_file():
-        raise C.TexturedError(f"reference not found: {reference}")
-    names = []
-    glb = final / "model.glb"
-    shutil.copy2(parts["glb"], glb)
-    names.append("model.glb")
-    for row in parts["render"]["views"]:
-        source = workspace / row["path"]
-        if not source.is_file():
-            raise C.TexturedError(f"render missing: {source}")
-        shutil.copy2(source, final / "renders" / source.name)
-        names.append(f"renders/{source.name}")
+    if (str(reference) != accepted["bindings"]["reference"]["path"] or not reference.is_file()
+            or C.sha256_file(reference) != accepted["bindings"]["reference"]["sha256"]):
+        raise C.TexturedError("delivery reference does not match the accepted reference")
     sheet = directory / f"sheet-{C.safe_name(args.view, '--view')}.png"
-    if not sheet.is_file():
-        raise C.TexturedError(f"comparison sheet missing: {sheet}")
-    shutil.copy2(sheet, final / "comparison.png")
-    names.append("comparison.png")
-    shutil.copy2(reference, final / f"reference{reference.suffix.lower()}")
-    names.append(f"reference{reference.suffix.lower()}")
-    for receipt in ("generate", "inspect", "normalize", "render", "likeness"):
-        shutil.copy2(directory / f"{receipt}.json", final / f"{receipt}.json")
-        names.append(f"{receipt}.json")
-    names.append("REPORT.md")
-    write_report(final, workspace, generation, parts, args.reference, {"glb": "model.glb", "list": names})
-    C.write_json(final / "delivery.json", C.receipt(
-        "delivery", generation=generation, glb=C.workspace_relative(workspace, glb), sha256=C.sha256_file(glb),
-        decider=parts["likeness"]["decider"], files=names))
+    if C.workspace_relative(workspace, sheet) != parts["likeness"]["sheet"]["path"]:
+        raise C.TexturedError("--view must match the judged comparison sheet")
+    sources = chain.render_sources(workspace, generation, parts["render"])
+    final = C.textured_root(workspace) / "final"
+    if final.is_symlink() or (final.exists() and not final.is_dir()):
+        raise C.TexturedError("final must be an owned delivery directory, not a link or file")
+    names = []
+    with tempfile.TemporaryDirectory(prefix=".delivery-stage-", dir=final.parent) as temporary:
+        stage = Path(temporary)
+        (stage / "renders").mkdir()
+        def copy(source, relative):
+            expected = (accepted["bindings"]["reference"]["sha256"] if source == reference else
+                        accepted["bindings"]["files"][C.workspace_relative(workspace, source)])
+            target = stage / relative
+            shutil.copy2(source, target)
+            if C.sha256_file(target) != expected:
+                raise C.TexturedError("delivery input changed while copying")
+            names.append(relative)
+        copy(parts["glb"], "model.glb")
+        for source in sources:
+            copy(source, f"renders/{source.name}")
+        copy(sheet, "comparison.png")
+        copy(reference, f"reference{reference.suffix.lower()}")
+        for name in ("generate", "inspect", "normalize", "render"):
+            copy(directory / f"{name}.json", f"{name}.json")
+        likeness = directory / "likeness.json"
+        shutil.copy2(likeness, stage / likeness.name)
+        if C.sha256_file(stage / likeness.name) != accepted["likenessSha256"]:
+            raise C.TexturedError("accepted likeness changed while copying")
+        names += ["likeness.json", "REPORT.md"]
+        write_report(stage, workspace, generation, parts, args.reference, {"glb": "model.glb", "list": names})
+        C.write_json(stage / "delivery.json", C.receipt(
+            "delivery", generation=generation, glb=C.workspace_relative(workspace, final / "model.glb"),
+            sha256=C.sha256_file(stage / "model.glb"), decider=parts["likeness"]["decider"], files=names,
+            acceptedBinding=accepted))
+        if chain.judged(workspace, generation) != accepted or C.read_json(state_path)["textured"].get("acceptedBinding") != accepted:
+            raise C.TexturedError("accepted evidence changed while staging delivery")
+        backup = final.parent / (".delivery-backup-" + secrets.token_hex(16))
+        previous = final.exists()
+        if previous:
+            os.replace(final, backup)
+        try:
+            os.replace(stage, final)
+        except BaseException:
+            if previous:
+                os.replace(backup, final)
+            raise
+        if previous:
+            shutil.rmtree(backup)
     print(f"deliver: generation {generation} -> {final} ({len(names)} files)")
     return 0
 

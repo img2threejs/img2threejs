@@ -91,12 +91,13 @@ and selected Jev's four decision edges and core-approved auth probe are usable. 
 or consent grant is made. Exit 1 names the failure in a plain plugin/capability/status/reason
 table and prints one repair command. Unselected rows say `not installed by choice`.
 Missing Jev credentials still require `img2-jev login`; absence never selects another decider.
-Users who have **no Jev account** can instead explicitly attest for routing only:
+Users who have **no Jev account** can instead personally authorize explicit v2 decision purposes:
 
 ```bash
 # Run personally in an interactive terminal; IMG2_HOME must be outside WS and the skill checkout.
 python3 forge/route.py attest-no-jev-account --workspace WS --run-id RUN --image ref.png \
-  --model-id provider:model --token-budget 256000 --accept-image-disclosure
+  --model-id provider:model --token-budget 256000 --purpose routing --purpose build-strategy \
+  --purpose quality-review --purpose repair --accept-image-disclosure
 python3 forge/route.py questions --workspace WS --run-id RUN --image ref.png \
   --objects objects.json --no-jev-account
 ```
@@ -112,10 +113,14 @@ The host reads the returned `questionsRef`, inspects the bound images, and suppl
 See [routing deciders](../grimoire/intake/routing.md#51-explicit-no-account-routing-decider) for the
 closed answer envelope and revocation command. No model network client lives in core.
 
-A Jev credential present locally refuses this mode: use Jev instead. Revocation, expiry, changed
-reference bytes or re-attestation invalidate cached authority. Preflight still reports missing Jev
-authentication; this explicit routing mode does not waive installation, dependency, pin, output-kind,
-eligibility or terminal gates, and does not authorize strategy/review/repair or child completion.
+A present Jev credential refuses this mode: use Jev. The pinned auth module is resolved independently
+of mutable `IMG2_HOME`; missing/untrusted auth bytes or inaccessible credential storage fail closed,
+not as evidence of no account. Restore the pinned auth tooling or unlock storage before attesting.
+V1 grants authorize no v2 scope: personally re-attest with explicit `--purpose` flags. Original grant
+bytes and journal entries remain retained. Revocation, expiry, reference changes or re-attestation
+invalidate cached authority. Use the same `--no-jev-account --image ... --model-answers ...` with
+`forge/decision.py` / `forge/terminal.py`; `route.py --complete-child` needs the attested `--image`.
+Native policy pins, eligibility and independent terminal gates remain mandatory; there is no synthetic outage.
 The consent boundary is user-owned files plus an interactive action, not a sandbox against code
 running unrestricted as that same OS user. An agent must never attest on the user's behalf.
 This is exactly the limit of the existing `img2-jev consent authorize-decisions` command: a user

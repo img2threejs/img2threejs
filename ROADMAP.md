@@ -12,13 +12,18 @@ can plan around.
 Implemented in the core: validated provisioned selector fallback, selected-plugin preflight,
 visible route rejection reasons, and offline Jev release-lock regeneration/checking.
 The isolated E2E runner accepts role/observations; pinned routing distinguishes missing
-dependency executables from provider errors. Interior still requires Blender >=4.3 on PATH.
+dependency executables from provider errors. Interior discovery and authority use trusted
+`IMG2_BLENDER_PYTHON` for `interior-bpy>=4.3`, retaining venv invocation identity. Missing bpy
+only makes interior ineligible; it never authorizes another native producer.
 The default installation policy requires all five routed plugins; users may explicitly choose
-a subset. Explicit routing-only no-account authority is implemented: interactive, private,
-run/image/model/budget-bound user attestation with expiry/revocation and offline typed model answers;
-it does not extend to strategy/review/repair or prove live model quality. Remaining release gates:
-bundled installer/repair integration, public Jev packaging after secret-history review and clean-home
-install/routing acceptance. Core offline checks do not establish those remaining gates.
+a subset. No-account v2 grants explicitly cover selected routing/build/quality/repair purposes;
+v1 grants need re-attestation and are retained, never silently broadened. Textured model answers
+require live run/reference/generation/model authority and immutable, fresh pipeline bindings.
+Remaining release gates: actual cross-plugin native/visual integration, character material
+captures, final Jev/harness pins, bundled installer/repair integration, public Jev packaging after
+secret-history review and clean-home install/routing acceptance. The procedural-code-only versus
+textured-default product conflict remains an owner release decision; these fixes do not change it.
+Offline checks do not establish those gates.
 
 ## Shipped
 

@@ -33,6 +33,8 @@ from route_parent import ParentError, _decode, _encode, _read, _write
 from stage0_route.discovery import read_only_probes
 from stage0_route.fallback import HostFallback
 import route
+from route_no_account import RoutingNoAccount
+from stage0_route.model_decider import ModelDecider
 
 
 _AUTH = {"credential-missing", "credential-rejected", "credential-storage-error"}
@@ -134,6 +136,9 @@ def build_parser():
     parser.add_argument("--harness-sha256", required=True)
     parser.add_argument("--fallback-command", type=Path)
     parser.add_argument("--fallback-sha256")
+    parser.add_argument("--no-jev-account", action="store_true")
+    parser.add_argument("--image", help="Attested workspace-relative reference; required in no-account mode")
+    parser.add_argument("--model-answers", help="Workspace-relative attestation-bound model answers")
     return parser
 
 
@@ -163,34 +168,49 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if (args.fallback_command is None) != (args.fallback_sha256 is None):
         parser.error("fallback command and digest must be supplied together")
+    if args.no_jev_account and (not args.image or args.fallback_command):
+        parser.error("no-account mode requires --image and excludes outage fallback")
+    if not args.no_jev_account and (args.image or args.model_answers):
+        parser.error("--image/--model-answers require --no-jev-account")
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,159}", args.object_id) is None:
         parser.error("--object-id must be a valid object ID")
     consent = None
     try:
         workspace = args.workspace.resolve(strict=True)
         result = route._load_decision(workspace, args.decision_ref, args.run_id)
-        release = route._approved_lock()
+        release = None if args.no_jev_account else route._approved_lock()
         fallback = None if args.fallback_command is None else HostFallback(args.fallback_command, args.fallback_sha256)
-        controller = DecisionController(workspace, args.run_id)
+        consent = RoutingNoAccount(workspace, args.run_id, args.image) if args.no_jev_account else None
+        controller = DecisionController(workspace, args.run_id, routing_authority=consent)
         discovery = route.PinnedDiscovery(controller)
-        consent = route.LiveConsent(discovery, release, args.run_id, Path(sys.executable))
-        discovery.consent_probe = consent
+        if not args.no_jev_account:
+            consent = route.LiveConsent(discovery, release, args.run_id, Path(sys.executable))
+            discovery.consent_probe = consent
         harness = route.HarnessPin(args.harness_root, args.harness_sha, args.harness_executable,
-                                   args.harness_sha256, consent)
+                                   args.harness_sha256, route.HostGit() if args.no_jev_account else consent)
         discovery.harness, discovery.runner = harness.argv, harness.runner
         discovery.enumerate()
         policies = route.load_route_policies(args.policy_module, args.policy_sha256,
             workspace=workspace, run_id=args.run_id, excluded_roots=route.route_policy_roots(discovery, harness))
-        factory = JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
-                                     consent=consent, python_executable=consent.executable)
+        factory = (ModelDecider(controller, consent, args.model_answers) if args.no_jev_account else
+                   JevProviderFactory(discovery, approved_release=release, run_id=args.run_id,
+                                      consent=consent, python_executable=consent.executable))
         router = route.Router(workspace, args.run_id, controller=controller, discovery=discovery,
-                              consent=consent, provider_factory=factory, fallback=fallback)
+                              consent=consent, provider_factory=factory, fallback=fallback,
+                              **({"requested_model": consent.model_id} if args.no_jev_account else {}))
         parent = route._route_parent(router, result, harness, consent, policies=policies)
         reviews = TerminalReviews(parent, provider_factory=factory, availability=discovery.availability,
                                   fallback=fallback)
         with read_only_probes(discovery):
             result = getattr(reviews, args.command)(args.object_id)
         value = command_output(result, consent=consent)
+        if args.no_jev_account:
+            if value["status"] == "decision-recorded":
+                value.update(consent.metadata())
+            else:
+                value["decisionMode"] = "no-jev-account-pending"
+            if factory.pending is not None:
+                value.update(status="questions-ready", questionsRef=factory.pending)
     except Exception as error:
         reason = getattr(error, "reason_code", "terminal-input-invalid")
         if isinstance(error, ParentError) and type(reason) is str:
@@ -198,7 +218,7 @@ def main(argv=None):
         value = command_output({"status": "request-input", "reasonCode": reason}, consent=consent,
                                trusted_parent_error=isinstance(error, ParentError))
     print(json.dumps(value, sort_keys=True, allow_nan=False))
-    return 0 if value["status"] in {"prepared", "decision-recorded"} else 3
+    return 0 if value["status"] in {"prepared", "decision-recorded", "questions-ready"} else 3
 
 
 if __name__ == "__main__":

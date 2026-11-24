@@ -65,7 +65,9 @@ from stage0_route.images import decode
 from stage0_route.discovery import (
     EDGES, _CHARACTER_DEPENDENCIES, _CHARACTER_GATE_PROBES,
     character_three_facts, character_bpy_probe, character_bpy_environment,
-    character_bpy_version, read_only_probes, resolve_character_executable)
+    character_bpy_version, read_only_probes, resolve_character_executable,
+    interior_bpy_probe, interior_bpy_version, interior_runtime_facts)
+from stage0_route.storage import RouteError
 from pixi_capture_authority import PixiCaptureAuthority
 from cs2_terminal_authority import CS2TerminalAuthority
 from native_terminal_authority import NativeTerminalAuthority
@@ -235,6 +237,8 @@ class RouteAuthority(AggregateAuthority):
             name: self._character_executable_facts(name) for name in _CHARACTER_DEPENDENCIES
         } if has_character else {}
         self._character_three = self._character_three_facts() if has_character else None
+        self._interior_host = self._interior_executable_facts() if any(
+            candidate.get("provider") == "interior" for candidate in candidates) else None
         if not set(owners) <= self._candidates.keys():
             _fail("unapproved-owner-profile")
         self._profile_templates = {}
@@ -339,12 +343,35 @@ class RouteAuthority(AggregateAuthority):
         return {"configuration": configuration, "path": path, "sha256": digest}
 
     @staticmethod
+    def _interior_executable_facts():
+        try:
+            return interior_runtime_facts()
+        except RouteError as error:
+            raise ParentError("interior-host-binding-changed") from error
+
+
+    @staticmethod
     def _character_three_facts():
         return {"rootSetting": os.environ.get("IMG2_CHARACTER_THREE_ROOT"),
                 "shaSetting": os.environ.get("IMG2_CHARACTER_THREE_SHA256"),
                 "facts": character_three_facts()}
 
     def _dependency(self, name):
+        interior = re.fullmatch(r"interior-bpy>=(\d+(?:\.\d+){0,3})", name)
+        if interior:
+            if self._interior_host is None:
+                return False
+            if self._interior_executable_facts() != self._interior_host:
+                _fail("interior-host-binding-changed")
+            command = interior_bpy_probe()
+            if command is None:
+                return False
+            code, raw = self._run(command, env=character_bpy_environment())
+            if self._interior_executable_facts() != self._interior_host:
+                _fail("interior-host-binding-changed")
+            actual = interior_bpy_version(code, raw, command[0])
+            required = tuple(map(int, interior[1].split(".")))
+            return actual is not None and actual >= required + (0,) * max(0, len(actual) - len(required))
         if name == "character-three>=0.186.1":
             if self._character_three is None:
                 return False
@@ -443,6 +470,8 @@ class RouteAuthority(AggregateAuthority):
             for probe in _CHARACTER_GATE_PROBES:
                 if probe not in dependency_facts:
                     dependency_facts[probe] = self._dependency(probe)
+        if name == "interior" and "interior-bpy>=4.3" not in dependency_facts:
+            dependency_facts["interior-bpy>=4.3"] = self._dependency("interior-bpy>=4.3")
         if candidate.get("dependencies") != dependency_facts:
             _fail("live-dependency-mismatch")
         gate_runner = row.get("gateRunner")
@@ -619,6 +648,21 @@ class RouteAuthority(AggregateAuthority):
             _fail("terminal-evidence-changed-during-gate")
         self._verify(verify)
 
+    def _native_runtime(self, object_id, provider):
+        """An interior producer cannot substitute a different approved bpy runtime."""
+        if provider != "interior":
+            return
+        policy = self._native_terminal_authority._policies.get(object_id)
+        if policy is None:
+            _fail("native-policy-unavailable")
+        facts = self._interior_host
+        if (facts is None or facts["path"] is None
+                or self._interior_executable_facts() != facts
+                or policy.bpy_python != (facts["path"], facts["sha256"])):
+            _fail("interior-host-binding-changed")
+        if not self._dependency("interior-bpy>=4.3"):
+            _fail("interior-runtime-unavailable")
+
     def prepare_terminal_review(self, verify, object_id):
         """Run approved producers locally; never consult or grant acceptance."""
         decision, inventory, owners = self._verify(verify)
@@ -662,7 +706,9 @@ class RouteAuthority(AggregateAuthority):
             area = produced_scene[len(prefix):].rsplit("/", 1)[0] + "/"
             link = ".img2/cs2-terminal/quality-review-link.json"
         elif provider in {"base", "interior", "character"}:
+            self._native_runtime(object_id, provider)
             context = self._native_terminal_authority.prepare(child, provider=provider, state=state)
+            self._native_runtime(object_id, provider)
             area = ".img2/artifacts/native-terminal/"
             link = area + "quality-review-link.json"
         else:
@@ -918,8 +964,10 @@ class RouteAuthority(AggregateAuthority):
                 verify, object_id=object_id, child_workspace=child_workspace, state=state,
                 artifact={"path": "artifact.json", "sha256": hashlib.sha256(raw).hexdigest()})
         elif provider in {"base", "interior", "character"}:
+            self._native_runtime(object_id, provider)
             self._native_terminal_authority.verify_terminal(
                 verify, child_workspace=child_workspace, provider=provider, state=state)
+            self._native_runtime(object_id, provider)
         else:
             _fail("unsupported-terminal-gate-contract")
         self._verify(verify)

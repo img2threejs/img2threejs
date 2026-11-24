@@ -6,25 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Add routing-only `--no-jev-account`: interactive user attestation in private external
-  `$IMG2_HOME/config` binds workspace/run/reference hashes/model/budget with expiry and revocation.
-  Offline `questions` / `--model-answers` use primary-decider schemas and uncertainty rules,
-  preserve all deterministic vetoes, and journal `model:<id>`, `presentedAsJev: false` and the
-  attestation id. Present Jev enrollment refuses this mode; missing credentials alone still request
-  login. Strategy/review/repair and textured likeness retain their existing contracts. The
-  confirmation is the fixed phrase `attest RUN MODEL` read from `/dev/tty`; the Jev-account veto reuses
-  the pinned plugin's `jev_auth.auth_status` and treats inconclusive results as present; command output
-  names a decider only after a model decided; the journal entry is written before the store.
-  Documented limits: user-consent boundary (same as `consent authorize-decisions`), host-reported tokens,
-  model id is a claim.
+- Extend explicit no-account authority to purpose-scoped v2 grants across routing, build strategy,
+  quality review, repair and child completion. Consent names each `--purpose`; v1 grants require
+  personal re-attestation and are archived unchanged, with journal history retained. Credential
+  status comes from pinned Jev auth independently of a mutable selected installation home;
+  absent or inconclusive trusted auth is unknown, never proof of no account. Minimum budget is 64000.
+- Bind textured likeness to the complete generated/inspected/normalized/rendered/reference/sheet
+  hash chain and make judged receipts immutable. Model answers require a live v2 run/reference/
+  generation/model grant; they cannot replace Jev verdicts or declare an outage. `decide` and
+  delivery revalidate every binding; `--gen` cannot bypass acceptance. Render copy inputs are
+  confined and collision-free; delivery stages first and restores the prior final on activation failure.
+- Count superseded generation attempts against the original canonical workspace cap; refuse
+  duplicate historical inputs and cap increases. Legacy textured receipts without cap/hash authority
+  fail closed for explicit owner reconciliation; procedural sculpt specs are unchanged. OBJ material
+  references are checked regardless of filename extension.
+- Account known Jev usage before semantic validation and retain full reservations for invalid usage;
+  rejected responses remain auditable and identical requests are not resent. Allowlist authority/
+  best-of-N subprocess environments and durably record unsafe trial outputs as failures.
+- Restore Python 3.10 browser hashing, the existing skill budget and plugin install anchor.
+  CS2 contract fixtures now require an explicit pinned checkout rather than a guessed sibling.
+  Final Jev/harness release pins, actual native/visual integration and character material capture
+  remain pending; these changes do not resolve the code-only versus textured-default product conflict.
 - Add the `textured` build profile and `forge/textured/` (inspect, normalize, render, sheet, generate, likeness, decide, deliver): a reference image becomes a generated, textured GLB, cleaned and rendered with bpy, measured with a Jev likeness loop (consent-gated, budgeted, never printing keys; no-account mode journals `model:<id>`), with up to four generations. It is now the default for `forge/state.py init` when a generator MCP tool is configured; procedural profiles are an explicit opt-in (`--profile generic|<domain>` or `procedural-*`). Routing and plugin ownership are unchanged. SKILL.md and README now describe the textured product; `docs/TEXTURED.md` is the contract. Intentional test changes: tests that start a procedural run through `state.py init` now pass `--profile generic`, and the degraded `--profile` choice set is `generic,textured,procedural-generic`. Not done: no generator call is made by this repository (the host's MCP tool is an agent step), no rig/LOD, no live Jev run.
 - Harden the textured build path: the Jev plugin pin now covers every `REQUIRED_PROVIDER_FILES` entry (no-follow reads, verified bytes staged privately and run from the copy, scrubbed child environment); `generate.py` takes the generation cap only from the workflow state (`--max-generations` can only lower it), refuses `--overwrite` once a likeness or decision exists, and archives replaced receipts as `superseded-K.json` so credit totals are append-only; `generate.json` asset paths must resolve inside `gen-N/` (inspect, normalize); docs name `--domain animated-character` for the rig track and `state.py init` says when a domain adds no rig rows.
 - Close three textured-profile gaps: `generate.py record` now fails closed on the generation cap (a missing, unreadable or invalid state, or `textured.maxGenerations` outside 1..8 or non-int, refuses recording, and workflow validation enforces the same range); inspect and normalize share one `require_contained_model` check that refuses a `.gltf`/`.glb`/`.obj`/`.mtl` whose external buffers, textures or material libraries are absolute, `..`, `file:`/`http(s):` or resolve (symlinks followed) outside `gen-N/` (binary FBX is not parsed); and credit totals enumerate every `superseded-*.json` so a missing archive number cannot hide receipts.
 - Report missing allowlisted dependency executables as `dependency-missing:<probe>` in pinned
   routing; permission errors, harness execution and all pin verification remain fail-closed.
   Add E2E `--role` and repeatable JSON-or-string `--observation key=value`, binding both to
-  workspace reuse. The runner retains caller PATH/runtime selectors; interior still requires
-  `blender>=4.3` on PATH, independently of `IMG2_BLENDER_PYTHON`. See `docs/E2E.md`.
+  workspace reuse. The runner retains caller PATH/runtime selectors; interior now uses trusted
+  `IMG2_BLENDER_PYTHON` for `interior-bpy>=4.3`, never an unrelated Blender CLI. See `docs/E2E.md`.
 - Add fail-closed provisioned runtime selector fallback without changing real environment
   precedence, selected-plugin installation preflight, and visible per-object route rejection
   reasons. The default install policy requires all five plugins; bundling/repair remains separate

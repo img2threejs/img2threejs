@@ -17,6 +17,7 @@ import _common as C  # noqa: E402
 import decide as D  # noqa: E402
 import deliver as V  # noqa: E402
 import textured_profile as TP  # noqa: E402
+from textured_chain_support import pipeline, record_model  # noqa: E402
 from workflow_state import (  # noqa: E402
     WorkflowStateError, load_state, mark_steps, new_state, save_state, status_payload, textured_apply_decision, validate_state,
 )
@@ -26,12 +27,15 @@ ORDER = ["reference-admission", "generate", "inspect", "normalize", "render", "l
 
 def fake_likeness(ws, generation, verdict, mean, *, jev=True, flagged=()):
     gen = C.gen_dir(ws, generation)
-    gen.mkdir(parents=True, exist_ok=True)
-    (gen / "likeness.json").write_text(json.dumps({
-        "decider": "jev-1.14.0" if jev else "model:m", "presentedAsJev": jev,
-        "summary": {"overall": {"verdict": verdict, "probabilities": {"same": 0.5, "similar": 0.4, "different": 0.1}},
-                    "meanScore": mean, "scores": {"a": mean}, "defects": {d: 0.8 for d in flagged},
-                    "flaggedDefects": sorted(flagged), "defectFlagThreshold": 0.5}}))
+    if not (gen / "generate.json").is_file():
+        pipeline(ws, generation, write_state=False)
+    record = C.read_json(gen / "likeness.json") if (gen / "likeness.json").is_file() else {}
+    record.update(decider="jev-1.14.0" if jev else "model:m", provider="jev" if jev else "host-model",
+                  presentedAsJev=jev, summary={
+        "overall": {"verdict": verdict, "probabilities": {"same": 0.5, "similar": 0.4, "different": 0.1}},
+        "meanScore": mean, "scores": {"a": mean}, "defects": {d: 0.8 for d in flagged},
+        "flaggedDefects": sorted(flagged), "defectFlagThreshold": 0.5})
+    C.write_json(gen / "likeness.json", record)
 
 
 def advance_to_decide(state):
@@ -282,7 +286,7 @@ class GenerationBudgetTest(unittest.TestCase):
         self.assertEqual(self.record(2, scenario="b").returncode, 0)
         raised = self.record(3, scenario="c", extra=("--max-generations", "9"))
         self.assertEqual(raised.returncode, 2)
-        self.assertIn("exceeds the cap of 2", raised.stderr)
+        self.assertEqual(len(C.generation_receipts(self.ws)), 2)
         self.assertFalse((C.gen_dir(self.ws, 3) / "generate.json").exists())
 
     def edit_cap(self, value):
@@ -324,7 +328,9 @@ class GenerationBudgetTest(unittest.TestCase):
         self.write_state(4)
         self.assertEqual(self.record(1, scenario="a").returncode, 0)
         lowered = self.record(2, scenario="b", extra=("--max-generations", "1"))
-        self.assertIn("exceeds the cap of 1", lowered.stderr)
+        self.assertEqual(lowered.returncode, 2)
+        self.assertFalse((C.gen_dir(self.ws, 2) / "generate.json").exists())
+        self.assertEqual(len(C.generation_receipts(self.ws)), 1)
 
     def test_overwrite_replaces_an_unjudged_record_and_keeps_every_superseded_receipt_in_the_total(self):
         self.write_state(4)
@@ -335,11 +341,13 @@ class GenerationBudgetTest(unittest.TestCase):
             self.assertEqual(self.total(1), 65 * index)
         archived = sorted(p.name for p in C.gen_dir(self.ws, 1).glob("superseded-*.json"))
         self.assertEqual(archived, ["superseded-1.json", "superseded-2.json", "superseded-3.json"])
-        self.assertEqual(self.record(2, scenario="e").returncode, 0)
-        self.assertEqual(self.total(2), 65 * 5)
+        refused = self.record(2, scenario="e")
+        self.assertEqual(refused.returncode, 2)
+        self.assertFalse((C.gen_dir(self.ws, 2) / "generate.json").exists())
+        self.assertEqual(self.total(1), 65 * 4)
         status = json.loads(run_tool("generate.py", "status", "--workspace", str(self.ws)).stdout)
-        self.assertEqual(status["creditsTotal"], 65 * 5)
-        self.assertEqual(V.credits_total(self.ws), (65 * 5, 2))
+        self.assertEqual(status["creditsTotal"], 65 * 4)
+        self.assertEqual(V.credits_total(self.ws), (65 * 4, 1))
 
     def test_a_gap_in_the_archive_does_not_hide_later_receipts(self):
         self.write_state(4)
@@ -600,28 +608,10 @@ class DeliverTest(unittest.TestCase):
     def test_delivery_assembles_files_and_a_report_that_does_not_call_a_model_answer_jev(self):
         with tempfile.TemporaryDirectory() as d:
             ws = Path(d).resolve()
-            gen = C.gen_dir(ws, 1)
-            (gen / "renders").mkdir(parents=True)
-            write_png(gen / "renders" / "front.png", 16, 24, (1, 1, 1))
-            write_png(gen / "sheet-front.png", 280, 210, (2, 2, 2))
-            ref = write_png(ws / "ref.png", 16, 24, (3, 3, 3))
-            (gen / "normalized.glb").write_bytes(b"glTF-bytes")
-            C.write_json(gen / "generate.json", {"generator": {"tool": "mcp__tripo_make", "model": "tripo-v3.1", "scenario": "film",
-                         "prompt": "", "taskId": "T1", "credits": 65, "then": ""},
-                         "asset": {"path": "raw/m.fbx", "format": "fbx", "bytes": 3}, "input": {"sha256": "a" * 64}})
-            C.write_json(gen / "inspect.json", {"facts": {"bpy": "4.5", "triangles": 10, "vertices": 8, "meshes": 1, "materialCount": 1,
-                         "textureCount": 1, "uvSets": ["UVMap"], "textures": [{"name": "Color", "width": 64, "height": 64}],
-                         "islands": {"count": 1}, "nonManifoldEdges": {"raw": 5, "welded": 1},
-                         "skeleton": {"bones": 0, "actions": 0}}})
-            C.write_json(gen / "normalize.json", {"normalization": {"bbox": {"size": [0.5, 0.4, 1.8]}, "speckRemoval": {"removedIslands": 2}},
-                         "export": {"bytes": 10, "sha256": "b" * 64}})
-            C.write_json(gen / "render.json", {"views": [{"path": ".img2threejs/textured/gen-1/renders/front.png"}]})
-            fake_likeness(ws, 1, "similar", 2.4, jev=False)
-            record = json.loads((gen / "likeness.json").read_text())
-            record["summary"].update(scores={"silhouette": 2.4}, defects={"melted": 0.2})
-            (gen / "likeness.json").write_text(json.dumps(record))
-            done = run_tool("deliver.py", "--workspace", str(ws), "--gen", "1", "--reference", str(ref))
-            self.assertEqual(done.returncode, 0, done.stderr)
+            gen, ref, _ = pipeline(ws)
+            record_model(self, ws)
+            D.main(["--workspace", str(ws)])
+            self.assertEqual(V.main(["--workspace", str(ws), "--gen", "1", "--reference", str(ref)]), 0)
             final = ws / ".img2threejs/textured/final"
             for name in ("model.glb", "comparison.png", "REPORT.md", "renders/front.png", "reference.png", "delivery.json"):
                 self.assertTrue((final / name).is_file(), name)
@@ -629,9 +619,9 @@ class DeliverTest(unittest.TestCase):
             self.assertIn("NOT by Jev", report)
             self.assertIn("What is NOT done", report)
             self.assertIn("T1", report)
-            incomplete = run_tool("deliver.py", "--workspace", str(ws), "--gen", "2", "--reference", str(ref))
-            self.assertEqual(incomplete.returncode, 2)
-            self.assertIn("incomplete", incomplete.stderr)
+            with self.assertRaises(C.TexturedError):
+                V.main(["--workspace", str(ws), "--gen", "2", "--reference", str(ref)])
+            self.assertEqual((final / "model.glb").read_bytes(), (gen / "normalized.glb").read_bytes())
 
 
 if __name__ == "__main__":

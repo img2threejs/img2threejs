@@ -352,7 +352,8 @@ class TerminalDeclinedFallbackTests(unittest.TestCase):
         def declined_router(*args, **kwargs):
             case.grant.update(granted=False, purposes=[])
             def answer(projected):
-                result = case.answer(projected)
+                result = case.quality_answer(projected) if projected["group"] == "quality-review" else case.answer(projected)
+                result["group"] = projected["group"]
                 result["model"] = "offline-terminal-fixture"
                 return result
             kwargs["fallback"] = answer

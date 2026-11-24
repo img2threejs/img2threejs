@@ -89,7 +89,7 @@ Run against a throwaway `$IMG2_HOME` (nothing of an existing setup touched), in 
    `permissions.additionalDirectories` to `~/.claude/settings.json` regardless of whether Claude
    Code is installed; the message `Claude Code not detected; settings left unchanged` means only
    that the directory is absent. Side-effect contract and how to suppress it:
-   [`docs/INSTALL.md` §3](INSTALL.md#3-add-a-plugin-only-if-you-need-one).
+   [`docs/INSTALL.md` §3](INSTALL.md#3-required-plugins-and-runtime-preflight).
 
 ## What a run sees depends on `$IMG2_HOME`
 

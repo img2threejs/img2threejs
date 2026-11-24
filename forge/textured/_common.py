@@ -50,6 +50,17 @@ def gen_dir(workspace: Path, generation: int) -> Path:
     return textured_root(workspace) / f"gen-{generation}"
 
 
+def workspace_state(workspace: Path, value=None) -> Path:
+    """CLI-selected state never substitutes another workspace's generation authority."""
+    expected = Path(workspace) / ".img2threejs" / "state.json"
+    selected = Path(value) if value is not None else expected
+    if not selected.is_absolute():
+        selected = Path(workspace) / selected
+    if selected.resolve() != expected or expected.resolve() != expected:
+        raise TexturedError("generation cap/state must use the canonical workspace .img2threejs/state.json")
+    return expected
+
+
 def contained_asset(workspace: Path, generation: int, relative: Any) -> Path:
     """The real path of a receipt-named asset, which must live inside this generation's own directory.
 
@@ -123,11 +134,11 @@ def _gltf_document(path: Path) -> Any:
         raise TexturedError(f"{path.name} is not valid glTF JSON; refusing to import it") from None
 
 
-def _references(path: Path) -> list[str]:
+def _references(path: Path, *, material=False) -> list[str]:
     """The external files a model names (data: URIs are embedded and excluded). Binary FBX is not parsed."""
     suffix = path.suffix.lower()
     found: list[str] = []
-    if suffix in (".gltf", ".glb"):
+    if not material and suffix in (".gltf", ".glb"):
         document = _gltf_document(path)
         if not isinstance(document, dict):
             raise TexturedError(f"{path.name} is not a glTF object; refusing to import it")
@@ -143,7 +154,7 @@ def _references(path: Path) -> list[str]:
                     raise TexturedError(f"{path.name}: glTF {key} uri must be a string; refusing to import it")
                 if not uri.lower().startswith("data:"):
                     found.append(uri)
-    elif suffix in (".obj", ".mtl"):
+    elif suffix == ".obj" or material or suffix == ".mtl":
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             parts = line.strip().split(None, 1)
             if len(parts) != 2:
@@ -152,7 +163,7 @@ def _references(path: Path) -> list[str]:
             if suffix == ".obj" and key == "mtllib":
                 found.append(rest)
                 found.extend(rest.split())
-            elif suffix == ".mtl" and _MTL_PATH_KEYS.match(key):
+            elif (material or suffix == ".mtl") and _MTL_PATH_KEYS.match(key):
                 found.append(rest)
                 for token in rest.split():
                     if token.startswith("-"):
@@ -171,7 +182,7 @@ def require_contained_model(workspace: Path, generation: int | None, model: Path
     require_contained_references(Path(model), root)
 
 
-def require_contained_references(model: Path, root: Path, _seen: set[Path] | None = None) -> None:
+def require_contained_references(model: Path, root: Path, _seen: set[Path] | None = None, *, material=False) -> None:
     """Refuse a model whose external dependencies (glTF buffers/images, OBJ ``mtllib`` and the MTL maps) are not
     plain relative paths that resolve, with symlinks followed, inside ``root`` (relative to the model's own
     directory, which is how the importers resolve them).
@@ -188,7 +199,7 @@ def require_contained_references(model: Path, root: Path, _seen: set[Path] | Non
     if real_model in seen:
         return
     seen.add(real_model)
-    for uri in _references(model):
+    for uri in _references(model, material=material):
         decoded = unquote(uri)
         for candidate in {uri, decoded}:
             if (not candidate or candidate.startswith(("/", "\\")) or _SCHEME.match(candidate)
@@ -199,8 +210,8 @@ def require_contained_references(model: Path, root: Path, _seen: set[Path] | Non
         if target == real_root or real_root not in target.parents:
             raise TexturedError(f"{model.name} references {uri!r}, which resolves outside {real_root}; "
                                 "refusing to import it")
-        if model.suffix.lower() == ".obj" and target.suffix.lower() == ".mtl" and target.is_file():
-            require_contained_references(target, root, seen)
+        if model.suffix.lower() == ".obj" and target.is_file():
+            require_contained_references(target, root, seen, material=True)
 
 
 def resolve_workspace(value: str | os.PathLike[str] | None) -> Path:

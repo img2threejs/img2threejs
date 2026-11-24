@@ -336,6 +336,8 @@ class NativeTerminalAuthority:
             env.update(IMG2_CHARACTER_BPY_PYTHON=policy.bpy_python[0], IMG2_CHARACTER_NODE=policy.node[0],
                        IMG2_CHARACTER_BROWSER=policy.browser[0], IMG2_CHARACTER_THREE_ROOT=policy.three_root,
                        IMG2_CHARACTER_THREE_SHA256=policy.three_package_sha)
+        elif policy.provider == 'interior':
+            env['IMG2_BLENDER_PYTHON'] = policy.bpy_python[0]
         return env
 
     def _run(self, policy, child):
@@ -622,9 +624,21 @@ class NativeTerminalAuthority:
 
     @staticmethod
     def _semantic(snapshot):
-        return {'provider': snapshot['provider'], 'inputs': snapshot['inputs'],
-                'policySha256': snapshot['policySha256'], 'deterministic': snapshot['deterministic'],
-                'captures': [{key: row[key] for key in ('role', 'pixelSha256', 'width', 'height', 'channels', 'view')}
+        def public(value):
+            if type(value) is dict:
+                return {key: public(item) for key, item in value.items() if not key.lower().endswith('path')}
+            if type(value) is list:
+                return [public(item) for item in value]
+            if type(value) is str and (value.startswith(('/', '~/', 'file:', '\\'))
+                                       or re.match(r'^[A-Za-z]:[\\/]', value)):
+                return 'local-' + canonical_digest(value)
+            return value
+        return {'provider': snapshot['provider'],
+                'inputs': [{'id': 'native-input-' + str(index), 'sha256': item['sha256']}
+                           for index, item in enumerate(snapshot['inputs'])],
+                'policySha256': snapshot['policySha256'], 'deterministic': public(snapshot['deterministic']),
+                'captures': [public({key: row[key] for key in
+                             ('role', 'pixelSha256', 'width', 'height', 'channels', 'view')})
                              for row in snapshot['captures']]}
 
     def _context(self, policy, child, snapshot):
