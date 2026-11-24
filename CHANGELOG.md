@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Render embedded GLB textures in delivered-model captures by allowing only the required blob
+  connections; image-loader failures now refuse capture instead of silently producing an untextured success.
 - Extend explicit no-account authority to purpose-scoped v2 grants across routing, build strategy,
   quality review, repair and child completion. Consent names each `--purpose`; v1 grants require
   personal re-attestation and are archived unchanged, with journal history retained. Credential

@@ -345,7 +345,7 @@ def _serve(routes):
             self.send_header('Content-Length', str(len(data)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'nonce-fixed-capture-map'; connect-src 'self'; img-src 'self' blob: data:; style-src 'unsafe-inline'; font-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'nonce-fixed-capture-map'; connect-src 'self' blob:; img-src 'self' blob: data:; style-src 'unsafe-inline'; font-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'")
             self.end_headers()
             self.wfile.write(data)
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)

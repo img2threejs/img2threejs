@@ -12,11 +12,15 @@ globalThis.__DELIVERED_CAPTURE__ = (async () => {
   const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
   if (digest !== config.deliverySha256) throw new Error('glb-hash-mismatch');
   const manager = new THREE.LoadingManager();
+  let resourceLoadFailed = false;
+  // GLTFLoader can resolve with a null texture after an image loader error.
+  manager.onError = () => { resourceLoadFailed = true; };
   manager.setURLModifier(url => {
     if (!url.startsWith('blob:') && !/^data:image\/(png|jpeg);base64,/.test(url)) throw new Error('external-resource-forbidden');
     return url;
   });
   const gltf = await new GLTFLoader(manager).parseAsync(bytes, '');
+  if (resourceLoadFailed) throw new Error('glb-resource-load-failed');
   if (!gltf.scene) throw new Error('missing-gltf-scene');
   const renderer = new THREE.WebGLRenderer({antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power'});
   renderer.debug.onShaderError = () => { throw new Error('shader-compilation-failed'); };

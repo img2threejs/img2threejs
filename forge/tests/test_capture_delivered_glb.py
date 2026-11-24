@@ -21,6 +21,7 @@ _FORGE = str(Path(__file__).resolve().parents[1])
 if _FORGE not in sys.path:
     sys.path.insert(0, _FORGE)
 from stage4_review import capture_delivered_glb as capture
+from stage0_route.images import decode as decode_png, png as encode_png
 
 
 def canonical(value):
@@ -38,6 +39,67 @@ def triangle_glb(extra=None):
     payload = canonical(document)
     payload += b' ' * (-len(payload) % 4)
     binary = struct.pack('<9f', -0.5, 0, 0, 0.5, 0, 0, 0, 1, 0)
+    chunks = struct.pack('<II', len(payload), 0x4e4f534a) + payload + struct.pack('<II', len(binary), 0x004e4942) + binary
+    return struct.pack('<4sII', b'glTF', 2, len(chunks) + 12) + chunks
+
+
+def lantern_glb(texture=None):
+    """Owned checker lantern; no downloaded mesh, image or executable content."""
+    positions, normals, uvs, indices = [], [], [], []
+    faces = [
+        ((0, 0, 1), ((0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1))),
+        ((0, 0, -1), ((1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0))),
+        ((1, 0, 0), ((1, 0, 1), (1, 0, 0), (1, 1, 0), (1, 1, 1))),
+        ((-1, 0, 0), ((0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0))),
+        ((0, 1, 0), ((0, 1, 1), (1, 1, 1), (1, 1, 0), (0, 1, 0))),
+        ((0, -1, 0), ((0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1))),
+    ]
+    boxes = [
+        ((-.35, 0, -.25), (.35, .8, .25)), ((-.4, -.08, -.3), (.4, 0, .3)),
+        ((-.4, .8, -.3), (.4, .88, .3)), ((-.2, .88, -.04), (-.14, 1.1, .04)),
+        ((.14, .88, -.04), (.2, 1.1, .04)), ((-.2, 1.1, -.04), (.2, 1.16, .04)),
+    ]
+    for low, high in boxes:
+        for normal, corners in faces:
+            offset = len(positions) // 3
+            for point in corners:
+                positions.extend(a + p * (b - a) for p, a, b in zip(point, low, high))
+                normals.extend(normal)
+            uvs.extend((0, 0, 1, 0, 1, 1, 0, 1))
+            indices.extend(offset + i for i in (0, 1, 2, 0, 2, 3))
+    if texture is None:
+        texture = encode_png(8, 8, 4, bytes(
+            c for y in range(8) for x in range(8)
+            for c in ((255, 0, 0, 255) if (x + y) % 2 else (0, 255, 0, 255))))
+    binary, views = bytearray(), []
+    for data in (struct.pack('<%sf' % len(positions), *positions),
+                 struct.pack('<%sf' % len(normals), *normals),
+                 struct.pack('<%sf' % len(uvs), *uvs),
+                 struct.pack('<%sH' % len(indices), *indices), texture):
+        binary.extend(b'\0' * (-len(binary) % 4))
+        views.append({'buffer': 0, 'byteOffset': len(binary), 'byteLength': len(data)})
+        binary.extend(data)
+    document = {
+        'asset': {'version': '2.0'}, 'scene': 0, 'scenes': [{'nodes': [0]}],
+        'nodes': [{'mesh': 0, 'name': 'owned-fictional-checker-lantern'}],
+        'meshes': [{'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1, 'TEXCOORD_0': 2},
+                                     'indices': 3, 'material': 0}]}],
+        'materials': [{'pbrMetallicRoughness': {'baseColorTexture': {'index': 0},
+                                               'metallicFactor': 0, 'roughnessFactor': 1}}],
+        'textures': [{'source': 0, 'sampler': 0}],
+        'samplers': [{'magFilter': 9728, 'minFilter': 9728}],
+        'images': [{'bufferView': 4, 'mimeType': 'image/png'}],
+        'buffers': [{'byteLength': len(binary)}], 'bufferViews': views,
+        'accessors': [
+            {'bufferView': 0, 'componentType': 5126, 'count': len(positions)//3, 'type': 'VEC3',
+             'min': [-.4, -.08, -.3], 'max': [.4, 1.16, .3]},
+            {'bufferView': 1, 'componentType': 5126, 'count': len(normals)//3, 'type': 'VEC3'},
+            {'bufferView': 2, 'componentType': 5126, 'count': len(uvs)//2, 'type': 'VEC2'},
+            {'bufferView': 3, 'componentType': 5123, 'count': len(indices), 'type': 'SCALAR'}],
+    }
+    payload = canonical(document)
+    payload += b' ' * (-len(payload) % 4)
+    binary.extend(b'\0' * (-len(binary) % 4))
     chunks = struct.pack('<II', len(payload), 0x4e4f534a) + payload + struct.pack('<II', len(binary), 0x004e4942) + binary
     return struct.pack('<4sII', b'glTF', 2, len(chunks) + 12) + chunks
 
@@ -327,6 +389,34 @@ class DeliveredGLBCaptureTests(unittest.TestCase):
         self.assertEqual(result['delivery']['sha256'], self.delivery['sha256'])
         self.assertEqual(result['quality'], 'unevaluated')
         self.assertFalse(result['deliverable'])
+
+    @unittest.skipUnless(os.environ.get('IMG2_GLBCAPTURE_HOST_PINS'), 'requires explicitly approved local Chrome/Three.js pins')
+    def test_genuine_embedded_png_texture_renders_both_lantern_checker_colours(self):
+        pins = json.loads(Path(os.environ['IMG2_GLBCAPTURE_HOST_PINS']).read_text())
+        self.delivery = self.put('assets/delivery.glb', lantern_glb())
+        self.artifact['files'] = [self.delivery]
+        self.bind()
+        result = self.run_capture(chrome=pins['chrome'], modules=pins['modules'], timeout_seconds=45)
+        width, height, channels, pixels = decode_png((self.root / result['screenshot']['path']).read_bytes())
+        self.assertEqual((width, height), (128, 128))
+        reds = greens = 0
+        for index in range(0, len(pixels), channels):
+            red, green, blue = pixels[index:index + 3]
+            reds += red > 100 and red > green * 2 and red > blue * 2
+            greens += green > 100 and green > red * 2 and green > blue * 2
+        self.assertGreater(reds, 100, 'embedded red checker pixels were lost')
+        self.assertGreater(greens, 100, 'embedded green checker pixels were lost')
+
+    @unittest.skipUnless(os.environ.get('IMG2_GLBCAPTURE_HOST_PINS'), 'requires explicitly approved local Chrome/Three.js pins')
+    def test_genuine_undecodable_embedded_texture_cannot_report_captured(self):
+        pins = json.loads(Path(os.environ['IMG2_GLBCAPTURE_HOST_PINS']).read_text())
+        self.delivery = self.put('assets/delivery.glb', lantern_glb(b'\x89PNG\r\n\x1a\nowned invalid image fixture'))
+        self.artifact['files'] = [self.delivery]
+        self.bind()
+        with self.assertRaises(capture.CaptureError) as raised:
+            self.run_capture(chrome=pins['chrome'], modules=pins['modules'], timeout_seconds=45)
+        self.assertEqual(raised.exception.reason_code, 'render-runtime-failed')
+        self.assertFalse((self.root / 'captures/rev-1/capture.json').exists())
 
 
 if __name__ == '__main__':
