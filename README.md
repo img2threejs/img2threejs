@@ -239,6 +239,12 @@ Host-approved policy modules supply live permissions, source approval and produc
 A digest does not approve source rights or provenance. Native/JavaScript source approval is never
 inferred; reviewed Pixi code runs trusted in the same realm, not an arbitrary-JavaScript sandbox.
 
+CS2 0.3.0 uses a paired, incompatible `--terminal-request` gate ABI. Core binds an immutable
+per-run descriptor into the authenticated review; the global locator is discovery only.
+`forge/cs2_evidence.py prepare|consult` supports explicitly host-approved non-routed evidence,
+with a real review journal and an external pinned policy. Its receipts are always evidence-only,
+not routed completion or standalone terminal acceptance. See [the CS2 protocol](docs/PLUGINS.md#cs2-run-request-protocol).
+
 Observed evidence is narrow: actual Chrome scene placement/composition/measurement and CS2
 capture/replay fixtures, a bpy interior geometry audit with four views, 925 character pose vertex
 comparisons, and Pixi authority/replay probes. Synthetic self-reference does not prove identity or

@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 FORGE = Path(__file__).resolve().parents[1]
@@ -23,12 +24,13 @@ from browser_runtime import snapshot_browser_bundle
 from decision_control import DecisionController, DecisionError, GROUPS, canonical_digest
 from cs2_terminal_authority import (AREA, CS2TerminalAuthority, CS2TerminalPolicy, _BASE_CHECKS,
                                     _DIMENSIONS)
-from route_parent import ParentError, _encode, _read, _write
+from cs2_host_evidence import CS2EvidencePolicy, CS2EvidenceReviews
+from route_parent import ParentError, _decode, _encode, _read, _write
 from stage0_route.images import png
 from stage4_review import capture_delivered_glb as capture
 from test_capture_delivered_glb import config_fixture, triangle_glb
 
-CS2_FIXTURE_COMMIT = "943e0e50ce34d6b9b41b5d5b6ab9fb38bcf7928f"
+CS2_FIXTURE_COMMIT = "08463720743f37cccfd96b4aa5dbe7a1e250c022"
 
 
 def _git_environment():
@@ -67,7 +69,7 @@ def picture(shade):
     return png(40, 40, 3, bytes(pixels))
 
 
-class CS2AuthorityTests(unittest.TestCase):
+class CS2ProtocolFixture(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         source, git = cs2_fixture_source()
@@ -269,6 +271,7 @@ class CS2AuthorityTests(unittest.TestCase):
         verify.route_round_links = lambda: []
         return verify, seen
 
+class CS2AuthorityTests(CS2ProtocolFixture):
     def test_missing_policy_refuses_before_capture_or_plugin_execution(self):
         authority = CS2TerminalAuthority({})
         with patch("cs2_terminal_authority.capture_delivered_glb") as renderer:
@@ -466,6 +469,69 @@ class CS2AuthorityTests(unittest.TestCase):
         self.assertEqual(_read(self.child, self.attempt_area(context) + "view-0/capture.png")[0],
                          _read(self.child, "reference.png")[0])
 
+    def test_declared_global_gate_replays_only_the_immutable_selected_request(self):
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            context = self.prepare()
+        request = next(row for row in context["bindings"] if row["role"] == "produced-gate-request")
+        local = {"path": self.attempt_area(context) + "gate-request.json", "sha256": request["sha256"]}
+        result = self.authority._run([self.policy.python[0], "-E", "-s", "-S", "-B",
+            str(self.plugin / "tools/cs2_review.py"), "--workspace", str(self.child),
+            "--terminal-request", AREA + "gate-request.json"], self.child)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        gate = _decode(result.stdout)
+        self.assertEqual(gate["evidence"]["request"], local)
+        self.assertIs(gate["evidence"]["terminalAuthority"], False)
+        self.assertEqual(gate["evidence"]["scope"], "mechanical-replay-only")
+        invalid = _decode(_read(self.child, local["path"])[0])
+        invalid["version"] = True
+        self.put(local["path"], invalid)
+        self.put(AREA + "gate-request.json", invalid)
+        refused = self.authority._run([self.policy.python[0], "-E", "-s", "-S", "-B",
+            str(self.plugin / "tools/cs2_review.py"), "--workspace", str(self.child),
+            "--terminal-request", AREA + "gate-request.json"], self.child)
+        self.assertEqual(refused.returncode, 2)
+        self.assertEqual(_decode(refused.stdout)["status"], "error")
+        self.assertIn("terminal-request-version-mismatch", refused.stdout.decode())
+
+    def test_request_descriptor_is_bound_before_quality_review(self):
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            context = self.prepare()
+        roles = {row["role"]: row for row in context["bindings"]}
+        self.assertIn("produced-gate-request", roles)
+        binding = roles["produced-gate-request"]
+        request = json.loads(_read(self.parent, binding["path"])[0])
+        area = self.attempt_area(context)
+        self.assertEqual(request, {
+            "kind": "img2.cs2-terminal-request", "version": 1,
+            "inputs": {"path": area + "inputs.json", "sha256": sha(_read(self.child, area + "inputs.json")[0])},
+            "scene": {"path": area + "scene.json", "sha256": sha(_read(self.child, area + "scene.json")[0])},
+        })
+        self.assertEqual(type(request["version"]), int)
+        self.assertEqual(binding["sha256"], sha(_read(self.parent, binding["path"])[0]))
+        self.assertEqual(_read(self.child, AREA + "gate-request.json")[0],
+                         _read(self.parent, binding["path"])[0])
+        self.assertEqual(context["policyVersion"], "cs2-terminal-policy-v2")
+
+    def test_terminal_gate_rejects_unbound_or_authorizing_envelope(self):
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            context = self.prepare()
+            verify, _ = self.synthetic_journal(context)
+            run = self.authority._run
+            for change in ({"terminalAuthority": True},
+                           {"request": {"path": self.attempt_area(context) + "gate-request.json", "sha256": "0" * 64}},
+                           {"scope": "host-reviewed"}):
+                with self.subTest(change=change):
+                    def changed_gate(argv, cwd):
+                        result = run(argv, cwd)
+                        if any(flag in argv for flag in ("--terminal-request", "--terminal-inputs")):
+                            value = json.loads(result.stdout)
+                            value["evidence"].update(change)
+                            return subprocess.CompletedProcess(result.args, result.returncode, _encode(value), result.stderr)
+                        return result
+                    with patch.object(self.authority, "_run", side_effect=changed_gate):
+                        self.reject("cs2-blocking-terminal-gate-failed", self.authority.verify_terminal, verify,
+                                    object_id="subject", child_workspace=self.child, state=self.state, artifact=self.artifact)
+
     def test_prepare_twice_preserves_old_attempt_and_only_link_selects_current(self):
         prior_report = self.put("cs2-review.json", {"prior": "unrelated per-pass gate report"})
         with patch.object(capture, "_browser", side_effect=self.browser):
@@ -604,6 +670,130 @@ class CS2AuthorityTests(unittest.TestCase):
         policy = replace(self.policy, reference_binding=("source-link.png", self.reference["sha256"]))
         with self.assertRaises((OSError, ParentError)):
             self.authority._admit(policy, self.child, self.artifact, self.inputs)
+
+
+class CS2HostEvidenceTests(CS2ProtocolFixture):
+    def setUp(self):
+        super().setUp()
+        original_parent = self.parent
+        workspace = original_parent / "standalone"
+        self.child.rename(workspace)
+        self.child = self.parent = workspace
+        request = self.put_parent("requirements.json", {"request": "owned fictional protocol fixture only"})
+        self.policy = replace(self.policy, parent_workspace=str(workspace),
+                              user_requirements_binding=self.pair(request))
+        self.host_policy = CS2EvidencePolicy(str(workspace), self.policy)
+        self.host_policies = {"subject": self.host_policy}
+        self.reviews = CS2EvidenceReviews(self.host_policies)
+        self.controller = DecisionController(workspace, "unit-run")
+        self.consent = lambda: {"granted": True, "purposes": list(GROUPS),
+                               "sha256": "a" * 64, "tokenBudget": 1000000}
+        self.factory = Mock()
+        self.factory.provider.side_effect = AssertionError("offline outage fixture must not dispatch Jev")
+
+    def consult_evidence(self, prepared, *, fallback=None):
+        return self.reviews.consult("subject", prepared["context"], controller=self.controller,
+            consent=self.consent, provider_factory=self.factory,
+            availability=lambda: {"status": "capability-unavailable"}, fallback=fallback)
+
+    def test_actual_journal_review_is_evidence_only_and_cached_resume_does_not_capture_again(self):
+        fallback = Mock(side_effect=self.model_advisory)
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            prepared = self.reviews.prepare("subject")
+            # Global discovery state does not select the authenticated review attempt.
+            self.put(AREA + "gate-request.json", {"changedDiscoveryOnly": True})
+            reviewed = self.consult_evidence(prepared, fallback=fallback)
+            resumed = self.consult_evidence(prepared, fallback=fallback)
+        self.assertEqual(reviewed["status"], "reviewed")
+        self.assertIs(reviewed["terminalAuthority"], False)
+        self.assertIs(reviewed["terminalAcceptance"], False)
+        self.assertEqual(reviewed["scope"], "mechanical-replay-only")
+        self.assertEqual(reviewed["receipt"], resumed["receipt"])
+        self.assertEqual(self.browser_calls, 5)
+        fallback.assert_called_once()
+        self.factory.provider.assert_not_called()
+        self.assertFalse(hasattr(self.reviews, "verify_terminal"))
+        receipt = _decode(_read(self.child, reviewed["receipt"]["path"])[0])
+        self.assertEqual(receipt, {k: v for k, v in reviewed.items() if k != "receipt"})
+        record = _decode(_read(self.child, receipt["record"]["path"])[0])
+        self.assertEqual(record["decider"], "model:offline-host-model")
+        with self.controller.workspace_transaction(consent=self.consent) as verify:
+            verify(record, _decode(_read(self.child, receipt["context"]["path"])[0]))
+        self.assertEqual(_decode(_read(self.child, AREA + "gate-request.json")[0]), {"changedDiscoveryOnly": True})
+
+    def test_workspace_dictionary_or_callable_does_not_mint_host_policy(self):
+        for policy in ({"approved": True}, lambda: self.host_policy, self.policy):
+            with self.subTest(policy=type(policy).__name__):
+                self.reject("invalid-cs2-evidence-policies", CS2EvidenceReviews, {"subject": policy})
+        with patch("cs2_terminal_authority.capture_delivered_glb") as renderer:
+            self.reject("cs2-evidence-policy-unavailable", CS2EvidenceReviews({}).prepare, "subject")
+            self.host_policies.clear()
+            self.reject("cs2-evidence-policy-changed", self.reviews.prepare, "subject")
+            renderer.assert_not_called()
+
+    def test_stale_descriptor_and_wrong_run_controller_refuse_without_model_dispatch(self):
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            prepared = self.reviews.prepare("subject")
+        other_workspace = self.child.parent / "other-review"
+        other_workspace.mkdir()
+        wrong = DecisionController(other_workspace, "other-run")
+        self.reject("cs2-review-controller-mismatch", self.reviews.consult, "subject", prepared["context"],
+                    controller=wrong, consent=self.consent, provider_factory=self.factory)
+        self.put(prepared["request"]["path"], {"kind": "img2.cs2-terminal-request", "version": 2})
+        self.reject("cs2-gate-request-binding-mismatch", self.consult_evidence, prepared,
+                    fallback=self.model_advisory)
+        self.factory.provider.assert_not_called()
+
+    def test_standalone_evidence_cannot_be_used_as_routed_terminal_authority(self):
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            prepared = self.reviews.prepare("subject")
+        with self.controller.workspace_transaction(consent=self.consent) as verify:
+            self.reject("cs2-child-workspace-mismatch", self.authority.verify_terminal, verify,
+                        object_id="subject", child_workspace=self.child, state=self.state, artifact=self.artifact)
+        self.assertIs(prepared["terminalAuthority"], False)
+        self.assertFalse((self.child / AREA / "quality-review-link.json").exists())
+
+    def test_semantic_identity_failure_does_not_publish_a_reviewed_receipt(self):
+        def failing(context):
+            answer = self.model_advisory(context)
+            answer["answers"]["critical:semantic-asset-identity"] = {
+                "type": "choice", "choice": "fail", "confidence": 1,
+                "probabilities": {"pass": 0, "fail": 1, "uncertain": 0}}
+            return answer
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            prepared = self.reviews.prepare("subject")
+            with patch.object(self.reviews._producer, "_gate") as gate:
+                self.reject("cs2-semantic-quality-failed", self.consult_evidence, prepared, fallback=failing)
+                gate.assert_not_called()
+        self.assertEqual(list(self.child.glob(AREA + "run-*/host-review-receipt-*.json")), [])
+
+    def test_pending_review_resumes_original_context_without_recapture(self):
+        with patch.object(capture, "_browser", side_effect=self.browser):
+            prepared = self.reviews.prepare("subject")
+            pending = self.consult_evidence(prepared)
+            self.assertEqual(pending["status"], "request-input")
+            self.assertEqual(pending["context"], prepared["context"])
+            reviewed = self.consult_evidence(prepared, fallback=self.model_advisory)
+        self.assertEqual(reviewed["status"], "reviewed")
+        self.assertEqual(self.browser_calls, 5)
+
+
+    def test_real_evidence_cli_refuses_workspace_policy_without_executing_it(self):
+        ref = self.put("candidate-policy.py", b'raise AssertionError("candidate policy must not execute")\n')
+        before = self.controller.journal_path.read_bytes()
+        command = [sys.executable, str(FORGE / "cs2_evidence.py"), "prepare",
+            "--workspace", str(self.child), "--run-id", "unit-run", "--object-id", "subject",
+            "--plugin-root", str(self.plugin), "--policy-module", str(self.child / ref["path"]),
+            "--policy-sha256", ref["sha256"]]
+        result = subprocess.run(command, capture_output=True, timeout=20,
+            env={"PATH": os.defpath, "HOME": str(self.parent), "PYTHONDONTWRITEBYTECODE": "1",
+                 "PYTHONNOUSERSITE": "1"})
+        self.assertEqual(result.returncode, 3, result.stderr)
+        value = _decode(result.stdout)
+        self.assertEqual(value["reasonCode"], "policy-module-unsafe")
+        self.assertIs(value["terminalAuthority"], False)
+        self.assertIs(value["terminalAcceptance"], False)
+        self.assertEqual(self.controller.journal_path.read_bytes(), before)
 
 
 if __name__ == "__main__":

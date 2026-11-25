@@ -19,6 +19,9 @@ The default installation policy requires all five routed plugins; users may expl
 a subset. No-account v2 grants explicitly cover selected routing/build/quality/repair purposes;
 v1 grants need re-attestation and are retained, never silently broadened. Textured model answers
 require live run/reference/generation/model authority and immutable, fresh pipeline bindings.
+CS2 uses the paired 0.3.0 immutable request ABI with context-bound per-run selection, strict
+replay envelopes and separate host-approved non-routed evidence receipts. Generic gate PASS
+remains mechanical-only; routed source/held-verifier/semantic requirements are unchanged.
 Remaining release gates: actual cross-plugin native/visual integration, character material
 captures, final Jev/harness pins, bundled installer/repair integration, public Jev packaging after
 secret-history review and clean-home install/routing acceptance. The procedural-code-only versus

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Pair the CS2 0.3.0 immutable run-request gate ABI with authenticated context/run/report bindings;
+  reject incompatible gates and authorizing or mismatched replay envelopes. Global selection is
+  discovery only. Add explicitly host-approved non-routed evidence preparation/review, with actual
+  controller-journal checks and non-authorizing receipts; no standalone terminal acceptance is implied.
+  The required CI fixture is the exact published CS2 `08463720743f37cccfd96b4aa5dbe7a1e250c022`,
+  not a final release-lock update. Native source/classification/calibration and semantic approval remain separate.
 - Render embedded GLB textures in delivered-model captures by allowing only the required blob
   connections; image-loader failures now refuse capture instead of silently producing an untextured success.
 - Require typed placement camera/depth/support/size-prior facts from current hash-bound records;

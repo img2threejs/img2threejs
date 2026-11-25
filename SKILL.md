@@ -55,6 +55,7 @@ one shared budget apply; never request keys in chat. Host-pinned `--policy-modul
 approves code, not source rights; never infer native/JS provenance. Fallback needs separate host
 approval and proven outage; independent hard gates remain mandatory. Terminal handoff:
 `forge/terminal.py prepare|consult`, then independent `route.py --complete-child` verification.
+CS2 uses paired run requests, not standalone terminal acceptance.
 Parent completion is not delivery; children/advice are progress. Never downgrade 3D to 2D.
 
 ## Profile preflight (once per run, before `forge/next.py`)

@@ -1197,7 +1197,7 @@ class DecisionController:
             for value in values:
                 if type(value) is str:
                     _identifier(value)
-                elif type(value) is int:
+                elif type(value) in (int, float):
                     _number(value, 0, 360)
                 else:
                     _fail("invalid-requirements")

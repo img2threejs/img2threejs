@@ -167,6 +167,44 @@ the review record with `--domain-review-json <report>.json --review-scene-json <
 checklist step carries the resolved paths, and a failed domain gate blocks `continue` even when the
 global fidelity score passes.
 
+### CS2 run-request protocol
+
+CS2 0.3.0 and the matching core deliberately replace the old `--terminal-inputs/--scene/--out`
+gate contract; old/new pairs fail closed. The reviewed single blocking declaration is:
+
+```text
+python3 {plugin_dir}/tools/cs2_review.py --terminal-request .img2/cs2-terminal/gate-request.json
+```
+
+Core creates `.img2/cs2-terminal/run-<32hex>/gate-request.json` with exactly `kind` =
+`img2.cs2-terminal-request`, integer `version` = 1, and `inputs`/`scene` path/SHA256 bindings
+inside that same run. Its immutable binding is in the authenticated quality context. The global
+file copies its bytes for generic discovery, never selects the host's authoritative attempt.
+Final verification invokes the explicit per-run descriptor, rechecks all evidence, independently
+captures routed deliveries, verifies every gate-envelope binding and consumes the held journal
+review. Plugin-owned `gate-review.json` is immutable; conflicting output refuses instead of overwriting.
+The gate envelope is `scope: mechanical-replay-only`, `terminalAuthority: false`, even on PASS.
+
+For a non-routed workspace, `forge/cs2_evidence.py prepare|consult` uses a separate
+`CS2EvidencePolicy` wrapping the full host-reviewed source/runtime admission. The
+SHA256-pinned external policy module defines `build_cs2_evidence_policy(workspace, run_id)`;
+it must be outside the workspace, core, selected plugin and selected harness. It is trusted
+host Python code, including its ambient imports, not a sandbox or a source-approval inference.
+`--plugin-root`, `--policy-module` and `--policy-sha256` are explicit host selections.
+`prepare` captures only after complete live admission and returns an immutable context binding.
+`consult` requires that binding (`--context/--context-sha256`), the same run/object, the four
+existing harness pins, and current Jev consent or explicit no-account attestation. It uses the
+actual controller journal; a pending review resumes the same binding without implicit recapture.
+No provider or paid inference is called by `prepare`.
+
+Host evidence receipts always retain `terminalAuthority: false`, `terminalAcceptance: false`
+and `deliverable: false`. They cannot satisfy routed workspace/held-verifier rules, and this API
+does not provide a standalone acceptance capability. Missing live host policy, calibrated material
+sources, source annotations, runtime/source approval or current authenticated quality refuses;
+authored metrics, workspace approval flags and a callable alone are not substitutes. Synthetic
+protocol tests are not production classifier/material/source/visual qualification.
+
+
 ## Routed plugins and the advisory boundary
 
 `python3 forge/route.py` is a second way to reach a plugin: instead of naming a profile, the base
@@ -195,9 +233,9 @@ card's commands, and display text never decides eligibility.
   purposes. The base asks the user to run those commands and never handles a key.
 - A routed child is created pending. It is not a finished reconstruction, and the base still runs
   the owning plugin's blocking gates before anything is accepted.
-- At this revision no owner has a terminal authority that can complete a routed child, and no
-  real-image held-out quality, Blender export parity or live terminal delivery is qualified.
-  `grimoire/intake/routing.md` section 9 lists the reason code each owner returns.
+- Owner terminal paths require current host/source/runtime policy and authenticated semantic
+  evidence; a generic replay PASS or evidence-only receipt is not a completion capability.
+  Real-image held-out quality and end-to-end live delivery remain separately unqualified.
 - Discovery reads the harness registry and the pinned checkout only. It installs nothing, so a plugin
   that is not installed in the active `$IMG2_HOME` is rejected with `provider-unavailable`; see
   [what a run sees](#what-a-run-sees-depends-on-img2_home).

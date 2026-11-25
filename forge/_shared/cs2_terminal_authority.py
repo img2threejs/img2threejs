@@ -46,7 +46,7 @@ _PIN = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 _BASE_CHECKS = frozenset({"classification-source-authority", "finish-material-response", "identity-detail",
                           "semantic-asset-identity", "source-calibration", "delivery-frame-scale"})
 _DIMENSIONS = ("silhouette-proportions", "part-relationships", "geometry", "material-appearance", "identity-features")
-_GATE = "python3 {plugin_dir}/tools/cs2_review.py --terminal-inputs .img2/cs2-terminal/inputs.json --scene .img2/cs2-terminal/scene.json --out cs2-review.json"
+_GATE = "python3 {plugin_dir}/tools/cs2_review.py --terminal-request .img2/cs2-terminal/gate-request.json"
 
 
 def _require(condition, reason):
@@ -189,12 +189,16 @@ class CS2TerminalAuthority:
         child = Path(child_workspace)
         expected = Path(policy.parent_workspace) / f".img2threejs/objects/{object_id}/rev-{policy.revision}"
         _require(child == expected and child.resolve(strict=True) == child, "cs2-child-workspace-mismatch")
+        self._check_host(policy)
+        return policy, child
+
+    def _check_host(self, policy):
         for path, digest in self._base_files.items():
             _require(_sha(path.read_bytes()) == digest, "cs2-base-producer-changed")
         _require(_sha(Path(self._git).read_bytes()) == self._git_sha, "cs2-git-changed")
         for binding in (policy.python, policy.chrome, *((row[1], row[2]) for row in policy.modules)):
             _host(binding)
-        return policy, child
+        verify_browser_bundle(policy.browser_root, policy.browser_files, policy.chrome[0])
 
     @staticmethod
     def _env():
@@ -257,7 +261,9 @@ class CS2TerminalAuthority:
                 _require(relative.as_posix() in committed, "cs2-unpinned-provider-import")
         _require({"tools/cs2_terminal.py", "tools/cs2_review.py", "plugin.json", "gates.json"} <= committed.keys(),
                  "cs2-terminal-provider-unavailable")
-        _require(_decode(_read(root, "plugin.json")[0]).get("name") == "cs2", "cs2-provider-identity-mismatch")
+        manifest = _decode(_read(root, "plugin.json")[0])
+        _require(manifest.get("name") == "cs2" and manifest.get("version") == "0.3.0",
+                 "cs2-provider-identity-mismatch")
         gates = _decode(_read(root, "gates.json")[0])
         _require(type(gates) is list and len(gates) == 1 and gates[0] == {
             "id": "cs2-review", "command": _GATE, "blocking": True, "after": []}, "cs2-unreviewed-blocking-gate")
@@ -355,14 +361,64 @@ class CS2TerminalAuthority:
         _require(self._provider(policy) == before, "cs2-provider-changed-during-measurement")
         return replay
 
-    def _context(self, policy, child, replay, area):
+    def _gate_request(self, child, area, *, create=False):
+        _require(re.fullmatch(re.escape(AREA) + r"run-[a-f0-9]{32}/", area) is not None,
+                 "cs2-gate-request-run-mismatch")
+        descriptor = {"kind": "img2.cs2-terminal-request", "version": 1}
+        for name in ("inputs", "scene"):
+            path = area + name + ".json"
+            descriptor[name] = {"path": path, "sha256": _sha(_read(child, path)[0])}
+        path = area + "gate-request.json"
+        raw = _encode(descriptor)
+        if create:
+            _write(child, path, raw)
+        _require(_read(child, path)[0] == raw, "cs2-gate-request-binding-mismatch")
+        return {"path": path, "sha256": _sha(raw)}
+
+    def _gate(self, policy, child, area, replay, artifact):
+        request = self._gate_request(child, area)
+        descriptor = _decode(_bound(child, request))
+        with tempfile.TemporaryDirectory(prefix="cs2-gate-pycache-") as cache:
+            result = self._run([policy.python[0], "-E", "-s", "-S", "-B", "-X", "pycache_prefix=" + cache,
+                str(Path(policy.plugin_root) / "tools/cs2_review.py"), "--workspace", str(child),
+                "--terminal-request", request["path"]], child)
+        verdict = _decode(result.stdout)
+        _require(result.returncode in (0, 1), "cs2-blocking-terminal-gate-failed")
+        report_path = area + "gate-review.json"
+        report_raw = _read(child, report_path)[0]
+        report = replay["report"]
+        passed = report["verdict"] == "pass"
+        expected = {
+            "artifact": artifact, "request": request, "inputs": descriptor["inputs"],
+            "scene": descriptor["scene"], "report": {"path": report_path, "sha256": _sha(report_raw)},
+            "scope": "mechanical-replay-only", "terminalAuthority": False,
+            "verdict": report["verdict"], "action": report["action"], "mode": "strict", "deferredGates": [],
+        }
+        _require(type(verdict) is dict and set(verdict) == {
+                    "kind", "version", "plugin", "gate", "status", "reasons", "evidence"}
+                 and verdict["kind"] == "img2.gate-verdict" and type(verdict["version"]) is int
+                 and verdict["version"] == 1 and verdict["plugin"] == "cs2" and verdict["gate"] == "cs2-review"
+                 and result.returncode == (0 if passed else 1)
+                 and verdict["status"] == ("pass" if passed else "fail")
+                 and verdict["reasons"] == report["failedGates"]
+                 and type(verdict["evidence"]) is dict and verdict["evidence"] == expected
+                 and verdict["evidence"].get("terminalAuthority") is False,
+                 "cs2-blocking-terminal-gate-failed")
+        _require(_decode(report_raw) == report and self._gate_request(child, area) == request,
+                 "cs2-gate-report-mismatch")
+        for name in ("inputs", "scene"):
+            _bound(child, descriptor[name])
+        return expected
+
+    def _context(self, policy, child, replay, area, *, policy_version="cs2-terminal-policy-v2"):
         relative = child.relative_to(Path(policy.parent_workspace)).as_posix()
+        prefix = "" if relative == "." else relative + "/"
         bindings, images, roles = [], [], set()
         def add(role, ref, image=False, parent=False):
             _require(role not in roles, "cs2-duplicate-context-role")
             roles.add(role)
             raw = _bound(policy.parent_workspace if parent else child, ref)
-            bindings.append({"role": role, "path": ref["path"] if parent else relative + "/" + ref["path"], "sha256": ref["sha256"]})
+            bindings.append({"role": role, "path": ref["path"] if parent else prefix + ref["path"], "sha256": ref["sha256"]})
             if image:
                 decode(raw)
                 images.append({"role": role, "asset": role})
@@ -386,11 +442,17 @@ class CS2TerminalAuthority:
             raw = _read(child, area + name + ".json")[0]
             _require(raw == _pretty(replay[name]), "cs2-stale-produced-" + name)
             add("produced-" + name, {"path": area + name + ".json", "sha256": _sha(raw)})
+        add("produced-gate-request", self._gate_request(child, area))
         _require(set(replay["context"]["requiredChecks"]) <= set(policy.required_checks), "cs2-unapproved-measured-checks")
         image_roles = [image["role"] for image in images]
-        views = ["reference", "render", "orbit-left", "orbit-right"] + [
-            side + "-material-" + str(i) for i in range(len(replay["inputs"]["materialCaptures"]))
-            for side in ("source", "render")]
+        views = []
+        for ref in replay["inputs"]["configs"]:
+            camera = validate_config(_decode(_bound(child, ref)))["camera"]
+            x, z = (camera["position"][i] - camera["target"][i] for i in (0, 2))
+            _require(math.hypot(x, z) > 0, "cs2-view-direction-unavailable")
+            yaw = math.degrees(math.atan2(x, z)) % 360
+            if yaw not in views:
+                views.append(yaw)
         return {"kind": "img2.quality-review-context", "version": 1, "group": "quality-review",
             "subject": {"runId": policy.run_id, "objectId": policy.object_id, "revision": policy.revision,
                         "passId": replay["inputs"]["passId"]}, "bindings": bindings, "candidates": [],
@@ -401,12 +463,18 @@ class CS2TerminalAuthority:
                 "dimensions": [{"id": ident, "threshold": 3, "evidenceRoles": image_roles} for ident in _DIMENSIONS],
                 "criticalFeatures": [{"id": ident, "threshold": 3, "evidenceRoles": image_roles} for ident in policy.required_checks],
                 "requiredViews": views, "evidenceRoles": [b["role"] for b in bindings]},
-            "policyVersion": "cs2-terminal-policy-v1", "questionSetVersion": "quality-review-questions-v1",
+            "policyVersion": policy_version, "questionSetVersion": "quality-review-questions-v1",
             "requestedModel": policy.requested_model}
 
     def prepare(self, child_workspace, *, object_id, artifact, inputs):
         """Capture and measure; return actual shared review context, not acceptance."""
         policy, child = self._policy(object_id, child_workspace)
+        return self._prepare_production(policy, child, artifact, inputs,
+            revalidate=lambda: self._policy(object_id, child))
+
+    def _prepare_production(self, policy, child, artifact, inputs, *, revalidate,
+                            policy_version="cs2-terminal-policy-v2"):
+        revalidate()
         provider = self._provider(policy)
         values, sources = self._admit(policy, child, artifact, inputs)
         area = AREA + "run-" + uuid4().hex + "/"
@@ -417,13 +485,36 @@ class CS2TerminalAuthority:
         replay = self._replay(policy, child, {"path": area + "inputs.json", "sha256": _sha(raw)})
         for name in ("metrics", "scene", "report", "context"):
             _write(child, area + name + ".json", _pretty(replay[name]))
-        context = self._context(policy, child, replay, area)
+        self._gate_request(child, area, create=True)
+        context = self._context(policy, child, replay, area, policy_version=policy_version)
         _write(child, area + "quality-review-context-" + canonical_digest(context) + ".json", _encode(context))
         self._admit(policy, child, artifact, inputs)
         _require(self._provider(policy) == provider, "cs2-provider-changed-during-preparation")
-        self._policy(object_id, child)
+        revalidate()
         verify_browser_bundle(policy.browser_root, policy.browser_files, policy.chrome[0])
+        # Mutable locator is discovery only; authenticated context binds the per-run descriptor.
+        request = self._gate_request(child, area)
+        _write(child, AREA + "gate-request.json", _bound(child, request), replace=True)
         return context
+
+    @staticmethod
+    def _quality_record(verify, record, context, policy):
+        record = verify(record, context)
+        _require(type(record) is dict and record.get("group") == "quality-review"
+                 and record.get("subject") == context["subject"] and record.get("status") == "answered"
+                 and type(record.get("decider")) is str and record["decider"].startswith(("jev:", "model:")),
+                 "cs2-quality-review-not-authenticated")
+        answers = record.get("answers", {})
+        for dimension in _DIMENSIONS:
+            answer = answers.get("dimension:" + dimension, {})
+            score = answer.get("score")
+            _require(answer.get("type") == "score" and type(score) in (int, float) and math.isfinite(score)
+                     and score >= 3, "cs2-semantic-quality-failed")
+        for check in policy.required_checks:
+            answer = answers.get("critical:" + check, {})
+            _require(answer.get("type") == "choice" and answer.get("choice") == "pass",
+                     "cs2-semantic-quality-failed")
+        return record
 
     def _compare_capture(self, child, saved_ref, fresh_ref):
         saved, fresh = (_decode(_bound(child, ref)) for ref in (saved_ref, fresh_ref))
@@ -490,37 +581,9 @@ class CS2TerminalAuthority:
             _require(fresh["metrics"] == replay["metrics"], "cs2-rerender-derived-metrics-mismatch")
             _require({k: v for k, v in fresh["scene"].items() if k != "rendererVersion"} == {
                 k: v for k, v in replay["scene"].items() if k != "rendererVersion"}, "cs2-rerender-scene-mismatch")
-        # Reserve/check only this attempt's gate output, never a child-root report.
-        gate_report = area + "gate-review.json"
-        try:
-            existing_report = _read(child, gate_report)[0]
-        except FileNotFoundError:
-            _write(child, gate_report, _pretty(replay["report"]))
-        else:
-            _require(_decode(existing_report) == replay["report"], "cs2-existing-gate-report-mismatch")
-        with tempfile.TemporaryDirectory(prefix="cs2-gate-pycache-") as cache:
-            result = self._run([policy.python[0], "-E", "-s", "-S", "-B", "-X", "pycache_prefix=" + cache,
-                str(Path(policy.plugin_root) / "tools/cs2_review.py"), "--terminal-inputs", area + "inputs.json",
-                "--scene", area + "scene.json", "--out", gate_report], child)
-        verdict = _decode(result.stdout)
-        _require(result.returncode == 0 and verdict.get("kind") == "img2.gate-verdict" and verdict.get("version") == 1
-                 and verdict.get("plugin") == "cs2" and verdict.get("gate") == "cs2-review" and verdict.get("status") == "pass"
-                 and verdict.get("reasons") == [] and verdict.get("evidence", {}).get("artifact") == artifact,
-                 "cs2-blocking-terminal-gate-failed")
-        _require(_decode(_read(child, gate_report)[0]) == replay["report"], "cs2-gate-report-mismatch")
-        record = verify(record, context)
-        _require(type(record) is dict and record.get("group") == "quality-review" and record.get("subject") == context["subject"]
-                 and record.get("status") == "answered" and type(record.get("decider")) is str and record["decider"].startswith(("jev:", "model:")),
-                 "cs2-quality-review-not-authenticated")
-        answers = record.get("answers", {})
-        for dimension in _DIMENSIONS:
-            answer = answers.get("dimension:" + dimension, {})
-            score = answer.get("score")
-            _require(answer.get("type") == "score" and type(score) in (int, float) and math.isfinite(score)
-                     and score >= 3, "cs2-semantic-quality-failed")
-        for check in policy.required_checks:
-            answer = answers.get("critical:" + check, {})
-            _require(answer.get("type") == "choice" and answer.get("choice") == "pass", "cs2-semantic-quality-failed")
+        # The plugin alone publishes the immutable derived report. No caller-selected output.
+        self._gate(policy, child, area, replay, artifact)
+        record = self._quality_record(verify, record, context, policy)
         self._admit(policy, child, artifact, _binding(policy.inputs_binding))
         _require(_bound(child, saved_ref) == raw and self._context(policy, child, self._replay(policy, child, saved_ref), area) == context,
                  "cs2-terminal-evidence-changed")
