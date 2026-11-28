@@ -7,6 +7,27 @@ in-flight work, see [docs/UPGRADE_PLAN.md](docs/UPGRADE_PLAN.md).
 Each release has one theme. That is deliberate — a version people can name is a version people
 can plan around.
 
+### Installation integration (unreleased)
+
+Implemented in the core: validated provisioned selector fallback, selected-plugin preflight,
+visible route rejection reasons, and offline Jev release-lock regeneration/checking.
+The isolated E2E runner accepts role/observations; pinned routing distinguishes missing
+dependency executables from provider errors. Interior discovery and authority use trusted
+`IMG2_BLENDER_PYTHON` for `interior-bpy>=4.3`, retaining venv invocation identity. Missing bpy
+only makes interior ineligible; it never authorizes another native producer.
+The default installation policy requires all five routed plugins; users may explicitly choose
+a subset. No-account v2 grants explicitly cover selected routing/build/quality/repair purposes;
+v1 grants need re-attestation and are retained, never silently broadened. Textured model answers
+require live run/reference/generation/model authority and immutable, fresh pipeline bindings.
+CS2 uses the paired 0.3.0 immutable request ABI with context-bound per-run selection, strict
+replay envelopes and separate host-approved non-routed evidence receipts. Generic gate PASS
+remains mechanical-only; routed source/held-verifier/semantic requirements are unchanged.
+Remaining release gates: actual cross-plugin native/visual integration, character material
+captures, final Jev/harness pins, bundled installer/repair integration, public Jev packaging after
+secret-history review and clean-home install/routing acceptance. The procedural-code-only versus
+textured-default product conflict remains an owner release decision; these fixes do not change it.
+Offline checks do not establish those gates.
+
 ## Shipped
 
 | Version | Theme | Date | Highlights |

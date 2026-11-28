@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -36,10 +38,124 @@ def emit_local_state(payload: dict) -> None:
         print(f"- {step_id}")
 
 
+_NATIVE_WORKFLOW = "native-character-v1"
+_NATIVE_STATE = re.compile(r"\.img2threejs/objects/[A-Za-z0-9][A-Za-z0-9_-]{0,159}/rev-[1-9][0-9]*/state\.json\Z")
+
+
+def native_binding(state_path: Path, local_state: dict) -> tuple[bool, bool]:
+    """Return (native claimed by ANY source, every source agrees it is native).
+
+    Native-ness is never read from the child marker alone: a child-state edit can delete
+    or null it. The only signals are the explicit ``workflow`` claim in the child's
+    ``routeChild`` and in the parent's descriptor for that child (written by route_parent
+    at creation). Either claim makes the child native; a marker that is missing, null or
+    altered then fails closed instead of downgrading to the sculpt path. File names
+    (``native-plan.json``) and checklist ids are NOT signals: a standalone sculpt spec may
+    legally use them. Limit: a writer who edits BOTH the child and the parent descriptor
+    erases the claim (review finding P1-1, a design decision for the owner).
+    """
+    child = local_state.get("routeChild")
+    child = child if type(child) is dict else {}
+    claimed = ["workflow" in child]
+    agreed = [child.get("workflow") == _NATIVE_WORKFLOW]
+    parts = state_path.resolve().parts
+    if len(parts) >= 7 and _NATIVE_STATE.fullmatch("/".join(parts[-5:])) is not None:
+        relative = "/".join(parts[-5:])
+        parent_path = Path(*parts[:-5]) / ".img2threejs/state.json"
+        if parent_path.exists():
+            try:
+                parent = json.loads(parent_path.read_text(encoding="utf-8"))
+                rows = [row for row in parent["objects"] if row.get("statePath") == relative]
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                return any(claimed), False
+            if len(rows) != 1:
+                return any(claimed), False
+            claimed.append("workflow" in rows[0])
+            agreed.append(rows[0].get("workflow") == _NATIVE_WORKFLOW)
+    return any(claimed), all(agreed)
+
+
+def _run_known(workspace: Path, run_id: str) -> bool:
+    """Read-only: the lease is this run's and the journal already started it."""
+    try:
+        lease = json.loads((workspace / ".img2threejs/route/lease.json").read_text(encoding="utf-8"))
+        journal = (workspace / ".img2threejs/route/journal.jsonl").read_text(encoding="utf-8")
+        return type(lease) is dict and lease.get("runId") == run_id and any(
+            entry.get("event") == "run-started" and entry.get("data", {}).get("runId") == run_id
+            for entry in map(json.loads, journal.splitlines()))
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
+def native_main(args, local_state) -> int:
+    """Resolve an authenticated native child's pass; never sculpt synchronization.
+
+    Fails closed (exit 2) without a pinned host policy carrying native callbacks and
+    live authorization. Only currentPass and its derived step fields are updated:
+    loop counts and budgets are never recomputed or reset here.
+    """
+    if args.spec is not None:
+        print("state error: native child does not accept a positional spec", file=sys.stderr)
+        return 2
+    if not native_binding(args.state, local_state)[1]:
+        print("native error: native-selection-invalid", file=sys.stderr)
+        return 2
+    pending = {row["id"]: row["status"] for row in local_state["checklist"]}
+    if pending.get("native-plan-author") == "pending":
+        # Pre-plan phase: report the checklist only. No plan exists to validate, nothing
+        # is written, and currentPass stays untouched.
+        payload = status_payload(local_state)
+        emit_local_state(payload)
+        return 3 if payload["status"] == "stopped" else 0
+    if args.policy_module is None or args.policy_sha256 is None:
+        print("native error: native-authority-unavailable", file=sys.stderr)
+        return 2
+    try:
+        parts = args.state.resolve(strict=True).parts
+        if (local_state["routeChild"].get("workflow") != _NATIVE_WORKFLOW or len(parts) < 7
+                or parts[-5:-3] != (".img2threejs", "objects")
+                or _NATIVE_STATE.fullmatch("/".join(parts[-5:])) is None):
+            print("native error: child-state-mismatch", file=sys.stderr)
+            return 2
+        workspace = Path(*parts[:-5])
+        state_path = "/".join(parts[-5:])
+        if not (workspace / ".img2threejs/route/lease.json").is_file():
+            print("native error: lease-lost", file=sys.stderr)
+            return 2
+        # Lazy: only a native child pays for, or depends on, the decision stack.
+        sys.path.insert(0, str(ROOT.parent))
+        from forge.decision import load_policy
+        from decision_control import DecisionController, DecisionError
+        from workflow_decisions import WorkflowDecisions
+        run_id = local_state["routeChild"]["runId"]
+        # Host approval and run identity are proven BEFORE any write: constructing the
+        # controller would otherwise append run-started to the journal for an unseen run.
+        policy = load_policy(args.policy_module, args.policy_sha256, workspace=workspace,
+                             state_path=state_path, excluded_roots=[Path(root) for root in args.excluded_root])
+        if not _run_known(workspace, run_id):
+            print("native error: lease-lost", file=sys.stderr)
+            return 2
+        controller = DecisionController(workspace, run_id)
+        workflow = WorkflowDecisions(controller, state_path, policy,
+                                     consent=lambda: None, availability=lambda: {"status": "absent"})
+        resolved = workflow.resolve_native_pass()
+    except (DecisionError, WorkflowStateError, OSError, ValueError, KeyError) as error:
+        print(f"native error: {getattr(error, 'reason_code', error)}", file=sys.stderr)
+        return 2
+    payload = status_payload(resolved)
+    emit_local_state(payload)
+    return 3 if payload["status"] == "stopped" else 0
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Report the exact next sculpt pipeline command")
     parser.add_argument("spec", type=Path, nargs="?")
     parser.add_argument("--state", type=Path, help="local checklist state created by forge/state.py init")
+    parser.add_argument("--policy-module", type=Path,
+                        help="native child only: canonical host-approved policy module")
+    parser.add_argument("--policy-sha256", help="native child only: exact policy module sha256")
+    parser.add_argument("--excluded-root", action="append", default=[],
+                        help="native child only: provider/harness tree the policy module must not live in")
     args = parser.parse_args(argv)
     local_state = None
     spec_path = args.spec
@@ -49,7 +165,28 @@ def main(argv: list[str]) -> int:
         except WorkflowStateError as error:
             print(f"state error: {error}", file=sys.stderr)
             return 2
-        if spec_path is None:
+        route_child = local_state.get("routeChild")
+        if local_state.get("profile") == "textured":
+            # A generated model has no sculpt spec, passes or review history: the checklist is the
+            # whole state, and nothing here may recompute loop counts from a spec.
+            if spec_path is not None:
+                print("state error: the textured profile has no sculpt spec; run next.py with --state only",
+                      file=sys.stderr)
+                return 2
+            payload = status_payload(local_state)
+            emit_local_state(payload)
+            if payload.get("textured"):
+                block = payload["textured"]
+                print(f"textured: generation {block['generation']}/{block['maxGenerations']}"
+                      + (f", accepted generation {block['accepted']}" if block.get("accepted") else ""))
+            return 3 if payload["status"] == "stopped" else 0
+        if native_binding(args.state, local_state)[0]:
+            return native_main(args, local_state)
+        if local_state.get("routeDecision"):
+            if spec_path is not None:
+                print("state error: routed parent does not accept a positional spec", file=sys.stderr)
+                return 2
+        elif spec_path is None:
             stored_spec = local_state.get("artifacts", {}).get("spec")
             spec_path = Path(stored_spec) if isinstance(stored_spec, str) and stored_spec else None
         else:
@@ -75,6 +212,26 @@ def main(argv: list[str]) -> int:
         if local_state is None:
             parser.error("spec is required unless --state points to an initialized pre-spec workflow")
         payload = status_payload(local_state)
+        if (args.state and local_state.get("routeDecision")
+                and isinstance(local_state.get("objects"), list)
+                and isinstance(payload["currentStep"], str)
+                and payload["currentStep"].startswith("object:")):
+            object_id = payload["currentStep"][len("object:"):]
+            matches = [row for row in local_state["objects"]
+                       if isinstance(row, dict) and row.get("objectId") == object_id]
+            if len(matches) == 1:
+                row = matches[0]
+                revision = row.get("revision")
+                expected = f".img2threejs/objects/{object_id}/rev-{revision}/state.json"
+                if (re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,159}", object_id)
+                        and isinstance(revision, int) and not isinstance(revision, bool) and revision > 0
+                        and row.get("statePath") == expected
+                        and payload["nextCommand"] == expected):
+                    child = args.state.resolve().parent.parent / expected
+                    payload["nextCommand"] = (
+                        f"cd {shlex.quote(str(child.parent))} && "
+                        f"{shlex.quote(sys.executable)} {shlex.quote(str(ROOT / 'next.py'))} "
+                        "--state state.json")
         emit_local_state(payload)
         return 3 if payload["status"] == "stopped" else 0
 

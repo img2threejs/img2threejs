@@ -89,7 +89,7 @@ Run against a throwaway `$IMG2_HOME` (nothing of an existing setup touched), in 
    `permissions.additionalDirectories` to `~/.claude/settings.json` regardless of whether Claude
    Code is installed; the message `Claude Code not detected; settings left unchanged` means only
    that the directory is absent. Side-effect contract and how to suppress it:
-   [`docs/INSTALL.md` §3](INSTALL.md#3-add-a-plugin-only-if-you-need-one).
+   [`docs/INSTALL.md` §3](INSTALL.md#3-required-plugins-and-runtime-preflight).
 
 ## What a run sees depends on `$IMG2_HOME`
 
@@ -167,6 +167,79 @@ the review record with `--domain-review-json <report>.json --review-scene-json <
 checklist step carries the resolved paths, and a failed domain gate blocks `continue` even when the
 global fidelity score passes.
 
+### CS2 run-request protocol
+
+CS2 0.3.0 and the matching core deliberately replace the old `--terminal-inputs/--scene/--out`
+gate contract; old/new pairs fail closed. The reviewed single blocking declaration is:
+
+```text
+python3 {plugin_dir}/tools/cs2_review.py --terminal-request .img2/cs2-terminal/gate-request.json
+```
+
+Core creates `.img2/cs2-terminal/run-<32hex>/gate-request.json` with exactly `kind` =
+`img2.cs2-terminal-request`, integer `version` = 1, and `inputs`/`scene` path/SHA256 bindings
+inside that same run. Its immutable binding is in the authenticated quality context. The global
+file copies its bytes for generic discovery, never selects the host's authoritative attempt.
+Final verification invokes the explicit per-run descriptor, rechecks all evidence, independently
+captures routed deliveries, verifies every gate-envelope binding and consumes the held journal
+review. Plugin-owned `gate-review.json` is immutable; conflicting output refuses instead of overwriting.
+The gate envelope is `scope: mechanical-replay-only`, `terminalAuthority: false`, even on PASS.
+
+For a non-routed workspace, `forge/cs2_evidence.py prepare|consult` uses a separate
+`CS2EvidencePolicy` wrapping the full host-reviewed source/runtime admission. The
+SHA256-pinned external policy module defines `build_cs2_evidence_policy(workspace, run_id)`;
+it must be outside the workspace, core, selected plugin and selected harness. It is trusted
+host Python code, including its ambient imports, not a sandbox or a source-approval inference.
+`--plugin-root`, `--policy-module` and `--policy-sha256` are explicit host selections.
+`prepare` captures only after complete live admission and returns an immutable context binding.
+`consult` requires that binding (`--context/--context-sha256`), the same run/object, the four
+existing harness pins, and current Jev consent or explicit no-account attestation. It uses the
+actual controller journal; a pending review resumes the same binding without implicit recapture.
+No provider or paid inference is called by `prepare`.
+
+Host evidence receipts always retain `terminalAuthority: false`, `terminalAcceptance: false`
+and `deliverable: false`. They cannot satisfy routed workspace/held-verifier rules, and this API
+does not provide a standalone acceptance capability. Missing live host policy, calibrated material
+sources, source annotations, runtime/source approval or current authenticated quality refuses;
+authored metrics, workspace approval flags and a callable alone are not substitutes. Synthetic
+protocol tests are not production classifier/material/source/visual qualification.
+
+
+## Routed plugins and the advisory boundary
+
+`python3 forge/route.py` is a second way to reach a plugin: instead of naming a profile, the base
+discovers which installed plugins can serve each object, filters them by their own `route.json`
+card, and records a decision. Routing is advisory. The base owns eligibility, consent, gates and
+acceptance; a provider answer (Jev or a host-approved model fallback) can only choose among
+candidates the base already admitted and never grants acceptance. Contract, consent steps, the
+fallback rule and every reason code: [`grimoire/intake/routing.md`](../grimoire/intake/routing.md).
+
+A route card is `route.json` at the plugin root: `outputKind`, `costClass`, `requires`, `notFor`,
+`deps` and a `display` summary. The base reads it as data from a pinned checkout; it never runs a
+card's commands, and display text never decides eligibility.
+
+| Plugin | Edge (`from` to `to`) | Route card `outputKind` | Terminal output | Cost |
+|---|---|---|---|---|
+| `interior` | `image` to `interior-scene-candidate` | `3d-scene` | `3d-scene` | heavy |
+| `character` | `character-mesh` to `rigged-character` | `rigged-3d` | `rigged-3d` | heavy |
+| `cs2` | `image` to `cs2-skin-spec` | `spec-augmentation` | `3d-object` (consumed inside a base child) | local |
+| `pixi2d` | `image` to `pixi2d-scene` | `2d-scene` | `2d-scene` | local |
+| `jev` | four typed context-to-advisory edges | none | none; advice only | paid per call, after consent |
+
+- `pixi2d` is eligible only for an explicit 2D request (`--expected-output 2d`). A 3D request is never
+  downgraded to it, and a 2D request never reaches a 3D plugin.
+- `jev` is a cross-cutting capability, not a subject domain and not an emission target. It needs
+  `img2-jev login` and a separate per-run grant for image disclosure and paid calls across all four
+  purposes. The base asks the user to run those commands and never handles a key.
+- A routed child is created pending. It is not a finished reconstruction, and the base still runs
+  the owning plugin's blocking gates before anything is accepted.
+- Owner terminal paths require current host/source/runtime policy and authenticated semantic
+  evidence; a generic replay PASS or evidence-only receipt is not a completion capability.
+  Real-image held-out quality and end-to-end live delivery remain separately unqualified.
+- Discovery reads the harness registry and the pinned checkout only. It installs nothing, so a plugin
+  that is not installed in the active `$IMG2_HOME` is rejected with `provider-unavailable`; see
+  [what a run sees](#what-a-run-sees-depends-on-img2_home).
+
 ## Host skills
 
 The harness's `HOSTS` table (`~/.img2/harness/bin/img2.mjs`) names **Claude Code, Codex and
@@ -213,11 +286,15 @@ harness, not in a local patch.
 | `capabilities` → `data-fault`, exit 1 | a manifest failed to validate, or `argv[0]` does not resolve | read `problems[]`; `doctor` and `capabilities` must agree |
 | A domain step's command crashes the checklist | a placeholder from the wrong file's vocabulary | fix the plugin; `doctor` catches it first |
 | A prose row executed as a command | missing `actor: agent\|human` | declare `actor` on that row |
+| `forge/route.py` prints `capability-unavailable` or `availability-unproven` | the Jev edge answered with no provider, or its provider could not be pinned or proven in the active `$IMG2_HOME` | `img2 list`, `img2 capabilities --from-kind img2.route-context --to-kind img2.route-advisory --json`, then fix `$IMG2_HOME` or install Jev |
+| `forge/route.py` prints `requestedCommand: "img2-jev login"` | Jev credentials are missing or rejected | the user runs `img2-jev login`; never ask for the key in chat |
 
 ## Where to read next
 
-- This pipeline's README — the plugin table (what each adds, its access level, its install command)
-  and the harness setup steps.
+- This pipeline's README: the plugin table (what each adds, its access level, its install command),
+  the routed-plugin summary and the harness setup steps.
+- [`grimoire/intake/routing.md`](../grimoire/intake/routing.md): the routing, consent, fallback and
+  terminal-ownership contract.
 - Harness `docs/PLUGIN_CONTRACT.md` — every normative rule (manifest schema, steps, gates,
   `domain.json`, the gate runner envelope, the emission-target socket).
 - Harness `docs/WRITING_A_PLUGIN.md` and `docs/plugin-wiki/` — authoring, worked scenarios, and the

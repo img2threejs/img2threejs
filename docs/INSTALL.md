@@ -1,7 +1,10 @@
 # Install img2threejs
 
-One command installs the skill into every supported coding agent on your machine. Plugins are
-optional and only needed for specific domains, for example CS2 skins.
+The default installation selects the base skill and four routed plugins: character, cs2,
+interior and pixi2d (source `plugin-pixi2d`). Jev is explicitly opt-in. Users may select a subset;
+an unselected capability is unavailable by choice, never a reason to silently use generic.
+Bundled installation/repair is an integration release interface; the core preflight below does
+not install anything, and older published CLIs may still install only the base skill.
 
 You need **Node.js ≥ 18**, **Git**, and **Python ≥ 3.10**, plus one of: Claude Code, Codex,
 OpenCode, Hermes. Other agents: [§7](#7-other-coding-agents). The CLI supports macOS and Linux;
@@ -19,7 +22,7 @@ https://github.com/img2threejs/img2threejs/blob/main/docs/INSTALL.md
    Always use the npx form, never a bare `img2threejs` command.
    Exit 2 means an existing skill is in the way: show me the path and stop.
 2. If ~/.hermes exists, run the Hermes step in §1.
-3. Install the plugin harness only if I asked for something a plugin provides (§3; `img2 plugins` lists them).
+3. Require the selected plugins and runtime preflight in §3 (default four, Jev opt-in); a base-skill link alone is not a complete install.
 4. Re-running any step is safe. Do not edit dotfiles by hand.
 5. Tell me which agents were linked and that I must restart them.
 ```
@@ -64,12 +67,87 @@ project:
 | Claude Code | `/img2threejs Rebuild the object in ./reference.png as a procedural Three.js model.` |
 | Codex, OpenCode, Hermes | `Use the img2threejs skill to rebuild the object in ./reference.png as a procedural Three.js model.` |
 
-That is all a generic object needs. More prompts: [README §4](../README.md#4-run-a-reconstruction-in-your-agent).
+A base-skill link is not the default complete installation. Complete §3 before routing.
 
-## 3. Add a plugin (only if you need one)
+## 3. Required plugins and runtime preflight
 
-Plugins come from a second, separate CLI, the `img2` harness. Install it once, then add plugins
-by id (list them with `img2 plugins`; harness 0.4.0 or newer):
+The harness registry (`$IMG2_HOME/plugins.json`) must register the selected plugins at the
+commits in the installed harness's `plugins.lock.json`. Selection lives in
+`$IMG2_HOME/runtime/selectors.json`; without that file, default host-model preflight requires
+character, cs2, interior and pixi2d. Jev is excluded even from older all-five selections unless
+`--decider jev` is explicitly requested. The
+provisioning interface is `img2 provision --yes` (default four, without Jev) or
+`img2 provision --plugins character,interior,jev --yes` (explicit subset). Provisioning supplies
+runtime dependencies; it does not by itself prove plugin registration or Jev readiness.
+The bundled installer's `img2threejs repair` restores the selected local bundle; this core
+change supplies its check, not that installer/repair command.
+
+From the skill checkout, run:
+
+```bash
+python3 forge/preflight.py
+```
+
+Exit 0 means every selected domain plugin is registered at its pin and its declared routing
+probes pass. `python3 forge/preflight.py --decider jev` additionally requires Jev registration,
+release pins, all four decision edges and core-approved auth, regardless of stored selection. No paid call
+or consent grant is made. Exit 1 names the failure in a plain plugin/capability/status/reason
+table and prints one repair command. Unselected rows say `not installed by choice`.
+Ordinary `forge/route.py` uses `--decider model` without Jev auth or a terminal. Read each
+`questionsRef` and its bound images, answer with the actual host model, and resume with accumulated
+`--model-answers`. The closed answer envelope uses `authorizationId`, not `attestationId`;
+see [default host routing](../grimoire/intake/routing.md#default-host-model-routing). This local
+request grants routing only, not build/review/repair/native delivery.
+Host-decided pending children may later complete under separate explicit lifecycle consent.
+Their original active host journal proof is revalidated read-only; native gates remain mandatory.
+Explicit `--decider jev` still requires pinned Jev, login and paid-call consent.
+Users who have **no Jev account** may separately authorize explicit v2 lifecycle purposes:
+
+```bash
+# Run personally in an interactive terminal; IMG2_HOME must be outside WS and the skill checkout.
+python3 forge/route.py attest-no-jev-account --workspace WS --run-id RUN --image ref.png \
+  --model-id provider:model --token-budget 256000 --purpose routing --purpose build-strategy \
+  --purpose quality-review --purpose repair --accept-image-disclosure
+python3 forge/route.py questions --workspace WS --run-id RUN --image ref.png \
+  --objects objects.json --no-jev-account
+```
+
+The first command prints the named model-provider disclosure, original image SHA256s, scope,
+budget and expiry; the user must then type the fixed phrase `attest RUN MODEL` (the run id and
+model id, so a blind `ATTEST` is refused) on the controlling terminal, which is opened as
+`/dev/tty`: a pipe or pty on stdin does not satisfy it, and no terminal means a clean refusal
+(exit 3). Revocation asks for `revoke RUN`. Private authority lives in `$IMG2_HOME/config`,
+not the workspace. Default lifetime is 1800 seconds; `--expires-in` permits at most 3600.
+The host reads the returned `questionsRef`, inspects the bound images, and supplies typed JSON with
+`--model-answers FILE`. Repeat questions/answers as localization reveals subsequent questions.
+See [routing deciders](../grimoire/intake/routing.md#51-explicit-no-account-routing-decider) for the
+closed answer envelope and revocation command. No model network client lives in core.
+
+A present Jev credential refuses this mode: use Jev. The pinned auth module is resolved independently
+of mutable `IMG2_HOME`; missing/untrusted auth bytes or inaccessible credential storage fail closed,
+not as evidence of no account. Restore the pinned auth tooling or unlock storage before attesting.
+V1 grants authorize no v2 scope: personally re-attest with explicit `--purpose` flags. Original grant
+bytes and journal entries remain retained. Revocation, expiry, reference changes or re-attestation
+invalidate cached authority. Use the same `--no-jev-account --image ... --model-answers ...` with
+`forge/decision.py` / `forge/terminal.py`; `route.py --complete-child` needs the attested `--image`.
+Native policy pins, eligibility and independent terminal gates remain mandatory; there is no synthetic outage.
+The consent boundary is user-owned files plus an interactive action, not a sandbox against code
+running unrestricted as that same OS user. An agent must never attest on the user's behalf.
+This is exactly the limit of the existing `img2-jev consent authorize-decisions` command: a user
+consent step, not isolation from an agent that runs as the same OS user and can read the same files
+or open the same terminal. Two further facts are claims, not proofs: token usage in model answers is
+host-reported (core makes no model call and cannot measure it), and `--model-id` is what the user
+says the host will use; core cannot verify that the answering model is that model.
+
+Real process environment selectors always win, including explicitly empty values. File
+fallbacks are accepted only from a user-owned regular mode-0600 selectors file, with schema 1,
+allowlisted keys, existing absolute paths contained in the runtime tree without symlink escape,
+and dependency/plugin lock digests matching the installed harness. Invalid files supply no
+selectors; preflight reports them blocked. Three.js approval still recomputes the existing
+fixed file inventory rather than trusting the declared digest.
+
+The older separate harness CLI can bootstrap a registry, but its example `add` command below
+alone is **not** a complete default install:
 
 ```bash
 npx --yes @img2threejs/img2@latest install --yes     # once per machine: creates ~/.img2
@@ -286,3 +364,22 @@ download); a trailing `--yes` on `img2` skips its confirmation prompt. Neither o
 Skill checkouts live in `~/.img2threejs/releases/<sha>/img2threejs`, shared by every agent on the
 same release. To test the CLI from a clone: `node bin/img2threejs.mjs install --dry-run`; packaging
 checks are in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
+
+## Release maintenance: Jev provider lock
+
+After deliberately updating the harness's Jev pin in `plugins.lock.json`, use a local Git
+checkout containing that exact commit (no network access or checkout mutation is performed):
+
+```bash
+python3 scripts/regen_jev_release_lock.py --plugins-lock /path/to/harness/plugins.lock.json --checkout /path/to/plugin-jev
+python3 scripts/regen_jev_release_lock.py --plugins-lock /path/to/harness/plugins.lock.json --checkout /path/to/plugin-jev --check
+```
+
+Review and commit the generated `forge/_shared/jev_release_lock.json` with the release.
+The tool hashes committed provider bytes, not dirty working files, and refuses unexpected
+changes to the core's required provider inventory. `--check` must pass before bundling; a
+different Jev pin is a release mismatch, not permission to bypass the core's approval.
+The core lock pins Jev at `ea15e4b0748f6af266c5b956041d974d1c01002f`, matching the
+harness release pin. Set `IMG2_HARNESS_DIR` to the harness checkout when running
+`forge.tests.test_regen_jev_release_lock` to enforce pin parity; the parity test skips
+when the harness lock is absent.

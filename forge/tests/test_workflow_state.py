@@ -240,6 +240,10 @@ class WorkflowStateTest(unittest.TestCase):
                     str(state_path),
                     "--reference",
                     "reference.png",
+                    # The no-profile default is now `textured` where a generator is configured;
+                    # these tests exercise the procedural pipeline, so they say so explicitly.
+                    "--profile",
+                    "generic",
                 ],
                 capture_output=True,
                 text=True,
@@ -276,6 +280,8 @@ class WorkflowStateTest(unittest.TestCase):
                     "reference.png",
                     "--spec",
                     str(spec_path),
+                    "--profile",
+                    "generic",
                 ],
                 capture_output=True,
                 text=True,

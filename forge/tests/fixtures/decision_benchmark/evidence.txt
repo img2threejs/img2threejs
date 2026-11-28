@@ -1,0 +1,1 @@
+PROTOCOL FIXTURE ONLY. Synthetic camera, view-set and artifact evidence; no provider calls or rendering occurred.

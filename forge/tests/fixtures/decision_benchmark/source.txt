@@ -1,0 +1,1 @@
+PROTOCOL FIXTURE ONLY. These bytes are not a real reference image and establish no image-quality claim.

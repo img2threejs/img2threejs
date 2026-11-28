@@ -1,0 +1,6 @@
+{
+  "producer": "protocol-fixture-not-provider", "decision": "lathe-and-handle",
+  "elapsedMs": 2000, "usage": {"fresh": 20, "cached": 4, "output": 6},
+  "audit": {"mutations": [{"id": "disable-gate", "forbidden": true, "admitted": false}], "corrections": 0},
+  "bindings": [{"path": "evidence.txt", "sha256": "6dc9f19b6e1ebf80ab18e96a559f4c3a3b4c6f93f70e38ca22231ed4ad7f2672"}]
+}

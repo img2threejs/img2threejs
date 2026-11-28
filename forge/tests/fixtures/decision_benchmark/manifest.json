@@ -1,0 +1,22 @@
+{
+  "kind": "img2.decision-benchmark-manifest", "version": 1,
+  "corpusKind": "protocol-fixture",
+  "purpose": "Small deterministic protocol fixtures, NOT real-image-quality proof. Numbers are synthetic test inputs, not measured provider usage. No live provider was called.",
+  "authorities": {
+    "fixture-expert": {"kind": "expert", "status": "verified", "attestation": {"path": "authority.txt", "sha256": "f728acc1e7097e3c63ec4ccbc422154d6bffa4d2432bade9e3364b84ac5f405d"}},
+    "fixture-source": {"kind": "source", "status": "verified", "attestation": {"path": "authority.txt", "sha256": "f728acc1e7097e3c63ec4ccbc422154d6bffa4d2432bade9e3364b84ac5f405d"}}
+  },
+  "labels": {"path": "labels.json", "sha256": "05af6b29a40ee75acdeb1d534325869a7ac398134b4f2e0bd0bb0f9e4d7c6cc6"},
+  "frozen": {
+    "beforeHeldOut": true,
+    "rubric": {"path": "rubric.json", "sha256": "03aaf9b392038a3accb7cb20297b27c4c567dcd6fe3b0e536a1b4b46ecc3c15a"},
+    "repairCriteria": {"path": "criteria.json", "sha256": "aa7cb35d6ed8487a8a509084b78e8a4fcacbf6e8d18370e467e2e2642ac2906b"}
+  },
+  "budgets": {"tokenBudget": 1000, "correctionCeiling": 3},
+  "cases": [
+    {"id": "route", "objectId": "cup", "group": "routing", "class": "generic-object", "split": "held-out", "source": {"path": "source.txt", "sha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "authority": "fixture-source"}},
+    {"id": "strategy", "objectId": "cup", "group": "build-strategy", "class": "generic-object", "split": "held-out", "source": {"path": "source.txt", "sha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "authority": "fixture-source"}},
+    {"id": "review", "objectId": "cup", "group": "quality-review", "class": "generic-object", "split": "held-out", "source": {"path": "source.txt", "sha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "authority": "fixture-source"}},
+    {"id": "repair", "objectId": "cup", "group": "repair", "class": "generic-object", "split": "held-out", "source": {"path": "source.txt", "sha256": "a3abbf0fcca43303317a2860d9a3fb00aa819209fb9e9db9bdfb1c7a239b2db5", "authority": "fixture-source"}}
+  ]
+}

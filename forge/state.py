@@ -10,6 +10,14 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "_shared"))
 
 from domains import DomainRegistryError, registered_domains  # noqa: E402
+from textured_profile import (  # noqa: E402
+    BASE_PROFILES,
+    DEFAULT_MAX_GENERATIONS,
+    PROCEDURAL_PREFIX,
+    TEXTURED_PROFILE,
+    default_profile,
+    generator_available,
+)
 from workflow_state import (  # noqa: E402
     WorkflowStateError,
     load_state,
@@ -34,10 +42,21 @@ def build_parser() -> argparse.ArgumentParser:
     # extraction) must degrade THIS parser to generic-only choices, not kill `status`/`mark` for
     # every profile on the machine. new_state() then reports the real registry error.
     try:
-        profile_choices = ("generic", *sorted(registered_domains()))
+        domains = sorted(registered_domains())
     except DomainRegistryError:
-        profile_choices = ("generic",)
-    init.add_argument("--profile", choices=profile_choices, default="generic")
+        domains = []
+    profile_choices = (*BASE_PROFILES, *domains,
+                       *(PROCEDURAL_PREFIX + name for name in ("generic", *domains)))
+    # No --profile: the textured path (generator -> Blender cleanup -> Jev likeness) when a generator
+    # tool is configured on this machine, else the procedural generic pipeline. Procedural profiles
+    # stay available by name or as the explicit `procedural-<name>` spelling.
+    init.add_argument("--profile", choices=profile_choices, default=None,
+                      help="default: textured when a generator MCP tool is configured, else generic; "
+                           "procedural-<name> is the explicit opt-in to a procedural pipeline")
+    init.add_argument("--domain", default="generic",
+                      help="textured profile only: a registered domain whose own checks (e.g. rig track) still apply")
+    init.add_argument("--max-generations", type=int, default=DEFAULT_MAX_GENERATIONS,
+                      help="textured profile only: generation cap (default 4)")
     init.add_argument("--spec", default="")
     init.add_argument("--max-per-pass", type=int, default=3)
     init.add_argument("--max-total", type=int, default=6)
@@ -82,13 +101,28 @@ def main(argv: list[str]) -> int:
         if args.command == "init":
             if args.state.expanduser().exists():
                 raise WorkflowStateError(f"refusing to overwrite existing state: {args.state}")
+            profile = args.profile
+            if profile is None:
+                if args.domain != "generic":
+                    profile = TEXTURED_PROFILE
+                else:
+                    profile = default_profile()
+                    if profile != TEXTURED_PROFILE:
+                        print(f"textured profile unavailable ({generator_available()['detail']}); "
+                              "starting the procedural generic profile", file=sys.stderr)
             state = new_state(
                 args.reference,
-                profile=args.profile,
+                profile=profile,
                 spec=args.spec,
                 max_per_pass=args.max_per_pass,
                 max_total=args.max_total,
+                domain_id=args.domain,
+                max_generations=args.max_generations,
             )
+            if profile == TEXTURED_PROFILE and args.domain != "generic" and not any(
+                    row["scope"] == "rig" for row in state["checklist"]):
+                print(f"note: domain {args.domain!r} contributes no rig rows to the textured profile; "
+                      "an installed plugin that declares a rig track names its own domain id", file=sys.stderr)
             save_state(args.state, state)
             print_status(state)
             return 0

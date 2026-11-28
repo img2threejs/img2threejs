@@ -18,8 +18,8 @@ The acceptance score always comes from the agent's own vision inspecting the com
   requires `--spec` and `--material-id` together, and `--in-place` requires both.
 ## state.py and next.py
 
-- `state.py init --state .img2threejs/state.json --reference IMG [--profile generic|<installed-domain>]`
-  creates the local mandatory checklist. It refuses to overwrite existing state.
+- `state.py init --state .img2threejs/state.json --reference IMG [--profile textured|generic|<installed-domain>|procedural-<name>] [--domain <id>] [--max-generations N]`
+  creates the local mandatory checklist (default `textured` when a generator MCP tool is configured, else `generic`; see `docs/TEXTURED.md`). It refuses to overwrite existing state.
 - `state.py status --state .img2threejs/state.json [--json]` reports the current step and loop limits.
 - `state.py mark STEP... --state .img2threejs/state.json --evidence PATH` records completed evidence.
   Use `--status skipped --reason "..."` only when a step is genuinely not applicable.

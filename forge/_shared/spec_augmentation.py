@@ -23,7 +23,7 @@ from typing import Any, Final
 
 ARTIFACT_KIND: Final = "spec-augmentation-v1"
 
-BASE_OWNED: Final = frozenset({"qualityContract", "preSpecAssessment", "pipelineRouting", "sourceImage", "targetName", "localSpecSearch"})
+BASE_OWNED: Final = frozenset({"qualityContract", "preSpecAssessment", "pipelineRouting", "sourceImage", "targetName", "localSpecSearch", "routeDecision", "decisionRefs"})
 
 # assessmentPatch keys whose values carry guarded content (the domain marker, the raise-only detail
 # floor). Named once, like BASE_OWNED: a future guarded key is added here, and the loop's shape

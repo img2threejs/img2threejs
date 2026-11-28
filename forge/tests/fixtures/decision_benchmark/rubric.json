@@ -1,0 +1,7 @@
+{
+  "purpose": "Protocol fixture only; frozen required handle inventory.",
+  "cases": {
+    "review": {"features": [{"id": "handle", "tier": "critical", "threshold": 3}]},
+    "repair": {"features": [{"id": "handle", "tier": "critical", "threshold": 3}]}
+  }
+}

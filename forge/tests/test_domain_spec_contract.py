@@ -126,6 +126,11 @@ class WhatAnArtifactMayNotDo(unittest.TestCase):
             merge_spec_augmentation({}, artifact(specSections={"qualityContract": {"qualityBar": "simple"}}))
         self.assertIn("base-owned", str(ctx.exception))
 
+    def test_decision_authority_cannot_come_from_plugin_sections(self) -> None:
+        for key in ("routeDecision", "decisionRefs"):
+            with self.subTest(key=key), self.assertRaises(SpecAugmentationError):
+                merge_spec_augmentation({}, artifact(specSections={key: {"status": "approved"}}))
+
     def test_it_may_not_set_the_resolved_domain_marker(self) -> None:
         # The marker records which provider the base resolved. An artifact claiming it would let a
         # plugin relabel the run as some other domain.

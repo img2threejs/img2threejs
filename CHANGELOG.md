@@ -6,6 +6,126 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Make ordinary routing use local host-model questions by default (`--decider model`), with
+  accumulated typed answers and honest non-Jev provenance. Journal-backed `authorizationId`
+  scopes the workspace/run/source/request/model/budget to routing only, without Jev auth or TTY.
+  Explicit `--decider jev` retains paid-call consent and release pins; legacy purpose-scoped
+  `--no-jev-account` lifecycle grants remain separate. Eligibility, confidence and native gates
+  are unchanged.
+  Default preflight likewise excludes Jev, including older all-five selections; explicit
+  `preflight.py --decider jev` adds its unchanged registration, pin, decision-edge and auth gates.
+  Host-created children retain read-only transaction-scoped routing proof verification under a
+  separately consented lifecycle decider, without extending host authority or restoring old requests.
+  Explicit Jev can discover a registered pinned provider outside domain download selection;
+  the dedicated consented E2E Jev runner now selects `--decider jev` explicitly.
+  Expanded boundary regressions cover malformed/untrusted answer files, source/request replay,
+  workspace isolation, reservation-safe retries, Unicode paths, 2D routing, and refusals that must
+  not grant lifecycle, paid-action or native execution authority.
+- Prefer the selected Jev installation for explicit legacy no-account credential probes;
+  a stale default install cannot shadow valid selected auth, while invalid selected bytes
+  still fail closed and per-user credential presence remains a veto.
+- Verify committed Jev inventories with one bounded archive from a separately pinned host Git,
+  not per-file harness invocations. Live no-follow hashes and full harness execution checks
+  remain in place; no time- or modification-based trust cache is introduced.
+- Pair the CS2 0.3.0 immutable run-request gate ABI with authenticated context/run/report bindings;
+  reject incompatible gates and authorizing or mismatched replay envelopes. Global selection is
+  discovery only. Add explicitly host-approved non-routed evidence preparation/review, with actual
+  controller-journal checks and non-authorizing receipts; no standalone terminal acceptance is implied.
+  The required CI fixture is the exact published CS2 `edec2d3afcf9b4d63376ef63938d5727ea1baa20`,
+  not a final release-lock update. Native source/classification/calibration and semantic approval remain separate.
+- Render embedded GLB textures in delivered-model captures by allowing only the required blob
+  connections; image-loader failures now refuse capture instead of silently producing an untextured success.
+- Require typed placement camera/depth/support/size-prior facts from current hash-bound records;
+  reject missing, invalid or contradictory facts before Jev CLI dispatch. Legacy placement contexts
+  need fresh producer facts, never model-invented metric defaults; pin the complete Jev 0.5.0 CLI import surface.
+- Treat `invalid-credential`, `request-too-large`, `credential-in-context`,
+  `missing-placement-evidence` and `consent-busy` as hard input refusals, not model outages;
+  these errors never masquerade as provider outages; unproven send liabilities remain reserved.
+- Consume nonce/context/consent/prepared-asset-bound Jev send receipts with an exact 64000-token
+  reservation. Proven unsent/rejected calls release it, billed malformed responses keep their
+  actual debit, and unknown sends cannot authorize fallback. Cached reuse requires a persisted
+  host-verified settlement for the same request, subject and live consent; it never double-debits.
+- Parse bounded prepared-image manifests separately from model context JSON, so legitimate
+  base64 image bodies do not hit the 16384-character context-string limit before settlement.
+  Metadata, duplicate/nonfinite JSON rejection, manifest hashes and receipt bindings remain strict;
+  real pinned Jev CLI regressions exercise large images with mocked HTTPS, not paid API calls.
+- Extend explicit no-account authority to purpose-scoped v2 grants across routing, build strategy,
+  quality review, repair and child completion. Consent names each `--purpose`; v1 grants require
+  personal re-attestation and are archived unchanged, with journal history retained. Credential
+  status comes from pinned Jev auth independently of a mutable selected installation home;
+  absent or inconclusive trusted auth is unknown, never proof of no account. Minimum budget is 64000.
+- Bind textured likeness to the complete generated/inspected/normalized/rendered/reference/sheet
+  hash chain and make judged receipts immutable. Model answers require a live v2 run/reference/
+  generation/model grant; they cannot replace Jev verdicts or declare an outage. `decide` and
+  delivery revalidate every binding; `--gen` cannot bypass acceptance. Render copy inputs are
+  confined and collision-free; delivery stages first and restores the prior final on activation failure.
+- Count superseded generation attempts against the original canonical workspace cap; refuse
+  duplicate historical inputs and cap increases. Legacy textured receipts without cap/hash authority
+  fail closed for explicit owner reconciliation; procedural sculpt specs are unchanged. OBJ material
+  references are checked regardless of filename extension.
+- Account known Jev usage before semantic validation and retain full reservations for invalid usage;
+  rejected responses remain auditable and identical requests are not resent. Allowlist authority/
+  best-of-N subprocess environments and durably record unsafe trial outputs as failures without suppressing `unsafe-output` rejection.
+- Restore Python 3.10 browser hashing, the existing skill budget and plugin install anchor.
+  CS2 contract fixtures now require an explicit pinned checkout rather than a guessed sibling;
+  CI runs disjoint unit and mandatory code-only CS2 profiles, with isolated HOME and no missing-fixture skip.
+  Jev 0.5.0 now has a complete verified CLI import pin; coordinated Harness pins remain PR candidates.
+  Full native/visual quality acceptance and character material baselines remain separate and unverified.
+- Add the `textured` build profile and `forge/textured/` (inspect, normalize, render, sheet, generate, likeness, decide, deliver): a reference image becomes a generated, textured GLB, cleaned and rendered with bpy, measured with a Jev likeness loop (consent-gated, budgeted, never printing keys; no-account mode journals `model:<id>`), with up to four generations. It is now the default for `forge/state.py init` when a generator MCP tool is configured; procedural profiles are an explicit opt-in (`--profile generic|<domain>` or `procedural-*`). Routing and plugin ownership are unchanged. SKILL.md and README now describe the textured product; `docs/TEXTURED.md` is the contract. Intentional test changes: tests that start a procedural run through `state.py init` now pass `--profile generic`, and the degraded `--profile` choice set is `generic,textured,procedural-generic`. Not done: no generator call is made by this repository (the host's MCP tool is an agent step), no rig/LOD, no live Jev run.
+- Harden the textured build path: the Jev plugin pin now covers every `REQUIRED_PROVIDER_FILES` entry (no-follow reads, verified bytes staged privately and run from the copy, scrubbed child environment); `generate.py` takes the generation cap only from the workflow state (`--max-generations` can only lower it), refuses `--overwrite` once a likeness or decision exists, and archives replaced receipts as `superseded-K.json` so credit totals are append-only; `generate.json` asset paths must resolve inside `gen-N/` (inspect, normalize); docs name `--domain animated-character` for the rig track and `state.py init` says when a domain adds no rig rows.
+- Close three textured-profile gaps: `generate.py record` now fails closed on the generation cap (a missing, unreadable or invalid state, or `textured.maxGenerations` outside 1..8 or non-int, refuses recording, and workflow validation enforces the same range); inspect and normalize share one `require_contained_model` check that refuses a `.gltf`/`.glb`/`.obj`/`.mtl` whose external buffers, textures or material libraries are absolute, `..`, `file:`/`http(s):` or resolve (symlinks followed) outside `gen-N/` (binary FBX is not parsed); and credit totals enumerate every `superseded-*.json` so a missing archive number cannot hide receipts.
+- Report missing allowlisted dependency executables as `dependency-missing:<probe>` in pinned
+  routing; permission errors, harness execution and all pin verification remain fail-closed.
+  Add E2E `--role` and repeatable JSON-or-string `--observation key=value`, binding both to
+  workspace reuse. The runner retains caller PATH/runtime selectors; interior now uses trusted
+  `IMG2_BLENDER_PYTHON` for `interior-bpy>=4.3`, never an unrelated Blender CLI. See `docs/E2E.md`.
+- Add fail-closed provisioned runtime selector fallback without changing real environment
+  precedence, selected-plugin installation preflight, and visible per-object route rejection
+  reasons. Ordinary installation selects the four domain plugins, with Jev explicitly optional.
+  Routing's explicit no-account authority is implemented as described above.
+- Add offline Jev release-lock regeneration/checking from the harness plugin pin and exact Git
+  object bytes. Regenerate the core lock for published Jev `4961464246734dbfbc0e4b8b60adbe9a9b8192e9`
+  and enforce pin parity in tests when the harness lock is available.
+- Document the E2E root `provision.json` schema and distinguish it from harness `setup`
+  runtime receipts; missing/invalid route-runner records now name the path and recovery docs.
+- Fix character dependency probe: `character-bpy>=` now accepts the single `" LTS"` suffix LTS bpy builds print (e.g. `4.5.15 LTS`), so the character plugin is no longer rejected as `dependency-missing:character-bpy>=4.3` and the router no longer falls back to the generic route. Every other version shape still fails closed.
+- Fix routed character owner profile: `forge/route.py` now writes the plugin-declared domain id `animated-character` (was `character`), so a routed character child can pass the native terminal authority profile check. The pinned `domain.json` id and definition are now verified for the character provider like every other plugin; the in-repo `character` domain is no longer trusted for routing. A state file written with profile `character` fails closed (no bypass).
+
+- Reject unsafe native state locks (symlinks, non-regular files, multiple links or the controller lock's device/inode) with `state-lock-unsafe`. Nonblocking acquisition retries for at most 10 seconds before `state-lock-timeout`; either refusal publishes nothing and releases the controller lock.
+- Add an opt-in `native-character-v1` routed child: `OwnerProfile.workflow` is only a claim, and `RouteParent` creates the native checklist and `native-plan.json` solely when the host `AggregateAuthority.approve_native_character` (new, additive; default rejects) approves the exact workflow/profile/provider/subject/revision/crop, re-checked on resume and before any write. `forge/next.py --state` resolves such a child's pass only through the host `NativePolicy` callbacks with live authorization (never sculpt synchronization, budgets preserved); completion still needs journal-verified lifecycle receipts and independent terminal verification. No production authority ships here, and sculpt children are unchanged.
+- Harden the native child path: native-ness is cross-checked against the parent descriptor, plan artifact and native rows so a deleted or altered `routeChild.workflow` fails closed; `--excluded-root` and the policy module are canonicalised before comparison; the policy pin and run are verified before any journal write; native completion re-reads the authorised plan and state under the lease before publishing and requires every setup row `done`.
+- Close the remaining native-character review findings: native-ness is read only from the explicit `workflow` claim in the child and the parent descriptor, never from the `native-plan.json` file name or checklist ids, so a standalone sculpt spec with that name behaves exactly as before; a skipped `repair-decision` completes a native child only when its evidence resolves to a journal-verified, passing `quality-review` receipt; native pass publication now runs inside an exclusive `fcntl.flock` critical section beside the state (read, verify, authorize, write, rename), re-reads state under the lock, and aborts without publishing if the plan or state drifted. Where `flock` is unavailable only the pre-rename drift check remains. A writer who erases every native claim in both child and parent state is still not detected (review P1-1, owner design decision; recorded as an expected-failure test).
+- Routing questions v3 separate typed object localization from route selection, expose the full current inventory, and keep valid absence as reconciliation data. File-backed second-proposal inputs are pinned into routing identity and proof verification; all existing routing and crop gates remain unchanged.
+- Child completion accepts a skipped repair only after journal-backed lifecycle verification proves passing quality; every other required native, final and rig gate remains mandatory.
+- Record the isolated 44-case routing-v3 repair regression: derived-owner accuracy 26/50 and human Box recall 46/60, below both promotion floors. The campaign charged 334,113 ledger tokens across 129 completed durable attempts; 44 consents were revoked. No threshold calibration, fresh held-out quality, native delivery or release qualification is inferred.
+
+- Composition gate checks now re-hash the current scene module and recorded input files before assessing supplied measurements. These checks do not authenticate the manifest or measurement producers.
+- Composition distinguishes group-scoped `capability-unavailable` from run-wide Jev outages when validating fallback placements.
+- Invalid composition artifacts return structured JSON refusals instead of uncaught exceptions.
+- Parent `forge/next.py --state` now prints a runnable command to inspect the first pending routed child from its own workspace.
+- Repeated routed instances share their leader's child; completion requires the leader artifact to name the exact group and owner route.
+- Routed parent status reports never load or synchronize an unrelated sculpt spec.
+- Composition resolves artifact file paths relative to each child manifest, matching child terminal validation.
+- Add an offline compose-request command joining parent child descriptors to supplied placement evidence; it does not authenticate producers or approve delivery.
+
+- Document the routed four-group decision lifecycle in `grimoire/intake/routing.md` and add one mandatory decision-lifecycle entry to `SKILL.md`. The page covers the four decision groups and their typed edges (routing, build strategy, quality review, repair); candidate enumeration and eligibility; per-object children, revisions and the parent checklist; login, four-purpose consent and the single shared token budget; the host-model fallback and its proven-outage rule; the explicit-2D rule; terminal artifact ownership (`ownerRoute`, `ownedObjectIds`, `excludeComponents`); and the reason codes a caller can observe.
+- Routing is advisory and base-owned. A provider answer (Jev or a host-approved model fallback) can only choose among candidates the base already admitted and never grants acceptance. Pixi2D is reached only by an explicit 2D request (`--expected-output 2d`); a 3D request is never downgraded to it.
+- Add routed-child `forge/decision.py` boundaries and `forge/terminal.py prepare|consult`, with separately pinned host policy, immutable candidate receipts and verified completion through `route.py --complete-child`. Reconcile routing guidance with conditional native/Pixi/CS2 authorities, actual placement/measurement producers and the explicitly selected OMP adapter; landed commands and narrow runtime observations do not establish integrated terminal, held-out-corpus or release qualification.
+- Add an optional host model fallback through paired `--fallback-command PATH` and `--fallback-sha256 HEX`. The host-named program is re-verified before/after use and is consulted only after journalled Jev unavailability/request failure or an authenticated explicit refusal—never a valid Jev answer. Image-capable fallback receives projected JSON plus only bound PNG/JPEG copies through a private pinned manifest and requires fresh exact program-digest approval; declining Jev alone enrolls no other program. File pins cover only the named program, not its interpreter/imports, and this is not a sandbox.
+- Close semantic repair around journal-authenticated before/after quality, exact host-admitted physical capture configuration and frozen improvement/regression criteria; journal deterministic hard-gate blocks without fabricating visual review. Only repair starts count against correction ceilings, and terminal quality must still pass. CS2 terminal approval now also pins the complete host-reviewed browser bundle, not just its executable.
+- Expose post-repair `quality` operation `trial` only for a journal-begun successor; repair finish
+  consumes its stored review without prematurely advancing canonical quality or the incumbent.
+  Native setup-scoped workflows preserve their pass sentinel while the actual native resolver
+  still validates the requested pass. Fallback deadlines cover preflight and supervised descendants.
+- Allow a complete host-approved harness pin bundle for decision-only routing; partial bundles
+  still refuse before journal creation, and no child is created without `--create-children`.
+- Describe the routed plugins (`interior`, `character`, `cs2`, `pixi2d`, `jev`) in the README and `docs/PLUGINS.md`: what each adds, its output kind and the advisory boundary.
+- Qualification remains limited: no real-image held-out quality, general Blender export parity, live Jev delivery or end-to-end scene/release acceptance is claimed. Narrow observed character parity, reviewed Pixi replay and nonprivate OMP transport results are distinguished from per-child semantic/terminal gates and independent scene acceptance in `grimoire/intake/routing.md`.
+- Trim `SKILL.md` below its word budget by condensing the `Left and right` and `Hair` sections, which restate `grimoire/scripts.md` and `docs/HAIR_PIPELINE.md`, and by replacing the long routing development note with one pointer to `grimoire/intake/routing.md`. The routed-child rules (login, consent, explicit 2D, `--create-children`, `--complete-child`, progress-not-delivery) now live in that page.
+- Routed interior children now use the native interior workflow and an explicit component-exclusion step instead of the generic sculpt checklist. Native evidence and terminal acceptance remain independently gated.
+- Routed interior scene children receive sorted `routeChild.excludedObjectIds` from the authenticated aggregate. Each excluded object ID must also be its intake component identity and Blender component tag; no label mapping is inferred. Completion independently rederives the list and rejects missing, malformed or stale admitted intake/spec exclusions before terminal verification. Multiple interior containers are refused; other child profiles and independent native/visual authority gates are unchanged.
+- Validate each interior artifact's owner route and owned object IDs against its verified child descriptor before terminal review.
+- Add a `--complete-child` entry point that revalidates the saved route and terminal gates without rerouting or a new model call.
 
 **The Character Split — targets v2.1.** The base `character` domain joins
 `plugin-character`, so the base names no domain and the v2.0 plugin split closes.
@@ -19,6 +139,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Acceptance rule: the character build keeps emitting the same Three.js output for the same
   input across the move. The partition of every character/rig-named line as base mechanism or
   domain content is written down *before* any file moves.
+
+### Added — Jev decision foundation (internal)
+
+- Add a standard-library shared controller for routing, build strategy, quality review and repair:
+  evidence/revision-bound decisions, explicit login suspension and unavailable-provider fallback,
+  durable leases/journals, token reservations and single-successor trial recovery.
+- Add deterministic supplied-report quality/regression checks and an offline benchmark CLI that
+  keeps missing evidence unevaluated and never qualifies real-image fidelity from protocol fixtures.
+- Add independently versioned scene checks for bound supplied measurements, including object
+  coverage, contact, scale, interpenetration, silhouette and interior difference. These do not
+  produce measurements or independently authorise delivery.
+- These are internal foundation APIs. Automatic profile selection, plugin adapters, pass hooks,
+  scene composition and live Jev qualification are not implied by these modules or their tests.
 
 ## [2.0.1] — 2026-11-05
 

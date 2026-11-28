@@ -1,0 +1,33 @@
+{
+  "version": "route-quality-policy-v1",
+  "requiredViews": [0, 90, 180, 270],
+  "volumetric": {
+    "minimumSideFrontRatio": 0.25,
+    "minimumDepthRatio": 0.15
+  },
+  "flat": {
+    "minimumThicknessRatio": 0.005,
+    "requireClosed": true,
+    "requireTwoSided": true
+  },
+  "maximumSelfIntersections": 0,
+  "criticalScoreFloor": 3,
+  "scoreMaximum": 4,
+  "ranking": [
+    {"metric": "silhouetteIoU", "direction": "max"},
+    {"metric": "interiorDifference", "direction": "min"},
+    {"metric": "criticalFeatures", "direction": "max"},
+    {"metric": "orbitConsistency", "direction": "max"},
+    {"metric": "cost", "direction": "min"},
+    {"metric": "timeMs", "direction": "min"}
+  ],
+  "metricDirections": {
+    "silhouetteIoU": "max",
+    "interiorDifference": "min",
+    "orbitConsistency": "max",
+    "cost": "min",
+    "timeMs": "min",
+    "selfIntersectionCount": "min"
+  },
+  "protectedMetrics": ["silhouetteIoU", "interiorDifference", "orbitConsistency"]
+}

@@ -4,9 +4,9 @@
 
 # img2threejs
 
-**Rebuild the object in a reference image as a code-only, procedural Three.js model.**
+**Turn a reference image into a textured, realistic 3D model (GLB).**
 
-Quality-gated, animation-ready, and deliberately token-efficient — reconstruction-by-code, not photogrammetry, mesh extraction, or downloaded art packs.
+An image-to-3D generator makes the mesh and PBR textures, Blender cleans and renders it, and a Jev likeness loop measures it against your reference and decides accept or regenerate. The result is a generated model with real textures — not code-built. Procedural, code-only Three.js reconstruction is still here as an explicit opt-in (`--profile procedural-*`).
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.1-green.svg)](CHANGELOG.md)
@@ -40,11 +40,15 @@ Quality-gated, animation-ready, and deliberately token-efficient — reconstruct
 
 </div>
 
-*Reference images reconstructed in code as animation-ready Three.js models, running live in the browser.*
+> **Default path: textured.** Requirements — a Tripo MCP account (paid per generation), a bpy runtime
+> from `img2 provision` (`IMG2_CHARACTER_BPY_PYTHON` / `IMG2_BLENDER_PYTHON`), and Jev login plus per-run
+> consent (without a Jev account the host model answers the same questions and is journalled as
+> `model:<id>`, never as Jev). See [docs/TEXTURED.md](docs/TEXTURED.md). The gallery below shows the
+> **procedural** opt-in: reference images reconstructed in code as animation-ready Three.js models, running live in the browser.
 
 ### [→ Open the Live Demo Gallery](https://img2threejs.io/)
 
-Every model in the gallery is generated code, running in your browser. No mesh files, no downloads.
+Every model in this gallery is procedural: generated code, running in your browser, no mesh files.
 
 ---
 
@@ -130,10 +134,11 @@ update and uninstall, other agents such as Cursor).
 **Already installed?** Update with the row that matches your install in
 [`docs/INSTALL.md` §4](docs/INSTALL.md#4-update-an-existing-install).
 
-### 2. Install the plugin harness, if needed
+### 2. Install the plugin harness
 
-Skip this unless you need a plugin from the table below. Plugins come from a separate CLI, the
-`img2` harness (`~/.img2`); install it once:
+The default install selects character, cs2, interior and pixi2d; Jev is opt-in.
+An explicit subset is allowed; a missing domain must not silently become generic.
+Plugins use the separate `img2` harness (`~/.img2`); bootstrap it once:
 
 ```bash
 npx --yes @img2threejs/img2@latest install --yes
@@ -143,9 +148,9 @@ npx --yes @img2threejs/img2@latest plugins       # the live catalog
 It links an `img2` command if `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin` is on your
 `PATH`; otherwise use the `npx --yes @img2threejs/img2@latest` form, or
 `alias img2='npx --yes @img2threejs/img2@latest'`. What it changes on your machine:
-[`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one).
+[`docs/INSTALL.md` §3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
 
-### 3. Choose plugins — do not install everything by default
+### 3. Plugin selection and readiness
 
 <!-- plugins:start -->
 | Plugin / source README | Adds | Access | Install after harness setup |
@@ -159,7 +164,21 @@ It links an `img2` command if `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local
 
 The table above is generated from the live catalog (`scripts/ci/plugin_table.py`); list all
 plugins with `img2 plugins`. Open each plugin's linked README for its input requirements,
-dependencies and tool setup. Example (the `cs2` plugin; substitute any catalog id):
+dependencies and tool setup.
+
+The catalog includes optional extras; the routed set is pinned separately in the
+harness's `plugins.lock.json`. Provisioning records an explicit subset (default character, cs2,
+interior and pixi2d) in `$IMG2_HOME/runtime/selectors.json`. Run `python3 forge/preflight.py`
+from this checkout before routing: default host-model preflight requires selected domain plugins
+at their pins and resolved route dependencies, without probing Jev even in older all-five selections.
+Explicit `python3 forge/preflight.py --decider jev` additionally requires pinned Jev and usable auth.
+Unselected capabilities and Jev not required for host routing say `not installed by choice`.
+Older published installers may still install only the skill; bundled install/repair integration
+is not supplied by this core check. See [§3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
+The isolated [E2E runner](docs/E2E.md) accepts object roles and typed observations for room
+routing; interior requires `interior-bpy>=4.3` through trusted `IMG2_BLENDER_PYTHON`, not a separate Blender CLI.
+
+Manual registry inspection example (not a complete default installation):
 
 ```bash
 img2 add cs2 --yes
@@ -177,9 +196,73 @@ downgrades. The base skill is not a plugin: **do not use `img2 add` to install t
 **Private `environment` plugin:** needs a GitHub account with access to its repository and working
 Git credentials. The public [`img2-environment`](https://www.npmjs.com/package/img2-environment)
 installer can bootstrap the harness but does not grant that access. Hermes users link each plugin
-by hand ([`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one)). Why a run
+by hand ([`docs/INSTALL.md` §3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight)). Why a run
 cannot see an installed plugin, and how plugins reach the pipeline: [`docs/PLUGINS.md`](docs/PLUGINS.md).
 To write a plugin, follow [WRITING_A_PLUGIN.md](https://github.com/img2threejs/img2/blob/main/docs/WRITING_A_PLUGIN.md).
+
+**Routed workflows (unreleased integration).** Read
+[`grimoire/intake/routing.md`](grimoire/intake/routing.md) before routing, Jev, child operations or
+reporting results. The mandatory four groups are routing, build strategy, quality review and repair
+when required. `forge/route.py` and `forge/decision.py` provide the actual lifecycle hooks; routing
+alone does not run the other groups. The base owns eligibility, consent, independent hard gates and
+acceptance. Neither provider advice nor parent checklist completion is a deliverable.
+Ordinary `forge/route.py` uses `--decider model` (default), with no Jev installation, login or TTY
+requirement. Missing answers return `questions-ready` and a `questionsRef`; read the bound images,
+answer with the current host model, then resume using accumulated `--model-answers`. The local
+`authorizationId` binds this routing request only, not build/review/repair or delivery authority.
+`--model-id` defaults to the logical selector `host-agent`; it is not a verified provider identity.
+Explicit `--decider jev` retains release pins and external paid-call consent.
+Host-decided pending children can later use separate explicit Jev or no-account lifecycle consent:
+the original active host routing proof is verified read-only, never widened into lifecycle authority.
+Explicit `--no-jev-account` supports the routed lifecycle under a live v2 user grant. Consent each
+purpose with repeatable `--purpose`; v1 grants require personal re-attestation, not automatic upgrade.
+In that legacy mode, routing, child strategy, terminal review and completion bind the same run/reference/model authority;
+all independent terminal gates remain mandatory. Receipts say `model:<id>`, `presentedAsJev: false`.
+Missing or unprovable credentials never grant this exception. Confirmation is read from `/dev/tty`,
+not isolation from same-user code; token usage and model identity are host/user claims.
+See [deciders](grimoire/intake/routing.md#51-explicit-no-account-routing-decider).
+
+| Plugin | Adds | Output kind | Reached when |
+|---|---|---|---|
+| `interior` | One enclosed metric Blender room, PBR/export and composition handoff | `3d-scene` | one enclosed `scene-container`; native geometry, material/part captures and semantic review remain separate gates |
+| `character` | Rigged characters with frozen-pose parity and blocking rig gates | `rigged-3d` | explicit rig intent and actual per-child approved runtime/rig evidence; a narrow live probe is not blanket qualification |
+| `cs2` | CS2 skin spec augmentation inside a base child | `spec-augmentation`, ending as a `3d-object` | authoritative source/classification approval plus mechanical and semantic terminal gates |
+| `pixi2d` | Editable artwork in an existing PixiJS host | `2d-scene` | explicitly `--expected-output 2d`; never a downgrade from 3D |
+| `jev` | Bounded image-aware advice for all four groups | none; advice only | explicit login and per-run four-purpose disclosure/paid-call consent |
+
+`interior`, `pixi2d` and `jev` are absent from the generated catalog table above: confirm local
+availability with `img2 plugins` and `img2 doctor`; routing installs nothing. When requested, the
+**user**, not the agent, runs:
+
+```bash
+img2-jev login
+img2-jev consent authorize-decisions --workspace WS --run-id RUN --token-budget N \
+  --accept-image-disclosure --accept-paid-calls
+```
+
+Never paste a key into chat. One token budget covers all four groups. Missing consent suspends;
+authenticated explicit refusal is distinct. Optional host fallback requires its own executable pin,
+host approval and a journalled proven-outage/refusal path; it never bypasses hard gates.
+
+Host-approved policy modules supply live permissions, source approval and producer authority;
+`--policy-module`/`--policy-sha256` pin executable host code, not the truth of its claims or imports.
+A digest does not approve source rights or provenance. Native/JavaScript source approval is never
+inferred; reviewed Pixi code runs trusted in the same realm, not an arbitrary-JavaScript sandbox.
+
+CS2 0.3.0 uses a paired, incompatible `--terminal-request` gate ABI. Core binds an immutable
+per-run descriptor into the authenticated review; the global locator is discovery only.
+`forge/cs2_evidence.py prepare|consult` supports explicitly host-approved non-routed evidence,
+with a real review journal and an external pinned policy. Its receipts are always evidence-only,
+not routed completion or standalone terminal acceptance. See [the CS2 protocol](docs/PLUGINS.md#cs2-run-request-protocol).
+
+Observed evidence is narrow: actual Chrome scene placement/composition/measurement and CS2
+capture/replay fixtures, a bpy interior geometry audit with four views, 925 character pose vertex
+comparisons, and Pixi authority/replay probes. Synthetic self-reference does not prove identity or
+artwork quality. No held-out real-image/expert qualification, renewed live Jev delivery or release
+acceptance is claimed. Initialized children and completed child rows remain progress; composition
+and independent scene acceptance are separate. Commands, exact trust boundaries and integration
+status: [`grimoire/intake/routing.md`](grimoire/intake/routing.md); plugin-side contract:
+[`docs/PLUGINS.md`](docs/PLUGINS.md#routed-plugins-and-the-advisory-boundary).
 
 ### 4. Run a reconstruction in your agent
 
@@ -210,7 +293,7 @@ by pass, and reviews rendered comparisons. Installation alone does none of that.
 For a multi-session reconstruction, run these from the skill root:
 
 ```bash
-python3 forge/state.py init --reference <image> --profile character --spec object-sculpt-spec.json
+python3 forge/state.py init --reference <image> --profile procedural-character --spec object-sculpt-spec.json
 python3 forge/next.py --state .img2threejs/state.json
 ```
 
@@ -319,6 +402,9 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 
 | Script | Role |
 | --- | --- |
+| `route.py` | Route eligible owners, initialize children, or independently verify one completed child; never delivery. |
+| `decision.py` | `strategy-spec`, `strategy-build`, `quality`, `repair`: host-policy-gated child lifecycle decisions and receipts. |
+| `terminal.py` | `prepare` actual approved terminal evidence; `consult` shared semantic review and bind its journal record. |
 | `stage1_intake/probe_image.py` | Image metadata and obvious technical issues (not a visual check). |
 | `stage2_spec/new_pre_spec_assessment.py` | Classify the object, score complexity, emit a quality contract. |
 | `stage2_spec/new_sculpt_spec.py` | Author the ObjectSculptSpec from the assessment. |
@@ -352,6 +438,46 @@ The net effect: you still get a faithful 3D model from an image, but the expensi
 | `_shared/pipeline_routing.py` | Fail-closed weapon/character routing; low confidence resolves to `request-input`. |
 
 This is a curated selection — `forge/` holds around ninety modules. The executable reference with every flag is [`grimoire/scripts.md`](grimoire/scripts.md), and the gate-by-gate contract is [`grimoire/review/gates_reference.md`](grimoire/review/gates_reference.md). The rest of `grimoire/` holds the rubrics each gate applies (validation, pre-spec assessment, procedural patterns, material and lighting realism, attachment correctness, action-ready models, self-correction).
+
+### Routed/native terminal commands (unreleased)
+
+Run from the base checkout. `WS` is the parent workspace; `REF` is its immutable route decision.
+Interior/native 3D uses the object proposals and intent; Pixi requires explicit 2D:
+
+```bash
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json --explicit-route interior
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json --explicit-route base:generic
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --expected-output 2d --explicit-route pixi2d
+```
+
+Child operations additionally need the independently approved harness pins. The host supplies two
+different policy factories: `build_policy(workspace, state_path)` for `decision.py`, and
+`build_route_policies(workspace, run_id)` for terminal/completion authority. Neither is candidate JSON
+or automatic source approval. See the canonical guide for request schemas and per-owner prerequisites.
+
+```bash
+# Bash arrays: independently approved canonical paths/digests, never workspace-supplied approvals.
+PINS=(--harness-root R --harness-sha COMMIT --harness-executable R/bin/img2.mjs --harness-sha256 HEX)
+POLICY=(--policy-module /absolute/host/route-policy.py --policy-sha256 POLICY_SHA256)
+python3 forge/decision.py strategy-spec --workspace WS --run-id RUN \
+  --child-state .img2threejs/objects/ID/rev-N/state.json --request REQUEST.json \
+  --policy-module /absolute/host/workflow-policy.py --policy-sha256 WORKFLOW_SHA256 "${PINS[@]}"
+# Use strategy-build, quality and repair at their matching lifecycle boundaries.
+python3 forge/terminal.py prepare --workspace WS --run-id RUN --object-id ID \
+  --decision-ref REF "${POLICY[@]}" "${PINS[@]}"
+python3 forge/terminal.py consult --workspace WS --run-id RUN --object-id ID \
+  --decision-ref REF "${POLICY[@]}" "${PINS[@]}"
+python3 forge/route.py --workspace WS --run-id RUN --complete-child ID \
+  --decision-ref REF "${POLICY[@]}" "${PINS[@]}"
+```
+
+These entrypoints are implemented but unreleased; command availability is not runtime qualification.
+[`grimoire/intake/routing.md` §9](grimoire/intake/routing.md#9-terminal-artifact-ownership-and-composition)
+defines the per-owner gates. Preparation makes no provider call; consultation occurs outside the held
+parent transaction and binds the actual immutable context/journal record. Completion independently
+replays native/Pixi/CS2 gates and lifecycle proofs; each consumer's decider restrictions still apply.
+All remain `deliverable: false`; source-only artifacts cannot be composed as GLBs, and 3D scene
+placement/measurement/acceptance require separate evidence.
 
 ### Optional reference-fidelity tooling
 

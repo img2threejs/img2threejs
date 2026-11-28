@@ -1,0 +1,7 @@
+{
+  "producer": "protocol-fixture-not-provider",
+  "decision": "base:generic", "boxes": [{"label": "cup", "box": [0.1, 0.1, 0.9, 0.9]}],
+  "elapsedMs": 1000, "usage": {"fresh": 10, "cached": 2, "output": 3},
+  "audit": {"mutations": [], "corrections": 0},
+  "bindings": [{"path": "evidence.txt", "sha256": "6dc9f19b6e1ebf80ab18e96a559f4c3a3b4c6f93f70e38ca22231ed4ad7f2672"}]
+}

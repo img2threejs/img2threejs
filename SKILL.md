@@ -1,23 +1,28 @@
 ---
 name: img2threejs
-description: Turn an object or character reference image into a quality-gated, animation-ready procedural Three.js model built in code. Use for image-to-3D reconstruction, detail-accurate object rebuilds, stylized/likeness-maximized human characters, sculpt specs, and staged code generation.
+description: Turn a reference image into a textured, realistic 3D model (GLB) through a generator, Blender cleanup and a Jev likeness loop. Procedural code-built Three.js (sculpt specs, staged code generation, animation-ready characters) is the explicit opt-in. Use for image-to-3D, 3D model from a picture, textured GLB, and detail-accurate object or character rebuilds.
 license: Apache-2.0
 version: 2.0.1
 ---
 
-# img2threejs — Image to procedural Three.js
+# img2threejs — Image to textured 3D model
 
-Rebuild the object visible in a reference image as a **code-only** procedural Three.js model,
-gated by a staged sculpting pipeline and an AI-vision self-correction loop. This is
-reconstruction-by-code, **not** photogrammetry, mesh extraction, or downloaded art packs. That
-promise governs how the model is *built* — it says nothing about which file formats it can
-subsequently be *exported* to; an explicitly-selected emission target (`--target <kind>`) is a
-terminal, whole-artifact transform of the already-built model, verified to its own stated limit,
-never a second way to build one.
+img2threejs turns a reference image into a **textured, realistic 3D model (GLB)**: an image-to-3D
+generator makes the mesh and PBR textures, Blender (bpy) inspects, normalizes and renders it, and a
+Jev likeness loop measures it against the reference and decides accept or regenerate. The model is
+generated, never code-built. **Procedural** reconstruction (code-only Three.js from a sculpt spec,
+the older pipeline below) is an explicit opt-in: `--profile procedural-generic`,
+`procedural-character`, or any `procedural-<domain>`. An emission target (`--target <kind>`) stays a
+terminal transform of an already-built model, never a second way to build one.
 
-Agent-agnostic: works under Hermes, Claude Code, Codex, or OpenCode. Wherever this doc says "agent vision" or "agent browser tool", use
-whatever the host provides — native image reading, a browser MCP (playwright/chrome-devtools), the
-project preview, or a user-supplied screenshot.
+Requirements (the textured path fails closed without them, it never fakes a model):
+- a Tripo MCP tool in the host (`mcp__tripo_make`) with an account and credits — paid, per generation;
+- a bpy runtime from `img2 provision`, named by `IMG2_CHARACTER_BPY_PYTHON` or `IMG2_BLENDER_PYTHON`;
+- Jev: `img2-jev login` plus per-run consent (`jev.py consent authorize-decisions`). With no Jev account the
+  host model answers the same typed questions, journalled `decider: model:<id>`, never presented as Jev.
+
+Host-agnostic: Hermes, Claude Code, Codex, OpenCode. Vision/browser means the host's image reader,
+browser MCP, project preview, or supplied screenshot.
 
 This file is the always-loaded router: it holds the order of operations and every hard rule as one
 line. The full contract behind each rule lives in the `grimoire/` or `docs/` file that rule names —
@@ -35,31 +40,67 @@ link it does not manage, so a hand-made link is never silently swapped for a rel
 
 ## When To Use
 
-The user attaches/points to an object image and wants a procedural Three.js model, a
-reconstruction/animation/destruction plan, a sculpt spec, or code. Also for material studies,
-action-ready props, game objects, botanical/mechanical parts, and stylized reconstructions.
+The user attaches/points to an object image and wants a 3D model of it (textured GLB by default).
+Under an explicit `procedural-*` profile: a procedural Three.js model, a reconstruction/animation/
+destruction plan, a sculpt spec, or code; material studies, action-ready props, game objects,
+botanical/mechanical parts, and stylized reconstructions.
+
+## Route decisions (mandatory for every routed workflow)
+
+Before `forge/route.py`, `forge/decision.py`, `forge/terminal.py`, Jev, child creation/completion or reporting results, read
+[`grimoire/intake/routing.md`](grimoire/intake/routing.md) completely. Mandatory four-group lifecycle:
+`forge/route.py` routing → `forge/decision.py strategy-spec`/`strategy-build` → `quality` → `repair`
+when required; consume current journal-backed receipts. Four-purpose disclosure/payment consent and
+one shared budget apply; never request keys in chat. Host-pinned `--policy-module`/`--policy-sha256`
+approves code, not source rights; never infer native/JS provenance. Fallback needs separate host
+approval and proven outage; independent hard gates remain mandatory. Terminal handoff:
+`forge/terminal.py prepare|consult`, then independent `route.py --complete-child` verification.
+CS2 uses paired run requests, not standalone terminal acceptance.
+Parent completion is not delivery; children/advice are progress. Never downgrade 3D to 2D.
 
 ## Profile preflight (once per run, before `forge/next.py`)
 
-Domain knowledge (CS2 skins, animated characters, emission targets) lives in plugins, not in this
-checkout. Pick the profile from the subject, then confirm this environment can start it:
+Default installation selects character, cs2, interior and pixi2d; Jev is explicitly opt-in.
+An explicit install-time subset is recorded in `$IMG2_HOME/runtime/selectors.json`.
+Before routing, from the skill checkout run:
 
 ```bash
-python3 forge/state.py init --help | grep -- --profile   # profiles available here
+python3 forge/preflight.py
 ```
 
-- `generic` / `character` are built in: no harness, no plugin, nothing else to check.
-- A missing domain profile (e.g. `cs2`) is a setup gap: never downgrade to
-  `generic` silently. Installing it edits the user's machine, so give them the commands in
-  [`docs/INSTALL.md` §3](docs/INSTALL.md#3-add-a-plugin-only-if-you-need-one), get their go-ahead,
-  re-check, and continue.
-- Installed but not listed (wrong `$IMG2_HOME`), or a Hermes plugin link: [`docs/PLUGINS.md`](docs/PLUGINS.md).
-- Then read what the profile's own steps name, at the moment you reach them: the plugin's
-  `SKILL.md` and contracts govern that domain.
+Preflight checks selected domains (all four without selectors), never Jev in default mode, including
+older all-five selections. Explicit Jev requires `python3 forge/preflight.py --decider jev`:
+registration, pins, decision edges and auth remain mandatory.
+Default `--decider model` needs no Jev/TTY: inspect `questionsRef` and bound images; supply real,
+accumulated `--model-answers`, never canned answers. `authorizationId` is routing-only;
+`host-agent` is logical, or identify the answering model with `--model-id`.
+Explicit Jev requires paid-call consent. Legacy `--no-jev-account` needs the user's live,
+purpose-scoped v2 grant from `forge/route.py attest-no-jev-account`; v1 requires re-attestation.
+Never type `/dev/tty` consent on the user's behalf: this is user consent, not same-user code isolation.
+See [installation](docs/INSTALL.md#3-required-plugins-and-runtime-preflight);
+`img2threejs repair` belongs to the bundled installer.
+Never silently substitute generic for a missing domain. `forge/route.py` exposes per-object
+`pluginRejections` (also retained in the decision/journal); inspect them even on a decided route.
+Follow each installed plugin's `SKILL.md` and step-named contracts.
+For isolated routing checks, see [`docs/E2E.md`](docs/E2E.md): role/observations are explicit;
+interior probes trusted `IMG2_BLENDER_PYTHON` for `interior-bpy>=4.3`, not a separate Blender CLI.
+
+## Textured build (default for 3D)
+
+`forge/state.py init --reference <img>` selects `textured` when a generator MCP tool is configured
+(else it says so and starts procedural `generic`). Run `forge/next.py --state .img2threejs/state.json`
+before every step; rows, in order: `reference-admission`, `generate` (AGENT step: call the generator,
+then `forge/textured/generate.py record`), `inspect`, `normalize`, `render`, `likeness`, `decide`
+(`forge/textured/decide.py`; SAME accepts, DIFFERENT regenerates with a changed model, scenario, prompt
+or input, at most 4 generations, best by Jev), `deliver` (GLB, renders, comparison sheet, REPORT.md under
+`.img2threejs/textured/final/`). Each tool writes a JSON receipt; none prints a key. Plugins keep their
+domain checks: `state.py init --profile textured --domain animated-character` appends the installed character plugin's rig rows
+(the in-repo `character` domain declares none). Full contract: [`docs/TEXTURED.md`](docs/TEXTURED.md).
+The procedural sections below apply only under an explicit `procedural-*` profile.
 
 ## Core Promise
 
-Sculpt from a photo, in order — never one-shot a mesh:
+Procedural opt-in: sculpt from a photo, in order — never one-shot a mesh:
 1. **Run `python3 forge/next.py --state .img2threejs/state.json [<spec>]` first**, at every start,
    resume, and before every correction iteration. It reports the ordered checklist, exact next
    command, evidence status, and bounded correction-loop status; it never replaces the spec/pass
@@ -80,7 +121,7 @@ Conversation context is disposable; `.img2threejs/state.json` is the local check
 Initialize once per reconstruction, then gate every step through it:
 
 ```bash
-python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <generic|character|installed-domain> --spec object-sculpt-spec.json
+python3 forge/state.py init --state .img2threejs/state.json --reference <img> --profile <procedural-generic|procedural-character|procedural-installed-domain> --spec object-sculpt-spec.json
 python3 forge/next.py --state .img2threejs/state.json [object-sculpt-spec.json]
 python3 forge/state.py mark <step-id> --state .img2threejs/state.json --evidence <path>
 ```
@@ -360,29 +401,23 @@ Full rule + examples: `grimoire/review/self_correction.md`.
 
 ## Left and right
 
-A left/right pair is a **reflection**, never a rotation: negate the lateral axis and nothing else,
-`(x, y, z) → (-x, y, z)`. With `forward: +Z`, Y up and a right-handed frame, the character's own
-left is **+X**. The convention lives as code in `forge/_shared/chirality.py`
-(`CHARACTER_LEFT_SIGN`), with two different gates for the two defects that shipped from getting it
-wrong: `validate_chirality` catches a rotation-mistaken-for-reflection at spec time, and
-`medial_lateral_bias` vs a reference catches a pair that is wrong the same way on both sides.
-Reflecting also inverts triangle winding — flip it back on the mirrored side or `flatShading`
-lights the limb as though lit from behind. Full write-up with the measured defects:
-`grimoire/scripts.md` ("Left and right").
+A left/right pair is a **reflection**, never a rotation: `(x, y, z) → (-x, y, z)`. With `forward: +Z`,
+Y up and a right-handed frame, the character's own left is **+X** (`CHARACTER_LEFT_SIGN` in
+`forge/_shared/chirality.py`). Reflecting inverts triangle winding: flip it back on the mirrored
+side. Gates and measured defects: `grimoire/scripts.md` ("Left and right").
 
 ## Hair
 
-Hair has its own subsystem because it has failure modes no other gate can see. Full contract,
-measurements and non-goals: `docs/HAIR_PIPELINE.md`. The hard rules:
+Hair has failure modes no other gate can see. Full contract, measurements and non-goals:
+`docs/HAIR_PIPELINE.md`. The hard rules:
 
 - Roots bind to the scalp as `(u, v)`, never absolute positions (hard validation error).
-- `standProud` is enforced by the generator, not advisory.
-- `scalp_exposure.py` is a HARD gate on geometry before any render; a coverage shortfall never on
-  its own authorises widening the masses.
-- Default representation tier is `shell`, not locks; strand impression comes from faceting and
-  material (`hair.human.code-only`), since this skill emits no textures.
-- `plane-card` is rejected for hair (needs an alpha texture this skill cannot emit).
-- Hair is rigidly parented, never smooth-skinned (the geodesic field runs through the skull).
+- `standProud` is generator-enforced, not advisory.
+- `scalp_exposure.py` is a HARD pre-render geometry gate; a coverage shortfall never authorises
+  widening the masses.
+- Default tier is `shell`, not locks; strand impression comes from faceting and material
+  (`hair.human.code-only`). No textures are emitted, so `plane-card` is rejected.
+- Hair is rigidly parented, never smooth-skinned.
 
 ## Domain plugins
 

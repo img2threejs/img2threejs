@@ -114,7 +114,9 @@ class Registry(unittest.TestCase):
                 capture_output=True, text=True, env=env, cwd=ROOT.parent,
             )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("--profile {generic}", proc.stdout)
+        # Intentional change (textured default): the degraded choice set is the base profiles
+        # generic, textured and the explicit procedural-generic, not generic alone.
+        self.assertIn("--profile {generic,textured,procedural-generic}", proc.stdout)
         self.assertNotIn("declared twice", proc.stderr)
 
     @contextlib.contextmanager

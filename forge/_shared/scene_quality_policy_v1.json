@@ -1,0 +1,9 @@
+{
+  "version": "scene-quality-policy-v1",
+  "scene": {
+    "minimumObjectBoxIoU": 0.7,
+    "maximumContactGapHeightRatio": 0.01,
+    "minimumSilhouetteIoU": 0.75,
+    "maximumInteriorDifference": 0.12
+  }
+}
