@@ -123,11 +123,13 @@ class ModelDecider:
         self.controller, self.authority = controller, authority
         self.pending = None
         self.answers = {}
+        metadata = authority.metadata()
+        identity = "authorizationId" if metadata["decisionMode"] == "host-model" else "attestationId"
         if answers_path is not None:
             value = _json(_file(controller.workspace, answers_path, maximum=2 * 1024 * 1024, capture=True))
-            if (type(value) is not dict or set(value) != {"kind", "version", "attestationId", "answers"}
+            if (type(value) is not dict or set(value) != {"kind", "version", identity, "answers"}
                     or value["kind"] != "img2.route-model-answers" or type(value["version"]) is not int
-                    or value["version"] != 1 or value["attestationId"] != authority.metadata()["attestationId"]
+                    or value["version"] != 1 or value[identity] != metadata[identity]
                     or type(value["answers"]) is not list or len(value["answers"]) > 256):
                 raise DecisionError("invalid-model-answers")
             for answer in value["answers"]:
@@ -138,7 +140,8 @@ class ModelDecider:
 
     def provider(self, context):
         metadata = self.authority.metadata()
-        if context["group"] not in metadata["attestedPurposes"]:
+        purposes = metadata.get("allowedPurposes", metadata.get("attestedPurposes", []))
+        if context["group"] not in purposes:
             raise DecisionError("consent-required")
         projected = self.controller._context(context)
         sha = canonical_digest(projected)

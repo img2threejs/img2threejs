@@ -48,7 +48,8 @@ def _consultations(router, row, verify):
                 "runId": router.run_id, "objectId": row["objectId"], "revision": revision, "passId": step}
                 or consultation["receiptSha256"] != record["recordId"]):
             raise RouteError("decision-subject-mismatch")
-        record = verify(record, context)
+        record = (verify.host_routing(record, context) if record.get("decisionMode") == "host-model"
+                  else verify(record, context))
         handles = row.get("candidateHandles") if step == "routing" else None
         if router._consultation(record, context, handles) != consultation:
             raise RouteError("consultation-mismatch")
@@ -65,7 +66,11 @@ def verify_route(router, decision_ref, verify, discovered):
             or decision.get("runId") != router.run_id or decision.get("phase") != "decided"
             or decision.get("executionAuthorized") is not False or decision.get("decompositionBlocker")):
         raise RouteError("decision-not-decided")
-    if decision.get("decisionMode") == "no-account":
+    if decision.get("decisionMode") == "host-model":
+        metadata = verify.host_routing_metadata()
+        if any(decision.get(key) != value for key, value in metadata.items()):
+            raise RouteError("host-model-request-unproven")
+    elif decision.get("decisionMode") == "no-account":
         authority = router.controller.routing_authority
         if authority is None or any(decision.get(key) != value for key, value in authority.metadata().items()):
             raise RouteError("attestation-changed")
@@ -321,7 +326,7 @@ def verify_route(router, decision_ref, verify, discovered):
         selection = record["answers"]["selection"]
         selected = handles[selection["choice"]]
         probabilities = sorted(selection["probabilities"].values(), reverse=True)
-        primary = record["decider"].startswith("jev:") or record.get("decisionMode") == "no-account"
+        primary = record["decider"].startswith("jev:") or record.get("decisionMode") in {"no-account", "host-model"}
         if (available[selected]["card"]["costClass"] in {"paid", "licensed"}
                 or (primary and len(probabilities) > 1 and probabilities[0] - probabilities[1] < .25)):
             raise RouteError("route-execution-unresolved")

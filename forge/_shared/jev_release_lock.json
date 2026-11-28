@@ -1,23 +1,24 @@
 {
   "contractVersion": "jev-v4-four-decisions",
   "files": {
-    "plugin.json": "c9aaa6014203b8a4f90b1706e9841e4b6b43d2736f0c3439eed82237be270299",
+    "plugin.json": "26e4ee71a3f2a8e5d1ee3ce191971d5adc6f51923fc289ae558a8fb753c4369e",
     "steps.json": "cc9b6c7ba0a59619014a4b43d6125ebe6a7e126db98d5ac2ba8f63097d78807c",
-    "tools/jev.py": "5cc2b87d5b9633e6f559384d8302ec933c93bb5adda45328f8c52f86807d6192",
+    "tools/jev.py": "0c31c5ea764a133c3bfa62c6e990f8f033b1b330bb58e6b9ac7872fa74a21eed",
     "tools/jev_auth.py": "f7f3f725429d0fc4969514c3814e3c59e520ed6b4468555cc31a4d437eee04f8",
-    "tools/jev_checkpoint.py": "6ad04ebaef302affc084c2d54b701aac4cbaac3af7fe0b4101ffdeb2dc9055ee",
+    "tools/jev_character_material.py": "8a030e21b81739affeab51eecfb0fdcab129dc31fa0852db0392875baf7f6b0d",
+    "tools/jev_checkpoint.py": "29365cea780d6595102792b0cc6c48f446a6b1414a53c07f4a72a9bc3d951ddb",
     "tools/jev_checkpoint_client.py": "1098e4f87504e4217a9bd35cfb8d27401adbc3e2e8fa178a03863d9823992f76",
     "tools/jev_client.py": "ccd990fd8ff82397ee9b653e286479451772c2c3f1ea26701a1ff7eec43960eb",
-    "tools/jev_consent.py": "a2914057173aa92da0023799a96f6cfa006312e00d9f3d665fd193d878c2aa20",
+    "tools/jev_consent.py": "c6fb5883dd6989649e1c6b8944dc3d4e944116927d6d910e14cecb752776c42b",
     "tools/jev_contracts.py": "39a077f67186265333ed7f52426ae29f1a60555e9c865f1aa3740daf4cfebb7c",
-    "tools/jev_decision_images.py": "5dec4eaeb252c24fa1fded1f1e0a4ed9aeeb132d8010c2e73620949fde326a97",
-    "tools/jev_decision_provider.py": "4ba9aded80d2cbf4e8433e97692e7523376ac3dfda75e20cecaaf201f54c4994",
-    "tools/jev_decision_questions.py": "e1525f8ae5b6b51e92f4277b9e10c9401371e86a8dd4dc3b34a76ba1f1acb3da",
-    "tools/jev_decision_transport.py": "f83cbb996d86e66c5d43bab006a6e4345e5cecc1cfef1e60734837428ae7d63d",
+    "tools/jev_decision_images.py": "2f76006c660287fb7cfe8bf59985d73277392f0dbd0be704d1b004f7f3dec517",
+    "tools/jev_decision_provider.py": "86a82f1fc5f0eaa07a36f64f8a9c554b69616efaf5aa023a548f21836fecb6a6",
+    "tools/jev_decision_questions.py": "7935e1ed1bdb649ba0e1a1bab31873cb50e9366b61f220ebba85aea5b4137851",
+    "tools/jev_decision_transport.py": "6cd25c3a43e8f470cdb3572a444dc55e012eddc8df1e3d00213b6af8dbd79260",
     "tools/jev_outcome_report.py": "e949b460c17335881990d73eeead6a5ac549bb11607213ebd512744297cb1ad2",
     "tools/jev_policy.py": "bbb334f1508119ccf38f3c89c05a6d429af0119e57d9b23097e2df6533bcf4eb",
     "tools/jev_projection.py": "67eb55f70f582e36e120f3d4cf2119d1291249bacdd138ef2e5137a752afc5cb",
     "tools/jev_transport.py": "f0db99c8f95f9af63fdf3f9434b93643d87087f6ddb3b48fcfce3c1d8a2543e5"
   },
-  "resolvedSha": "ea15e4b0748f6af266c5b956041d974d1c01002f"
+  "resolvedSha": "4961464246734dbfbc0e4b8b60adbe9a9b8192e9"
 }

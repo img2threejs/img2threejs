@@ -513,12 +513,9 @@ class Discovery:
             rejected.extend({"id": c["id"], "reasonCode": "enumeration-degraded"} for c in candidates)
             candidates = []
         self.jev = None
-        if selected is not None and "jev" not in selected:
-            self.jev_status = "not-installed"
-            rejected.append({"id": "jev", "reasonCode": "plugin-not-selected"})
-            return candidates, rejected
         if self.controller.routing_authority is not None:
-            self.jev_status = "not-used:no-account"
+            mode = self.controller.routing_authority.metadata()["decisionMode"]
+            self.jev_status = "not-used:" + mode
             return candidates, rejected
         response = self.query(JEV_EDGE)
         self.jev_status = "availability-unproven"

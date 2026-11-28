@@ -400,7 +400,7 @@ class EnumerateSelectionTest(SelectorsCase):
         self.addCleanup(patcher.stop)
         return discovery, queried
 
-    def test_unselected_plugins_are_neither_queried_nor_candidates(self):
+    def test_unselected_domains_are_neither_queried_nor_candidates(self):
         discovery, queried = self.discovery({"selectedPlugins": ["pixi2d", "jev"]})
         candidates, rejected = discovery.enumerate()
         self.assertEqual([c["id"] for c in candidates], ["pixi2d"])
@@ -409,22 +409,22 @@ class EnumerateSelectionTest(SelectorsCase):
                          [("character", "plugin-not-selected"), ("cs2", "plugin-not-selected"),
                           ("interior", "plugin-not-selected")])
 
-    def test_unselected_jev_is_not_queried_and_reported_not_installed(self):
+    def test_jev_lookup_is_independent_of_domain_download_selection_and_still_pin_guarded(self):
         discovery, queried = self.discovery({"selectedPlugins": ["pixi2d"]})
         candidates, rejected = discovery.enumerate()
-        self.assertNotIn(JEV_EDGE, queried)
-        discovery._pinned_file.assert_not_called()
+        self.assertIn(JEV_EDGE, queried)
+        discovery._pinned_file.assert_called()
         self.assertIsNone(discovery.jev)
-        self.assertEqual(discovery.jev_status, "not-installed")
-        self.assertEqual(discovery.availability(), {"status": "not-installed"})
-        self.assertIn({"id": "jev", "reasonCode": "plugin-not-selected"}, rejected)
+        self.assertEqual(discovery.jev_status, "availability-unproven")
+        self.assertEqual(discovery.availability(), {"status": "availability-unproven"})
+        self.assertNotIn({"id": "jev", "reasonCode": "plugin-not-selected"}, rejected)
         self.assertEqual([c["id"] for c in candidates], ["pixi2d"])
 
-    def test_empty_selection_excludes_every_plugin(self):
+    def test_empty_domain_selection_still_queries_explicit_jev_backend(self):
         discovery, queried = self.discovery({"selectedPlugins": []})
         candidates, rejected = discovery.enumerate()
-        self.assertEqual((candidates, queried), ([], []))
-        self.assertEqual({r["id"] for r in rejected}, {*EDGES, "jev"})
+        self.assertEqual((candidates, queried), ([], [JEV_EDGE]))
+        self.assertEqual({r["id"] for r in rejected}, set(EDGES))
         self.assertTrue(all(r["reasonCode"] == "plugin-not-selected" for r in rejected))
 
     def test_missing_or_invalid_file_preserves_existing_behaviour(self):
@@ -444,8 +444,8 @@ class EnumerateSelectionTest(SelectorsCase):
         _, rejected = discovery.enumerate()
         self.assertEqual({(r["id"], r["reasonCode"]) for r in rejected if r["reasonCode"] == "plugin-not-selected"},
                          {("cs2", "plugin-not-selected"), ("interior", "plugin-not-selected"),
-                          ("pixi2d", "plugin-not-selected"), ("jev", "plugin-not-selected")})
-        self.assertEqual([c.args[0] for c in discovery.query.call_args_list], [EDGES["character"]])
+                          ("pixi2d", "plugin-not-selected")})
+        self.assertEqual([c.args[0] for c in discovery.query.call_args_list], [EDGES["character"], JEV_EDGE])
 
 
 def discovery_error(*args, **kwargs):

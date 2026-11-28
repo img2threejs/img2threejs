@@ -76,9 +76,14 @@ def jev_status(discovery, row):
     return None if status == "present" else status
 
 
-def check_plugins(discovery, *, home, harness, selectors, invalid_selectors=False, check_jev=jev_status):
-    """Return (plugin, capability, status, reason) rows; registry fixtures stay offline."""
+def check_plugins(discovery, *, home, harness, selectors, invalid_selectors=False,
+                  check_jev=jev_status, decider="model"):
+    """Check selected domains and only the explicitly requested decision provider."""
     selected = set(selectors["selectedPlugins"]) if selectors is not None else set(CAPABILITIES)
+    if decider == "jev":
+        selected.add("jev")
+    else:
+        selected.discard("jev")
     try:
         registry, pins = _registry_and_pins(home, harness)
         registry_error = None
@@ -88,7 +93,8 @@ def check_plugins(discovery, *, home, harness, selectors, invalid_selectors=Fals
     with read_only_probes(discovery):
         for name, capability in CAPABILITIES.items():
             if name not in selected:
-                rows.append((name, capability, "not installed by choice", "unselected"))
+                reason = "not required for host-model routing" if name == "jev" else "unselected"
+                rows.append((name, capability, "not installed by choice", reason))
                 continue
             reason = None
             if invalid_selectors:
@@ -143,7 +149,10 @@ def check_plugins(discovery, *, home, harness, selectors, invalid_selectors=Fals
 
 
 def main(argv=None):
-    argparse.ArgumentParser(description=__doc__).parse_args(argv)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--decider", choices=("model", "jev"), default="model",
+                        help="Host-model routing (default) does not require Jev; jev requires pinned auth")
+    args = parser.parse_args(argv)
     home, harness = img2_home(), installed_harness_root()
     selectors = read_selectors()
     invalid = selectors is None and os.path.lexists(home / "runtime/selectors.json")
@@ -152,7 +161,8 @@ def main(argv=None):
     command = ((str(Path(node).resolve()), "--no-addons", str(harness / "bin/img2.mjs"))
                if node else ("node", str(harness / "bin/img2.mjs")))
     discovery = Discovery(controller, harness=command)
-    rows = check_plugins(discovery, home=home, harness=harness, selectors=selectors, invalid_selectors=invalid)
+    rows = check_plugins(discovery, home=home, harness=harness, selectors=selectors,
+                         invalid_selectors=invalid, decider=args.decider)
     header = ("plugin", "capability name", "status", "reason")
     widths = [max(len(row[i]) for row in [header, *rows]) for i in range(3)]
     for row in [header, *rows]:

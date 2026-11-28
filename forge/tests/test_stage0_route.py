@@ -767,6 +767,50 @@ else:
         self.assertEqual(caught.exception.reason_code, "route-card-missing")
         self.assertFalse(discovery._gate_producer(row))
 
+    def test_registered_jev_is_discoverable_despite_default_four_download_selection(self):
+        discovery = Discovery(self.controller)
+        argv = ["python3", str(self.workspace / "tools/jev.py"), "decision-routing",
+                "--workspace", "{workspace}", "--input", ".img2/artifacts/jev/contexts/routing.json",
+                "--assets", ".img2/artifacts/jev/contexts/routing-assets.json"]
+        row = {"plugin": "jev", "resolvedSha": "a" * 40, "dir": str(self.workspace),
+               "steps": [{"id": "jev-decision-routing", "actor": "program", "argv": argv}]}
+        files = {
+            "plugin.json": encode({"name": "jev", "capabilities": [{"from": JEV_EDGE[0], "to": JEV_EDGE[1]}]}),
+            "steps.json": encode([{"id": "jev-decision-routing", "actor": "program",
+                "command": "python3 {plugin_dir}/tools/jev.py decision-routing --workspace {workspace} "
+                           "--input .img2/artifacts/jev/contexts/routing.json "
+                           "--assets .img2/artifacts/jev/contexts/routing-assets.json"}]),
+            "tools/jev.py": b"# pinned discovery fixture"}
+        discovery.run = Mock(return_value=(0, encode({"harness": "fixture", "commands": ["capabilities"]})))
+        discovery.query = Mock(side_effect=lambda edge: {
+            "status": "answered", "providers": [copy.deepcopy(row)] if edge == JEV_EDGE else []})
+        discovery._pinned_file = Mock(side_effect=lambda provider, path: files[path])
+        with patch("stage0_route.discovery.read_selectors",
+                   return_value={"selectedPlugins": list(EDGES)}):
+            candidates, rejected = discovery.enumerate()
+        self.assertEqual(candidates, [])
+        self.assertFalse(any(r["id"] == "jev" and r["reasonCode"] == "plugin-not-selected" for r in rejected))
+        self.assertEqual(discovery.jev, row)
+        self.assertEqual(discovery.jev_status, "present")
+        self.assertIn(JEV_EDGE, [call.args[0] for call in discovery.query.call_args_list])
+        discovery._pinned_file.side_effect = RouteError("provider-pin-mismatch")
+        with patch("stage0_route.discovery.read_selectors",
+                   return_value={"selectedPlugins": list(EDGES)}):
+            discovery.enumerate()
+        self.assertIsNone(discovery.jev)
+        self.assertEqual(discovery.jev_status, "availability-unproven")
+
+    def test_explicit_jev_lookup_still_refuses_missing_provider_with_default_four_selection(self):
+        discovery = Discovery(self.controller)
+        discovery.run = Mock(return_value=(0, encode({"harness": "fixture", "commands": ["capabilities"]})))
+        discovery.query = Mock(return_value={"status": "answered", "providers": []})
+        with patch("stage0_route.discovery.read_selectors",
+                   return_value={"selectedPlugins": list(EDGES)}):
+            discovery.enumerate()
+        self.assertEqual(discovery.jev_status, "capability-unavailable")
+        self.assertIsNone(discovery.jev)
+        self.assertIn(JEV_EDGE, [call.args[0] for call in discovery.query.call_args_list])
+
     def character_executable(self, name, *, executable=True):
         path = self.workspace / name
         path.write_text("host-only executable fixture")

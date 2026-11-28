@@ -64,11 +64,18 @@ class RouteCliTests(unittest.TestCase):
         self.git_blob_override = None
         actual_run_bytes = route_cli._run_bytes
         def git_fixture(argv, workspace, **kwargs):
-            if Path(argv[0]).name == "git" and "show" in argv:
+            if Path(argv[0]).name == "git" and "archive" in argv:
                 self.git_argvs.append(list(argv))
-                relative = argv[-1].split(":", 1)[1]
-                data = self.git_blob_override
-                return 0, (self.provider / relative).read_bytes() if data is None else data
+                if self.git_blob_override is not None:
+                    return 0, self.git_blob_override
+                output = io.BytesIO()
+                with tarfile.open(fileobj=output, mode="w") as archive:
+                    for relative in argv[argv.index("--") + 1:]:
+                        data = (self.provider / relative).read_bytes()
+                        member = tarfile.TarInfo(relative)
+                        member.size = len(data)
+                        archive.addfile(member, io.BytesIO(data))
+                return 0, output.getvalue()
             return actual_run_bytes(argv, workspace, **kwargs)
         self.git_patch = patch.object(route_cli, "_run_bytes", side_effect=git_fixture)
         self.git_patch.start()
@@ -88,7 +95,7 @@ class RouteCliTests(unittest.TestCase):
         return route_cli.LiveConsent(self.discovery, self.release, "run-1", Path(sys.executable))
 
     def args(self, *extra):
-        return ["--workspace", str(self.workspace), "--run-id", "run-1", "--image", "image.png",
+        return ["--decider", "jev", "--workspace", str(self.workspace), "--run-id", "run-1", "--image", "image.png",
                 "--objects", "objects.json", *extra]
 
     def assert_reason(self, reason, callback):
@@ -158,7 +165,7 @@ class RouteCliTests(unittest.TestCase):
         self.assertTrue(self.argvs)
 
     def test_2d_needs_no_objects_and_does_not_claim_composition(self):
-        args = ["--workspace", str(self.workspace), "--run-id", "run-1", "--image", "image.png", "--expected-output", "2d"]
+        args = ["--decider", "jev", "--workspace", str(self.workspace), "--run-id", "run-1", "--image", "image.png", "--expected-output", "2d"]
         code, output, router, _ = self.invoke(args)
         self.assertEqual(code, 0)
         self.assertIsNone(router.route.call_args.kwargs["objects"])
@@ -194,7 +201,7 @@ class RouteCliTests(unittest.TestCase):
             self.assertEqual(consent(), self.grant)
         self.assertEqual([argv[2] for argv in self.argvs], ["auth-status", "consent"])
         self.assertEqual(self.argvs[-1][-4:], ["--workspace", str(self.workspace), "--run-id", "run-1"])
-        checked = {argv[-1].split(":", 1)[1] for argv in self.git_argvs}
+        checked = {relative for argv in self.git_argvs for relative in argv[argv.index("--") + 1:]}
         self.assertEqual(checked, set(REQUIRED_PROVIDER_FILES))
         self.assertNotIn(self.secret, json.dumps(self.argvs))
         self.discovery.query.assert_not_called()
@@ -596,7 +603,7 @@ class ChildInitializationTests(unittest.TestCase):
         host_consent.executable = Path(sys.executable).resolve()
         host_consent.last_failure = None
         self.case.router.consent = host_consent
-        argv = ["--workspace", str(self.case.workspace), "--run-id", "route-run", "--image", "reference.png",
+        argv = ["--decider", "jev", "--workspace", str(self.case.workspace), "--run-id", "route-run", "--image", "reference.png",
                 "--expected-output", expected_output, "--create-children", "--harness-root", str(self.case.runtime),
                 "--harness-sha", "b" * 40, "--harness-executable", str(self.case.runtime / "bin/img2.mjs"),
                 "--harness-sha256", "d" * 64]
@@ -698,7 +705,7 @@ class ChildInitializationTests(unittest.TestCase):
         host_consent.executable = Path(sys.executable).resolve()
         host_consent.last_failure = None
         self.case.router.consent = host_consent
-        argv = ["--workspace", str(self.case.workspace), "--run-id", "route-run",
+        argv = ["--decider", "jev", "--workspace", str(self.case.workspace), "--run-id", "route-run",
                 "--complete-child", object_id, "--decision-ref", self.routed["decisionRef"],
                 "--harness-root", str(self.case.runtime), "--harness-sha", "b" * 40,
                 "--harness-executable", str(self.case.runtime / "bin/img2.mjs"),

@@ -1,8 +1,8 @@
 # Install img2threejs
 
-The default installation requires the base skill and all five routed plugins: character, cs2,
-interior, Jev and pixi2d (source `plugin-pixi2d`). Users may explicitly select a subset at install
-time; an unselected capability is unavailable by choice, never a reason to silently use generic.
+The default installation selects the base skill and four routed plugins: character, cs2,
+interior and pixi2d (source `plugin-pixi2d`). Jev is explicitly opt-in. Users may select a subset;
+an unselected capability is unavailable by choice, never a reason to silently use generic.
 Bundled installation/repair is an integration release interface; the core preflight below does
 not install anything, and older published CLIs may still install only the base skill.
 
@@ -22,7 +22,7 @@ https://github.com/img2threejs/img2threejs/blob/main/docs/INSTALL.md
    Always use the npx form, never a bare `img2threejs` command.
    Exit 2 means an existing skill is in the way: show me the path and stop.
 2. If ~/.hermes exists, run the Hermes step in §1.
-3. Require the selected plugins and runtime preflight in §3 (default all five); a base-skill link alone is not a complete install.
+3. Require the selected plugins and runtime preflight in §3 (default four, Jev opt-in); a base-skill link alone is not a complete install.
 4. Re-running any step is safe. Do not edit dotfiles by hand.
 5. Tell me which agents were linked and that I must restart them.
 ```
@@ -73,8 +73,10 @@ A base-skill link is not the default complete installation. Complete §3 before 
 
 The harness registry (`$IMG2_HOME/plugins.json`) must register the selected plugins at the
 commits in the installed harness's `plugins.lock.json`. Selection lives in
-`$IMG2_HOME/runtime/selectors.json`; without that file, preflight requires all five. The
-provisioning interface is `img2 provision --yes` (default all) or
+`$IMG2_HOME/runtime/selectors.json`; without that file, default host-model preflight requires
+character, cs2, interior and pixi2d. Jev is excluded even from older all-five selections unless
+`--decider jev` is explicitly requested. The
+provisioning interface is `img2 provision --yes` (default four, without Jev) or
 `img2 provision --plugins character,interior,jev --yes` (explicit subset). Provisioning supplies
 runtime dependencies; it does not by itself prove plugin registration or Jev readiness.
 The bundled installer's `img2threejs repair` restores the selected local bundle; this core
@@ -86,12 +88,20 @@ From the skill checkout, run:
 python3 forge/preflight.py
 ```
 
-Exit 0 means every selected plugin is registered at its pin, its declared routing probes pass,
-and selected Jev's four decision edges and core-approved auth probe are usable. No paid call
+Exit 0 means every selected domain plugin is registered at its pin and its declared routing
+probes pass. `python3 forge/preflight.py --decider jev` additionally requires Jev registration,
+release pins, all four decision edges and core-approved auth, regardless of stored selection. No paid call
 or consent grant is made. Exit 1 names the failure in a plain plugin/capability/status/reason
 table and prints one repair command. Unselected rows say `not installed by choice`.
-Missing Jev credentials still require `img2-jev login`; absence never selects another decider.
-Users who have **no Jev account** can instead personally authorize explicit v2 decision purposes:
+Ordinary `forge/route.py` uses `--decider model` without Jev auth or a terminal. Read each
+`questionsRef` and its bound images, answer with the actual host model, and resume with accumulated
+`--model-answers`. The closed answer envelope uses `authorizationId`, not `attestationId`;
+see [default host routing](../grimoire/intake/routing.md#default-host-model-routing). This local
+request grants routing only, not build/review/repair/native delivery.
+Host-decided pending children may later complete under separate explicit lifecycle consent.
+Their original active host journal proof is revalidated read-only; native gates remain mandatory.
+Explicit `--decider jev` still requires pinned Jev, login and paid-call consent.
+Users who have **no Jev account** may separately authorize explicit v2 lifecycle purposes:
 
 ```bash
 # Run personally in an interactive terminal; IMG2_HOME must be outside WS and the skill checkout.

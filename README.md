@@ -136,8 +136,8 @@ update and uninstall, other agents such as Cursor).
 
 ### 2. Install the plugin harness
 
-The default install requires all five routed plugins (character, cs2, interior, Jev and
-pixi2d). An explicit subset is allowed; a missing domain must not silently become generic.
+The default install selects character, cs2, interior and pixi2d; Jev is opt-in.
+An explicit subset is allowed; a missing domain must not silently become generic.
 Plugins use the separate `img2` harness (`~/.img2`); bootstrap it once:
 
 ```bash
@@ -166,11 +166,13 @@ The table above is generated from the live catalog (`scripts/ci/plugin_table.py`
 plugins with `img2 plugins`. Open each plugin's linked README for its input requirements,
 dependencies and tool setup.
 
-The catalog includes optional extras; the required routed set is pinned separately in the
-harness's `plugins.lock.json`. Provisioning records an explicit subset (default all five) in
-`$IMG2_HOME/runtime/selectors.json`. Run `python3 forge/preflight.py` from this checkout before
-routing: exit 0 requires every selected plugin at its pin, resolved route dependencies and
-usable Jev authentication. Unselected capabilities are reported as `not installed by choice`.
+The catalog includes optional extras; the routed set is pinned separately in the
+harness's `plugins.lock.json`. Provisioning records an explicit subset (default character, cs2,
+interior and pixi2d) in `$IMG2_HOME/runtime/selectors.json`. Run `python3 forge/preflight.py`
+from this checkout before routing: default host-model preflight requires selected domain plugins
+at their pins and resolved route dependencies, without probing Jev even in older all-five selections.
+Explicit `python3 forge/preflight.py --decider jev` additionally requires pinned Jev and usable auth.
+Unselected capabilities and Jev not required for host routing say `not installed by choice`.
 Older published installers may still install only the skill; bundled install/repair integration
 is not supplied by this core check. See [§3](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
 The isolated [E2E runner](docs/E2E.md) accepts object roles and typed observations for room
@@ -204,9 +206,17 @@ reporting results. The mandatory four groups are routing, build strategy, qualit
 when required. `forge/route.py` and `forge/decision.py` provide the actual lifecycle hooks; routing
 alone does not run the other groups. The base owns eligibility, consent, independent hard gates and
 acceptance. Neither provider advice nor parent checklist completion is a deliverable.
+Ordinary `forge/route.py` uses `--decider model` (default), with no Jev installation, login or TTY
+requirement. Missing answers return `questions-ready` and a `questionsRef`; read the bound images,
+answer with the current host model, then resume using accumulated `--model-answers`. The local
+`authorizationId` binds this routing request only, not build/review/repair or delivery authority.
+`--model-id` defaults to the logical selector `host-agent`; it is not a verified provider identity.
+Explicit `--decider jev` retains release pins and external paid-call consent.
+Host-decided pending children can later use separate explicit Jev or no-account lifecycle consent:
+the original active host routing proof is verified read-only, never widened into lifecycle authority.
 Explicit `--no-jev-account` supports the routed lifecycle under a live v2 user grant. Consent each
 purpose with repeatable `--purpose`; v1 grants require personal re-attestation, not automatic upgrade.
-Routing, child strategy, terminal review and completion bind the same run/reference/model authority;
+In that legacy mode, routing, child strategy, terminal review and completion bind the same run/reference/model authority;
 all independent terminal gates remain mandatory. Receipts say `model:<id>`, `presentedAsJev: false`.
 Missing or unprovable credentials never grant this exception. Confirmation is read from `/dev/tty`,
 not isolation from same-user code; token usage and model identity are host/user claims.

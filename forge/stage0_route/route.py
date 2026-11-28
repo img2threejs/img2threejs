@@ -96,7 +96,10 @@ class Router:
         # state promotion must use verify_decision inside workspace_transaction.
         if self.controller.routing_authority is not None:
             decision.update(self.controller.routing_authority.metadata())
-            decision["jevSession"] = "not-used:no-account"
+            decision["jevSession"] = ("not-used:host-model" if decision["decisionMode"] == "host-model"
+                                      else "not-used:no-account")
+            if decision["decisionMode"] == "host-model" and decision.get("phase") == "decided":
+                decision["decider"] = "model:" + self.requested_model
         data = encode(decision)
         sha = hashlib.sha256(data).hexdigest()
         relative = f".img2threejs/route/decision-{sha}.json"
@@ -179,7 +182,10 @@ class Router:
             if handles:
                 answer["choice"] = handles[answer["choice"]]
                 answer["probabilities"] = {handles[k]: v for k, v in answer["probabilities"].items()}
-        metadata = ({key: record[key] for key in ("decisionMode", "attestationId", "presentedAsJev")}
+        metadata = ({key: record[key] for key in
+                     ("decisionMode", "authorizationId", "presentedAsJev")}
+                    if record.get("decisionMode") == "host-model" else
+                    {key: record[key] for key in ("decisionMode", "attestationId", "presentedAsJev")}
                     if record.get("decisionMode") == "no-account" else {})
         return {**metadata, "requestDigest": record["contextDigest"], "decider": record["decider"],
                 "outcome": record["outcome"], "reasonCode": record["reasonCode"],
@@ -385,7 +391,7 @@ class Router:
                 selection = record["answers"]["selection"]
                 ranking = sorted(selection["probabilities"], key=lambda key: (-selection["probabilities"][key], key))
                 margin = selection["probabilities"][ranking[0]] - selection["probabilities"][ranking[1]] if len(ranking) > 1 else 1
-                primary = record["decider"].startswith("jev:") or record.get("decisionMode") == "no-account"
+                primary = record["decider"].startswith("jev:") or record.get("decisionMode") in {"no-account", "host-model"}
                 best_of_n = primary and (record["status"] == "uncertain" or margin < .25)
                 selected = [handles[k] for k in (ranking[:2] if best_of_n else [selection["choice"]])]
                 status = "best-of-n" if best_of_n else "resolved"

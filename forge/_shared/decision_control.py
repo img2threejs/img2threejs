@@ -254,7 +254,8 @@ class DecisionController:
         self.routing_authority = routing_authority
         if routing_authority is not None:
             from route_no_account import RoutingNoAccount
-            if (type(routing_authority) is not RoutingNoAccount
+            from host_model_routing import HostModelRouting
+            if (type(routing_authority) not in (RoutingNoAccount, HostModelRouting)
                     or routing_authority.workspace != self.workspace or routing_authority.run_id != self.run_id):
                 _fail("invalid-attestation")
             routing_authority.metadata()
@@ -271,7 +272,7 @@ class DecisionController:
         self._token = None
         with self._locked(check_lease=False):
             entries, state = self._load()
-            if self.routing_authority is not None:
+            if self.routing_authority is not None and type(self.routing_authority) is not HostModelRouting:
                 self._routing_metadata(state)
             if self.lease_path.exists():
                 lease = self._read_json(self.lease_path)
@@ -284,6 +285,14 @@ class DecisionController:
                 self._exclusive_json(self.lease_path, lease)
             if self.run_id not in state["runs"]:
                 self._commit(entries, "run-started", {"runId": self.run_id, "startedAt": self._now()})
+            if self.routing_authority is not None:
+                from host_model_routing import HostModelRouting
+                if type(self.routing_authority) is HostModelRouting:
+                    data = self.routing_authority.journal_data()
+                    if state["hostModelRequests"].get(self.run_id) != data:
+                        self._commit(entries, "host-model-requested", data)
+                        self._reduce(state, "host-model-requested", data)
+                self._routing_metadata(state)
 
     def _now(self):
         value = self.clock()
@@ -292,6 +301,12 @@ class DecisionController:
         return value
 
     def _routing_metadata(self, state):
+        from host_model_routing import HostModelRouting
+        if type(self.routing_authority) is HostModelRouting:
+            data = self.routing_authority.journal_data()
+            if state["hostModelRequests"].get(self.run_id) != data:
+                _fail("host-model-request-unproven")
+            return self.routing_authority.metadata()
         metadata = self.routing_authority.metadata()
         attested = state["noAccountAttestations"].get(metadata["attestationId"])
         if (not attested or attested["runId"] != self.run_id
@@ -401,7 +416,7 @@ class DecisionController:
         state = {"runs": {}, "records": {}, "contexts": {}, "refs": {}, "epochs": {},
                  "attempts": {}, "applications": {}, "routeRounds": {}, "routeLinks": [],
                  "recordSequences": {}, "recordAttempts": {}, "routeDispatches": [], "decisionBlocks": {},
-                 "noAccountAttestations": {}}
+                 "noAccountAttestations": {}, "hostModelRequests": {}, "jevSettlements": {}}
         if not self.journal_path.exists():
             if self.lease_path.exists():
                 _fail("journal-broken")
@@ -435,6 +450,15 @@ class DecisionController:
         elif event == "object-started":
             state["runs"][run_id]["objects"][data["objectId"]] = {
                 "startedAt": data["startedAt"], "total": 0, "perPass": {}}
+        elif event == "host-model-requested":
+            state["hostModelRequests"][run_id] = copy.deepcopy(data)
+        elif event == "host-model-selected":
+            requested = state["hostModelRequests"].get(run_id)
+            if (not requested or any(requested.get(key) != value for key, value in data.items()
+                                     if key != "decider")
+                    or data.get("decider") != "model:" + requested["modelId"]
+                    or data.get("presentedAsJev") is not False):
+                _fail("host-model-request-unproven")
         elif event == "no-account-attested":
             state["noAccountAttestations"][data["attestationId"]] = copy.deepcopy(data)
         elif event == "no-account-revoked":
@@ -460,6 +484,28 @@ class DecisionController:
             run["tokensUsed"] += data["tokens"]
             run["tokensReserved"] -= data["release"]
             attempt = state["attempts"][data["attemptId"]]
+            settlement = data.get("jevSettlement")
+            if settlement is not None:
+                proof = data.get("sendEvidence")
+                if (type(settlement) is not dict
+                        or set(settlement) != {"requestDigest", "subject", "consentSha256", "contextDigest"}
+                        or type(proof) is not dict or proof.get("sendState") != "charged"
+                        or type(proof.get("attempt")) is not dict
+                        or proof["attempt"].get("requestDigest") != settlement["requestDigest"]
+                        or proof["attempt"].get("consentSha256") != settlement["consentSha256"]
+                        or proof.get("chargedTokens") != data["tokens"]
+                        or data["release"] != attempt["reservation"]
+                        or settlement["contextDigest"] != attempt["contextDigest"]
+                        or type(settlement["subject"]) is not dict
+                        or set(settlement["subject"]) != {"runId", "objectId", "revision", "passId"}
+                        or settlement["subject"]["runId"] != run_id):
+                    _fail("journal-broken")
+                _sha(settlement["requestDigest"])
+                _sha(settlement["consentSha256"])
+                _identifier(settlement["subject"]["objectId"])
+                _identifier(settlement["subject"]["passId"])
+                _revision(settlement["subject"]["revision"])
+                state["jevSettlements"][canonical_digest(settlement)] = copy.deepcopy(settlement)
             attempt.update(data)
             attempt["finishedAtSequence"] = sequence
             attempt["status"] = "result-ready" if event == "attempt-result" else "failed"
@@ -1056,6 +1102,8 @@ class DecisionController:
                   "consent": copy.deepcopy(grant), "createdAt": self._now()}
         if self.routing_authority is not None:
             record.update(self.routing_authority.metadata())
+            if advisory is None and record.get("decisionMode") == "host-model":
+                record["decider"] = None
         if fallback_reason:
             record["unavailableReason"] = fallback_reason
         if reason in _AUTH:
@@ -1275,15 +1323,58 @@ class DecisionController:
         if abs(sum(probabilities.values()) - 1) > 1e-6:
             _fail("malformed")
 
+    @staticmethod
+    def _jev_identity(context, grant, evidence):
+        return {"requestDigest": evidence["attempt"]["requestDigest"],
+                "subject": copy.deepcopy(context["subject"]), "consentSha256": grant["sha256"],
+                "contextDigest": canonical_digest(context)}
+
+    @staticmethod
+    def _jev_settled(state, context, grant, evidence):
+        return (type(evidence) is dict and type(evidence.get("attempt")) is dict
+                and type(evidence["attempt"].get("requestDigest")) is str and canonical_digest(
+            DecisionController._jev_identity(context, grant, evidence)) in state["jevSettlements"])
+
+    @staticmethod
+    def _jev_fallback_authorized(state, attempt, context, projected, grant):
+        """Only a settled, bridge-verified outcome can authorize outage fallback."""
+        evidence = attempt.get("sendEvidence")
+        proof = evidence.get("attempt") if type(evidence) is dict else None
+        if (attempt.get("fallbackAuthorized") is not True
+                or attempt.get("reservation") != DEFAULT_REQUEST_TOKEN_LIMIT
+                or attempt.get("release") != DEFAULT_REQUEST_TOKEN_LIMIT
+                or attempt.get("contextDigest") != canonical_digest(context)
+                or type(evidence) is not dict or type(evidence.get("cached")) is not bool
+                or type(proof) is not dict
+                or set(proof) != {"contextDigest", "requestDigest", "consentSha256", "invocationDigest"}
+                or any(type(value) is not str or not _HEX.fullmatch(value) for value in proof.values())
+                or proof["contextDigest"] != canonical_digest(projected)
+                or proof["consentSha256"] != grant["sha256"]
+                or type(evidence.get("chargedTokens")) is not int
+                or evidence["chargedTokens"] != attempt.get("tokens")):
+            return False
+        state_name = evidence.get("sendState")
+        if state_name == "charged":
+            return DecisionController._jev_settled(state, context, grant, evidence)
+        if state_name not in {"not-sent", "rejected"} or evidence["chargedTokens"] != 0:
+            return False
+        return (not evidence["cached"] or (state_name == "not-sent"
+                and DecisionController._jev_settled(state, context, grant, evidence)))
+
     def _attempt(self, entries, state, attempt_id, context, projected, grant, callback,
                  token_limit, *, model_fallback=False):
         """Reserve before dispatch; atomically publish a result with its real debit."""
+        from jev_provider_factory import JevProviderCallback
+        trusted_jev = type(callback) is JevProviderCallback
+        if trusted_jev and token_limit != DEFAULT_REQUEST_TOKEN_LIMIT:
+            _fail("provider-contract-unproven")
         self._context(context)
         if self._grant(self._consent) != grant:
             _fail("consent-changed")
         run = state["runs"][self.run_id]
         prior = state["attempts"].get(attempt_id)
-        if prior and "answer" in prior:
+        if (prior and "answer" in prior and (not trusted_jev or self._jev_settled(
+                state, context, grant, prior.get("sendEvidence")))):
             answer, status, reason, _ = self._advisory(projected, prior["answer"], model_fallback=model_fallback)
             if prior["overrun"]:
                 status, reason = "request-input", "budget-overrun"
@@ -1309,14 +1400,28 @@ class DecisionController:
         pending = self._commit(entries, "attempt-pending", {
             "attemptId": attempt_id, "contextDigest": canonical_digest(context),
             "group": context["group"], "status": "pending", "retries": retries,
-            "reservation": token_limit, "decider": "model" if model_fallback else "jev",
+            "reservation": token_limit,
+            "decider": ("model:" + self.routing_authority.model_id if authority else
+                        "model" if model_fallback else "jev"),
             **authority,
         })
         self._reduce(state, "attempt-pending", pending["data"])
+        evidence = None
+        unsettled_cache = False
         response = None
         try:
             response = callback(copy.deepcopy(projected))
+            if trusted_jev:
+                evidence = callback.send_evidence(context, grant)
+                if evidence is None or evidence["sendState"] == "possibly-sent":
+                    _fail("ambiguous-paid-attempt")
+                if evidence["cached"] and not self._jev_settled(
+                        state, context, grant, evidence):
+                    unsettled_cache = True
+                    _fail("ambiguous-paid-attempt")
             answer, status, reason, tokens = self._advisory(projected, response, model_fallback=model_fallback)
+            if trusted_jev:
+                tokens = evidence["chargedTokens"]
         except Exception as exc:
             code = getattr(exc, "reason_code", "timeout" if isinstance(exc, TimeoutError) else "provider-error")
             unsent = {"missing-evidence", "vision-forbidden", "permission-denied", "stale-evidence",
@@ -1328,7 +1433,16 @@ class DecisionController:
             code = code if type(code) is str and code in known else (
                 "malformed" if isinstance(exc, DecisionError) else "provider-error")
             tokens, release = 0, 0
-            if code in _AUTH | unsent:
+            if trusted_jev:
+                evidence = callback.send_evidence(context, grant)
+                unsettled_cache = (evidence is not None and evidence["cached"]
+                                   and not self._jev_settled(state, context, grant, evidence))
+                if unsettled_cache:
+                    code = "ambiguous-paid-attempt"
+                if (evidence is not None and evidence["sendState"] != "possibly-sent"
+                        and not unsettled_cache):
+                    tokens, release = evidence["chargedTokens"], token_limit
+            elif code in _AUTH | unsent:
                 release = token_limit
             elif type(response) is dict:
                 try:
@@ -1340,6 +1454,12 @@ class DecisionController:
                 code = "budget-overrun"
             failure = self._commit(entries, "attempt-failure", {
                 "attemptId": attempt_id, "reasonCode": code, "tokens": tokens, "release": release,
+                **({"sendEvidence": evidence,
+                    "fallbackAuthorized": (evidence is not None and evidence["sendState"] != "possibly-sent"
+                                           and not unsettled_cache),
+                    **({"jevSettlement": self._jev_identity(context, grant, evidence)}
+                       if evidence is not None and evidence["sendState"] == "charged" else {})}
+                   if trusted_jev else {}),
             })
             self._reduce(state, "attempt-failure", failure["data"])
             _fail(code)
@@ -1347,6 +1467,9 @@ class DecisionController:
         result = self._commit(entries, "attempt-result", {
             "attemptId": attempt_id, "answer": answer, "tokens": tokens,
             "release": token_limit, "overrun": overrun,
+            **({"sendEvidence": evidence,
+                **({"jevSettlement": self._jev_identity(context, grant, evidence)}
+                   if evidence["sendState"] == "charged" else {})} if trusted_jev else {}),
         })
         self._reduce(state, "attempt-result", result["data"])
         if overrun:
@@ -1451,6 +1574,9 @@ class DecisionController:
         mode = self.routing_authority
         if mode is not None and (consent is not mode or context["requestedModel"] != mode.model_id):
             _fail("attestation-binding-mismatch")
+        from host_model_routing import HostModelRouting
+        if type(mode) is HostModelRouting:
+            mode.validate_context(context)
         with self._locked():
             self._context(context)
             entries, state = self._load()
@@ -1471,7 +1597,7 @@ class DecisionController:
                 return self._record(entries, context, projected, None, "request-input", exc.reason_code)
             self._commit(entries, "consent-observed", {"grant": grant})
             run["tokenBudget"] = grant["tokenBudget"]
-            if mode is not None:
+            if mode is not None and type(mode) is not HostModelRouting:
                 self._commit(entries, "no-account-selected", mode.metadata())
             if context["group"] == "quality-review" and not any(self._quality_items(projected).values()):
                 return self._record(entries, context, projected, grant, "request-input", "missing-evidence")
@@ -1490,6 +1616,12 @@ class DecisionController:
                 return self._record(entries, context, projected, grant, "request-input", "availability-unproven")
             same_request = (current and current["contextDigest"] == canonical_digest(context)
                             and current["consent"] == grant)
+            from jev_provider_factory import JevProviderCallback
+            trusted_jev = type(provider) is JevProviderCallback
+            if (same_request and current["model"] is not None
+                    and current["decider"].startswith("jev:") and trusted_jev):
+                completed = state["attempts"].get(state["recordAttempts"].get(current["recordId"]), {})
+                same_request = self._jev_settled(state, context, grant, completed.get("sendEvidence"))
             if same_request and current["model"] is not None:
                 return copy.deepcopy(current)
             if not 0 <= self._now() - obj["startedAt"] < 3600:
@@ -1528,6 +1660,15 @@ class DecisionController:
             identity = {"contextDigest": canonical_digest(context), "consent": grant, "epoch": epoch}
             attempt_id = canonical_digest(dict(identity, decider="model:" + mode.model_id if mode is not None else "jev"))
             active_attempt = None
+            prior_attempt = state["attempts"].get(attempt_id)
+            if reason is not None and prior_attempt and (
+                    (trusted_jev and not self._jev_fallback_authorized(
+                        state, prior_attempt, context, projected, grant))
+                    or (not trusted_jev and reason in _REQUEST_FAILURES
+                        and prior_attempt.get("fallbackAuthorized") is False)):
+                refusal = reason if reason in _REQUEST_FAILURES else "ambiguous-paid-attempt"
+                return self._record(entries, context, projected, grant, "request-input", refusal,
+                                    attempt_id=attempt_id)
             if reason is None:
                 try:
                     answer, status, answer_reason = self._attempt(
@@ -1535,19 +1676,32 @@ class DecisionController:
                 except DecisionError as exc:
                     reason = exc.reason_code
                     active_attempt = attempt_id if attempt_id in state["attempts"] else None
+                    failed_attempt = state["attempts"].get(attempt_id)
+                    if failed_attempt and (
+                            (trusted_jev and not self._jev_fallback_authorized(
+                                state, failed_attempt, context, projected, grant))
+                            or (not trusted_jev and failed_attempt.get("fallbackAuthorized") is False)):
+                        return self._record(entries, context, projected, grant, "request-input", reason,
+                                            attempt_id=active_attempt)
                     if reason in {"group-mismatch", "subject-mismatch", "context-digest-mismatch", "model-mismatch"}:
                         raise
                     if mode is not None:
                         return self._record(entries, context, projected, grant, "request-input", reason,
                                             attempt_id=active_attempt)
                     if reason in _AUTH | _INPUT_FAILURES | {"missing-evidence", "vision-forbidden", "permission-denied",
-                                          "stale-evidence", "budget-exhausted", "budget-overrun"}:
+                                          "stale-evidence", "budget-exhausted", "budget-overrun",
+                                          "provider-contract-unproven"}:
                         return self._record(entries, context, projected, grant, "request-input", reason,
                                             attempt_id=active_attempt)
                 else:
                     self._context(context)
                     if self._grant(consent) != grant:
                         _fail("consent-changed")
+                    if type(mode) is HostModelRouting:
+                        mode.validate_context(context)
+                        self._routing_metadata(state)
+                        self._commit(entries, "host-model-selected",
+                                     dict(mode.metadata(), decider="model:" + answer["model"]))
                     return self._record(entries, context, projected, grant, status, answer_reason,
                                         advisory=answer, decider=("model:" if mode is not None else "jev:") + answer["model"],
                                         attempt_id=attempt_id)
@@ -1583,7 +1737,8 @@ class DecisionController:
                                 decider="model:" + answer["model"], fallback_reason=reason,
                                 attempt_id=fallback_id)
 
-    def _current(self, state, record, context, *, consent=None, historical=False, check_consent=True):
+    def _current(self, state, record, context, *, consent=None, historical=False, check_consent=True,
+                 routing_proof=False):
         _json_bytes(record)
         if type(record) is not dict:
             _fail("invalid-record")
@@ -1605,12 +1760,28 @@ class DecisionController:
             _fail("context-digest-mismatch")
         if not historical and state["refs"].get(self._ref_key(context)) != record["recordId"]:
             _fail("stale-decision")
-        if record.get("decisionMode") == "no-account":
+        if routing_proof:
+            if record.get("decisionMode") != "host-model" or record["group"] != "routing":
+                _fail("host-model-routing-proof-required")
+            authority = self._host_routing_authority(state)
+            if (any(record.get(key) != value for key, value in authority.metadata().items())
+                    or record.get("model") != authority.model_id
+                    or record.get("decider") != "model:" + authority.model_id):
+                _fail("host-model-request-unproven")
+            authority.validate_context(context)
+            if self._grant(authority) != record["consent"]:
+                _fail("consent-changed")
+            return stored
+        if record.get("decisionMode") in {"no-account", "host-model"}:
             if self.routing_authority is None:
-                _fail("no-jev-account-attestation-required")
+                _fail("host-model-request-unproven" if record["decisionMode"] == "host-model"
+                      else "no-jev-account-attestation-required")
             metadata = self._routing_metadata(state)
             if any(record.get(key) != value for key, value in metadata.items()):
                 _fail("attestation-changed")
+            from host_model_routing import HostModelRouting
+            if type(self.routing_authority) is HostModelRouting:
+                self.routing_authority.validate_context(context)
         if check_consent and self._grant(consent if consent is not None else self._consent) != record["consent"]:
             _fail("consent-changed")
         return stored
@@ -1641,6 +1812,12 @@ class DecisionController:
             return copy.deepcopy({"total": obj["total"], "perPass": obj["perPass"]}
                                  if obj else {"total": 0, "perPass": {}})
 
+    def _host_routing_authority(self, state):
+        """Read-only routing proof reconstruction, never lifecycle authorization."""
+        from host_model_routing import HostModelRouting
+        return HostModelRouting.from_journal(
+            self.workspace, self.run_id, state["hostModelRequests"].get(self.run_id))
+
     @contextmanager
     def workspace_transaction(self, *, consent):
         """Hold the lease while verifying records and publishing base-owned state.
@@ -1649,6 +1826,8 @@ class DecisionController:
         exits. ``verify.route_rounds(revision)`` and
         ``verify.route_round_links(revision)`` return recursively immutable
         journal-backed snapshots with the same transaction lifetime.
+        ``verify.host_routing`` and ``verify.host_routing_metadata`` prove only the
+        active original host routing request, not the caller's lifecycle consent.
         The caller may atomically write its own files while locked, but
         must not call consult/consume/other locking controller methods inside
         this context: they take the same non-reentrant OS lock.
@@ -1675,6 +1854,23 @@ class DecisionController:
                 return copy.deepcopy(self._current(state, record, copy.deepcopy(context),
                                                    consent=consent, check_consent=False))
 
+            def host_routing(record, context):
+                """Prove original host routing under its original grant, not lifecycle consent."""
+                if not active[0]:
+                    _fail("transaction-closed")
+                return copy.deepcopy(self._current(
+                    state, record, copy.deepcopy(context), routing_proof=True))
+
+            def host_routing_metadata():
+                if not active[0]:
+                    _fail("transaction-closed")
+                return copy.deepcopy(self._host_routing_authority(state).metadata())
+
+            def routing_record(record, context):
+                if record.get("decisionMode") == "host-model":
+                    return host_routing(record, context)
+                return verify(record, context)
+
             def historical_quality(record, context):
                 """Replay only quality proof already pinned by completed repair."""
                 if not active[0]:
@@ -1700,7 +1896,7 @@ class DecisionController:
                     self._binding(data["proposal"])
                     self._binding(self._initial_route_binding(data["initialInputsDigest"]))
                     for record_id in data["triggerDecisionIds"]:
-                        self._current(state, state["records"][record_id], state["contexts"][record_id], consent=consent)
+                        routing_record(state["records"][record_id], state["contexts"][record_id])
                 return _immutable(rounds)
 
             def route_round_links(route_revision):
@@ -1709,7 +1905,7 @@ class DecisionController:
                          and link["routeRevision"] == route_revision]
                 for link in links:
                     record_id = link["recordId"]
-                    self._current(state, state["records"][record_id], state["contexts"][record_id], consent=consent)
+                    routing_record(state["records"][record_id], state["contexts"][record_id])
                 return _immutable(links)
 
             def application(application_id):
@@ -1767,6 +1963,8 @@ class DecisionController:
             verify.decision_block = decision_block
             verify.historical_quality = historical_quality
             verify.recorded = recorded
+            verify.host_routing = host_routing
+            verify.host_routing_metadata = host_routing_metadata
 
             try:
                 yield verify

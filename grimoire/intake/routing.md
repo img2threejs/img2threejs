@@ -124,8 +124,9 @@ Child operations need all four harness pins; completion is separate from routing
 
 ```bash
 python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json \
-  --create-children --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
-python3 forge/route.py --workspace WS --run-id RUN \
+  --model-answers answers.json --create-children \
+  --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
+python3 forge/route.py --decider jev --workspace WS --run-id RUN \
   --complete-child OBJECT_ID --decision-ref .img2threejs/route/decision-HEX.json \
   --policy-module /absolute/host/route-policy.py --policy-sha256 POLICY_SHA256 \
   --harness-root R --harness-sha SHA --harness-executable R/bin/img2.mjs --harness-sha256 HEX
@@ -143,10 +144,10 @@ has no consent, model or paid adapter, so it requests input (exit 3) and never c
 `forge/route.py`.
 
 `forge/route.py` prints one JSON object (`kind: "img2.route-command"`, `version: 1`) and exits `0`
-only for status `decided`, `children-initialized` or `child-completed`, else `3`. Argument errors
+only for status `questions-ready`, `decided`, `children-initialized` or `child-completed`, else `3`. Argument errors
 exit `2`. Fields you can observe:
 
-- `status`: `request-input`, `decided`, `children-initialized`, `child-completed`;
+- `status`: `questions-ready`, `request-input`, `decided`, `children-initialized`, `child-completed`;
 - `decisionRef`, `sha256`: the content-addressed decision, `.img2threejs/route/decision-<sha256>.json`;
 - `reasonCode`: see section 10; `requestedCommand`, `requiredFlags`, `purposes` when the user must act;
 - `childrenCreated`, `childCount`, `parentStatePath`, `childStatePaths` after `--create-children`;
@@ -154,10 +155,11 @@ exit `2`. Fields you can observe:
 - `executionAuthorized: false` always; `terminalStatus`, `terminalAcceptance`, `deliverable` with child
   operations.
 
-Only the base-owned Jev release lock is accepted (`_approved_lock`: fixed path, `contractVersion`
-`jev-v4-four-decisions`, exact file digests). There is no flag to override it. Ordinary routing
-never enrolls consent, prompts for keys or selects a fallback on its own. The separate interactive
-attestation/revocation commands below operate only on explicit no-account routing authority.
+Ordinary routing uses `--decider model` by default: no Jev installation, auth probe, release lock,
+TTY or core network request. Explicit `--decider jev` accepts only the base-owned Jev release lock
+(`_approved_lock`: fixed path, `contractVersion` `jev-v4-four-decisions`, exact digests), with no
+override flag, and requires external paid-call consent. Routing never enrolls that consent or
+selects outage fallback on its own. Attestation/revocation below is a separate legacy authority.
 
 ## 4. Stage zero: from image to a routing decision
 
@@ -278,7 +280,7 @@ member keeps its own id, validation, box, crop and eligibility.
 Controller thresholds (`DecisionController._advisory`):
 
 - `anyFits.noul` below 0.5: `request-input`, `none-fits`.
-- Primary decider (Jev or explicitly attested no-account model): chosen probability below 0.80 or confidence below 0.50 is `uncertain` when more than one
+- Primary decider (Jev, default host model or explicitly attested no-account model): chosen probability below 0.80 or confidence below 0.50 is `uncertain` when more than one
   candidate exists (`choice-uncertain`), otherwise `request-input`.
 - Fallback: chosen probability below 0.82 is `request-input`, `choice-uncertain`; never `uncertain`.
 
@@ -287,7 +289,7 @@ Router outcome per object:
 | Status | When |
 |---|---|
 | `resolved` | answered, one selection, not paid or licensed |
-| `best-of-n` | primary Jev or no-account model decider and (`uncertain` or top-two margin below 0.25); the top two are recorded |
+| `best-of-n` | primary Jev or host-model decider and (`uncertain` or top-two margin below 0.25); the top two are recorded |
 | `request-input` | no common route, none fits, paid or licensed selection (`route-action-consent-required`), unresolved decomposition |
 | `dropped`, `merged` | section 4.4 |
 
@@ -348,11 +350,62 @@ with `paid-or-licensed-owner-not-authorized`; heavy local cost is not paid conse
   repair applications count toward 3 per pass and 6 per object (`correction-budget-exhausted`).
   Rejected repair starts still count; strategy applications and reviews do not consume correction slots.
 
+### Default host-model routing
+
+```bash
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json
+python3 forge/route.py --workspace WS --run-id RUN --image ref.png --objects objects.json \
+  --model-answers answers.json
+```
+
+The first command returns `questions-ready` (exit 0) and `questionsRef`, without requiring
+Jev, login or a terminal. `questions` is an optional spelling of the same incremental request.
+Read the question artifact's sanitized `state`, typed `questions` and original/derived
+`imageBindings`; use the actual host model to fill `answerFormat.answers` and actual usage.
+Accumulate the advisory envelopes in this document, keeping all prior answers:
+
+```json
+{"kind":"img2.route-model-answers","version":1,"authorizationId":"<request id>","answers":[]}
+```
+
+Resume until decomposition, any crop-choice, and routing questions are actually answered.
+No model is invoked by core and no default answers exist. Model identity and usage are host
+claims, not measured inference provenance: `--model-id` defaults to the logical selector
+`host-agent`, not a concrete provider. `--token-budget` defaults to 256000, with the same
+64000-token request reservation, usage accounting, confidence and best-of-N thresholds.
+Keep model/budget/request flags identical on resume.
+
+`HostModelRouting` binds source image and proposal bytes, request inputs, workspace, run,
+model and budget in `host-model-requested` journal evidence. Consumption revalidates live
+bindings and the active journal request. Actual answers add `host-model-selected`; decided
+output says `decisionMode: host-model`, `decider: model:<id>`, `presentedAsJev: false` and
+`authorizationId`. Pending output never claims a model decided.
+This is **routing-only** local authorization, not a no-account assertion or paid-call consent.
+It cannot authorize build strategy, quality, repair or native delivery.
+`--create-children` can initialize genuinely decided, independently verified pending children.
+Later complete them with **separate explicit lifecycle consent**: `--decider jev`, or a genuine
+purpose-scoped `--no-jev-account` grant and its attested `--image`. All native/terminal gates
+and lifecycle receipts remain mandatory; no routing grant is widened.
+Successful `child-completed` output preserves the original host routing `authorizationId`,
+`modelId` and `decider`, including completion under Jev. A separate no-account lifecycle grant
+is reported under `lifecycleAuthority`, never substituted for the routing identity. Its live
+metadata is re-read before output; revocation still refuses rather than claiming completion.
+
+The held workspace transaction exposes read-only `verify.host_routing(record, context)` and
+`verify.host_routing_metadata()`. These reconstruct only the active journal request and recheck
+source bytes, original metadata/authorization, record/context currency and original host grant.
+They permit aggregate/round/consultation proof verification under a separate lifecycle controller,
+not model consultation or lifecycle authorization. Closed helpers, replaced requests and stale
+source/proofs refuse; ordinary `consume` still requires its matching live authority.
+No request is restored or registered by verification. Explicit Jev retains pins/auth/paid consent
+even when the install download selection excludes Jev, and conflicts with `--no-jev-account`.
+
+
 ### 5.1 Explicit no-account routing decider
 
-Jev remains the default. Without credentials, ask for `img2-jev login`; never infer no-account mode
-from missing credentials, refusal to log in, HTTP errors or uncertainty. A user with no Jev account
-may run this separate command personally, outside the agent's control path:
+The explicit `--no-jev-account` lifecycle grant is distinct from default host routing.
+Never infer this grant from missing credentials, login refusal, HTTP errors or uncertainty.
+A user with no Jev account may run this separate command personally:
 
 ```bash
 python3 forge/route.py attest-no-jev-account --workspace WS --run-id RUN --image ref.png \

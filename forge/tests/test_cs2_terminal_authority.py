@@ -30,7 +30,7 @@ from stage0_route.images import png
 from stage4_review import capture_delivered_glb as capture
 from test_capture_delivered_glb import config_fixture, triangle_glb
 
-CS2_FIXTURE_COMMIT = "08463720743f37cccfd96b4aa5dbe7a1e250c022"
+CS2_FIXTURE_COMMIT = "edec2d3afcf9b4d63376ef63938d5727ea1baa20"
 
 
 def _git_environment():

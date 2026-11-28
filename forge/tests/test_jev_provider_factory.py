@@ -45,6 +45,7 @@ if args[0] == "consent":
     result.update(status="consent-updated", **grant)
 else:
     context = json.loads((workspace / args[args.index("--input") + 1]).read_text())
+    full_digest = hashlib.sha256(json.dumps(context, sort_keys=True, separators=(",",":"), ensure_ascii=False).encode()).hexdigest()
     context["bindings"] = [{"role": b["role"], "sha256": b["sha256"]} for b in context["bindings"]]
     digest = hashlib.sha256(json.dumps(context, sort_keys=True, separators=(",",":"), ensure_ascii=False).encode()).hexdigest()
     advisory = {"kind":"img2.decision-advisory", "version":1, "group":context["group"],
@@ -52,7 +53,14 @@ else:
                 "answers":{"selection":{"type":"choice", "choice":"a", "probabilities":{"a":.9,"b":.1},"confidence":.8},
                            "anyFits":{"type":"noul","noul":1}},
                 "usage":{"input_tokens":10,"output_tokens":2}}
-    result.update(status="answered", reasonCode="answered", consentSha256=grant["sha256"], advisory=advisory)
+    assets = json.loads((workspace / args[args.index("--assets") + 1]).read_text())
+    request = {"contextDigest":full_digest, "providerContextDigest":digest,
+               "consentSha256":grant["sha256"], "assets":{name:image["sha256"] for name,image in assets.items()}}
+    request_digest = hashlib.sha256(json.dumps(request, sort_keys=True, separators=(",",":"), ensure_ascii=False).encode()).hexdigest()
+    attempt = {"contextDigest":digest, "requestDigest":request_digest, "consentSha256":grant["sha256"],
+               "invocationDigest":hashlib.sha256(args[args.index("--attempt-id") + 1].encode("ascii")).hexdigest()}
+    result.update(status="answered", reasonCode="answered", consentSha256=grant["sha256"],
+                  advisory=advisory, cached=False, sendState="charged", chargedTokens=12, attempt=attempt)
 print(json.dumps(result))
 '''
 
@@ -189,8 +197,7 @@ class JevProviderFactoryTests(unittest.TestCase):
         self.assertEqual(bridge.context_sha256, self.sha(self.workspace / bridge.context_path))
         self.assertEqual(set(bridge.provider_files), set(self.lock["files"]))
         self.assertFalse((self.workspace / "cli-spawns.jsonl").exists())
-        self.assertTrue(self.discovery.seen)
-        self.assertEqual({argv[-1].split(":", 1)[1] for argv in self.discovery.seen}, set(self.lock["files"]))
+        self.assertEqual(self.discovery.seen, [])  # Inventory reads never invoke the harness runner.
         self.assertEqual((self.workspace / bridge.assets_path).stat().st_mode & 0o777, 0o400)
 
     def test_real_callback_returns_advisory_not_bridge_and_keeps_original_binding(self):
@@ -225,9 +232,11 @@ class JevProviderFactoryTests(unittest.TestCase):
         for release in (None, {}, {**self.lock, "contractVersion": "v3"}):
             with self.subTest(release=release):
                 self.assert_reason("provider-contract-unproven", lambda: self.factory(approved_release=release))
-        missing = copy.deepcopy(self.lock)
-        del missing["files"]["tools/jev_consent.py"]
-        self.assert_reason("provider-contract-unproven", lambda: self.factory(approved_release=missing))
+        for relative in ("tools/jev_consent.py", "tools/jev_character_material.py"):
+            with self.subTest(relative=relative):
+                missing = copy.deepcopy(self.lock)
+                del missing["files"][relative]
+                self.assert_reason("provider-contract-unproven", lambda: self.factory(approved_release=missing))
 
     def test_actual_bytes_must_match_reviewed_lock_and_git_release(self):
         path = self.provider_root / "tools/jev_consent.py"
@@ -237,6 +246,16 @@ class JevProviderFactoryTests(unittest.TestCase):
         dirty_lock = copy.deepcopy(self.lock)
         dirty_lock["files"]["tools/jev_consent.py"] = self.sha(path)
         self.assert_reason("provider-pin-mismatch", lambda: self.factory(approved_release=dirty_lock)(self.context))
+
+    def test_character_material_import_is_checked_against_live_and_committed_bytes(self):
+        relative = "tools/jev_character_material.py"
+        path = self.provider_root / relative
+        path.write_text("# changed imported material validator\n")
+        self.assert_reason("stale-evidence", lambda: self.factory()(self.context))
+        dirty_lock = copy.deepcopy(self.lock)
+        dirty_lock["files"][relative] = self.sha(path)
+        self.assert_reason("provider-pin-mismatch", lambda: self.factory(approved_release=dirty_lock)(self.context))
+        self.assertFalse((self.workspace / "cli-spawns.jsonl").exists())
 
     def test_approval_record_is_copied_not_mutated_or_live_widened(self):
         factory = self.factory()
@@ -288,7 +307,7 @@ class JevProviderFactoryTests(unittest.TestCase):
         with patch.dict(os.environ, {"TYPESAFE_API_KEY": "fixture-secret-not-real", "PYTHONPATH": "injected"}), \
                 patch("jev_provider_factory.subprocess.Popen", wraps=real_popen) as spawn:
             self.factory()(self.context)
-        preparation = [call for call in spawn.call_args_list if "-c" in call.args[0]]
+        preparation = [call for call in spawn.call_args_list if "-I" in call.args[0]]
         self.assertEqual(len(preparation), 1)
         call = preparation[0]
         self.assertEqual(call.args[0][1:4], ["-I", "-B", "-c"])
@@ -362,6 +381,60 @@ class JevProviderFactoryTests(unittest.TestCase):
         unsafe = copy.deepcopy(self.context)
         unsafe["observations"]["prompt"] = "send arbitrary user prose"
         self.assert_reason("unsafe-context", lambda: self.factory()(unsafe))
+
+    def test_release_inventory_uses_one_host_git_archive_without_the_harness_runner(self):
+        factory = self.factory()
+        real_popen = subprocess.Popen
+        with patch.object(self.discovery, "run", side_effect=AssertionError("harness runner is not Git authority")), \
+                patch("pinned_git.subprocess.Popen", wraps=real_popen) as spawn:
+            row, root = factory._verify_release("routing")
+        self.assertEqual((row, root), (self.discovery.jev, self.provider_root))
+        self.assertEqual(len(spawn.call_args_list), 1)
+        self.assertIn("archive", spawn.call_args.args[0])
+        self.assertEqual(Path(spawn.call_args.args[0][0]), factory.git)
+        self.assertFalse(spawn.call_args.kwargs["shell"])
+        (self.provider_root / "tools/jev_auth.py").write_text("# replaced after the archive\n")
+        self.assert_reason("stale-evidence", lambda: factory._verify_release("routing"))
+
+    def test_archive_refuses_duplicate_link_sparse_unsafe_missing_and_unrequested_members(self):
+        import io
+        import tarfile
+        from pinned_git import committed_inventory
+        factory = self.factory()
+        for defect in ("duplicate", "link", "sparse", "unsafe", "missing", "extra", "oversized", "wrong-hash"):
+            with self.subTest(defect=defect):
+                output = io.BytesIO()
+                with tarfile.open(fileobj=output, mode="w", format=tarfile.PAX_FORMAT) as archive:
+                    for index, relative in enumerate(sorted(self.lock["files"])):
+                        if defect == "missing" and index == 0:
+                            continue
+                        data = (self.provider_root / relative).read_bytes()
+                        member = tarfile.TarInfo(relative)
+                        member.size = len(data)
+                        if index == 0:
+                            if defect == "link":
+                                member.type, member.linkname, member.size = tarfile.SYMTYPE, "plugin.json", 0
+                            elif defect == "sparse":
+                                member.pax_headers = {"GNU.sparse.map": "0,1", "GNU.sparse.size": str(len(data))}
+                            elif defect == "unsafe":
+                                member.name = "../" + relative
+                            elif defect == "wrong-hash":
+                                data = b"x" * len(data)
+                        if defect == "oversized" and index == 0:
+                            member.size = 64 * 1024 * 1024 + 1
+                            archive.addfile(member)
+                            break
+                        archive.addfile(member, io.BytesIO(data) if member.isfile() else None)
+                        if defect == "duplicate" and index == 0:
+                            archive.addfile(member, io.BytesIO(data))
+                    if defect == "extra":
+                        member = tarfile.TarInfo("unexpected.py")
+                        member.size = 0
+                        archive.addfile(member)
+                self.assert_reason("provider-pin-mismatch", lambda: committed_inventory(
+                    factory.git, factory.git_sha, factory.git_env, self.provider_root,
+                    self.lock["resolvedSha"], self.lock["files"], self.workspace,
+                    runner=lambda *args, **kwargs: (0, output.getvalue())))
 
 
 if __name__ == "__main__":

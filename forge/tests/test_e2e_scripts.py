@@ -270,6 +270,7 @@ class RouteOneTests(unittest.TestCase):
         if "decision-status" in argv:
             return self.status
         if str(route_one.ROUTE_SCRIPT) in argv:
+            self.assertEqual(argv[argv.index("--decider") + 1], "jev")
             return 0 if self.route.get("status") == "decided" else 3, json.dumps(self.route), ""
         raise AssertionError("unexpected command %r" % argv)
 
@@ -342,7 +343,8 @@ class RouteOneTests(unittest.TestCase):
         route_call = self.calls[1]
         self.assertEqual(route_call["argv"][1:], [
             str(route_one.ROUTE_SCRIPT), "--workspace", str(self.workspace.resolve()), "--run-id", "run-1",
-            "--image", "ref.png", "--objects", "objects.json", "--expected-output", "3d", "--intent", "rig",
+            "--image", "ref.png", "--decider", "jev", "--objects", "objects.json",
+            "--expected-output", "3d", "--intent", "rig",
             "--harness-root", str(self.home / "home/.img2/harness"), "--harness-sha", HARNESS_SHA,
             "--harness-executable", str(self.home / "home/.img2/harness/bin/img2.mjs"),
             "--harness-sha256", "b" * 64])

@@ -34,13 +34,14 @@ _AUTH_MODULE = "tools/jev_auth.py"
 
 
 def _plugin_auth_status():
-    """Load pinned authentication independently of a mutable selected installation home.
+    """Use the selected installation's pinned auth implementation.
 
-    The same module the Jev route path runs (see ``LiveConsent.auth_status``), loaded from bytes
-    verified against the release lock with no-follow reads, so there is no second credential policy
-    here. Anything other than a clean "present"/"missing" answer is inconclusive and raises.
+    Fall back to the default installation only when no selected plugin exists.
+    An unreadable or stale selected plugin fails closed, never silently falls back.
+    The admitted implementation probes the same per-user Keychain/environment as
+    ``LiveConsent.auth_status``; installation selection does not scope credentials.
     """
-    roots = (Path.home() / ".img2" / "plugins" / "jev", img2_home() / "plugins" / "jev")
+    roots = (img2_home() / "plugins" / "jev", Path.home() / ".img2" / "plugins" / "jev")
     root = next((candidate for candidate in roots if os.path.lexists(candidate)), None)
     if root is None:
         raise DecisionError("credential-storage-error")

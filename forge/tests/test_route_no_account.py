@@ -448,8 +448,8 @@ class CredentialProbeTests(unittest.TestCase):
         self.lock.parent.mkdir()
         patch.object(authority, "_LOCK", self.lock).start()
 
-    def install(self, behavior, *, pinned=True):
-        tools = self.home / "plugins/jev/tools"
+    def install(self, behavior, *, pinned=True, home=None):
+        tools = (self.home if home is None else home) / "plugins/jev/tools"
         tools.mkdir(parents=True, exist_ok=True)
         source = self.PLUGIN.format(behavior=behavior).encode()
         (tools / "jev_auth.py").write_bytes(source)
@@ -503,6 +503,45 @@ class CredentialProbeTests(unittest.TestCase):
             self.assertEqual(authority.credential_status(), "present")
             with self.assertRaisesRegex(DecisionError, "jev-account-present"):
                 authority.require_no_credential()
+
+    def test_valid_selected_install_ignores_stale_default_auth_implementation(self):
+        self.install({"status": "missing", "reasonCode": "credential-missing"})
+        default_tools = authority.Path.home() / ".img2/plugins/jev/tools"
+        default_tools.mkdir(parents=True)
+        marker = self.home / "stale-default-executed"
+        (default_tools / "jev_auth.py").write_text(f"open({str(marker)!r}, 'w')\n")
+        self.assertEqual(authority.credential_status(), "credential-missing")
+        authority.require_no_credential()
+        self.assertFalse(marker.exists())
+
+    def test_invalid_selected_install_cannot_fall_back_to_valid_default(self):
+        self.install({"status": "missing", "reasonCode": "credential-missing"},
+                     home=authority.Path.home() / ".img2")
+        selected_tools = self.home / "plugins/jev/tools"
+        selected_tools.mkdir(parents=True)
+        marker = self.home / "untrusted-selected-executed"
+        (selected_tools / "jev_auth.py").write_text(f"open({str(marker)!r}, 'w')\n")
+        with self.assertRaisesRegex(DecisionError, "credential-storage-error"):
+            authority.require_no_credential()
+        self.assertFalse(marker.exists())
+
+    def test_missing_selected_plugin_uses_pinned_default_for_per_user_account_veto(self):
+        self.install({"status": "present", "reasonCode": "credential-present"},
+                     home=authority.Path.home() / ".img2")
+        self.assertEqual(authority.credential_status(), "present")
+        with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+            authority.require_no_credential()
+
+    def test_selected_home_never_hides_an_environment_account(self):
+        self.install({"status": "missing", "reasonCode": "credential-missing"})
+        default_tools = authority.Path.home() / ".img2/plugins/jev/tools"
+        default_tools.mkdir(parents=True)
+        (default_tools / "jev_auth.py").write_text("obsolete implementation\n")
+        with patch.dict(os.environ, {"TYPESAFE_API_KEY": "fake-no-network"}):
+            self.assertEqual(authority.credential_status(), "present")
+            with self.assertRaisesRegex(DecisionError, "jev-account-present"):
+                authority.require_no_credential()
+
 
 
 if __name__ == "__main__":

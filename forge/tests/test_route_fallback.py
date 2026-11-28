@@ -771,7 +771,7 @@ class FallbackCliTests(FallbackFixture):
                  "observations": {"flatness": "volumetric"}}]}))
 
     def args(self, *extra):
-        return ["--workspace", str(self.workspace), "--run-id", "run-1", "--image", "image.png",
+        return ["--decider", "jev", "--workspace", str(self.workspace), "--run-id", "run-1", "--image", "image.png",
                 "--objects", "objects.json", *extra]
 
     def run_cli(self, extra=(), *, status="capability-unavailable"):

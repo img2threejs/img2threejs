@@ -22,6 +22,7 @@ import math
 import os
 from pathlib import Path
 import re
+import secrets
 import selectors
 import signal
 import stat
@@ -42,6 +43,7 @@ REQUIRED_PROVIDER_FILES = frozenset({"plugin.json", "steps.json"} | {
         "jev_policy", "jev_transport", "jev_outcome_report", "jev_checkpoint",
         "jev_checkpoint_client", "jev_projection", "jev_decision_questions",
         "jev_decision_provider", "jev_decision_transport", "jev_decision_images",
+        "jev_character_material",
     )
 })
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
@@ -116,7 +118,7 @@ def _file(root, relative, *, maximum, expected=None, capture=False):
             os.close(directory)
 
 
-def _json(raw):
+def _json(raw, *, asset_manifest=False):
     def pairs(items):
         result = {}
         for key, value in items:
@@ -127,7 +129,20 @@ def _json(raw):
     try:
         value = json.loads(raw, object_pairs_hook=pairs,
                            parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
-        canonical_digest(value)
+        checked = value
+        if asset_manifest:
+            # Image manifests have a separate 48MiB byte envelope. Only their
+            # base64 image bodies are exempt from the context JSON string/byte
+            # limits; metadata still uses the ordinary strict validator.
+            if type(value) is not dict or len(value) > 32:
+                _fail("malformed")
+            checked = {}
+            for name, image in value.items():
+                if (type(image) is not dict or type(image.get("data_base64")) is not str
+                        or len(image["data_base64"]) > 4 * ((16 * 1024 * 1024 + 2) // 3)):
+                    _fail("malformed")
+                checked[name] = {key: item for key, item in image.items() if key != "data_base64"}
+        canonical_digest(checked)
         return value
     except (ValueError, UnicodeError, RecursionError):
         _fail("malformed")
@@ -202,6 +217,12 @@ class JevCliBridge:
             _fail("context-fault")
         self.timeout = timeout
         self.consent, self.attest_contract = consent, attest_contract
+        self._send_evidence = None
+
+    @property
+    def send_evidence(self):
+        """Detached transport facts, published only after post-send trust checks."""
+        return copy.deepcopy(self._send_evidence)
 
     def _grant(self):
         if not callable(self.consent):
@@ -286,7 +307,7 @@ class JevCliBridge:
         elif self.context.get("observations", {}).get("images"):
             _fail("missing-evidence")
 
-    def _run(self, arguments, deadline):
+    def _run(self, arguments, deadline, *, decision=False):
         argv = [str(self.provider_root / self.entrypoint), *arguments]
         if self.executable is not None:
             argv.insert(0, str(self.executable))
@@ -323,6 +344,8 @@ class JevCliBridge:
             if (type(value) is not dict or value.get("kind") != "img2.jev-command"
                     or type(value.get("version")) is not int or value["version"] != 1):
                 _fail("malformed")
+            if decision:
+                return process.returncode, value
             if process.returncode != 0:
                 code = value.get("reasonCode")
                 _fail(code if type(code) is str and code in _ERROR_CODES else "provider-error")
@@ -346,7 +369,57 @@ class JevCliBridge:
                 process.stdout.close()
                 process.stderr.close()
 
+    def _evidence(self, result, projected, grant, nonce, code):
+        state, charged = result.get("sendState"), result.get("chargedTokens")
+        if (type(state) is not str or state not in {"not-sent", "possibly-sent", "rejected", "charged"}
+                or type(charged) is not int or not 0 <= charged <= 2**54 - 2
+                or (state in {"not-sent", "rejected"} and charged != 0)
+                or (state == "possibly-sent" and charged != 64000)):
+            _fail("malformed")
+        assets = {}
+        if self.assets_path is not None:
+            assets = _json(_file(self.workspace, self.assets_path, maximum=_MAX_ASSETS,
+                                 expected=self.assets_sha256, capture=True), asset_manifest=True)
+        if (type(assets) is not dict
+                or any(type(image) is not dict or type(image.get("sha256")) is not str
+                       or not _HEX.fullmatch(image["sha256"]) for image in assets.values())):
+            _fail("malformed")
+        expected = {
+            "contextDigest": canonical_digest(projected),
+            "requestDigest": canonical_digest({
+                "contextDigest": canonical_digest(self.context),
+                "providerContextDigest": canonical_digest(projected),
+                "consentSha256": grant["sha256"],
+                "assets": {name: image["sha256"] for name, image in assets.items()}}),
+            "consentSha256": grant["sha256"],
+            "invocationDigest": hashlib.sha256(nonce.encode("ascii")).hexdigest(),
+        }
+        attempt = result.get("attempt")
+        if "attempt" not in result and code != 0 and state == "not-sent":
+            # A pre-context local error has no bound attempt: not refund authority.
+            return None
+        if type(attempt) is not dict or attempt != expected:
+            _fail("malformed")
+        if code == 0:
+            cached = result.get("cached")
+            if (type(cached) is not bool
+                    or (cached and (state != "not-sent" or charged != 0))
+                    or (not cached and state != "charged")):
+                _fail("malformed")
+            advisory = result.get("advisory")
+            if not cached and type(advisory) is dict:
+                try:
+                    usage = DecisionController._usage(advisory.get("usage"))
+                except DecisionError:
+                    pass  # A billed but malformed advisory still carries a real debit.
+                else:
+                    if usage != charged:
+                        _fail("malformed")
+        return {"sendState": state, "chargedTokens": charged, "attempt": copy.deepcopy(attempt),
+                "cached": code == 0 and result["cached"]}
+
     def __call__(self, projected):
+        self._send_evidence = None
         grant = self._grant()  # No subprocess at all without a live local grant.
         projected = copy.deepcopy(projected)
         self._snapshot(projected)
@@ -365,18 +438,25 @@ class JevCliBridge:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 _fail("timeout")
+            nonce = secrets.token_hex(16)
             args = ["decision-" + self.group, "--workspace", str(self.workspace),
-                    "--input", self.context_path, "--timeout", str(min(30.0, remaining))]
+                    "--input", self.context_path, "--timeout", str(min(30.0, remaining)),
+                    "--attempt-id", nonce]
             if self.assets_path is not None:
                 args.extend(["--assets", self.assets_path])
             if self._grant() != grant:
                 _fail("consent-changed")
-            result = self._run(args, deadline)
+            code, result = self._run(args, deadline, decision=True)
         finally:
             self._package()
         if self._grant() != grant:
             _fail("consent-changed")
         self._snapshot(projected)
+        evidence = self._evidence(result, projected, grant, nonce, code)
+        self._send_evidence = evidence
+        if code != 0:
+            reason = result.get("reasonCode")
+            _fail(reason if type(reason) is str and reason in _ERROR_CODES else "provider-error")
         if (result.get("status") != "answered" or result.get("reasonCode") != "answered"
                 or result.get("consentSha256") != grant["sha256"]):
             _fail("malformed")

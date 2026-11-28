@@ -6,20 +6,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Make ordinary routing use local host-model questions by default (`--decider model`), with
+  accumulated typed answers and honest non-Jev provenance. Journal-backed `authorizationId`
+  scopes the workspace/run/source/request/model/budget to routing only, without Jev auth or TTY.
+  Explicit `--decider jev` retains paid-call consent and release pins; legacy purpose-scoped
+  `--no-jev-account` lifecycle grants remain separate. Eligibility, confidence and native gates
+  are unchanged.
+  Default preflight likewise excludes Jev, including older all-five selections; explicit
+  `preflight.py --decider jev` adds its unchanged registration, pin, decision-edge and auth gates.
+  Host-created children retain read-only transaction-scoped routing proof verification under a
+  separately consented lifecycle decider, without extending host authority or restoring old requests.
+  Explicit Jev can discover a registered pinned provider outside domain download selection;
+  the dedicated consented E2E Jev runner now selects `--decider jev` explicitly.
+  Expanded boundary regressions cover malformed/untrusted answer files, source/request replay,
+  workspace isolation, reservation-safe retries, Unicode paths, 2D routing, and refusals that must
+  not grant lifecycle, paid-action or native execution authority.
+- Prefer the selected Jev installation for explicit legacy no-account credential probes;
+  a stale default install cannot shadow valid selected auth, while invalid selected bytes
+  still fail closed and per-user credential presence remains a veto.
+- Verify committed Jev inventories with one bounded archive from a separately pinned host Git,
+  not per-file harness invocations. Live no-follow hashes and full harness execution checks
+  remain in place; no time- or modification-based trust cache is introduced.
 - Pair the CS2 0.3.0 immutable run-request gate ABI with authenticated context/run/report bindings;
   reject incompatible gates and authorizing or mismatched replay envelopes. Global selection is
   discovery only. Add explicitly host-approved non-routed evidence preparation/review, with actual
   controller-journal checks and non-authorizing receipts; no standalone terminal acceptance is implied.
-  The required CI fixture is the exact published CS2 `08463720743f37cccfd96b4aa5dbe7a1e250c022`,
+  The required CI fixture is the exact published CS2 `edec2d3afcf9b4d63376ef63938d5727ea1baa20`,
   not a final release-lock update. Native source/classification/calibration and semantic approval remain separate.
 - Render embedded GLB textures in delivered-model captures by allowing only the required blob
   connections; image-loader failures now refuse capture instead of silently producing an untextured success.
 - Require typed placement camera/depth/support/size-prior facts from current hash-bound records;
   reject missing, invalid or contradictory facts before Jev CLI dispatch. Legacy placement contexts
-  need fresh producer facts, never model-invented metric defaults; final provider pin closure remains pending.
+  need fresh producer facts, never model-invented metric defaults; pin the complete Jev 0.5.0 CLI import surface.
 - Treat `invalid-credential`, `request-too-large`, `credential-in-context`,
   `missing-placement-evidence` and `consent-busy` as hard input refusals, not model outages;
-  these errors retain unproven host reservations. Full bound receipt/cache accounting remains pending.
+  these errors never masquerade as provider outages; unproven send liabilities remain reserved.
+- Consume nonce/context/consent/prepared-asset-bound Jev send receipts with an exact 64000-token
+  reservation. Proven unsent/rejected calls release it, billed malformed responses keep their
+  actual debit, and unknown sends cannot authorize fallback. Cached reuse requires a persisted
+  host-verified settlement for the same request, subject and live consent; it never double-debits.
+- Parse bounded prepared-image manifests separately from model context JSON, so legitimate
+  base64 image bodies do not hit the 16384-character context-string limit before settlement.
+  Metadata, duplicate/nonfinite JSON rejection, manifest hashes and receipt bindings remain strict;
+  real pinned Jev CLI regressions exercise large images with mocked HTTPS, not paid API calls.
 - Extend explicit no-account authority to purpose-scoped v2 grants across routing, build strategy,
   quality review, repair and child completion. Consent names each `--purpose`; v1 grants require
   personal re-attestation and are archived unchanged, with journal history retained. Credential
@@ -40,8 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore Python 3.10 browser hashing, the existing skill budget and plugin install anchor.
   CS2 contract fixtures now require an explicit pinned checkout rather than a guessed sibling;
   CI runs disjoint unit and mandatory code-only CS2 profiles, with isolated HOME and no missing-fixture skip.
-  Final Jev/harness release pins, actual native/visual integration and character material capture
-  remain pending; these changes do not resolve the code-only versus textured-default product conflict.
+  Jev 0.5.0 now has a complete verified CLI import pin; coordinated Harness pins remain PR candidates.
+  Full native/visual quality acceptance and character material baselines remain separate and unverified.
 - Add the `textured` build profile and `forge/textured/` (inspect, normalize, render, sheet, generate, likeness, decide, deliver): a reference image becomes a generated, textured GLB, cleaned and rendered with bpy, measured with a Jev likeness loop (consent-gated, budgeted, never printing keys; no-account mode journals `model:<id>`), with up to four generations. It is now the default for `forge/state.py init` when a generator MCP tool is configured; procedural profiles are an explicit opt-in (`--profile generic|<domain>` or `procedural-*`). Routing and plugin ownership are unchanged. SKILL.md and README now describe the textured product; `docs/TEXTURED.md` is the contract. Intentional test changes: tests that start a procedural run through `state.py init` now pass `--profile generic`, and the degraded `--profile` choice set is `generic,textured,procedural-generic`. Not done: no generator call is made by this repository (the host's MCP tool is an agent step), no rig/LOD, no live Jev run.
 - Harden the textured build path: the Jev plugin pin now covers every `REQUIRED_PROVIDER_FILES` entry (no-follow reads, verified bytes staged privately and run from the copy, scrubbed child environment); `generate.py` takes the generation cap only from the workflow state (`--max-generations` can only lower it), refuses `--overwrite` once a likeness or decision exists, and archives replaced receipts as `superseded-K.json` so credit totals are append-only; `generate.json` asset paths must resolve inside `gen-N/` (inspect, normalize); docs name `--domain animated-character` for the rig track and `state.py init` says when a domain adds no rig rows.
 - Close three textured-profile gaps: `generate.py record` now fails closed on the generation cap (a missing, unreadable or invalid state, or `textured.maxGenerations` outside 1..8 or non-int, refuses recording, and workflow validation enforces the same range); inspect and normalize share one `require_contained_model` check that refuses a `.gltf`/`.glb`/`.obj`/`.mtl` whose external buffers, textures or material libraries are absolute, `..`, `file:`/`http(s):` or resolve (symlinks followed) outside `gen-N/` (binary FBX is not parsed); and credit totals enumerate every `superseded-*.json` so a missing archive number cannot hide receipts.
@@ -52,10 +81,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `IMG2_BLENDER_PYTHON` for `interior-bpy>=4.3`, never an unrelated Blender CLI. See `docs/E2E.md`.
 - Add fail-closed provisioned runtime selector fallback without changing real environment
   precedence, selected-plugin installation preflight, and visible per-object route rejection
-  reasons. The default install policy requires all five plugins; bundling/repair remains separate
-  integration work. Routing's explicit no-account authority is now implemented as described above.
+  reasons. Ordinary installation selects the four domain plugins, with Jev explicitly optional.
+  Routing's explicit no-account authority is implemented as described above.
 - Add offline Jev release-lock regeneration/checking from the harness plugin pin and exact Git
-  object bytes. Regenerate the core lock for `ea15e4b0748f6af266c5b956041d974d1c01002f`
+  object bytes. Regenerate the core lock for published Jev `4961464246734dbfbc0e4b8b60adbe9a9b8192e9`
   and enforce pin parity in tests when the harness lock is available.
 - Document the E2E root `provision.json` schema and distinguish it from harness `setup`
   runtime receipts; missing/invalid route-runner records now name the path and recovery docs.

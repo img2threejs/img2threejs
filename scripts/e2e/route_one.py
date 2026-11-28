@@ -183,7 +183,7 @@ def revoke_argv(pins, workspace, run_id):
 
 def route_argv(pins, workspace, run_id, reference, kind, intent):
     argv = [sys.executable, str(ROUTE_SCRIPT), "--workspace", str(workspace), "--run-id", run_id,
-            "--image", reference]
+            "--image", reference, "--decider", "jev"]
     if kind == "3d":
         argv += ["--objects", "objects.json"]
     argv += ["--expected-output", kind]

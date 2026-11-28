@@ -45,6 +45,7 @@ import zlib
 from decision_control import (DEFAULT_REQUEST_TOKEN_LIMIT, DecisionController, DecisionError,
                               GROUPS, canonical_digest)
 from jev_cli_bridge import EDGES, JevCliBridge, REQUIRED_PROVIDER_FILES, _file
+from pinned_git import pin_git, committed_inventory
 
 
 _MAX_CONTEXT = 256 * 1024
@@ -305,6 +306,7 @@ class JevProviderFactory:
         if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 30:
             _fail("context-fault")
         self.discovery, self.run_id, self.consent, self.timeout = discovery, run_id, consent, timeout
+        self.git, self.git_sha, self.git_env = pin_git()
         try:
             self.workspace = Path(discovery.workspace).resolve(strict=True)
             self.executable = Path(python_executable or sys.executable).resolve(strict=True)
@@ -372,17 +374,9 @@ class JevProviderFactory:
             _fail("provider-pin-mismatch")
         if self._interpreter_hash() != self.executable_sha256:
             _fail("provider-pin-mismatch")
-        raw_files = {}
-        for relative, sha in self.release["files"].items():
-            _file(root, relative, maximum=64 * 1024 * 1024, expected=sha)
-            try:
-                raw = self.discovery._pinned_file(row, relative)
-            except Exception:
-                _fail("provider-pin-mismatch")
-            if type(raw) is not bytes or hashlib.sha256(raw).hexdigest() != sha:
-                _fail("provider-pin-mismatch")
-            if relative in ("plugin.json", "steps.json"):
-                raw_files[relative] = raw
+        raw_files = committed_inventory(self.git, self.git_sha, self.git_env, root,
+                                        self.release["resolvedSha"], self.release["files"],
+                                        self.workspace)
         manifest, declared = _parse(raw_files["plugin.json"]), _parse(raw_files["steps.json"])
         edge = EDGES[group]
         expected_argv = ["python3", str(root / "tools/jev.py"), "decision-" + group,
@@ -473,11 +467,32 @@ class JevProviderFactory:
 
     def provider(self, original_context):
         """Return the actual projected-context -> advisory controller callback."""
-        frozen = copy.deepcopy(original_context)
-        expected = DecisionController._context(self.discovery.controller, frozen)
-        expected_digest = canonical_digest(expected)
-        def consult(projected):
-            if canonical_digest(projected) != expected_digest:
-                _fail("context-fault")
-            return self(frozen)(projected)
-        return consult
+        return JevProviderCallback(self, original_context)
+
+
+class JevProviderCallback:
+    """Host-owned lazy adapter; only its actual bridge can attest a paid send."""
+
+    def __init__(self, factory, context):
+        self._factory = factory
+        self._context = copy.deepcopy(context)
+        self._projected_digest = canonical_digest(
+            DecisionController._context(factory.discovery.controller, self._context))
+        self._bridge = None
+
+    def __call__(self, projected):
+        self._bridge = None
+        if canonical_digest(projected) != self._projected_digest:
+            _fail("context-fault")
+        self._bridge = self._factory(self._context)
+        return self._bridge(projected)
+
+    def send_evidence(self, context, grant):
+        if (type(self._bridge) is not JevCliBridge
+                or canonical_digest(context) != canonical_digest(self._context)):
+            return None
+        evidence = self._bridge.send_evidence
+        if (evidence is None or evidence["attempt"]["contextDigest"] != self._projected_digest
+                or evidence["attempt"]["consentSha256"] != grant["sha256"]):
+            return None
+        return evidence

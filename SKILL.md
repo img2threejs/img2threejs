@@ -60,7 +60,7 @@ Parent completion is not delivery; children/advice are progress. Never downgrade
 
 ## Profile preflight (once per run, before `forge/next.py`)
 
-Default installation requires all five routed plugins: character, cs2, interior, Jev and pixi2d.
+Default installation selects character, cs2, interior and pixi2d; Jev is explicitly opt-in.
 An explicit install-time subset is recorded in `$IMG2_HOME/runtime/selectors.json`.
 Before routing, from the skill checkout run:
 
@@ -68,15 +68,17 @@ Before routing, from the skill checkout run:
 python3 forge/preflight.py
 ```
 
-Proceed only when required installation/runtime checks pass. The table names missing registrations,
-wrong pins, unresolved dependencies and Jev auth failures; unselected plugins say `not installed by choice`.
-Missing credentials require `img2-jev login`. A user with no Jev account may
-personally run `forge/route.py attest-no-jev-account` with explicit `--purpose` scopes, then use
-`--no-jev-account` and typed `--model-answers` across the routed lifecycle. V1 grants require re-attestation.
-Attestation is user consent typed on `/dev/tty`, not isolation from an agent running as the same OS user,
-the same limit as `jev consent authorize-decisions`: never attest, or type the phrase, on the user's behalf. Read the routing
-decider section before proceeding. `img2threejs repair` is the bundled installer's repair interface,
-not implemented by this core script. See [installation and provisioning](docs/INSTALL.md#3-required-plugins-and-runtime-preflight).
+Preflight checks selected domains (all four without selectors), never Jev in default mode, including
+older all-five selections. Explicit Jev requires `python3 forge/preflight.py --decider jev`:
+registration, pins, decision edges and auth remain mandatory.
+Default `--decider model` needs no Jev/TTY: inspect `questionsRef` and bound images; supply real,
+accumulated `--model-answers`, never canned answers. `authorizationId` is routing-only;
+`host-agent` is logical, or identify the answering model with `--model-id`.
+Explicit Jev requires paid-call consent. Legacy `--no-jev-account` needs the user's live,
+purpose-scoped v2 grant from `forge/route.py attest-no-jev-account`; v1 requires re-attestation.
+Never type `/dev/tty` consent on the user's behalf: this is user consent, not same-user code isolation.
+See [installation](docs/INSTALL.md#3-required-plugins-and-runtime-preflight);
+`img2threejs repair` belongs to the bundled installer.
 Never silently substitute generic for a missing domain. `forge/route.py` exposes per-object
 `pluginRejections` (also retained in the decision/journal); inspect them even on a decided route.
 Follow each installed plugin's `SKILL.md` and step-named contracts.

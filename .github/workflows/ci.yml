@@ -47,7 +47,7 @@ jobs:
         with:
           repository: img2threejs/plugin-cs2
           # Verified candidate fixture, not the final release-lock pin.
-          ref: 08463720743f37cccfd96b4aa5dbe7a1e250c022
+          ref: edec2d3afcf9b4d63376ef63938d5727ea1baa20
           path: .cs2-contract
           fetch-depth: 1
           persist-credentials: false
